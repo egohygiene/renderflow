@@ -1,0 +1,39 @@
+[tool.poetry]
+name = "renderflow"
+version = "0.1.0"
+description = "Spec-driven document rendering engine (Markdown → PDF/HTML/LaTeX)"
+authors = ["Ego Hygiene <hello@egohygiene.com>"]
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/egohygiene/renderflow"
+keywords = ["pandoc", "pdf", "latex", "markdown", "rendering", "documents", "tectonic"]
+packages = [{ include = "renderflow" }]
+
+[tool.poetry.dependencies]
+python = ">=3.10,<4.0"
+typer = ">=0.9"
+rich = ">=13.0"
+tqdm = ">=4.0"
+pypandoc = ">=1.0"
+panflute = ">=2.0"
+pydantic = ">=2.0"
+pydantic-settings = ">=2.0"
+pyyaml = ">=6.0"
+python-frontmatter = ">=1.0"
+jinja2 = ">=3.0"
+Pillow = ">=10.0"
+cairosvg = ">=2.0"
+diskcache = ">=5.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = ">=7.0"
+
+[tool.poetry.scripts]
+renderflow = "renderflow.cli:app"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
