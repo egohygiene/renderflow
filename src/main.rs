@@ -2,9 +2,10 @@ mod cli;
 mod commands;
 mod config;
 
-use anyhow::Result;
+use anyhow::{bail, Result};
 use clap::Parser;
 use cli::{Cli, Commands};
+use tracing::info;
 
 fn main() -> Result<()> {
     tracing_subscriber::fmt()
@@ -14,7 +15,14 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Build { config } => commands::build::run(&config)?,
+        Some(Commands::Build { config }) => commands::build::run(&config)?,
+        None => {
+            info!("No subcommand provided, defaulting to build");
+            match cli.input {
+                Some(ref input) => commands::build::run(input)?,
+                None => bail!("No input provided. Usage: renderflow <config> or renderflow build --config <config>"),
+            }
+        }
     }
 
     Ok(())
