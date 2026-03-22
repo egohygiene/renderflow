@@ -5,7 +5,10 @@ use clap::{Parser, Subcommand};
 #[command(name = "renderflow", version, about)]
 pub struct Cli {
     #[command(subcommand)]
-    pub command: Commands,
+    pub command: Option<Commands>,
+
+    /// Path to the renderflow configuration file (used when no subcommand is provided)
+    pub input: Option<String>,
 }
 
 #[derive(Subcommand)]
