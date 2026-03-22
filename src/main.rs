@@ -1,6 +1,7 @@
 mod cli;
 mod commands;
 mod config;
+mod pipeline;
 
 use anyhow::{bail, Result};
 use clap::Parser;
