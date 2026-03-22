@@ -1,0 +1,6 @@
+outputs:
+  - pdf
+  - html
+
+input: "input.md"
+output_dir: "dist"
