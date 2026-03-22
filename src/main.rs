@@ -1,5 +1,6 @@
 mod cli;
 mod commands;
+mod config;
 
 use anyhow::Result;
 use clap::Parser;
@@ -13,7 +14,7 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Build => commands::build::run()?,
+        Commands::Build { config } => commands::build::run(&config)?,
     }
 
     Ok(())

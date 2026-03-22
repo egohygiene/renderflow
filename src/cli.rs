@@ -11,5 +11,9 @@ pub struct Cli {
 #[derive(Subcommand)]
 pub enum Commands {
     /// Build the renderflow pipeline
-    Build,
+    Build {
+        /// Path to the renderflow configuration file
+        #[arg(long, default_value = "renderflow.yaml")]
+        config: String,
+    },
 }
