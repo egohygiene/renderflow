@@ -3,6 +3,7 @@ use std::path::Path;
 use tracing::info;
 
 use crate::config::load_config;
+use crate::files::{ensure_output_dir, validate_input};
 use crate::pipeline::{PandocStep, Pipeline};
 
 pub fn run(config_path: &str) -> Result<()> {
@@ -12,8 +13,9 @@ pub fn run(config_path: &str) -> Result<()> {
     info!(?config, "Loaded config successfully");
     println!("Loaded config successfully");
 
-    std::fs::create_dir_all(&config.output_dir)?;
-    info!(output_dir = %config.output_dir, "Ensured output directory exists");
+    validate_input(&config.input)?;
+
+    let output_dir = ensure_output_dir(&config.output_dir)?;
 
     let input_stem = Path::new(&config.input)
         .file_stem()
@@ -23,7 +25,7 @@ pub fn run(config_path: &str) -> Result<()> {
     println!("Running build pipeline");
 
     for format in &config.outputs {
-        let output_path = format!("{}/{}.{}", config.output_dir, input_stem, format);
+        let output_path = format!("{}/{}.{}", output_dir.display(), input_stem, format);
         info!(format = %format, output = %output_path, "Running pipeline for format");
         println!("Running build pipeline for format: {}", format);
 
@@ -41,19 +43,29 @@ pub fn run(config_path: &str) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
     use std::io::Write;
     use tempfile::NamedTempFile;
 
-    fn valid_config_file() -> NamedTempFile {
+    fn valid_config_file() -> (NamedTempFile, tempfile::TempDir) {
+        let dir = tempfile::tempdir().expect("failed to create temp dir");
+        let input_path = dir.path().join("input.md");
+        fs::write(&input_path, "# Test\n").expect("failed to write input file");
+        let output_dir = dir.path().join("dist");
+        let config_content = format!(
+            "outputs: []\ninput: \"{}\"\noutput_dir: \"{}\"\n",
+            input_path.display(),
+            output_dir.display()
+        );
         let mut f = NamedTempFile::new().expect("failed to create temp file");
-        f.write_all(b"outputs: []\ninput: \"input.md\"\noutput_dir: \"dist\"\n")
+        f.write_all(config_content.as_bytes())
             .expect("failed to write temp file");
-        f
+        (f, dir)
     }
 
     #[test]
     fn test_build_run_succeeds() {
-        let f = valid_config_file();
+        let (f, _dir) = valid_config_file();
         assert!(run(f.path().to_str().unwrap()).is_ok());
     }
 
@@ -64,10 +76,25 @@ mod tests {
     }
 
     #[test]
+    fn test_build_run_missing_input_file() {
+        let dir = tempfile::tempdir().expect("failed to create temp dir");
+        let output_dir = dir.path().join("dist");
+        let config_content = format!(
+            "outputs: []\ninput: \"/nonexistent/input.md\"\noutput_dir: \"{}\"\n",
+            output_dir.display()
+        );
+        let mut f = NamedTempFile::new().expect("failed to create temp file");
+        f.write_all(config_content.as_bytes())
+            .expect("failed to write config");
+        let result = run(f.path().to_str().unwrap());
+        assert!(result.is_err(), "expected error when input file is missing");
+        let msg = format!("{}", result.unwrap_err());
+        assert!(msg.contains("Input file not found"), "unexpected error: {}", msg);
+    }
+
+    #[test]
     #[ignore = "requires pandoc to be installed and a valid input file"]
     fn test_build_run_with_pandoc() {
-        use std::fs;
-
         let dir = tempfile::tempdir().unwrap();
         let input_path = dir.path().join("input.md");
         fs::write(&input_path, "# Hello\n\nThis is a test.\n").unwrap();

@@ -4,7 +4,7 @@ use std::process::Command;
 
 #[test]
 fn test_build_command_runs() {
-    let f = common::valid_config_file();
+    let (f, _dir) = common::valid_config_file();
     let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
         .arg("build")
         .arg("--config")
@@ -32,7 +32,7 @@ fn test_build_command_missing_config() {
 
 #[test]
 fn test_implicit_build_command_runs() {
-    let f = common::valid_config_file();
+    let (f, _dir) = common::valid_config_file();
     let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
         .arg(f.path())
         .output()
