@@ -4,7 +4,8 @@ use tracing::info;
 
 use crate::config::load_config;
 use crate::files::{ensure_output_dir, validate_input};
-use crate::pipeline::{PandocStep, Pipeline};
+use crate::pipeline::{Pipeline, StrategyStep};
+use crate::strategies::select_strategy;
 
 pub fn run(config_path: &str) -> Result<()> {
     info!("Executing build command");
@@ -29,8 +30,9 @@ pub fn run(config_path: &str) -> Result<()> {
         info!(format = %format, output = %output_path, "Running pipeline for format");
         println!("Running build pipeline for format: {}", format);
 
+        let strategy = select_strategy(format)?;
         let mut pipeline = Pipeline::new();
-        pipeline.add_step(Box::new(PandocStep::new(&output_path)));
+        pipeline.add_step(Box::new(StrategyStep::new(strategy, &output_path)));
         pipeline.run(config.input.clone())?;
 
         info!(output = %output_path, "Pipeline completed for format: {}", format);
@@ -90,6 +92,30 @@ mod tests {
         assert!(result.is_err(), "expected error when input file is missing");
         let msg = format!("{}", result.unwrap_err());
         assert!(msg.contains("Input file not found"), "unexpected error: {}", msg);
+    }
+
+    #[test]
+    fn test_build_run_unsupported_format() {
+        let dir = tempfile::tempdir().expect("failed to create temp dir");
+        let input_path = dir.path().join("input.md");
+        fs::write(&input_path, "# Test\n").expect("failed to write input file");
+        let output_dir = dir.path().join("dist");
+        let config_content = format!(
+            "outputs:\n  - docx\ninput: \"{}\"\noutput_dir: \"{}\"\n",
+            input_path.display(),
+            output_dir.display()
+        );
+        let mut f = NamedTempFile::new().expect("failed to create temp file");
+        f.write_all(config_content.as_bytes())
+            .expect("failed to write config");
+        let result = run(f.path().to_str().unwrap());
+        assert!(result.is_err(), "expected error for unsupported format");
+        let msg = format!("{}", result.unwrap_err());
+        assert!(
+            msg.contains("Unsupported output format"),
+            "unexpected error: {}",
+            msg
+        );
     }
 
     #[test]
