@@ -4,6 +4,7 @@ mod commands;
 mod config;
 mod files;
 mod pipeline;
+mod strategies;
 
 use anyhow::{bail, Result};
 use clap::Parser;
