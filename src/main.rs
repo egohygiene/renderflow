@@ -2,6 +2,7 @@ mod adapters;
 mod cli;
 mod commands;
 mod config;
+mod files;
 mod pipeline;
 
 use anyhow::{bail, Result};
