@@ -9,6 +9,14 @@ pub struct Cli {
 
     /// Path to the renderflow configuration file (used when no subcommand is provided)
     pub input: Option<String>,
+
+    /// Enable verbose logging (DEBUG level)
+    #[arg(long, global = true)]
+    pub verbose: bool,
+
+    /// Enable debug logging (TRACE level); takes precedence over --verbose
+    #[arg(long, global = true)]
+    pub debug: bool,
 }
 
 #[derive(Subcommand)]

@@ -15,11 +15,19 @@ use cli::{Cli, Commands};
 use tracing::info;
 
 fn main() -> Result<()> {
-    tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::INFO)
-        .init();
-
     let cli = Cli::parse();
+
+    let log_level = if cli.debug {
+        tracing::Level::TRACE
+    } else if cli.verbose {
+        tracing::Level::DEBUG
+    } else {
+        tracing::Level::INFO
+    };
+
+    tracing_subscriber::fmt()
+        .with_max_level(log_level)
+        .init();
 
     match cli.command {
         Some(Commands::Build { config }) => commands::build::run(&config)?,

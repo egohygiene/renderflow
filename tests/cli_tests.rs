@@ -57,6 +57,42 @@ fn test_implicit_build_missing_config() {
 }
 
 #[test]
+fn test_verbose_flag_accepted() {
+    let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
+        .arg("build")
+        .arg("--verbose")
+        .arg("--config")
+        .arg("/nonexistent/renderflow.yaml")
+        .output()
+        .expect("failed to execute renderflow");
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        !stderr.contains("unexpected argument '--verbose'"),
+        "--verbose flag should be recognised, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_debug_flag_accepted() {
+    let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
+        .arg("build")
+        .arg("--debug")
+        .arg("--config")
+        .arg("/nonexistent/renderflow.yaml")
+        .output()
+        .expect("failed to execute renderflow");
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        !stderr.contains("unexpected argument '--debug'"),
+        "--debug flag should be recognised, got: {stderr}"
+    );
+}
+
+#[test]
 fn test_no_input_provided_exits_with_error() {
     let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
         .output()
