@@ -5,11 +5,19 @@ use crate::adapters::command::run_command;
 use crate::strategies::OutputStrategy;
 
 /// Renders a document to PDF format using pandoc with the tectonic PDF engine.
-pub struct PdfStrategy;
+pub struct PdfStrategy {
+    pub template: Option<String>,
+}
+
+impl PdfStrategy {
+    pub fn new(template: Option<String>) -> Self {
+        Self { template }
+    }
+}
 
 impl OutputStrategy for PdfStrategy {
     fn render(&self, input: &str, output_path: &str) -> Result<()> {
-        info!(input = %input, output = %output_path, "Rendering PDF via pandoc");
+        info!(input = %input, output = %output_path, template = ?self.template, "Rendering PDF via pandoc");
         run_command(
             "pandoc",
             &[input, "-o", output_path, "--pdf-engine=tectonic"],
@@ -25,9 +33,15 @@ mod tests {
 
     #[test]
     fn test_pdf_strategy_errors_on_missing_input() {
-        let strategy = PdfStrategy;
+        let strategy = PdfStrategy::new(None);
         let result = strategy.render("/nonexistent/input.md", "/tmp/output.pdf");
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_pdf_strategy_stores_template() {
+        let strategy = PdfStrategy::new(Some("default".to_string()));
+        assert_eq!(strategy.template, Some("default".to_string()));
     }
 
     #[test]
@@ -42,7 +56,7 @@ mod tests {
         let output = NamedTempFile::new().unwrap();
         let output_path = output.path().with_extension("pdf");
 
-        let strategy = PdfStrategy;
+        let strategy = PdfStrategy::new(None);
         let result = strategy.render(
             input.path().to_str().unwrap(),
             output_path.to_str().unwrap(),
