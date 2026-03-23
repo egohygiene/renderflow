@@ -11,19 +11,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Rust via rustup (stable toolchain)
-ENV RUSTUP_HOME=/usr/local/rustup \
-    CARGO_HOME=/usr/local/cargo \
-    PATH=/usr/local/cargo/bin:$PATH
-
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
-    sh -s -- -y --no-modify-path --default-toolchain stable && \
-    chmod -R a+w $RUSTUP_HOME $CARGO_HOME
-
-# Install additional Cargo tooling
-RUN cargo install cross --locked && \
-    cargo install cargo-watch --locked
-
 # Install Taskfile (go-task) – pinned to v3.43.3, downloaded directly from GitHub releases
 ARG TASK_VERSION=v3.43.3
 RUN curl --proto '=https' --tlsv1.2 -fsSL \
@@ -33,8 +20,20 @@ RUN curl --proto '=https' --tlsv1.2 -fsSL \
     rm /tmp/task.tar.gz && \
     chmod +x /usr/local/bin/task
 
-# Ensure cargo bin is on PATH for all users / shells
-RUN echo 'export PATH="/usr/local/cargo/bin:$PATH"' >> /etc/bash.bashrc
+# Switch to the devcontainer non-root user and install Rust in the user's home directory
+USER vscode
+
+ENV RUSTUP_HOME=/home/vscode/.rustup \
+    CARGO_HOME=/home/vscode/.cargo \
+    PATH=/home/vscode/.cargo/bin:$PATH
+
+# Install Rust via rustup (stable toolchain)
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
+    sh -s -- -y --no-modify-path --default-toolchain stable
+
+# Install additional Cargo tooling
+RUN cargo install cross --locked && \
+    cargo install cargo-watch --locked
 
 WORKDIR /workspaces/renderflow
 
