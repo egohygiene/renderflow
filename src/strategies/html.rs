@@ -18,7 +18,7 @@ impl HtmlStrategy {
 impl OutputStrategy for HtmlStrategy {
     fn render(&self, input: &str, output_path: &str) -> Result<()> {
         info!(input = %input, output = %output_path, template = ?self.template, "Rendering HTML via pandoc");
-        run_command("pandoc", &[input, "-o", output_path])
+        run_command("pandoc", &["--from", "markdown", input, "-o", output_path])
             .with_context(|| format!(
                 "Failed to render HTML output '{}'. \
                  Check that pandoc is installed (`pandoc --version`) and that the input file '{}' is valid Markdown.",
