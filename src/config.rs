@@ -2,9 +2,15 @@ use anyhow::{Context, Result};
 use serde::Deserialize;
 use std::fs;
 
+#[derive(Debug, Deserialize, PartialEq)]
+pub struct OutputConfig {
+    #[serde(rename = "type")]
+    pub output_type: String,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct Config {
-    pub outputs: Vec<String>,
+    pub outputs: Vec<OutputConfig>,
     pub input: String,
     pub output_dir: String,
 }
@@ -34,14 +40,20 @@ mod tests {
     fn test_load_config_success() {
         let yaml = r#"
 outputs:
-  - pdf
-  - html
+  - type: pdf
+  - type: html
 input: "input.md"
 output_dir: "dist"
 "#;
         let f = write_temp_yaml(yaml);
         let config = load_config(f.path().to_str().unwrap()).expect("should parse");
-        assert_eq!(config.outputs, vec!["pdf", "html"]);
+        assert_eq!(
+            config.outputs,
+            vec![
+                OutputConfig { output_type: "pdf".to_string() },
+                OutputConfig { output_type: "html".to_string() },
+            ]
+        );
         assert_eq!(config.input, "input.md");
         assert_eq!(config.output_dir, "dist");
     }
@@ -66,7 +78,7 @@ output_dir: "dist"
 
     #[test]
     fn test_load_config_missing_required_fields() {
-        let yaml = "outputs:\n  - pdf\n";
+        let yaml = "outputs:\n  - type: pdf\n";
         let f = write_temp_yaml(yaml);
         let result = load_config(f.path().to_str().unwrap());
         assert!(result.is_err());
