@@ -30,11 +30,11 @@ fn main() -> Result<()> {
         .init();
 
     match cli.command {
-        Some(Commands::Build { config }) => commands::build::run(&config)?,
+        Some(Commands::Build { config, dry_run }) => commands::build::run(&config, dry_run)?,
         None => {
             info!("No subcommand provided, defaulting to build");
             match cli.input {
-                Some(ref input) => commands::build::run(input)?,
+                Some(ref input) => commands::build::run(input, false)?,
                 None => bail!("No input provided. Usage: renderflow <config> or renderflow build --config <config>"),
             }
         }
