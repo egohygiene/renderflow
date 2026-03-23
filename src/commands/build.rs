@@ -12,7 +12,10 @@ use crate::strategies::select_strategy;
 use crate::template::init_tera;
 use crate::transforms::EmojiTransform;
 
-pub fn run(config_path: &str) -> Result<()> {
+pub fn run(config_path: &str, dry_run: bool) -> Result<()> {
+    if dry_run {
+        info!("Dry-run mode enabled — no files will be created and no commands will be executed");
+    }
     info!("Running build pipeline");
 
     let config = load_config(config_path)?;
@@ -35,7 +38,13 @@ pub fn run(config_path: &str) -> Result<()> {
     let normalized_content = normalize_asset_paths(&content, input_dir)?;
     info!("Asset paths validated successfully");
 
-    let output_dir = ensure_output_dir(&config.output_dir)?;
+    let output_dir = if dry_run {
+        let path = std::path::PathBuf::from(&config.output_dir);
+        info!("[dry-run] Would create output directory: {}", path.display());
+        path
+    } else {
+        ensure_output_dir(&config.output_dir)?
+    };
 
     let input_stem = Path::new(&config.input)
         .file_stem()
@@ -66,24 +75,38 @@ pub fn run(config_path: &str) -> Result<()> {
         let output_path = format!("{}/{}.{}", output_dir.display(), input_stem, format);
         info!(format = %format, output = %output_path, template = ?output.template, "Running pipeline for format");
 
-        let strategy = select_strategy(format, output.template.clone())?;
         let mut pipeline = Pipeline::new();
         pipeline.add_transform(Box::new(EmojiTransform::new()));
-        pipeline.add_step(Box::new(StrategyStep::new(strategy, &output_path)));
 
+        // Transforms are pure in-memory operations (no files, no external commands),
+        // so they run in both normal and dry-run mode to give an accurate preview.
         pb.set_message(format!("[{format}] Applying transforms"));
         let transformed = pipeline.run_transforms(normalized_content.clone())?;
         pb.inc(1);
 
-        pb.set_message(format!("[{format}] Rendering output"));
-        pipeline.run_steps(transformed)?;
-        pb.inc(1);
+        if dry_run {
+            info!("[dry-run] Would render {} output to: {}", format, output_path);
+            pb.set_message(format!("[{format}] Would render output"));
+            pb.inc(1);
+            pb.println(format!("[dry-run] Would write output to: {}", output_path));
+        } else {
+            let strategy = select_strategy(format, output.template.clone())?;
+            pipeline.add_step(Box::new(StrategyStep::new(strategy, &output_path)));
 
-        pb.println(format!("✔ Output written to: {}", output_path));
-        info!(output = %output_path, "Pipeline completed for format: {}", format);
+            pb.set_message(format!("[{format}] Rendering output"));
+            pipeline.run_steps(transformed)?;
+            pb.inc(1);
+
+            pb.println(format!("✔ Output written to: {}", output_path));
+            info!(output = %output_path, "Pipeline completed for format: {}", format);
+        }
     }
 
-    pb.finish_with_message("✔ Build complete");
+    if dry_run {
+        pb.finish_with_message("✔ Dry-run complete — no output written");
+    } else {
+        pb.finish_with_message("✔ Build complete");
+    }
 
     Ok(())
 }
@@ -115,12 +138,12 @@ mod tests {
     #[ignore = "requires pandoc to be installed"]
     fn test_build_run_succeeds() {
         let (f, _dir) = valid_config_file();
-        assert!(run(f.path().to_str().unwrap()).is_ok());
+        assert!(run(f.path().to_str().unwrap(), false).is_ok());
     }
 
     #[test]
     fn test_build_run_missing_config() {
-        let result = run("/nonexistent/renderflow.yaml");
+        let result = run("/nonexistent/renderflow.yaml", false);
         assert!(result.is_err());
     }
 
@@ -135,7 +158,7 @@ mod tests {
         let mut f = NamedTempFile::new().expect("failed to create temp file");
         f.write_all(config_content.as_bytes())
             .expect("failed to write config");
-        let result = run(f.path().to_str().unwrap());
+        let result = run(f.path().to_str().unwrap(), false);
         assert!(result.is_err(), "expected error when input file is missing");
         let msg = format!("{}", result.unwrap_err());
         assert!(msg.contains("Input file not found"), "unexpected error: {}", msg);
@@ -155,7 +178,7 @@ mod tests {
         let mut f = NamedTempFile::new().expect("failed to create temp file");
         f.write_all(config_content.as_bytes())
             .expect("failed to write config");
-        let result = run(f.path().to_str().unwrap());
+        let result = run(f.path().to_str().unwrap(), false);
         assert!(result.is_err(), "expected error for unsupported format");
         let msg = format!("{}", result.unwrap_err());
         assert!(
@@ -184,7 +207,32 @@ mod tests {
             .write_all(config_content.as_bytes())
             .unwrap();
 
-        assert!(run(config_file.path().to_str().unwrap()).is_ok());
+        assert!(run(config_file.path().to_str().unwrap(), false).is_ok());
         assert!(output_dir.join("input.html").exists());
+    }
+
+    #[test]
+    fn test_dry_run_succeeds_without_pandoc() {
+        let (f, dir) = valid_config_file();
+        let output_dir = dir.path().join("dist");
+        let result = run(f.path().to_str().unwrap(), true);
+        assert!(result.is_ok(), "dry-run should succeed: {:?}", result);
+        // No output directory should have been created in dry-run mode
+        assert!(!output_dir.exists(), "output directory must not be created in dry-run mode");
+    }
+
+    #[test]
+    fn test_dry_run_does_not_create_output_files() {
+        let (f, dir) = valid_config_file();
+        let output_dir = dir.path().join("dist");
+        run(f.path().to_str().unwrap(), true).expect("dry-run should not fail");
+        // The dist directory and any rendered files must not exist
+        assert!(!output_dir.exists(), "output directory must not be created in dry-run mode");
+    }
+
+    #[test]
+    fn test_dry_run_missing_config_still_errors() {
+        let result = run("/nonexistent/renderflow.yaml", true);
+        assert!(result.is_err(), "dry-run with missing config should still error");
     }
 }

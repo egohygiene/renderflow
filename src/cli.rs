@@ -26,5 +26,9 @@ pub enum Commands {
         /// Path to the renderflow configuration file
         #[arg(long, default_value = "renderflow.yaml")]
         config: String,
+
+        /// Simulate execution: log intended actions without creating files or running commands
+        #[arg(long)]
+        dry_run: bool,
     },
 }
