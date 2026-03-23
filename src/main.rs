@@ -6,6 +6,7 @@ mod files;
 mod pipeline;
 mod strategies;
 mod template;
+mod transforms;
 
 use anyhow::{bail, Result};
 use clap::Parser;
