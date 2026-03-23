@@ -22,7 +22,11 @@ pub fn run(config_path: &str) -> Result<()> {
 
     let input_dir = canonical_input
         .parent()
-        .expect("canonical input path must have a parent directory");
+        .ok_or_else(|| anyhow::anyhow!(
+            "Could not determine the parent directory of input file '{}'. \
+             Please ensure the input path is a valid file path.",
+            canonical_input.display()
+        ))?;
     let content = fs::read_to_string(&canonical_input)
         .with_context(|| format!("Failed to read input file: {}", canonical_input.display()))?;
     // Resolve and validate all asset paths referenced in the document.

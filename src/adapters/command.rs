@@ -1,11 +1,21 @@
 use anyhow::{bail, Result};
+use std::io::ErrorKind;
 use std::process::Command;
 use tracing::{error, info};
 
 pub fn run_command(program: &str, args: &[&str]) -> Result<()> {
     info!(program = program, args = ?args, "Running command");
 
-    let output = Command::new(program).args(args).output()?;
+    let output = Command::new(program).args(args).output().map_err(|e| {
+        if e.kind() == ErrorKind::NotFound {
+            anyhow::anyhow!(
+                "`{}` was not found. Make sure it is installed and available in your PATH.",
+                program
+            )
+        } else {
+            anyhow::anyhow!("Failed to launch `{}`: {}", program, e)
+        }
+    })?;
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
@@ -23,14 +33,28 @@ pub fn run_command(program: &str, args: &[&str]) -> Result<()> {
     }
 
     if !output.status.success() {
+        let stderr_hint = if stderr.trim().is_empty() {
+            String::new()
+        } else {
+            format!("\nStderr: {}", stderr.trim_end())
+        };
         match output.status.code() {
             Some(code) => {
                 error!(program = program, exit_code = code, "Command failed");
-                bail!("Command `{}` failed with exit code {}", program, code);
+                bail!(
+                    "Command `{}` failed with exit code {}{}",
+                    program,
+                    code,
+                    stderr_hint
+                );
             }
             None => {
                 error!(program = program, "Command terminated by signal");
-                bail!("Command `{}` was terminated by a signal", program);
+                bail!(
+                    "Command `{}` was terminated by a signal{}",
+                    program,
+                    stderr_hint
+                );
             }
         }
     }
@@ -67,5 +91,24 @@ mod tests {
     fn test_nonexistent_program() {
         let result = run_command("__nonexistent_program__", &[]);
         assert!(result.is_err(), "nonexistent program should return an error");
+        let err = result.unwrap_err().to_string();
+        assert!(
+            err.contains("was not found") && err.contains("PATH"),
+            "error should mention the program was not found and how to fix it: {}",
+            err
+        );
+    }
+
+    #[test]
+    fn test_failure_error_includes_stderr() {
+        // `sh -c` lets us write to stderr and exit non-zero in a portable way.
+        let result = run_command("sh", &["-c", "echo 'some error output' >&2; exit 1"]);
+        assert!(result.is_err(), "command should fail");
+        let err = result.unwrap_err().to_string();
+        assert!(
+            err.contains("some error output"),
+            "error message should include stderr output: {}",
+            err
+        );
     }
 }
