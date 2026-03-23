@@ -6,6 +6,7 @@ use crate::config::load_config;
 use crate::files::{ensure_output_dir, validate_input};
 use crate::pipeline::{Pipeline, StrategyStep};
 use crate::strategies::select_strategy;
+use crate::template::init_tera;
 
 pub fn run(config_path: &str) -> Result<()> {
     info!("Executing build command");
@@ -23,15 +24,18 @@ pub fn run(config_path: &str) -> Result<()> {
         .and_then(|s| s.to_str())
         .unwrap_or("document");
 
+    let tera = init_tera("templates")?;
+    info!("Tera template engine initialised with {} template(s)", tera.get_template_names().count());
+
     println!("Running build pipeline");
 
     for output in &config.outputs {
         let format = &output.output_type;
         let output_path = format!("{}/{}.{}", output_dir.display(), input_stem, format);
-        info!(format = %format, output = %output_path, "Running pipeline for format");
+        info!(format = %format, output = %output_path, template = ?output.template, "Running pipeline for format");
         println!("Running build pipeline for format: {}", format);
 
-        let strategy = select_strategy(format)?;
+        let strategy = select_strategy(format, output.template.clone())?;
         let mut pipeline = Pipeline::new();
         pipeline.add_step(Box::new(StrategyStep::new(strategy, &output_path)));
         pipeline.run(config.input.clone())?;

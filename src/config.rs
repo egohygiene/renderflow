@@ -6,6 +6,8 @@ use std::fs;
 pub struct OutputConfig {
     #[serde(rename = "type")]
     pub output_type: String,
+    #[serde(default)]
+    pub template: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -50,12 +52,32 @@ output_dir: "dist"
         assert_eq!(
             config.outputs,
             vec![
-                OutputConfig { output_type: "pdf".to_string() },
-                OutputConfig { output_type: "html".to_string() },
+                OutputConfig { output_type: "pdf".to_string(), template: None },
+                OutputConfig { output_type: "html".to_string(), template: None },
             ]
         );
         assert_eq!(config.input, "input.md");
         assert_eq!(config.output_dir, "dist");
+    }
+
+    #[test]
+    fn test_load_config_with_template() {
+        let yaml = r#"
+outputs:
+  - type: html
+    template: "default"
+input: "input.md"
+output_dir: "dist"
+"#;
+        let f = write_temp_yaml(yaml);
+        let config = load_config(f.path().to_str().unwrap()).expect("should parse");
+        assert_eq!(
+            config.outputs,
+            vec![OutputConfig {
+                output_type: "html".to_string(),
+                template: Some("default".to_string()),
+            }]
+        );
     }
 
     #[test]
