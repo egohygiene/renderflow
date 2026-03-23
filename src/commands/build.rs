@@ -70,6 +70,8 @@ pub fn run(config_path: &str, dry_run: bool) -> Result<()> {
             .progress_chars("█▓░"),
     );
 
+    let mut failed_outputs: Vec<(String, anyhow::Error)> = Vec::new();
+
     for output in &config.outputs {
         let format = output.output_type;
         let output_path = format!("{}/{}.{}", output_dir.display(), input_stem, format);
@@ -81,7 +83,16 @@ pub fn run(config_path: &str, dry_run: bool) -> Result<()> {
         // Transforms are pure in-memory operations (no files, no external commands),
         // so they run in both normal and dry-run mode to give an accurate preview.
         pb.set_message(format!("[{format}] Applying transforms"));
-        let transformed = pipeline.run_transforms(normalized_content.clone())?;
+        let transformed = match pipeline.run_transforms(normalized_content.clone()) {
+            Ok(t) => t,
+            Err(e) => {
+                warn!(format = %format, error = %e, "Transform failed for output format");
+                failed_outputs.push((format.to_string(), e));
+                // Consume both the transform tick and the render tick we're skipping.
+                pb.inc(2);
+                continue;
+            }
+        };
         pb.inc(1);
 
         if dry_run {
@@ -94,18 +105,36 @@ pub fn run(config_path: &str, dry_run: bool) -> Result<()> {
             pipeline.add_step(Box::new(StrategyStep::new(strategy, &output_path)));
 
             pb.set_message(format!("[{format}] Rendering output"));
-            pipeline.run_steps(transformed)?;
-            pb.inc(1);
-
-            pb.println(format!("✔ Output written to: {}", output_path));
-            info!(output = %output_path, "Pipeline completed for format: {}", format);
+            match pipeline.run_steps(transformed) {
+                Ok(_) => {
+                    pb.inc(1);
+                    pb.println(format!("✔ Output written to: {}", output_path));
+                    info!(output = %output_path, "Pipeline completed for format: {}", format);
+                }
+                Err(e) => {
+                    warn!(format = %format, error = %e, "Rendering failed for output format");
+                    pb.inc(1);
+                    pb.println(format!("✘ Failed to render {} output: {:#}", format, e));
+                    failed_outputs.push((format.to_string(), e));
+                }
+            }
         }
     }
 
     if dry_run {
         pb.finish_with_message("✔ Dry-run complete — no output written");
-    } else {
+    } else if failed_outputs.is_empty() {
         pb.finish_with_message("✔ Build complete");
+    } else {
+        pb.finish_with_message(format!("⚠ Build completed with {} failure(s)", failed_outputs.len()));
+        let messages: Vec<String> = failed_outputs
+            .iter()
+            .map(|(fmt, err)| format!("  - {}: {:#}", fmt, err))
+            .collect();
+        anyhow::bail!(
+            "One or more output formats failed to render:\n{}",
+            messages.join("\n")
+        );
     }
 
     Ok(())

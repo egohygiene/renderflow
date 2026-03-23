@@ -11,6 +11,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
+# Install tectonic PDF engine – pinned to v0.15.0, downloaded from official releases
+ARG TECTONIC_VERSION=0.15.0
+RUN curl --proto '=https' --tlsv1.2 -fsSL \
+    "https://github.com/tectonic-typesetting/tectonic/releases/download/tectonic%40${TECTONIC_VERSION}/tectonic-${TECTONIC_VERSION}-x86_64-unknown-linux-musl.tar.gz" \
+    -o /tmp/tectonic.tar.gz && \
+    tar -xzf /tmp/tectonic.tar.gz -C /usr/local/bin tectonic && \
+    rm /tmp/tectonic.tar.gz && \
+    chmod +x /usr/local/bin/tectonic
+
 # Install Taskfile (go-task) – pinned to v3.43.3, downloaded directly from GitHub releases
 ARG TASK_VERSION=v3.43.3
 RUN curl --proto '=https' --tlsv1.2 -fsSL \

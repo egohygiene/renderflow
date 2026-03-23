@@ -19,7 +19,7 @@ impl PandocStep {
 impl PipelineStep for PandocStep {
     fn execute(&self, input: String) -> Result<String> {
         info!(input = %input, output = %self.output_path, "Running pandoc");
-        run_command("pandoc", &[&input, "-o", &self.output_path])
+        run_command("pandoc", &["--from", "markdown", &input, "-o", &self.output_path])
             .with_context(|| format!(
                 "Failed to run pandoc on '{}' to produce '{}'. \
                  Check that pandoc is installed (`pandoc --version`) and that the input file is valid.",

@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use std::io::ErrorKind;
 use tracing::info;
 
 use crate::adapters::command::run_command;
@@ -13,14 +14,42 @@ impl PdfStrategy {
     pub fn new(template: Option<String>) -> Self {
         Self { template }
     }
+
+    /// Returns an error if the tectonic PDF engine is not installed.
+    fn check_tectonic() -> Result<()> {
+        match std::process::Command::new("tectonic")
+            .arg("--version")
+            .output()
+        {
+            Err(e) if e.kind() == ErrorKind::NotFound => {
+                anyhow::bail!(
+                    "PDF rendering failed: `tectonic` is not installed.\n\n\
+                     Fix:\n\
+                     - Install tectonic: https://tectonic-typesetting.github.io/en-US/\n\
+                     - Or configure a different PDF engine"
+                );
+            }
+            _ => Ok(()),
+        }
+    }
 }
 
 impl OutputStrategy for PdfStrategy {
     fn render(&self, input: &str, output_path: &str) -> Result<()> {
         info!(input = %input, output = %output_path, template = ?self.template, "Rendering PDF via pandoc");
+
+        Self::check_tectonic()?;
+
         run_command(
             "pandoc",
-            &[input, "-o", output_path, "--pdf-engine=tectonic"],
+            &[
+                "--from",
+                "markdown",
+                input,
+                "-o",
+                output_path,
+                "--pdf-engine=tectonic",
+            ],
         )
         .with_context(|| format!(
             "Failed to render PDF output '{}'. \
@@ -37,15 +66,41 @@ impl OutputStrategy for PdfStrategy {
 mod tests {
     use super::*;
 
+    /// Returns `true` if the `tectonic` binary is available in PATH.
+    fn tectonic_available() -> bool {
+        std::process::Command::new("tectonic")
+            .arg("--version")
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false)
+    }
+
     #[test]
     fn test_pdf_strategy_errors_on_missing_input() {
         let strategy = PdfStrategy::new(None);
         let result = strategy.render("/nonexistent/input.md", "/tmp/output.pdf");
         assert!(result.is_err());
         let msg = format!("{:#}", result.unwrap_err());
+        // The error is either a missing-tectonic error or a pandoc render error.
         assert!(
-            msg.contains("Failed to render PDF output"),
+            msg.contains("tectonic") || msg.contains("Failed to render PDF output"),
             "error should describe what failed: {}",
+            msg
+        );
+    }
+
+    #[test]
+    fn test_check_tectonic_returns_clear_error_when_missing() {
+        if tectonic_available() {
+            // Nothing to test when tectonic is present.
+            return;
+        }
+        let result = PdfStrategy::check_tectonic();
+        assert!(result.is_err());
+        let msg = result.unwrap_err().to_string();
+        assert!(
+            msg.contains("tectonic") && msg.contains("not installed"),
+            "error should explain that tectonic is not installed: {}",
             msg
         );
     }
