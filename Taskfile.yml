@@ -1,0 +1,53 @@
+# Taskfile for renderflow development workflows
+# https://taskfile.dev
+
+version: "3"
+
+tasks:
+  # Build the project in debug mode
+  build:
+    desc: Build the project
+    cmds:
+      - cargo build
+
+  # Run the project with the default `build` subcommand
+  run:
+    desc: Run the project
+    cmds:
+      - cargo run -- build
+
+  # Run the test suite
+  test:
+    desc: Run all tests
+    cmds:
+      - cargo test
+
+  # Build the project in release mode
+  release:
+    desc: Build the project in release mode
+    cmds:
+      - cargo build --release
+
+  # Remove build artifacts
+  clean:
+    desc: Clean build artifacts
+    cmds:
+      - cargo clean
+
+  # Check the project for errors without producing a binary
+  check:
+    desc: Check the project for errors
+    cmds:
+      - cargo check
+
+  # Format source code
+  format:
+    desc: Format source code with rustfmt
+    cmds:
+      - cargo fmt
+
+  # Lint source code with Clippy
+  lint:
+    desc: Lint source code with Clippy
+    cmds:
+      - cargo clippy
