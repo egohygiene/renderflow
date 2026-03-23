@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use indicatif::{ProgressBar, ProgressStyle};
 use std::fs;
 use std::path::Path;
-use tracing::info;
+use tracing::{info, warn};
 
 use crate::assets::normalize_asset_paths;
 use crate::config::load_config;
@@ -13,10 +13,10 @@ use crate::template::init_tera;
 use crate::transforms::EmojiTransform;
 
 pub fn run(config_path: &str) -> Result<()> {
-    info!("Executing build command");
+    info!("Running build pipeline");
 
     let config = load_config(config_path)?;
-    info!(?config, "Loaded config successfully");
+    info!("Loaded config successfully");
 
     let canonical_input = validate_input(&config.input)?;
 
@@ -40,6 +40,13 @@ pub fn run(config_path: &str) -> Result<()> {
 
     let tera = init_tera("templates")?;
     info!("Tera template engine initialised with {} template(s)", tera.get_template_names().count());
+
+    let output_formats: Vec<String> = config.outputs.iter().map(|o| o.output_type.to_string()).collect();
+    if output_formats.is_empty() {
+        warn!("No output formats configured — nothing to build");
+        return Ok(());
+    }
+    info!("Selected outputs: {}", output_formats.join(", "));
 
     // Two ticks per output format: one for transforms, one for rendering.
     let total_steps = config.outputs.len() as u64 * 2;
@@ -72,7 +79,7 @@ pub fn run(config_path: &str) -> Result<()> {
         info!(output = %output_path, "Pipeline completed for format: {}", format);
     }
 
-    pb.finish_with_message("Build complete");
+    pb.finish_with_message("✔ Build complete");
 
     Ok(())
 }
