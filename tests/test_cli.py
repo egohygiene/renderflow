@@ -28,3 +28,21 @@ def test_build_command_output_contains_expected_content(runner: CliRunner) -> No
     """'renderflow build' output should mention the build pipeline."""
     result = runner.invoke(app, ["build"])
     assert "build" in result.output.lower()
+
+
+def test_build_command_output_contains_loaded_config_message(runner: CliRunner) -> None:
+    """'renderflow build' output should include a 'Loaded config' status message."""
+    result = runner.invoke(app, ["build"])
+    assert "Loaded config" in result.output
+
+
+def test_build_command_output_contains_pipeline_message(runner: CliRunner) -> None:
+    """'renderflow build' output should include a pipeline start message."""
+    result = runner.invoke(app, ["build"])
+    assert "render pipeline" in result.output.lower()
+
+
+def test_build_command_output_contains_success_message(runner: CliRunner) -> None:
+    """'renderflow build' output should include a 'Build complete' completion message."""
+    result = runner.invoke(app, ["build"])
+    assert "Build complete" in result.output
