@@ -1,7 +1,9 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
+use std::fs;
 use std::path::Path;
 use tracing::info;
 
+use crate::assets::normalize_asset_paths;
 use crate::config::load_config;
 use crate::files::{ensure_output_dir, validate_input};
 use crate::pipeline::{Pipeline, StrategyStep};
@@ -16,7 +18,18 @@ pub fn run(config_path: &str) -> Result<()> {
     info!(?config, "Loaded config successfully");
     println!("Loaded config successfully");
 
-    validate_input(&config.input)?;
+    let canonical_input = validate_input(&config.input)?;
+
+    let input_dir = canonical_input
+        .parent()
+        .expect("canonical input path must have a parent directory");
+    let content = fs::read_to_string(&canonical_input)
+        .with_context(|| format!("Failed to read input file: {}", canonical_input.display()))?;
+    // Resolve and validate all asset paths referenced in the document.
+    // The normalized content (with canonical absolute paths) is retained here
+    // for future pipeline integration such as direct content passing or embedding.
+    let _normalized_content = normalize_asset_paths(&content, input_dir)?;
+    info!("Asset paths validated successfully");
 
     let output_dir = ensure_output_dir(&config.output_dir)?;
 

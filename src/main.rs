@@ -1,4 +1,5 @@
 mod adapters;
+mod assets;
 mod cli;
 mod commands;
 mod config;
