@@ -31,6 +31,10 @@ fn main() -> Result<()> {
 
     match cli.command {
         Some(Commands::Build { config, dry_run }) => commands::build::run(&config, dry_run)?,
+        Some(Commands::Audit { output_dir }) => {
+            let path = commands::audit::run(Some(&output_dir))?;
+            println!("Audit log written to: {}", path.display());
+        }
         None => {
             info!("No subcommand provided, defaulting to build");
             match cli.input {

@@ -49,4 +49,16 @@ pub enum Commands {
         #[arg(long)]
         dry_run: bool,
     },
+
+    /// Generate a timestamped audit log in the audits/ directory
+    #[command(
+        after_help = "Examples:\n  \
+            renderflow audit                        Write audit log to audits/\n  \
+            renderflow audit --output-dir logs      Write audit log to logs/"
+    )]
+    Audit {
+        /// Directory to write the audit log into (default: audits)
+        #[arg(long, default_value = "audits", value_name = "DIR")]
+        output_dir: String,
+    },
 }
