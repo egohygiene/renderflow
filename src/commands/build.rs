@@ -7,6 +7,7 @@ use crate::files::{ensure_output_dir, validate_input};
 use crate::pipeline::{Pipeline, StrategyStep};
 use crate::strategies::select_strategy;
 use crate::template::init_tera;
+use crate::transforms::EmojiTransform;
 
 pub fn run(config_path: &str) -> Result<()> {
     info!("Executing build command");
@@ -37,6 +38,7 @@ pub fn run(config_path: &str) -> Result<()> {
 
         let strategy = select_strategy(format, output.template.clone())?;
         let mut pipeline = Pipeline::new();
+        pipeline.add_transform(Box::new(EmojiTransform::new()));
         pipeline.add_step(Box::new(StrategyStep::new(strategy, &output_path)));
         pipeline.run(config.input.clone())?;
 
