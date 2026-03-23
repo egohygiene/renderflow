@@ -30,7 +30,7 @@ pub fn run(config_path: &str) -> Result<()> {
     println!("Running build pipeline");
 
     for output in &config.outputs {
-        let format = &output.output_type;
+        let format = output.output_type;
         let output_path = format!("{}/{}.{}", output_dir.display(), input_stem, format);
         info!(format = %format, output = %output_path, template = ?output.template, "Running pipeline for format");
         println!("Running build pipeline for format: {}", format);
@@ -118,7 +118,7 @@ mod tests {
         assert!(result.is_err(), "expected error for unsupported format");
         let msg = format!("{}", result.unwrap_err());
         assert!(
-            msg.contains("unsupported output type"),
+            msg.contains("Failed to parse YAML config"),
             "unexpected error: {}",
             msg
         );
