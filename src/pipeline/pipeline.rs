@@ -26,15 +26,25 @@ impl Pipeline {
         self
     }
 
-    pub fn run(&self, input: String) -> Result<String> {
+    pub fn run_transforms(&self, input: String) -> Result<String> {
         let mut current = input;
         for transform in &self.transforms {
             current = transform.apply(current)?;
         }
+        Ok(current)
+    }
+
+    pub fn run_steps(&self, input: String) -> Result<String> {
+        let mut current = input;
         for step in &self.steps {
             current = step.execute(current)?;
         }
         Ok(current)
+    }
+
+    pub fn run(&self, input: String) -> Result<String> {
+        let transformed = self.run_transforms(input)?;
+        self.run_steps(transformed)
     }
 }
 

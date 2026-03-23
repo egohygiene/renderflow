@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use indicatif::{ProgressBar, ProgressStyle};
 use std::fs;
 use std::path::Path;
 use tracing::info;
@@ -16,7 +17,6 @@ pub fn run(config_path: &str) -> Result<()> {
 
     let config = load_config(config_path)?;
     info!(?config, "Loaded config successfully");
-    println!("Loaded config successfully");
 
     let canonical_input = validate_input(&config.input)?;
 
@@ -41,23 +41,38 @@ pub fn run(config_path: &str) -> Result<()> {
     let tera = init_tera("templates")?;
     info!("Tera template engine initialised with {} template(s)", tera.get_template_names().count());
 
-    println!("Running build pipeline");
+    // Two ticks per output format: one for transforms, one for rendering.
+    let total_steps = config.outputs.len() as u64 * 2;
+    let pb = ProgressBar::new(total_steps);
+    pb.set_style(
+        ProgressStyle::with_template("{spinner:.cyan} [{bar:40.cyan/blue}] {pos}/{len} {msg}")
+            .expect("hardcoded progress bar template is valid")
+            .progress_chars("█▓░"),
+    );
 
     for output in &config.outputs {
         let format = output.output_type;
         let output_path = format!("{}/{}.{}", output_dir.display(), input_stem, format);
         info!(format = %format, output = %output_path, template = ?output.template, "Running pipeline for format");
-        println!("Running build pipeline for format: {}", format);
 
         let strategy = select_strategy(format, output.template.clone())?;
         let mut pipeline = Pipeline::new();
         pipeline.add_transform(Box::new(EmojiTransform::new()));
         pipeline.add_step(Box::new(StrategyStep::new(strategy, &output_path)));
-        pipeline.run(normalized_content.clone())?;
 
+        pb.set_message(format!("[{format}] Applying transforms"));
+        let transformed = pipeline.run_transforms(normalized_content.clone())?;
+        pb.inc(1);
+
+        pb.set_message(format!("[{format}] Rendering output"));
+        pipeline.run_steps(transformed)?;
+        pb.inc(1);
+
+        pb.println(format!("✔ Output written to: {}", output_path));
         info!(output = %output_path, "Pipeline completed for format: {}", format);
-        println!("Output written to: {}", output_path);
     }
+
+    pb.finish_with_message("Build complete");
 
     Ok(())
 }
