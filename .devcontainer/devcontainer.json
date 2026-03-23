@@ -15,7 +15,9 @@
     "ms-azuretools.vscode-docker"
   ],
   "remoteEnv": {
-    "PATH": "/usr/local/cargo/bin:${containerEnv:PATH}"
+    "PATH": "/home/vscode/.cargo/bin:${containerEnv:PATH}",
+    "CARGO_HOME": "/home/vscode/.cargo",
+    "RUSTUP_HOME": "/home/vscode/.rustup"
   },
   "postCreateCommand": "cargo fetch",
   "remoteUser": "vscode"
