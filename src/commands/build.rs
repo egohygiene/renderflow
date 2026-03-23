@@ -25,7 +25,8 @@ pub fn run(config_path: &str) -> Result<()> {
 
     println!("Running build pipeline");
 
-    for format in &config.outputs {
+    for output in &config.outputs {
+        let format = &output.output_type;
         let output_path = format!("{}/{}.{}", output_dir.display(), input_stem, format);
         info!(format = %format, output = %output_path, "Running pipeline for format");
         println!("Running build pipeline for format: {}", format);
@@ -101,7 +102,7 @@ mod tests {
         fs::write(&input_path, "# Test\n").expect("failed to write input file");
         let output_dir = dir.path().join("dist");
         let config_content = format!(
-            "outputs:\n  - docx\ninput: \"{}\"\noutput_dir: \"{}\"\n",
+            "outputs:\n  - type: docx\ninput: \"{}\"\noutput_dir: \"{}\"\n",
             input_path.display(),
             output_dir.display()
         );
@@ -127,7 +128,7 @@ mod tests {
 
         let output_dir = dir.path().join("dist");
         let config_content = format!(
-            "outputs:\n  - html\ninput: \"{}\"\noutput_dir: \"{}\"\n",
+            "outputs:\n  - type: html\ninput: \"{}\"\noutput_dir: \"{}\"\n",
             input_path.display(),
             output_dir.display()
         );

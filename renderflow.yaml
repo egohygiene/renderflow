@@ -1,6 +1,6 @@
 outputs:
-  - pdf
-  - html
+  - type: pdf
+  - type: html
 
 input: "input.md"
 output_dir: "dist"
