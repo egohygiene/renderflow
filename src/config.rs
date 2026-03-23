@@ -1,17 +1,32 @@
 use anyhow::{Context, Result};
 use serde::Deserialize;
+use std::fmt;
 use std::fs;
-
-const VALID_OUTPUT_TYPES: &[&str] = &["html", "pdf"];
 
 fn default_output_dir() -> String {
     "dist".to_string()
 }
 
+#[derive(Debug, Deserialize, Clone, Copy, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum OutputType {
+    Html,
+    Pdf,
+}
+
+impl fmt::Display for OutputType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            OutputType::Html => write!(f, "html"),
+            OutputType::Pdf => write!(f, "pdf"),
+        }
+    }
+}
+
 #[derive(Debug, Deserialize, PartialEq)]
 pub struct OutputConfig {
     #[serde(rename = "type")]
-    pub output_type: String,
+    pub output_type: OutputType,
     #[serde(default)]
     pub template: Option<String>,
 }
@@ -33,15 +48,6 @@ impl Config {
             anyhow::bail!(
                 "Config validation failed: 'outputs' must contain at least one entry"
             );
-        }
-        for output in &self.outputs {
-            if !VALID_OUTPUT_TYPES.contains(&output.output_type.as_str()) {
-                anyhow::bail!(
-                    "Config validation failed: unsupported output type '{}'. Supported types: {}",
-                    output.output_type,
-                    VALID_OUTPUT_TYPES.join(", ")
-                );
-            }
         }
         Ok(())
     }
@@ -83,8 +89,8 @@ output_dir: "dist"
         assert_eq!(
             config.outputs,
             vec![
-                OutputConfig { output_type: "pdf".to_string(), template: None },
-                OutputConfig { output_type: "html".to_string(), template: None },
+                OutputConfig { output_type: OutputType::Pdf, template: None },
+                OutputConfig { output_type: OutputType::Html, template: None },
             ]
         );
         assert_eq!(config.input, "input.md");
@@ -105,7 +111,7 @@ output_dir: "dist"
         assert_eq!(
             config.outputs,
             vec![OutputConfig {
-                output_type: "html".to_string(),
+                output_type: OutputType::Html,
                 template: Some("default".to_string()),
             }]
         );
@@ -192,7 +198,6 @@ output_dir: "dist"
         let result = load_config(f.path().to_str().unwrap());
         assert!(result.is_err());
         let msg = format!("{}", result.unwrap_err());
-        assert!(msg.contains("unsupported output type"), "unexpected error: {}", msg);
-        assert!(msg.contains("docx"), "unexpected error: {}", msg);
+        assert!(msg.contains("Failed to parse YAML config"), "unexpected error: {}", msg);
     }
 }
