@@ -1,0 +1,22 @@
+{
+  "name": "Renderflow Dev Container",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+  "workspaceFolder": "/workspaces/renderflow",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspaces/renderflow,type=bind,consistency=cached",
+  "settings": {
+    "terminal.integrated.defaultProfile.linux": "bash"
+  },
+  "extensions": [
+    "rust-lang.rust-analyzer",
+    "tamasfe.even-better-toml",
+    "ms-azuretools.vscode-docker"
+  ],
+  "remoteEnv": {
+    "PATH": "/usr/local/cargo/bin:${containerEnv:PATH}"
+  },
+  "postCreateCommand": "cargo fetch",
+  "remoteUser": "vscode"
+}
