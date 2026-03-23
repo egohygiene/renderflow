@@ -3,6 +3,7 @@ mod common;
 use std::process::Command;
 
 #[test]
+#[ignore = "requires pandoc to be installed"]
 fn test_build_command_runs() {
     let (f, _dir) = common::valid_config_file();
     let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
@@ -31,6 +32,7 @@ fn test_build_command_missing_config() {
 }
 
 #[test]
+#[ignore = "requires pandoc to be installed"]
 fn test_implicit_build_command_runs() {
     let (f, _dir) = common::valid_config_file();
     let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
