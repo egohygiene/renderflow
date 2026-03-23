@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use tracing::info;
 
 use crate::adapters::command::run_command;
@@ -18,7 +18,12 @@ impl HtmlStrategy {
 impl OutputStrategy for HtmlStrategy {
     fn render(&self, input: &str, output_path: &str) -> Result<()> {
         info!(input = %input, output = %output_path, template = ?self.template, "Rendering HTML via pandoc");
-        run_command("pandoc", &[input, "-o", output_path])?;
+        run_command("pandoc", &[input, "-o", output_path])
+            .with_context(|| format!(
+                "Failed to render HTML output '{}'. \
+                 Check that pandoc is installed (`pandoc --version`) and that the input file '{}' is valid Markdown.",
+                output_path, input
+            ))?;
         info!(output = %output_path, "HTML rendering completed successfully");
         Ok(())
     }
@@ -33,6 +38,12 @@ mod tests {
         let strategy = HtmlStrategy::new(None);
         let result = strategy.render("/nonexistent/input.md", "/tmp/output.html");
         assert!(result.is_err());
+        let msg = format!("{:#}", result.unwrap_err());
+        assert!(
+            msg.contains("Failed to render HTML output"),
+            "error should describe what failed: {}",
+            msg
+        );
     }
 
     #[test]

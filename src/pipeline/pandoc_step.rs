@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use tracing::info;
 
 use super::step::PipelineStep;
@@ -19,7 +19,12 @@ impl PandocStep {
 impl PipelineStep for PandocStep {
     fn execute(&self, input: String) -> Result<String> {
         info!(input = %input, output = %self.output_path, "Running pandoc");
-        run_command("pandoc", &[&input, "-o", &self.output_path])?;
+        run_command("pandoc", &[&input, "-o", &self.output_path])
+            .with_context(|| format!(
+                "Failed to run pandoc on '{}' to produce '{}'. \
+                 Check that pandoc is installed (`pandoc --version`) and that the input file is valid.",
+                input, self.output_path
+            ))?;
         info!(output = %self.output_path, "Pandoc step completed successfully");
         Ok(self.output_path.clone())
     }
@@ -42,6 +47,12 @@ mod tests {
         let step = PandocStep::new(output_path.to_str().unwrap());
         let result = step.execute("/nonexistent/input.md".to_string());
         assert!(result.is_err());
+        let msg = format!("{:#}", result.unwrap_err());
+        assert!(
+            msg.contains("Failed to run pandoc"),
+            "error should describe what failed: {}",
+            msg
+        );
     }
 
     #[test]

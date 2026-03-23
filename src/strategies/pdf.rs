@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use tracing::info;
 
 use crate::adapters::command::run_command;
@@ -21,7 +21,13 @@ impl OutputStrategy for PdfStrategy {
         run_command(
             "pandoc",
             &[input, "-o", output_path, "--pdf-engine=tectonic"],
-        )?;
+        )
+        .with_context(|| format!(
+            "Failed to render PDF output '{}'. \
+             Check that pandoc and tectonic are installed (`pandoc --version`, `tectonic --version`) \
+             and that the input file '{}' is valid Markdown.",
+            output_path, input
+        ))?;
         info!(output = %output_path, "PDF rendering completed successfully");
         Ok(())
     }
@@ -36,6 +42,12 @@ mod tests {
         let strategy = PdfStrategy::new(None);
         let result = strategy.render("/nonexistent/input.md", "/tmp/output.pdf");
         assert!(result.is_err());
+        let msg = format!("{:#}", result.unwrap_err());
+        assert!(
+            msg.contains("Failed to render PDF output"),
+            "error should describe what failed: {}",
+            msg
+        );
     }
 
     #[test]
