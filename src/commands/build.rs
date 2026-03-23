@@ -26,9 +26,9 @@ pub fn run(config_path: &str) -> Result<()> {
     let content = fs::read_to_string(&canonical_input)
         .with_context(|| format!("Failed to read input file: {}", canonical_input.display()))?;
     // Resolve and validate all asset paths referenced in the document.
-    // The normalized content (with canonical absolute paths) is retained here
-    // for future pipeline integration such as direct content passing or embedding.
-    let _normalized_content = normalize_asset_paths(&content, input_dir)?;
+    // The normalized content (with canonical absolute paths) is passed through
+    // the pipeline so transforms and strategies operate on the actual file content.
+    let normalized_content = normalize_asset_paths(&content, input_dir)?;
     info!("Asset paths validated successfully");
 
     let output_dir = ensure_output_dir(&config.output_dir)?;
@@ -53,7 +53,7 @@ pub fn run(config_path: &str) -> Result<()> {
         let mut pipeline = Pipeline::new();
         pipeline.add_transform(Box::new(EmojiTransform::new()));
         pipeline.add_step(Box::new(StrategyStep::new(strategy, &output_path)));
-        pipeline.run(config.input.clone())?;
+        pipeline.run(normalized_content.clone())?;
 
         info!(output = %output_path, "Pipeline completed for format: {}", format);
         println!("Output written to: {}", output_path);
