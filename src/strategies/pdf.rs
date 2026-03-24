@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 use std::io::ErrorKind;
+use std::path::Path;
 use tracing::info;
 
 use crate::adapters::command::run_command;
@@ -8,11 +9,12 @@ use crate::strategies::OutputStrategy;
 /// Renders a document to PDF format using pandoc with the tectonic PDF engine.
 pub struct PdfStrategy {
     pub template: Option<String>,
+    pub template_dir: String,
 }
 
 impl PdfStrategy {
-    pub fn new(template: Option<String>) -> Self {
-        Self { template }
+    pub fn new(template: Option<String>, template_dir: String) -> Self {
+        Self { template, template_dir }
     }
 
     /// Returns an error if the tectonic PDF engine is not installed.
@@ -40,17 +42,35 @@ impl OutputStrategy for PdfStrategy {
 
         Self::check_tectonic()?;
 
-        run_command(
-            "pandoc",
-            &[
-                "--from",
-                "markdown",
-                input,
-                "-o",
-                output_path,
-                "--pdf-engine=tectonic",
-            ],
-        )
+        // Resolve the optional template to a file path within the template directory.
+        let template_path = if let Some(ref name) = self.template {
+            let path = Path::new(&self.template_dir).join(name);
+            if !path.exists() {
+                anyhow::bail!(
+                    "Template file not found: '{}'. \
+                     Ensure the template exists in the configured template directory.",
+                    path.display()
+                );
+            }
+            info!("Using template: {}", name);
+            Some(path.to_string_lossy().into_owned())
+        } else {
+            None
+        };
+
+        let mut args = vec![
+            "--from",
+            "markdown",
+            input,
+            "-o",
+            output_path,
+            "--pdf-engine=tectonic",
+        ];
+        if let Some(ref path) = template_path {
+            args.extend_from_slice(&["--template", path.as_str()]);
+        }
+
+        run_command("pandoc", &args)
         .with_context(|| format!(
             "Failed to render PDF output '{}'. \
              Check that pandoc and tectonic are installed (`pandoc --version`, `tectonic --version`) \
@@ -77,7 +97,7 @@ mod tests {
 
     #[test]
     fn test_pdf_strategy_errors_on_missing_input() {
-        let strategy = PdfStrategy::new(None);
+        let strategy = PdfStrategy::new(None, "templates".to_string());
         let result = strategy.render("/nonexistent/input.md", "/tmp/output.pdf");
         assert!(result.is_err());
         let msg = format!("{:#}", result.unwrap_err());
@@ -107,8 +127,16 @@ mod tests {
 
     #[test]
     fn test_pdf_strategy_stores_template() {
-        let strategy = PdfStrategy::new(Some("default".to_string()));
-        assert_eq!(strategy.template, Some("default".to_string()));
+        let strategy = PdfStrategy::new(Some("default.html".to_string()), "templates".to_string());
+        assert_eq!(strategy.template, Some("default.html".to_string()));
+    }
+
+    #[test]
+    fn test_pdf_strategy_no_template_does_not_check_template_dir() {
+        // When no template is configured the template_dir is never accessed,
+        // so a non-existent directory must not cause an error at construction time.
+        let strategy = PdfStrategy::new(None, "/nonexistent/dir".to_string());
+        assert!(strategy.template.is_none());
     }
 
     #[test]
@@ -123,7 +151,7 @@ mod tests {
         let output = NamedTempFile::new().unwrap();
         let output_path = output.path().with_extension("pdf");
 
-        let strategy = PdfStrategy::new(None);
+        let strategy = PdfStrategy::new(None, "templates".to_string());
         let result = strategy.render(
             input.path().to_str().unwrap(),
             output_path.to_str().unwrap(),
