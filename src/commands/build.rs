@@ -88,7 +88,7 @@ pub fn run(config_path: &str, dry_run: bool) -> Result<()> {
     let mut failed_outputs: Vec<(String, anyhow::Error)> = Vec::new();
 
     for output in &config.outputs {
-        let format = output.output_type;
+        let format = output.output_type.clone();
         let output_path = format!("{}/{}.{}", output_dir.display(), input_stem, format);
         info!(format = %format, output = %output_path, template = ?output.template, "Running pipeline for format");
 
@@ -116,7 +116,7 @@ pub fn run(config_path: &str, dry_run: bool) -> Result<()> {
             pb.inc(1);
             pb.println(format!("[dry-run] Would write output to: {}", output_path));
         } else {
-            let strategy = select_strategy(format, output.template.clone(), "templates".to_string())?;
+            let strategy = select_strategy(format.clone(), output.template.clone(), "templates".to_string())?;
             pipeline.add_step(Box::new(StrategyStep::new(strategy, &output_path)));
 
             pb.set_message(format!("[{format}] Rendering output"));
@@ -226,7 +226,7 @@ mod tests {
         assert!(result.is_err(), "expected error for unsupported format");
         let msg = format!("{}", result.unwrap_err());
         assert!(
-            msg.contains("Failed to parse YAML config"),
+            msg.contains("DOCX output is not yet supported"),
             "unexpected error: {}",
             msg
         );

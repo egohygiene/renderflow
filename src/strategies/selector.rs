@@ -1,6 +1,6 @@
 use anyhow::Result;
 
-use crate::config::OutputType;
+use crate::config::{unsupported_type_message, OutputType};
 use crate::strategies::{HtmlStrategy, OutputStrategy, PdfStrategy};
 
 /// Select an output strategy based on the given output type.
@@ -16,6 +16,9 @@ pub fn select_strategy(
     match output_type {
         OutputType::Html => Ok(Box::new(HtmlStrategy::new(template, template_dir))),
         OutputType::Pdf => Ok(Box::new(PdfStrategy::new(template, template_dir))),
+        OutputType::Unsupported(ref t) => {
+            anyhow::bail!("{}", unsupported_type_message(t))
+        }
     }
 }
 
@@ -50,5 +53,39 @@ mod tests {
             "templates".to_string(),
         );
         assert!(strategy.is_ok());
+    }
+
+    #[test]
+    fn test_select_strategy_unsupported_type_returns_error() {
+        // A planned-but-not-yet-implemented type must return a clear error from
+        // select_strategy, not a panic or an opaque failure.
+        let result = select_strategy(
+            OutputType::Unsupported("docx".to_string()),
+            None,
+            "templates".to_string(),
+        );
+        assert!(result.is_err());
+        let msg = format!("{}", result.err().expect("expected an error"));
+        assert!(
+            msg.contains("DOCX output is not yet supported"),
+            "unexpected error: {}",
+            msg
+        );
+    }
+
+    #[test]
+    fn test_select_strategy_truly_invalid_type_returns_error() {
+        let result = select_strategy(
+            OutputType::Unsupported("jpeg".to_string()),
+            None,
+            "templates".to_string(),
+        );
+        assert!(result.is_err());
+        let msg = format!("{}", result.err().expect("expected an error"));
+        assert!(
+            msg.contains("not a valid output type"),
+            "unexpected error: {}",
+            msg
+        );
     }
 }
