@@ -1,9 +1,9 @@
 # Rust / Cargo
 target/
-Cargo.lock
+# Cargo.lock
 
 # Editor and IDE
-.vscode/
+# .vscode/
 .idea/
 *.swp
 *.swo
@@ -15,3 +15,5 @@ Cargo.lock
 # OS artifacts
 .DS_Store
 Thumbs.db
+
+**/.history/
