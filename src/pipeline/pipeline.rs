@@ -41,11 +41,6 @@ impl Pipeline {
         }
         Ok(current)
     }
-
-    pub fn run(&self, input: String) -> Result<String> {
-        let transformed = self.run_transforms(input)?;
-        self.run_steps(transformed)
-    }
 }
 
 impl Default for Pipeline {
@@ -95,7 +90,8 @@ mod tests {
     #[test]
     fn test_pipeline_empty_returns_input() {
         let pipeline = Pipeline::new();
-        let result = pipeline.run("hello".to_string()).unwrap();
+        let transformed = pipeline.run_transforms("hello".to_string()).unwrap();
+        let result = pipeline.run_steps(transformed).unwrap();
         assert_eq!(result, "hello");
     }
 
@@ -103,7 +99,8 @@ mod tests {
     fn test_pipeline_single_step() {
         let mut pipeline = Pipeline::new();
         pipeline.add_step(Box::new(AppendStep(" world".to_string())));
-        let result = pipeline.run("hello".to_string()).unwrap();
+        let transformed = pipeline.run_transforms("hello".to_string()).unwrap();
+        let result = pipeline.run_steps(transformed).unwrap();
         assert_eq!(result, "hello world");
     }
 
@@ -115,7 +112,8 @@ mod tests {
             .add_step(Box::new(AppendStep(" step2".to_string())))
             .add_step(Box::new(AppendStep(" step3".to_string())));
 
-        let result = pipeline.run("input".to_string()).unwrap();
+        let transformed = pipeline.run_transforms("input".to_string()).unwrap();
+        let result = pipeline.run_steps(transformed).unwrap();
         assert_eq!(result, "input step1 step2 step3");
     }
 
@@ -140,7 +138,8 @@ mod tests {
             .add_step(Box::new(UppercaseStep))
             .add_step(Box::new(AppendExclamation));
 
-        let result = pipeline.run("hello".to_string()).unwrap();
+        let transformed = pipeline.run_transforms("hello".to_string()).unwrap();
+        let result = pipeline.run_steps(transformed).unwrap();
         assert_eq!(result, "HELLO!");
     }
 
@@ -152,7 +151,8 @@ mod tests {
             .add_step(Box::new(FailingStep))
             .add_step(Box::new(AppendStep(" never".to_string())));
 
-        let result = pipeline.run("input".to_string());
+        let transformed = pipeline.run_transforms("input".to_string()).unwrap();
+        let result = pipeline.run_steps(transformed);
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("step failed"));
     }
@@ -165,7 +165,7 @@ mod tests {
             .add_transform(Box::new(AppendTransform(" t2".to_string())))
             .add_transform(Box::new(AppendTransform(" t3".to_string())));
 
-        let result = pipeline.run("input".to_string()).unwrap();
+        let result = pipeline.run_transforms("input".to_string()).unwrap();
         assert_eq!(result, "input t1 t2 t3");
     }
 
@@ -176,7 +176,8 @@ mod tests {
             .add_transform(Box::new(AppendTransform(" transformed".to_string())))
             .add_step(Box::new(AppendStep(" rendered".to_string())));
 
-        let result = pipeline.run("input".to_string()).unwrap();
+        let transformed = pipeline.run_transforms("input".to_string()).unwrap();
+        let result = pipeline.run_steps(transformed).unwrap();
         assert_eq!(result, "input transformed rendered");
     }
 
@@ -188,7 +189,7 @@ mod tests {
             .add_transform(Box::new(FailingTransform))
             .add_transform(Box::new(AppendTransform(" never".to_string())));
 
-        let result = pipeline.run("input".to_string());
+        let result = pipeline.run_transforms("input".to_string());
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("transform failed"));
     }
@@ -207,7 +208,7 @@ mod tests {
             .add_transform(Box::new(UppercaseTransform))
             .add_transform(Box::new(AppendTransform("!".to_string())));
 
-        let result = pipeline.run("hello".to_string()).unwrap();
+        let result = pipeline.run_transforms("hello".to_string()).unwrap();
         assert_eq!(result, "HELLO!");
     }
 }
