@@ -10,7 +10,7 @@ use crate::files::{ensure_output_dir, validate_input};
 use crate::pipeline::{Pipeline, StrategyStep};
 use crate::strategies::select_strategy;
 use crate::template::init_tera;
-use crate::transforms::{EmojiTransform, SyntaxHighlightTransform, VariableSubstitutionTransform};
+use crate::transforms::{register_transforms, TransformRegistry};
 
 pub fn run(config_path: &str, dry_run: bool) -> Result<()> {
     if dry_run {
@@ -92,19 +92,12 @@ pub fn run(config_path: &str, dry_run: bool) -> Result<()> {
         let output_path = format!("{}/{}.{}", output_dir.display(), input_stem, format);
         info!(format = %format, output = %output_path, template = ?output.template, "Running pipeline for format");
 
-        let mut pipeline = Pipeline::new();
-        pipeline.add_transform(Box::new(EmojiTransform::new()));
-        pipeline.add_transform(Box::new(SyntaxHighlightTransform::new()));
-        if !config.variables.is_empty() {
-            pipeline.add_transform(Box::new(VariableSubstitutionTransform::new(
-                config.variables.clone(),
-            )));
-        }
+        let registry: TransformRegistry = register_transforms(&config.variables);
 
         // Transforms are pure in-memory operations (no files, no external commands),
         // so they run in both normal and dry-run mode to give an accurate preview.
         pb.set_message(format!("[{format}] Applying transforms"));
-        let transformed = match pipeline.run_transforms(normalized_content.clone()) {
+        let transformed = match registry.apply_all(normalized_content.clone()) {
             Ok(t) => t,
             Err(e) => {
                 warn!(format = %format, error = %e, "Transform failed for output format");
@@ -123,6 +116,7 @@ pub fn run(config_path: &str, dry_run: bool) -> Result<()> {
             pb.println(format!("[dry-run] Would write output to: {}", output_path));
         } else {
             let strategy = select_strategy(format.clone(), output.template.clone(), "templates".to_string())?;
+            let mut pipeline = Pipeline::new();
             pipeline.add_step(Box::new(StrategyStep::new(strategy, &output_path)));
 
             pb.set_message(format!("[{format}] Rendering output"));
