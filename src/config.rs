@@ -1,17 +1,38 @@
 use anyhow::{Context, Result};
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
 use std::fmt;
 use std::fs;
+
+/// Link to the project issue tracker for users to follow planned features.
+const TRACKER_URL: &str = "https://github.com/egohygiene/renderflow";
 
 fn default_output_dir() -> String {
     "dist".to_string()
 }
 
-#[derive(Debug, Deserialize, Clone, Copy, PartialEq)]
-#[serde(rename_all = "lowercase")]
+#[derive(Debug, Clone, PartialEq)]
 pub enum OutputType {
     Html,
     Pdf,
+    /// An output type that was recognised in the YAML but is not yet implemented
+    /// or is entirely unknown.  Storing the raw string allows us to produce a
+    /// targeted, user-friendly error message later (in validation / strategy
+    /// selection) instead of a cryptic serde parse failure.
+    Unsupported(String),
+}
+
+impl<'de> Deserialize<'de> for OutputType {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        match s.to_lowercase().as_str() {
+            "html" => Ok(OutputType::Html),
+            "pdf" => Ok(OutputType::Pdf),
+            other => Ok(OutputType::Unsupported(other.to_string())),
+        }
+    }
 }
 
 impl fmt::Display for OutputType {
@@ -19,7 +40,25 @@ impl fmt::Display for OutputType {
         match self {
             OutputType::Html => write!(f, "html"),
             OutputType::Pdf => write!(f, "pdf"),
+            OutputType::Unsupported(s) => write!(f, "{}", s),
         }
+    }
+}
+
+/// Return a clear, user-facing message for an unsupported output type.
+///
+/// Known planned types (e.g. `docx`) receive a specific "not yet supported"
+/// message; truly unknown strings get a generic "invalid type" message.
+pub fn unsupported_type_message(type_str: &str) -> String {
+    match type_str {
+        "docx" => format!(
+            "DOCX output is not yet supported. Track progress at: {}",
+            TRACKER_URL
+        ),
+        other => format!(
+            "'{}' is not a valid output type. Supported types are: html, pdf",
+            other
+        ),
     }
 }
 
@@ -48,6 +87,21 @@ impl Config {
             anyhow::bail!(
                 "Config validation failed: 'outputs' must contain at least one entry"
             );
+        }
+        // Collect all unsupported types so the user sees every problem at once.
+        let bad: Vec<String> = self
+            .outputs
+            .iter()
+            .filter_map(|o| {
+                if let OutputType::Unsupported(ref t) = o.output_type {
+                    Some(unsupported_type_message(t))
+                } else {
+                    None
+                }
+            })
+            .collect();
+        if !bad.is_empty() {
+            anyhow::bail!("{}", bad.join("\n"));
         }
         Ok(())
     }
@@ -188,6 +242,8 @@ output_dir: "dist"
 
     #[test]
     fn test_load_config_invalid_output_type() {
+        // "docx" is a planned-but-not-yet-implemented type; it must produce a
+        // clear "not yet supported" message rather than a cryptic YAML error.
         let yaml = r#"
 outputs:
   - type: docx
@@ -198,6 +254,58 @@ output_dir: "dist"
         let result = load_config(f.path().to_str().unwrap());
         assert!(result.is_err());
         let msg = format!("{}", result.unwrap_err());
-        assert!(msg.contains("Failed to parse YAML config"), "unexpected error: {}", msg);
+        assert!(
+            msg.contains("DOCX output is not yet supported"),
+            "unexpected error: {}",
+            msg
+        );
+    }
+
+    #[test]
+    fn test_load_config_truly_invalid_type() {
+        // A completely unknown type must produce a clear "not a valid output type"
+        // message without crashing the YAML parser.
+        let yaml = r#"
+outputs:
+  - type: jpeg
+input: "input.md"
+output_dir: "dist"
+"#;
+        let f = write_temp_yaml(yaml);
+        let result = load_config(f.path().to_str().unwrap());
+        assert!(result.is_err());
+        let msg = format!("{}", result.unwrap_err());
+        assert!(
+            msg.contains("not a valid output type"),
+            "unexpected error: {}",
+            msg
+        );
+    }
+
+    #[test]
+    fn test_load_config_multiple_unsupported_types_reports_all() {
+        // When more than one unsupported type is present, all of them must be
+        // reported in a single error rather than stopping after the first one.
+        let yaml = r#"
+outputs:
+  - type: docx
+  - type: jpeg
+input: "input.md"
+output_dir: "dist"
+"#;
+        let f = write_temp_yaml(yaml);
+        let result = load_config(f.path().to_str().unwrap());
+        assert!(result.is_err());
+        let msg = format!("{}", result.unwrap_err());
+        assert!(
+            msg.contains("DOCX output is not yet supported"),
+            "expected docx error in: {}",
+            msg
+        );
+        assert!(
+            msg.contains("not a valid output type"),
+            "expected invalid-type error in: {}",
+            msg
+        );
     }
 }
