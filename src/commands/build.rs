@@ -10,7 +10,7 @@ use crate::files::{ensure_output_dir, validate_input};
 use crate::pipeline::{Pipeline, StrategyStep};
 use crate::strategies::select_strategy;
 use crate::template::init_tera;
-use crate::transforms::{EmojiTransform, VariableSubstitutionTransform};
+use crate::transforms::{EmojiTransform, SyntaxHighlightTransform, VariableSubstitutionTransform};
 
 pub fn run(config_path: &str, dry_run: bool) -> Result<()> {
     if dry_run {
@@ -94,6 +94,7 @@ pub fn run(config_path: &str, dry_run: bool) -> Result<()> {
 
         let mut pipeline = Pipeline::new();
         pipeline.add_transform(Box::new(EmojiTransform::new()));
+        pipeline.add_transform(Box::new(SyntaxHighlightTransform::new()));
         if !config.variables.is_empty() {
             pipeline.add_transform(Box::new(VariableSubstitutionTransform::new(
                 config.variables.clone(),
