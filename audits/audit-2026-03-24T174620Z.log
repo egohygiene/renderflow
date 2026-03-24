@@ -1,0 +1,1107 @@
+Repository Audit
+================
+Timestamp : 2026-03-24T17:46:20Z
+Auditor   : Copilot (AI agent)
+Branch    : copilot/generate-architecture-audit
+Commit    : 3082ecf699421924406c08497516f80fc46fd667
+Purpose   : Advanced architecture audit — output strategy matrix, system evolution
+
+================================================================================
+1. SUMMARY
+================================================================================
+
+Renderflow is a spec-driven document rendering engine written in Rust. It
+transforms Markdown source documents into multiple output formats (HTML, PDF,
+DOCX) through a two-phase pipeline driven by a YAML configuration file.
+
+Since the previous audit (2026-03-24T015508Z), several significant improvements
+have landed:
+
+  - DOCX output strategy implemented and tested (DocxStrategy)
+  - Three pluggable transforms registered (Emoji, VariableSubstitution,
+    SyntaxHighlight)
+  - Named transform errors for precise diagnostics
+  - Configurable fail-fast / continue-on-failure mode in TransformRegistry
+  - Template paths passed through to pandoc via --template / --reference-doc
+
+The architecture is clean, idiomatic, and well-tested. The core rendering
+pipeline is production-ready for the md → html / pdf / docx use case.
+
+The primary areas of strategic concern are:
+
+  1. The output strategy system is format-hardcoded and does not support
+     arbitrary input → output format combinations.
+  2. The transform system lacks a plugin/extension point for user-defined
+     transforms outside the core crate.
+  3. There is no intermediate representation (IR) layer, which limits future
+     cross-format reuse and optimisation.
+  4. Several unused methods create API surface confusion.
+
+High-Level Readiness:
+  - Core build pipeline (md → html/pdf/docx):      READY
+  - Template rendering (pandoc --template wired):   READY
+  - Transform pipeline (3 transforms registered):   READY
+  - Fail-fast / continue-on-failure mode:           READY
+  - Multi-format output (single pass):              READY
+  - Input format flexibility (md only):             NOT STARTED
+  - Plugin/extension system:                        NOT STARTED
+  - Intermediate representation layer:              NOT STARTED
+  - Watch mode / incremental builds:                NOT STARTED
+  - Caching / parallelism:                          NOT STARTED
+
+================================================================================
+2. FILES / MODULES REVIEWED
+================================================================================
+
+Core Entry Point:
+  - src/main.rs                        CLI bootstrapping, log level, command dispatch
+
+CLI and Configuration:
+  - src/cli.rs                         Clap-based CLI (Cli struct, Commands enum)
+  - src/config.rs                      YAML config parsing; OutputType, Config, validation
+
+Pipeline:
+  - src/pipeline/pipeline.rs           Two-phase pipeline (transforms + steps)
+  - src/pipeline/step.rs               PipelineStep trait
+  - src/pipeline/strategy_step.rs      StrategyStep: PipelineStep wrapper for OutputStrategy
+  - src/pipeline/pandoc_step.rs        PandocStep: direct pandoc invocation step
+  - src/pipeline/mod.rs                Pipeline module re-exports
+
+Strategies (Output Format Layer):
+  - src/strategies/strategy.rs         OutputStrategy trait
+  - src/strategies/selector.rs         select_strategy() factory
+  - src/strategies/html.rs             HtmlStrategy — pandoc → HTML
+  - src/strategies/pdf.rs              PdfStrategy  — pandoc + tectonic → PDF
+  - src/strategies/docx.rs             DocxStrategy — pandoc → DOCX
+  - src/strategies/mod.rs              Strategy module re-exports
+
+Transforms (In-Memory Content Pipeline):
+  - src/transforms/transform.rs        Transform trait (name(), apply())
+  - src/transforms/registry.rs         TransformRegistry (fail-fast, apply_all)
+  - src/transforms/emoji.rs            EmojiTransform — replaces emoji with [emoji]
+  - src/transforms/variable.rs         VariableSubstitutionTransform — {{key}} → value
+  - src/transforms/syntax_highlight.rs SyntaxHighlightTransform — normalise code fence langs
+  - src/transforms/mod.rs              Transform module re-exports
+
+Adapters:
+  - src/adapters/command.rs            run_command() — subprocess execution with error context
+  - src/adapters/mod.rs                Adapter module re-exports
+
+Support Modules:
+  - src/files.rs                       validate_input(), ensure_output_dir()
+  - src/assets.rs                      normalize_asset_paths(), resolve_asset_path()
+  - src/template.rs                    init_tera() — Tera template engine initialisation
+
+Build Commands:
+  - src/commands/build.rs              Full build orchestration, progress bar, error aggregation
+  - src/commands/mod.rs                Commands module declaration
+
+Tests:
+  - tests/cli_tests.rs                 CLI integration tests (flags, subcommands)
+  - tests/pipeline_integration_test.rs End-to-end pipeline integration tests
+  - tests/common/                      Shared test helpers
+
+Project Configuration:
+  - Cargo.toml                         Package manifest; dependency versions
+  - Cargo.lock                         Dependency lockfile (tracked in VCS)
+  - renderflow.yaml                    Example project configuration
+  - Taskfile.yml                       Developer task automation
+  - README.md                          Project documentation
+
+Audit History:
+  - audits/audit-2026-03-24T015508Z.log   Previous architecture audit
+
+================================================================================
+3. FINDINGS
+================================================================================
+
+──────────────────────────────────────────────────────────────────────────────
+FINDING-01 [CRITICAL]
+──────────────────────────────────────────────────────────────────────────────
+Title      : No input format abstraction — input is hardcoded to Markdown
+Description: Every OutputStrategy passes "--from markdown" to pandoc as a
+             literal string. The Config struct's `input` field is a raw file
+             path with no type annotation. There is no InputFormat type, no
+             detection of input format by file extension, and no mechanism for
+             callers to declare "this is an RST/HTML/DOCX input file."
+Impact     : Impossible to implement docx → pdf, html → pdf, epub → html, or
+             any non-Markdown input without touching the internals of each
+             strategy. The output strategy matrix (see Section 4) cannot be
+             realised without this abstraction.
+Root Cause : V1 scope assumption that input is always Markdown. The pandoc
+             "--from markdown" flag is embedded in strategy render() calls
+             rather than derived from config or input file metadata.
+
+──────────────────────────────────────────────────────────────────────────────
+FINDING-02 [CRITICAL]
+──────────────────────────────────────────────────────────────────────────────
+Title      : No intermediate representation (IR) layer
+Description: The pipeline passes raw text strings between transforms and
+             strategies. There is no typed document IR (e.g. AST, structured
+             content model) shared between the transform phase and the strategy
+             phase. Each strategy independently re-parses or delegates to
+             pandoc from scratch.
+Impact     : Cross-format reuse of processed content is impossible. Two
+             simultaneous outputs (e.g. html + pdf) each invoke pandoc
+             separately on the original source, repeating all parsing and
+             transformation work. A shared IR would enable single-parse,
+             multi-output rendering and support richer semantic transforms
+             that operate on structure rather than raw text.
+Root Cause : String-passing pipeline was sufficient for the initial scope.
+             Pandoc's own AST (JSON format) could serve as a pragmatic IR
+             without introducing a new dependency.
+
+──────────────────────────────────────────────────────────────────────────────
+FINDING-03 [WARNING]
+──────────────────────────────────────────────────────────────────────────────
+Title      : Pipeline::run_transforms() and TransformRegistry::with_fail_fast()
+             are unused in the main code path
+Description: The Pipeline struct exposes run_transforms() and run_steps() but
+             commands/build.rs uses TransformRegistry::apply_all() directly and
+             only calls Pipeline::run_steps() for rendering. The Pipeline
+             struct's transform phase is entirely bypassed. Additionally,
+             TransformRegistry::with_fail_fast() is declared pub but never
+             called by production code — fail_fast defaults to true and is
+             never overridden by the build command.
+Impact     : Dead public API surface increases maintenance burden and creates
+             confusion about the intended integration point. Callers who read
+             the Pipeline API may attempt to use run_transforms() unaware that
+             the build command doesn't go through it. The fail-fast toggle is a
+             valuable feature that is effectively hidden.
+Root Cause : The Pipeline and TransformRegistry were built as independent
+             units; the build orchestration wires them together in an ad-hoc
+             way rather than through a unified entry point.
+
+──────────────────────────────────────────────────────────────────────────────
+FINDING-04 [WARNING]
+──────────────────────────────────────────────────────────────────────────────
+Title      : No plugin / extension system for user-defined transforms
+Description: The Transform trait is defined in the core crate and transforms
+             are hardcoded in register_transforms(). There is no mechanism for
+             external crates or configuration-level extensions to register
+             custom transforms without modifying the core source. The fail-fast
+             / continue-on-failure mode demonstrates that the registry design is
+             mature enough to support dynamic registration, but the entry point
+             is not exposed.
+Impact     : Users who need custom preprocessing (e.g. custom variable syntax,
+             citation expansion, diagram-as-code pre-processing) must fork the
+             project or maintain patches.
+Root Cause : No external extension API designed yet. The Transform trait is
+             pub, but register_transforms() is the only factory and is not
+             configurable from renderflow.yaml.
+
+──────────────────────────────────────────────────────────────────────────────
+FINDING-05 [WARNING]
+──────────────────────────────────────────────────────────────────────────────
+Title      : Output renders are sequential — no parallelism
+Description: commands/build.rs iterates over config.outputs in a for loop,
+             rendering each format sequentially. For a three-output config
+             (html + pdf + docx) the total render time is the sum of all
+             pandoc invocations rather than the maximum.
+Impact     : Performance degrades linearly with the number of output formats.
+             Pandoc invocations for independent output formats (e.g. html and
+             docx) could be fully parallelised. This is especially impactful
+             for PDF rendering via tectonic, which can take several seconds.
+Root Cause : The initial sequential implementation is correct and simpler.
+             Parallelism was deferred as a future optimisation.
+
+──────────────────────────────────────────────────────────────────────────────
+FINDING-06 [WARNING]
+──────────────────────────────────────────────────────────────────────────────
+Title      : EmojiTransform replaces emoji with "[emoji]" placeholder
+Description: The EmojiTransform converts emoji characters to the literal
+             string "[emoji]". This is a lossy, destructive transform — the
+             original emoji character is discarded and the placeholder is not
+             semantically meaningful in most document contexts (HTML, DOCX).
+             Pandoc supports emoji rendering natively via the --from flag or
+             the `emoji` extension.
+Impact     : Documents authored with emoji (increasingly common in technical
+             writing) will produce unexpected "[emoji]" strings in all output
+             formats. Users are unlikely to expect this behaviour.
+Root Cause : The transform was likely implemented to handle PDF/LaTeX rendering
+             where emoji require special handling. However, the current
+             implementation is applied unconditionally to all output formats,
+             including HTML where emoji render natively.
+
+──────────────────────────────────────────────────────────────────────────────
+FINDING-07 [WARNING]
+──────────────────────────────────────────────────────────────────────────────
+Title      : Template system covers HTML only; PDF and DOCX templates not
+             validated at initialisation
+Description: init_tera() loads only *.html files from the templates directory.
+             PdfStrategy uses a LaTeX template via pandoc --template, and
+             DocxStrategy uses a reference DOCX via --reference-doc, but
+             neither is pre-validated by the Tera engine. The early template
+             warning in build.rs (checking tera.get_template_names()) only
+             catches HTML template mismatches; missing PDF or DOCX templates
+             are silently ignored until render time.
+Impact     : A misconfigured PDF or DOCX template will not surface until pandoc
+             is actually invoked, potentially after a long transform phase.
+             The user experience could be improved with early validation of all
+             template types.
+Root Cause : Tera was chosen as the template engine for HTML, and its API was
+             reused for early validation without considering that the other
+             strategies use different template mechanisms.
+
+──────────────────────────────────────────────────────────────────────────────
+FINDING-08 [MINOR]
+──────────────────────────────────────────────────────────────────────────────
+Title      : VariableSubstitutionTransform uses naive {{key}} regex matching
+Description: The variable substitution transform performs simple string search-
+             and-replace using {{key}} patterns without considering Markdown
+             context. A variable reference inside a fenced code block or an
+             inline code span will be substituted, which may corrupt examples
+             or documentation that legitimately contain {{...}} syntax.
+Impact     : Documents that contain code examples with template-like syntax
+             (e.g. Go templates, Helm charts, Jinja2 examples) will have those
+             examples corrupted during variable substitution.
+Root Cause : Simple implementation. Context-aware substitution requires either
+             a Markdown parser or a two-pass approach that skips code spans.
+
+──────────────────────────────────────────────────────────────────────────────
+FINDING-09 [MINOR]
+──────────────────────────────────────────────────────────────────────────────
+Title      : PandocStep is defined but not used in the primary build path
+Description: src/pipeline/pandoc_step.rs defines a PandocStep struct that
+             wraps pandoc invocations as a PipelineStep. However, the build
+             command uses OutputStrategy implementations (HtmlStrategy,
+             PdfStrategy, DocxStrategy) via StrategyStep, not PandocStep.
+             PandocStep appears to be an earlier iteration of the strategy
+             execution mechanism.
+Impact     : Dead code increases codebase size and creates confusion about
+             which abstraction is canonical for pandoc invocations.
+Root Cause : Architectural iteration — the strategy pattern superseded the
+             direct PandocStep approach but the old code was not removed.
+
+──────────────────────────────────────────────────────────────────────────────
+FINDING-10 [MINOR]
+──────────────────────────────────────────────────────────────────────────────
+Title      : No caching of transform outputs between output formats
+Description: For a config with multiple output formats, the full transform
+             pipeline (emoji, variable substitution, syntax highlight) is
+             executed once per output format. Since transforms are pure
+             functions of the same input content and the same config variables,
+             the output is identical for every format.
+Impact     : Redundant CPU work proportional to the number of output formats.
+             For large documents with many transforms this is wasteful.
+Root Cause : The current loop structure (for output in &config.outputs)
+             re-creates and re-runs the transform registry for each output
+             rather than caching the transform result and reusing it.
+
+──────────────────────────────────────────────────────────────────────────────
+FINDING-11 [MINOR]
+──────────────────────────────────────────────────────────────────────────────
+Title      : README lists Tera/Jinja2 templates as a feature but omits DOCX
+Description: The README Features section lists "Custom templates — Per-output
+             Jinja2-compatible templates via Tera" but does not mention DOCX
+             reference-doc support. The Supported Output Types table shows only
+             html and pdf, omitting docx (which is now fully implemented and
+             tested). The Roadmap still lists "DOCX output format" as pending.
+Impact     : User-facing documentation does not reflect the current capabilities
+             of the system, which may cause confusion or undersell the tool.
+Root Cause : Documentation was not updated when DOCX support was implemented.
+
+================================================================================
+4. OUTPUT STRATEGY MATRIX DESIGN
+================================================================================
+
+This section proposes a design for supporting arbitrary input → output format
+combinations, addressing FINDING-01.
+
+──────────────────────────────────────────────────────────────────────────────
+4.1 Current State
+──────────────────────────────────────────────────────────────────────────────
+
+  Input Format   Output Formats    Status
+  ───────────────────────────────────────
+  Markdown (.md) html              READY
+  Markdown (.md) pdf               READY
+  Markdown (.md) docx              READY
+  All others     All               NOT SUPPORTED
+
+──────────────────────────────────────────────────────────────────────────────
+4.2 Proposed Output Strategy Matrix
+──────────────────────────────────────────────────────────────────────────────
+
+  Input Format   Output Format    Pandoc From    Engine          Priority
+  ──────────────────────────────────────────────────────────────────────
+  markdown       html             markdown       pandoc          P0 (done)
+  markdown       pdf              markdown       pandoc+tectonic P0 (done)
+  markdown       docx             markdown       pandoc          P0 (done)
+  markdown       epub             markdown       pandoc          P1
+  markdown       latex            markdown       pandoc          P1
+  markdown       rst              markdown       pandoc          P2
+  markdown       plain            markdown       pandoc          P2
+  markdown       slides (revealjs)markdown       pandoc          P2
+  markdown       slides (beamer)  markdown       pandoc+tectonic P2
+  docx           html             docx           pandoc          P1
+  docx           pdf              docx           pandoc+tectonic P1
+  docx           markdown         docx           pandoc          P1
+  html           pdf              html           pandoc+tectonic P1
+  html           markdown         html           pandoc          P2
+  epub           html             epub           pandoc          P2
+  epub           pdf              epub           pandoc+tectonic P2
+  rst            html             rst            pandoc          P2
+  rst            pdf              rst            pandoc+tectonic P2
+  latex          pdf              latex          tectonic/pdflatex P1
+  odt            html/pdf/docx    odt            pandoc          P3
+
+──────────────────────────────────────────────────────────────────────────────
+4.3 Recommended Architecture for Multi-Format Support
+──────────────────────────────────────────────────────────────────────────────
+
+Step 1 — Add InputFormat type to config.rs:
+
+  pub enum InputFormat {
+      Markdown,
+      Docx,
+      Html,
+      Epub,
+      Rst,
+      Latex,
+      // ... auto-detected from file extension when not specified
+  }
+
+  impl Config {
+      pub fn input_format(&self) -> InputFormat {
+          InputFormat::from_extension(&self.input)
+              .unwrap_or(InputFormat::Markdown)
+      }
+  }
+
+Step 2 — Pass InputFormat to select_strategy():
+
+  pub fn select_strategy(
+      input_format: InputFormat,
+      output_type: OutputType,
+      template: Option<String>,
+      template_dir: String,
+  ) -> Result<Box<dyn OutputStrategy>>
+
+  Each strategy implementation reads self.input_format to set the
+  pandoc --from flag dynamically.
+
+Step 3 — Validate compatibility at config load time:
+
+  Add a compatibility matrix check in Config::validate():
+
+    fn is_supported_combination(input: &InputFormat, output: &OutputType) -> bool {
+        // ...
+    }
+
+  Return a clear error when an unsupported combination is requested:
+  "Input format 'epub' → output format 'docx' is not yet supported."
+
+Step 4 — Expose in YAML config (backward-compatible):
+
+  input: "document.docx"
+  input_format: docx        # optional — auto-detected from extension
+  outputs:
+    - type: html
+    - type: pdf
+
+  The input_format key defaults to auto-detection, preserving backward
+  compatibility for existing renderflow.yaml files.
+
+================================================================================
+5. ADDITIONAL OUTPUT FORMAT SUGGESTIONS
+================================================================================
+
+The following formats are recommended as high-value additions to Renderflow,
+ordered by implementation complexity and user demand.
+
+──────────────────────────────────────────────────────────────────────────────
+FORMAT-01: EPUB (Priority P1)
+──────────────────────────────────────────────────────────────────────────────
+Rationale   : EPUB is the standard format for e-books and long-form technical
+              documentation. pandoc supports md → epub3 natively.
+Dependencies: pandoc (already required)
+Config type : epub
+Pandoc flags: --from markdown -o output.epub --epub-cover-image=cover.png
+Template    : --epub-metadata (XML), CSS stylesheet
+Complexity  : Low — single pandoc invocation, no additional engine
+
+──────────────────────────────────────────────────────────────────────────────
+FORMAT-02: LaTeX Source (Priority P1)
+──────────────────────────────────────────────────────────────────────────────
+Rationale   : Publishing workflows frequently require LaTeX source for journal
+              submission (arXiv, academic publishers). Rendering to .tex (not
+              .pdf) allows further manual editing.
+Dependencies: pandoc (already required)
+Config type : latex
+Pandoc flags: --from markdown -o output.tex
+Template    : pandoc LaTeX templates or custom .tex header
+Complexity  : Low — no additional engine; LaTeX template support via --template
+
+──────────────────────────────────────────────────────────────────────────────
+FORMAT-03: Reveal.js Slides (Priority P2)
+──────────────────────────────────────────────────────────────────────────────
+Rationale   : Slide decks from Markdown are popular in developer/technical
+              communities. Reveal.js produces interactive browser-based slides
+              from pandoc's revealjs output format.
+Dependencies: pandoc; reveal.js CDN or local install
+Config type : revealjs
+Pandoc flags: -t revealjs --standalone -o output.html
+Template    : Custom reveal.js theme CSS
+Complexity  : Medium — requires bundling reveal.js assets or CDN configuration
+
+──────────────────────────────────────────────────────────────────────────────
+FORMAT-04: Beamer PDF Slides (Priority P2)
+──────────────────────────────────────────────────────────────────────────────
+Rationale   : Academic and scientific presentations in PDF format via LaTeX
+              Beamer. Pairs with the existing tectonic dependency.
+Dependencies: pandoc + tectonic (already required for PDF)
+Config type : beamer
+Pandoc flags: -t beamer -o output.pdf --pdf-engine=tectonic
+Complexity  : Low — reuses existing tectonic infrastructure
+
+──────────────────────────────────────────────────────────────────────────────
+FORMAT-05: Plain Text / Typst (Priority P2)
+──────────────────────────────────────────────────────────────────────────────
+Rationale   : Plain text output (.txt) is useful for accessibility, email,
+              and terminal contexts. Typst is an emerging alternative to LaTeX
+              with simpler syntax and faster compilation.
+Dependencies: pandoc (plain text); typst binary (Typst)
+Config type : plain / typst
+Complexity  : Low (plain text via pandoc); Medium (Typst — new dependency)
+
+──────────────────────────────────────────────────────────────────────────────
+FORMAT-06: ReStructuredText (Priority P3)
+──────────────────────────────────────────────────────────────────────────────
+Rationale   : RST is the standard for Python/Sphinx documentation. Renderflow
+              could serve as a bridge from Markdown-authored content to
+              Sphinx-based documentation sites.
+Dependencies: pandoc (already required)
+Config type : rst
+Pandoc flags: -t rst -o output.rst
+Complexity  : Low
+
+──────────────────────────────────────────────────────────────────────────────
+FORMAT-07: Man Page (Priority P3)
+──────────────────────────────────────────────────────────────────────────────
+Rationale   : CLI tools with Markdown-authored man pages could use Renderflow
+              to produce installable man pages from the same source.
+Dependencies: pandoc (already required)
+Config type : man
+Pandoc flags: -t man -o output.1
+Complexity  : Low
+
+================================================================================
+6. STRATEGY SYSTEM IMPROVEMENTS
+================================================================================
+
+──────────────────────────────────────────────────────────────────────────────
+6.1 Current Design Assessment
+──────────────────────────────────────────────────────────────────────────────
+
+The OutputStrategy trait is clean and minimal:
+
+  pub trait OutputStrategy {
+      fn render(&self, input: &str, output_path: &str) -> Result<()>;
+  }
+
+Strengths:
+  - Simple interface; easy to implement new strategies
+  - Box<dyn OutputStrategy> enables runtime polymorphism
+  - select_strategy() factory centralises strategy selection
+  - Template/reference-doc plumbing is consistent across strategies
+
+Weaknesses:
+  - input parameter is a string (file path), not a typed document
+  - No metadata passed to the strategy (input format, config variables, etc.)
+  - Strategy cannot signal partial success or warnings
+  - No lifecycle hooks (pre-render validation, post-render cleanup)
+
+──────────────────────────────────────────────────────────────────────────────
+6.2 Recommended Improvements
+──────────────────────────────────────────────────────────────────────────────
+
+IMPROVEMENT-S1: Introduce a RenderContext struct
+  Pass a typed context object instead of raw strings:
+
+    pub struct RenderContext<'a> {
+        pub input_path: &'a str,
+        pub input_format: InputFormat,
+        pub output_path: &'a str,
+        pub variables: &'a HashMap<String, String>,
+        pub dry_run: bool,
+    }
+
+    pub trait OutputStrategy {
+        fn render(&self, ctx: &RenderContext) -> Result<()>;
+    }
+
+  This makes the interface stable under future additions (new context fields
+  are backward-compatible with a struct, but not with positional arguments).
+
+IMPROVEMENT-S2: Add a validate() lifecycle hook
+  Allow strategies to perform pre-render validation (e.g. check tool
+  availability, verify template exists) before any I/O begins:
+
+    pub trait OutputStrategy {
+        fn validate(&self, ctx: &RenderContext) -> Result<()> { Ok(()) }
+        fn render(&self, ctx: &RenderContext) -> Result<()>;
+    }
+
+  The build command calls validate() for all strategies upfront (fail-fast),
+  then proceeds to render only after all validations pass. This surfaces
+  "tectonic not installed" errors before transforms run.
+
+IMPROVEMENT-S3: Composable strategy decorators
+  Support wrapping strategies with cross-cutting concerns:
+
+    pub struct PostProcessStrategy<S: OutputStrategy> {
+        inner: S,
+        post_process: Box<dyn Fn(&str) -> Result<()>>,
+    }
+
+  Examples: file size logging, output validation, asset embedding.
+
+IMPROVEMENT-S4: Strategy registry (config-driven selection)
+  Replace the match-based select_strategy() with a registry that maps type
+  names to factory functions:
+
+    pub struct StrategyRegistry {
+        factories: HashMap<String, Box<dyn StrategyFactory>>,
+    }
+
+  This enables third-party strategies to be registered without modifying the
+  core selector, supporting the plugin system described in Section 9.
+
+================================================================================
+7. TRANSFORM SYSTEM IMPROVEMENTS
+================================================================================
+
+──────────────────────────────────────────────────────────────────────────────
+7.1 Current Design Assessment
+──────────────────────────────────────────────────────────────────────────────
+
+The Transform trait is well-designed:
+
+  pub trait Transform {
+      fn name(&self) -> &'static str { "Transform" }
+      fn apply(&self, input: String) -> Result<String>;
+  }
+
+Registered transforms (in order):
+  1. EmojiTransform          — replaces emoji with [emoji]
+  2. VariableSubstitutionTransform — {{key}} → value
+  3. SyntaxHighlightTransform      — normalise code fence language tags
+
+The TransformRegistry supports fail-fast and continue-on-failure modes,
+and logs each transform start/completion at DEBUG level.
+
+Weaknesses:
+  - Transforms operate on raw strings; no Markdown AST awareness
+  - EmojiTransform is unconditionally lossy (see FINDING-06)
+  - Variable substitution corrupts code blocks (see FINDING-08)
+  - No output-format-aware transforms (HTML-only vs. all-format transforms)
+  - Plugin/extension point not exposed (see FINDING-04)
+
+──────────────────────────────────────────────────────────────────────────────
+7.2 Recommended Missing Transforms
+──────────────────────────────────────────────────────────────────────────────
+
+TRANSFORM-01: FootnoteExpansionTransform
+  Expand custom footnote syntax (e.g. [^1]: ...) or cross-references before
+  passing to pandoc. Pandoc handles standard Markdown footnotes, but custom
+  extensions benefit from pre-processing.
+
+TRANSFORM-02: FrontMatterStripTransform
+  Strip or extract YAML front matter (---) from the document before rendering.
+  Pandoc handles front matter via --metadata-file, but separating it at the
+  transform layer enables variable injection from front matter keys.
+
+TRANSFORM-03: IncludeDirectiveTransform
+  Support file include directives (e.g. !include path/to/file.md) for
+  composing large documents from smaller fragments. This is a frequently
+  requested feature in documentation tooling.
+
+TRANSFORM-04: DiagramAsCodeTransform
+  Transform fenced code blocks annotated with diagram languages (mermaid,
+  plantuml, graphviz) into embedded image references before pandoc rendering.
+  Requires calling the respective CLI tools as subprocesses.
+
+TRANSFORM-05: OutputFormatFilterTransform
+  A meta-transform that wraps other transforms and applies them only for
+  specific output formats (e.g. apply EmojiTransform only for PDF/LaTeX,
+  not for HTML where emoji render natively):
+
+    pub struct FormatFilterTransform {
+        inner: Box<dyn Transform>,
+        formats: Vec<OutputType>,
+    }
+
+──────────────────────────────────────────────────────────────────────────────
+7.3 Plugin System Design
+──────────────────────────────────────────────────────────────────────────────
+
+Near-term (configuration-driven):
+  Allow external transform binaries to be registered via renderflow.yaml:
+
+    transforms:
+      - name: "custom-preprocessor"
+        command: "./scripts/preprocess.sh"
+        on_error: continue   # or: fail
+
+  The build command wraps each command in a ShellTransform that pipes the
+  document content through stdin/stdout, enabling arbitrary preprocessing
+  without requiring Rust code.
+
+Long-term (Rust dynamic linking or WASM):
+  Expose a stable ABI for Transform implementations via a plugin crate:
+
+    renderflow-plugin = { version = "0.1", path = "./renderflow-plugin" }
+
+  Transform implementations in external crates are loaded via dynamic
+  linking (libloading) or compiled to WASM and run in a sandboxed executor.
+  WASM sandboxing is preferred for security isolation.
+
+================================================================================
+8. PERFORMANCE & SCALABILITY
+================================================================================
+
+──────────────────────────────────────────────────────────────────────────────
+8.1 Caching
+──────────────────────────────────────────────────────────────────────────────
+
+CACHE-01: Transform result caching (immediate win)
+  The transform pipeline produces identical output for the same (input,
+  variables) pair regardless of output format. Cache the transformed content
+  string before the per-format loop:
+
+    // In commands/build.rs — before the output format loop
+    let registry = register_transforms(&config.variables);
+    let transformed = registry.apply_all(normalized_content.clone())?;
+
+    for output in &config.outputs {
+        // Use pre-computed `transformed` — no re-running transforms
+    }
+
+  This is a one-line refactor that eliminates O(n_formats) redundant work.
+  (Note: this applies when all formats share the same transform pipeline;
+  format-specific transforms would require per-format caching.)
+
+CACHE-02: Input file content caching
+  When Renderflow is used in watch mode (future), the input file hash should
+  be compared to the previous render's input hash. If unchanged, skip the
+  full pipeline. A simple content hash (e.g. FxHasher or blake3) cached to
+  a .renderflow-cache file in the output directory is sufficient.
+
+CACHE-03: Pandoc invocation caching
+  Pandoc is deterministic for the same (input content, flags) pair. Cache the
+  output file hash alongside the input hash. Skip re-rendering if the input
+  hash matches the cached value.
+
+──────────────────────────────────────────────────────────────────────────────
+8.2 Parallelism
+──────────────────────────────────────────────────────────────────────────────
+
+PARALLEL-01: Parallel output format rendering (high impact)
+  Render independent output formats concurrently using Rayon or Tokio:
+
+    use rayon::prelude::*;
+    config.outputs.par_iter().map(|output| {
+        render_output(output, &transformed, &output_dir, &input_stem)
+    }).collect::<Result<Vec<_>>>()?;
+
+  This reduces total render time from sum(format_times) to max(format_times)
+  for independent formats. For a typical html+pdf+docx config this is a 2-3×
+  speedup for the I/O-bound pandoc invocations.
+  Note: The progress bar (indicatif) requires thread-safe updating (MultiBar).
+
+PARALLEL-02: Parallel asset path resolution
+  normalize_asset_paths() resolves each image path sequentially with
+  filesystem stat() calls. For documents with many images, these can be
+  parallelised with Rayon.
+
+──────────────────────────────────────────────────────────────────────────────
+8.3 Pipeline Optimisations
+──────────────────────────────────────────────────────────────────────────────
+
+OPTIM-01: Single pandoc AST pass for multiple outputs
+  pandoc can emit its internal AST as JSON (--to json). A future architecture
+  could:
+    1. Parse input → pandoc JSON AST (once)
+    2. Apply AST-level transforms (reusable across outputs)
+    3. Convert AST → each output format (pandoc --from json -t html/pdf/docx)
+  This eliminates repeated pandoc parsing and enables richer semantic
+  transforms that operate on document structure rather than raw text.
+
+OPTIM-02: Lazy template loading
+  init_tera() loads all templates at startup. For configs that use only one
+  template, loading all templates is wasteful. Lazy loading (load on first
+  access per template name) would reduce startup time for multi-template
+  directories.
+
+================================================================================
+9. CODE QUALITY & REFACTORING
+================================================================================
+
+──────────────────────────────────────────────────────────────────────────────
+9.1 Dead Code / Unused API
+──────────────────────────────────────────────────────────────────────────────
+
+REFACTOR-01: Remove or integrate PandocStep
+  src/pipeline/pandoc_step.rs defines PandocStep but it is not used by the
+  build command or any test. Either:
+    Option A: Remove PandocStep entirely (strategies subsume its role)
+    Option B: Refactor HtmlStrategy/PdfStrategy/DocxStrategy to use PandocStep
+              internally, making pandoc invocation a single reusable step
+  Recommendation: Option B eliminates duplicated pandoc arg-building logic
+  across the three strategy implementations.
+
+REFACTOR-02: Unify transform entry point
+  The build command bypasses Pipeline::run_transforms() and calls
+  TransformRegistry::apply_all() directly. Unify these by either:
+    Option A: Have Pipeline hold a TransformRegistry (not Vec<Box<dyn Transform>>)
+              and delegate run_transforms() to registry.apply_all()
+    Option B: Remove Pipeline::run_transforms() and document that callers
+              create and run a TransformRegistry independently
+
+REFACTOR-03: Extract pandoc arg construction into a shared helper
+  All three strategies (Html, Pdf, Docx) build a Vec<&str> of pandoc arguments
+  with similar patterns (--from, input, -o, output, optional --template).
+  Extract a PandocArgs builder:
+
+    pub struct PandocArgs { ... }
+    impl PandocArgs {
+        pub fn new(from: InputFormat, input: &str, output: &str) -> Self
+        pub fn with_template(mut self, path: &str) -> Self
+        pub fn with_pdf_engine(mut self, engine: &str) -> Self
+        pub fn build(self) -> Vec<String>
+    }
+
+──────────────────────────────────────────────────────────────────────────────
+9.2 Better Patterns
+──────────────────────────────────────────────────────────────────────────────
+
+REFACTOR-04: Make fail_fast configurable from renderflow.yaml
+  The TransformRegistry supports fail_fast = false but the build command
+  always uses the default (true). Expose this as a config option:
+
+    fail_fast: false   # optional, default true
+
+REFACTOR-05: Typed output filename construction
+  The output filename is currently built with string formatting:
+    format!("{}/{}.{}", output_dir.display(), input_stem, format)
+  This is fragile and does not use std::path::PathBuf composition. Replace
+  with:
+    output_dir.join(format!("{}.{}", input_stem, format_ext))
+
+REFACTOR-06: EmojiTransform — make output format aware
+  Apply the EmojiTransform only for output formats that cannot render emoji
+  natively (pdf, latex, docx). For html, pass emoji through unchanged.
+  This requires passing the target OutputType through the transform context
+  or using the FormatFilterTransform wrapper (see TRANSFORM-05).
+
+================================================================================
+10. DOCUMENTATION & DEVELOPER EXPERIENCE
+================================================================================
+
+──────────────────────────────────────────────────────────────────────────────
+10.1 README Assessment
+──────────────────────────────────────────────────────────────────────────────
+
+Strengths:
+  - Clear quick-start section with minimal example
+  - Architecture diagram shows two-phase pipeline
+  - Roadmap communicates planned features
+  - Badge links to CI and license
+
+Gaps:
+  DOC-01: DOCX is implemented but not listed in the Supported Output Types
+          table or Features section. The Roadmap still shows DOCX as pending.
+
+  DOC-02: The transform pipeline is described as "Pluggable in-memory content
+          transforms" but the three registered transforms (emoji, variable,
+          syntax highlight) are not documented. Users need to know that
+          {{variable}} substitution and emoji handling happen automatically.
+
+  DOC-03: The `variables` config key is not documented in the Configuration
+          section. A user who reads the README cannot discover how to pass
+          variables to their templates.
+
+  DOC-04: The `fail_fast` configuration option (even if not yet exposed in YAML)
+          and the continue-on-error transform mode are not documented.
+
+  DOC-05: Dependencies (pandoc, tectonic) are mentioned in the Installation
+          section but not with version requirements. If a user has an older
+          pandoc that lacks a flag Renderflow uses, the error will be cryptic.
+
+──────────────────────────────────────────────────────────────────────────────
+10.2 CLI Usability
+──────────────────────────────────────────────────────────────────────────────
+
+  CLI-01: The --verbose and --debug flags affect log level but log output goes
+          to stdout by default (tracing_subscriber::fmt). Production users may
+          prefer structured JSON logs (tracing-subscriber's json feature) for
+          log aggregation pipelines. Consider adding --log-format json.
+
+  CLI-02: There is no --output-dir flag to override the YAML config's
+          output_dir at the command line. A common workflow is to run the
+          same config against different output directories (staging vs. prod).
+
+  CLI-03: The error output for missing pandoc is clear in the strategies, but
+          the top-level error for a missing pandoc binary (when HtmlStrategy
+          calls run_command) produces a generic "Failed to render HTML output"
+          message. Adding a "Check that pandoc is installed" note for NotFound
+          errors would improve DX (similar to PdfStrategy::check_tectonic()).
+
+──────────────────────────────────────────────────────────────────────────────
+10.3 Developer Experience
+──────────────────────────────────────────────────────────────────────────────
+
+  DX-01: The Taskfile.yml is present but not documented in the README. A new
+         contributor who finds the Taskfile tasks (task build, task test) will
+         have a better experience than one who uses cargo commands directly.
+
+  DX-02: Integration tests that require pandoc are marked #[ignore]. There is
+         no task or CI job that runs the full test suite including ignored tests
+         with pandoc available. A separate CI job or Taskfile task
+         (task test:full) would clarify which tests need external tools.
+
+  DX-03: No CONTRIBUTING.md or development setup guide. For a project that
+         intends to be extensible (plugin system, additional formats), a
+         contributing guide is important for community engagement.
+
+================================================================================
+11. FUTURE ARCHITECTURE RECOMMENDATIONS
+================================================================================
+
+──────────────────────────────────────────────────────────────────────────────
+11.1 Plugin System
+──────────────────────────────────────────────────────────────────────────────
+
+Phase 1 — Shell plugin (near term, low complexity):
+  Support external transform commands in renderflow.yaml:
+
+    transforms:
+      - name: "diagram-preprocessor"
+        command: "npx mermaid-filter"
+        on_error: fail
+
+  Implement ShellTransform that pipes document content through the command
+  via stdin/stdout. This enables user-defined preprocessing without Rust.
+
+Phase 2 — WASM plugin (medium term, sandboxed):
+  Compile Transform implementations to WebAssembly (wasm32-wasi target).
+  Load via wasmtime or wasmer. The WASM sandbox prevents plugins from
+  accessing the filesystem or network arbitrarily. Plugin authors write
+  Rust (or any WASM-targeting language) against the renderflow-plugin crate.
+
+Phase 3 — Crate plugin (long term, performance):
+  For high-performance or stateful transforms, expose a stable ABI via
+  libloading. This is the fastest option but requires careful ABI stability
+  management.
+
+──────────────────────────────────────────────────────────────────────────────
+11.2 Template System Expansion
+──────────────────────────────────────────────────────────────────────────────
+
+  TEMPLATE-01: Unified template registry
+    Create a TemplateRegistry that abstracts over Tera (HTML), pandoc LaTeX
+    templates (PDF), pandoc reference docs (DOCX), and CSS (EPUB). The registry
+    validates all configured templates upfront, regardless of type.
+
+  TEMPLATE-02: Template inheritance and composition
+    Tera already supports template inheritance ({% extends %}). Expose this
+    to users by documenting base templates and block-override patterns.
+
+  TEMPLATE-03: Built-in theme library
+    Ship a curated set of built-in themes (academic, technical, minimal,
+    corporate) as template files in the renderflow binary or as a separate
+    themes crate. Users select themes by name rather than by path.
+
+──────────────────────────────────────────────────────────────────────────────
+11.3 Agent Integration
+──────────────────────────────────────────────────────────────────────────────
+
+  AGENT-01: Renderflow as an MCP tool
+    Expose Renderflow as a Model Context Protocol (MCP) tool so that LLM
+    agents can invoke document rendering as a structured tool call:
+
+      Tool name: renderflow.render
+      Input: { config_yaml: string, input_content: string }
+      Output: { outputs: [{ format: string, content: base64 }] }
+
+    This enables agents to render documents as part of longer workflows
+    (e.g. generate → render → publish) without shell subprocess invocations.
+
+  AGENT-02: Config generation assistant
+    A companion CLI command (renderflow init) that prompts the user for
+    their document type, desired output formats, and available tools, then
+    generates a renderflow.yaml. This reduces onboarding friction.
+
+  AGENT-03: Audit command
+    Formalise the audit process as a first-class CLI command:
+    renderflow audit [--output audits/] [--format log|json|markdown]
+
+    The command analyses the current renderflow.yaml, checks tool availability,
+    validates templates, and writes a structured audit report. This audit log
+    itself would serve as a worked example of the feature.
+
+──────────────────────────────────────────────────────────────────────────────
+11.4 Multi-Format Orchestration
+──────────────────────────────────────────────────────────────────────────────
+
+  ORCH-01: Pipeline DAG (directed acyclic graph)
+    For complex workflows (md → docx → pdf, or md → html → embed-assets →
+    pdf), model the pipeline as a DAG where each node is a format conversion
+    and edges define data flow. This enables multi-step conversion chains and
+    fan-out/fan-in patterns.
+
+  ORCH-02: Watch mode with incremental rebuilds
+    Monitor input files with notify (file system event library). On change,
+    re-run only the affected pipeline stages. Cache hashes to skip unchanged
+    outputs.
+
+  ORCH-03: Remote rendering / distributed pipeline
+    For large document sets (e.g. a multi-chapter book), distribute rendering
+    across worker processes or remote machines. Each worker renders one chapter;
+    results are collected and assembled. gRPC or a simple HTTP API over the
+    Renderflow binary would enable this.
+
+================================================================================
+12. SUGGESTED FIXES (PRIORITISED)
+================================================================================
+
+PRIORITY 1 — Immediate (low effort, high value):
+
+  FIX-01 → addresses FINDING-10: Cache transform output
+    Move register_transforms().apply_all() outside the per-format loop.
+    Effort: 5 minutes. Impact: eliminates redundant transform work.
+
+  FIX-02 → addresses FINDING-11: Update README for DOCX
+    Add docx to the Supported Output Types table.
+    Remove "DOCX output format" from the Roadmap.
+    Add `variables` to the Configuration section.
+    Effort: 30 minutes. Impact: documentation accuracy.
+
+  FIX-03 → addresses FINDING-09: Remove or integrate PandocStep
+    Delete src/pipeline/pandoc_step.rs if it is not used.
+    Or refactor strategies to use it as a shared pandoc invocation helper.
+    Effort: 30 minutes. Impact: removes dead code confusion.
+
+PRIORITY 2 — Short term (medium effort, high value):
+
+  FIX-04 → addresses FINDING-03: Unify Pipeline / TransformRegistry entry point
+    Refactor Pipeline to hold a TransformRegistry and delegate run_transforms().
+    Or remove Pipeline::run_transforms() and document the usage pattern.
+    Effort: 2 hours. Impact: cleaner API, removes dead code warning.
+
+  FIX-05 → addresses FINDING-06: Make EmojiTransform format-aware
+    Skip emoji replacement for html output. Apply only for pdf/docx/latex.
+    Effort: 2 hours (requires OutputType in transform context).
+    Impact: documents with emoji render correctly in HTML.
+
+  FIX-06 → addresses FINDING-08: Code-block-aware variable substitution
+    Parse the input to identify code spans and fenced code blocks, and skip
+    variable substitution inside them.
+    Effort: 4 hours. Impact: prevents corruption of code examples.
+
+  FIX-07 → addresses FINDING-07: Validate PDF/DOCX templates upfront
+    Check for template file existence for all output types at the start of
+    the build command, not just HTML templates via Tera.
+    Effort: 2 hours. Impact: earlier, clearer error messages.
+
+PRIORITY 3 — Medium term (higher effort, strategic value):
+
+  FIX-08 → addresses FINDING-01: Add InputFormat abstraction
+    Implement InputFormat enum, auto-detection from file extension, and
+    config validation for supported input/output combinations.
+    Effort: 1-2 days. Impact: enables full output strategy matrix.
+
+  FIX-09 → addresses FINDING-02: Pandoc AST as intermediate representation
+    Use pandoc --to json to produce an AST, apply transforms on the AST,
+    then convert to each output format with pandoc --from json.
+    Effort: 3-5 days. Impact: single-parse multi-output, richer transforms.
+
+  FIX-10 → addresses FINDING-05: Parallel output rendering
+    Use Rayon to render independent output formats concurrently.
+    Effort: 4-8 hours (including thread-safe progress bar).
+    Impact: 2-3× speedup for multi-format configs.
+
+================================================================================
+13. POSITIVE OBSERVATIONS
+================================================================================
+
+OBSERVATION-01: Transform Registry is production-quality
+  The TransformRegistry implementation is robust: fail-fast / continue mode,
+  per-transform named error context, DEBUG-level lifecycle logging, and
+  comprehensive unit tests. This is a well-engineered component.
+
+OBSERVATION-02: Partial-failure resilience preserved
+  commands/build.rs continues rendering all output formats even when one
+  fails, collecting errors and reporting them together at the end. This is
+  user-friendly and correct behaviour.
+
+OBSERVATION-03: Template path resolution is safe and tested
+  All three strategies (Html, Pdf, Docx) check for template file existence
+  before invoking pandoc, returning a clear error message. The "Template file
+  not found" error identifies the full path, making it immediately actionable.
+
+OBSERVATION-04: Config validation is early and comprehensive
+  Config::validate() checks input non-empty, outputs non-empty, and collects
+  all unsupported output types in a single error. Users see every problem at
+  once rather than fixing one at a time.
+
+OBSERVATION-05: Asset path normalisation is robust
+  normalize_asset_paths() handles relative paths, absolute paths, four URL
+  schemes, inline title attributes, and malformed/incomplete image syntax.
+  The test coverage is thorough with 12 test cases covering edge cases.
+
+OBSERVATION-06: Cargo.lock is now tracked in VCS
+  The previous audit identified the missing Cargo.lock as a critical issue.
+  This has been resolved — Cargo.lock is now committed, ensuring reproducible
+  builds across environments.
+
+OBSERVATION-07: DOCX strategy completes the core format trio
+  The DocxStrategy implementation follows the same pattern as HtmlStrategy
+  and PdfStrategy, uses the correct pandoc flag (--reference-doc instead of
+  --template), and has full unit test coverage. This is a clean addition.
+
+OBSERVATION-08: Three registered transforms with correct ordering
+  The standard transform pipeline (emoji → variable → syntax) is correctly
+  ordered and consistent: emoji replacement happens before variable
+  substitution, preventing {{...}} patterns in emoji alt text from being
+  expanded. The ordering is documented in register_transforms().
+
+================================================================================
+14. SYSTEM READINESS
+================================================================================
+
+Status: READY (with noted limitations)
+
+The core md → html / pdf / docx rendering pipeline is production-ready. The
+codebase is well-tested, follows consistent patterns, has good error handling,
+and the key issues from the previous audit (Cargo.lock, template wiring, dead
+code, DOCX) have been addressed.
+
+The READY status acknowledges the following current limitations:
+  - Input format is hardcoded to Markdown (FINDING-01)
+  - No plugin/extension system for user-defined transforms (FINDING-04)
+  - Output rendering is sequential — no parallelism (FINDING-05)
+  - EmojiTransform is unconditionally lossy (FINDING-06)
+  - Documentation does not fully reflect current capabilities (FINDING-11)
+
+Recommended actions for the next evolution cycle:
+
+  [ ] FIX-01: Cache transform output (5 minutes)
+  [ ] FIX-02: Update README for DOCX and variables (30 minutes)
+  [ ] FIX-03: Remove or integrate PandocStep (30 minutes)
+  [ ] FIX-04: Unify Pipeline / TransformRegistry (2 hours)
+  [ ] FIX-05: Format-aware EmojiTransform (2 hours)
+  [ ] FIX-06: Code-block-aware variable substitution (4 hours)
+  [ ] FIX-08: InputFormat abstraction (1-2 days)
+  [ ] FIX-10: Parallel output rendering (4-8 hours)
+
+Strategic recommendations for next major version:
+  [ ] Pandoc AST as intermediate representation (FIX-09)
+  [ ] Shell-based transform plugin system (Section 11.1 Phase 1)
+  [ ] Unified template registry (Section 11.2 TEMPLATE-01)
+  [ ] Watch mode with incremental rebuilds (Section 11.4 ORCH-02)
+
+================================================================================
+END OF AUDIT
+================================================================================
