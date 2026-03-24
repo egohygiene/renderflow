@@ -1,4 +1,5 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
+use tracing::debug;
 
 use super::step::PipelineStep;
 use crate::transforms::Transform;
@@ -29,7 +30,12 @@ impl Pipeline {
     pub fn run_transforms(&self, input: String) -> Result<String> {
         let mut current = input;
         for transform in &self.transforms {
-            current = transform.apply(current)?;
+            let name = transform.name();
+            debug!(transform = %name, "Starting transform");
+            current = transform
+                .apply(current)
+                .with_context(|| format!("Transform failed: {}", name))?;
+            debug!(transform = %name, "Transform completed");
         }
         Ok(current)
     }
@@ -82,6 +88,9 @@ mod tests {
     struct FailingTransform;
 
     impl Transform for FailingTransform {
+        fn name(&self) -> &'static str {
+            "FailingTransform"
+        }
         fn apply(&self, _input: String) -> Result<String> {
             bail!("transform failed")
         }
@@ -191,7 +200,12 @@ mod tests {
 
         let result = pipeline.run_transforms("input".to_string());
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("transform failed"));
+        // The error context must identify the failing transform.
+        let msg = result.unwrap_err().to_string();
+        assert!(
+            msg.contains("Transform failed: FailingTransform"),
+            "expected context message, got: {msg}"
+        );
     }
 
     #[test]

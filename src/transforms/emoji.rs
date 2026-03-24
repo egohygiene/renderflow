@@ -52,6 +52,10 @@ impl Default for EmojiTransform {
 }
 
 impl Transform for EmojiTransform {
+    fn name(&self) -> &'static str {
+        "EmojiTransform"
+    }
+
     fn apply(&self, input: String) -> Result<String> {
         let mut result = String::with_capacity(input.len());
         for c in input.chars() {
