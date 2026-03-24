@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 use serde::{Deserialize, Deserializer};
+use std::collections::HashMap;
 use std::fmt;
 use std::fs;
 
@@ -76,6 +77,8 @@ pub struct Config {
     pub input: String,
     #[serde(default = "default_output_dir")]
     pub output_dir: String,
+    #[serde(default)]
+    pub variables: HashMap<String, String>,
 }
 
 impl Config {
@@ -307,5 +310,35 @@ output_dir: "dist"
             "expected invalid-type error in: {}",
             msg
         );
+    }
+
+    #[test]
+    fn test_load_config_with_variables() {
+        let yaml = r#"
+outputs:
+  - type: html
+input: "input.md"
+output_dir: "dist"
+variables:
+  title: "My Document"
+  author: "Alan"
+"#;
+        let f = write_temp_yaml(yaml);
+        let config = load_config(f.path().to_str().unwrap()).expect("should parse with variables");
+        assert_eq!(config.variables.get("title").map(String::as_str), Some("My Document"));
+        assert_eq!(config.variables.get("author").map(String::as_str), Some("Alan"));
+    }
+
+    #[test]
+    fn test_load_config_without_variables_defaults_to_empty() {
+        let yaml = r#"
+outputs:
+  - type: html
+input: "input.md"
+output_dir: "dist"
+"#;
+        let f = write_temp_yaml(yaml);
+        let config = load_config(f.path().to_str().unwrap()).expect("should parse without variables");
+        assert!(config.variables.is_empty());
     }
 }
