@@ -156,7 +156,8 @@ mod tests {
         pipeline.add_step(Box::new(StrategyStep::new(Box::new(strategy), &output_path)));
 
         // Input has an emoji; after EmojiTransform it should become "[emoji]"
-        pipeline.run("Hello 😀 World".to_string()).unwrap();
+        let transformed = pipeline.run_transforms("Hello 😀 World".to_string()).unwrap();
+        pipeline.run_steps(transformed).unwrap();
 
         let result = captured.lock().unwrap().clone();
         assert_eq!(result, "Hello [emoji] World");
