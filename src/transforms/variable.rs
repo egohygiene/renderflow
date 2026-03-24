@@ -22,6 +22,10 @@ impl VariableSubstitutionTransform {
 }
 
 impl Transform for VariableSubstitutionTransform {
+    fn name(&self) -> &'static str {
+        "VariableSubstitutionTransform"
+    }
+
     fn apply(&self, input: String) -> Result<String> {
         // Iterate over every `{{...}}` pattern in the input, rebuilding the
         // string in a single pass to avoid repeated allocations.

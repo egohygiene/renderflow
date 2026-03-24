@@ -24,6 +24,10 @@ impl Default for SyntaxHighlightTransform {
 }
 
 impl Transform for SyntaxHighlightTransform {
+    fn name(&self) -> &'static str {
+        "SyntaxHighlightTransform"
+    }
+
     fn apply(&self, input: String) -> Result<String> {
         let ends_with_newline = input.ends_with('\n');
         let mut result_lines: Vec<String> = Vec::new();
