@@ -1,0 +1,285 @@
+Repository Audit
+================
+Timestamp : 2026-03-24T01:55:08Z
+Auditor   : Copilot (AI agent)
+Branch    : copilot/implement-audit-output
+Commit    : 6870bdf0bbb68e8385204162aebf0428684f184b
+Purpose   : System audit / improvement review
+
+================================================================================
+1. SUMMARY
+================================================================================
+
+Renderflow is a spec-driven document rendering engine built in Rust. It
+transforms Markdown source files into PDF and HTML outputs using Pandoc and
+Tectonic, driven by a YAML configuration file. The codebase is clean,
+modular, and well-tested with a clear separation of concerns.
+
+The core pipeline is functional and ready for use. The primary areas of
+concern are the incomplete template rendering system and the absence of
+Cargo.lock from version control — an issue that affects reproducibility for
+a binary application.
+
+High-Level Readiness:
+  - Core build pipeline (Markdown → HTML/PDF): READY
+  - Template rendering (Tera integration):     INCOMPLETE
+  - Audit / development workflow:              IN PROGRESS (this audit)
+  - Plugin / transform extensibility:          PARTIAL (one transform only)
+
+Major Risks:
+  - Cargo.lock excluded from version control breaks reproducible builds
+  - Template field declared but rendering logic not wired up
+
+================================================================================
+2. FILES / MODULES REVIEWED
+================================================================================
+
+Core Entry Point:
+  - src/main.rs                     CLI bootstrapping and command dispatch
+
+CLI and Configuration:
+  - src/cli.rs                      Clap-based CLI definition (Cli, Commands)
+  - src/config.rs                   YAML config parsing (Config, OutputConfig, OutputType)
+
+Pipeline:
+  - src/pipeline/pipeline.rs        Two-phase pipeline (transforms + steps)
+  - src/pipeline/step.rs            PipelineStep trait definition
+  - src/pipeline/strategy_step.rs   Step wrapper that delegates to OutputStrategy
+
+Strategies (Output Formats):
+  - src/strategies/strategy.rs      OutputStrategy trait definition
+  - src/strategies/selector.rs      Strategy factory (select_strategy)
+  - src/strategies/html.rs          HtmlStrategy: renders HTML via pandoc
+  - src/strategies/pdf.rs           PdfStrategy: renders PDF via pandoc + tectonic
+
+Transforms:
+  - src/transforms/transform.rs     Transform trait definition
+  - src/transforms/emoji.rs         EmojiTransform: replaces emoji with [emoji]
+
+Adapters:
+  - src/adapters/command.rs         run_command: external process execution wrapper
+
+Support Modules:
+  - src/files.rs                    validate_input, ensure_output_dir
+  - src/assets.rs                   Asset path normalization and URL detection
+  - src/template.rs                 Tera engine initialization
+
+Build Commands:
+  - src/commands/build.rs           Orchestrates the full build pipeline
+  - src/commands/mod.rs             Module declaration
+
+Tests:
+  - tests/cli_tests.rs              Integration tests for CLI flags and commands
+  - tests/pipeline_integration_test.rs  End-to-end pipeline tests
+  - tests/common/                   Shared test helpers
+
+Project Configuration:
+  - Cargo.toml                      Package manifest and dependencies
+  - renderflow.yaml                 Example project configuration
+  - Taskfile.yml                    Developer task automation (build, test, lint)
+  - .github/workflows/ci.yml        GitHub Actions CI pipeline
+
+================================================================================
+3. FINDINGS
+================================================================================
+
+FINDING-01 [CRITICAL]
+----------------------
+Title      : Cargo.lock excluded from version control
+Description: The .gitignore file explicitly ignores Cargo.lock. For binary
+             applications (as opposed to libraries), Cargo documentation
+             recommends committing Cargo.lock to ensure reproducible builds.
+             Without it, dependency versions may drift between developer
+             machines, CI, and release environments.
+Impact     : Builds may produce different binary outputs across environments.
+             Security-sensitive dependency version pinning is lost. CI could
+             silently adopt different transitive dependency versions.
+Root Cause : The .gitignore entry "Cargo.lock" is appropriate for library
+             crates but not for binary applications. This is a common mistake
+             when bootstrapping Rust projects.
+
+FINDING-02 [WARNING]
+---------------------
+Title      : Template field stored but never used in rendering
+Description: Both HtmlStrategy and PdfStrategy accept an optional template
+             name and store it in a field (self.template). However, neither
+             strategy uses this value when invoking pandoc — the template is
+             silently ignored. The Tera engine is initialised in commands/build.rs
+             but its output is never passed to any strategy or used in rendering.
+Impact     : Users who specify a template in renderflow.yaml will receive no
+             error and no indication that the template was not applied.
+             Custom templates are effectively non-functional.
+Root Cause : The template rendering integration is incomplete. The architecture
+             allocates the capability but the wiring between Tera, strategies,
+             and pandoc has not been implemented.
+
+FINDING-03 [WARNING]
+---------------------
+Title      : Pipeline::run() is unused; build.rs calls phases separately
+Description: The Pipeline struct exposes a combined run() method that executes
+             transforms then steps in sequence. However, commands/build.rs
+             calls run_transforms() and run_steps() separately. The public
+             run() method is dead code in practice.
+Impact     : Mild API inconsistency and potential for divergence. The combined
+             run() method could silently become out of sync with how the build
+             command actually uses the pipeline.
+Root Cause : The split was likely introduced to support dry-run mode, which
+             runs transforms but skips steps. The run() method was not
+             removed or marked appropriately after this split.
+
+FINDING-04 [MINOR]
+-------------------
+Title      : EmojiTransform is the only registered transform
+Description: The transform pipeline architecture supports multiple pluggable
+             in-memory transforms, but only EmojiTransform is implemented and
+             registered. The design anticipates more transforms (e.g., footnote
+             expansion, variable substitution, syntax highlighting prep) but
+             none exist.
+Impact     : Limited document transformation capability. Users who expect
+             richer pre-processing pipelines will find the system underpowered.
+Root Cause : V1 implementation scope. The architecture is correct; it simply
+             lacks additional transform implementations.
+
+FINDING-05 [MINOR]
+-------------------
+Title      : No DOCX output format despite Roadmap listing it
+Description: The README roadmap lists "DOCX output format" as a planned
+             feature. The OutputType enum only has Html and Pdf variants.
+             Any attempt to use type: docx in a config produces a YAML
+             parse error rather than a helpful "not yet supported" message.
+Impact     : Confusing error experience for users who read the roadmap and
+             attempt to use DOCX output.
+Root Cause : Feature is planned but not implemented. Error handling in the
+             config parsing layer does not distinguish between unknown types
+             and unsupported-but-planned types.
+
+================================================================================
+4. SUGGESTED FIXES
+================================================================================
+
+FIX-01 → addresses FINDING-01
+-------------------------------
+Title  : Commit Cargo.lock to version control
+Steps  :
+  1. Remove "Cargo.lock" from .gitignore
+  2. Run: cargo generate-lockfile
+  3. Add and commit Cargo.lock: git add Cargo.lock && git commit
+  4. Update contributing documentation to note that Cargo.lock is tracked
+Note   : This is the official Cargo recommendation for binary crates.
+         See: https://doc.rust-lang.org/cargo/faq.html#why-do-binaries-have-cargolock-in-version-control-but-not-libraries
+
+FIX-02 → addresses FINDING-02
+-------------------------------
+Title  : Wire template rendering into strategy execution
+Steps  :
+  1. Pass the initialised Tera instance from commands/build.rs into each
+     strategy (e.g., via constructor or a StrategyConfig struct)
+  2. In HtmlStrategy::render(), if self.template is Some(name), use Tera to
+     render a wrapper template around the pandoc output
+  3. Alternatively, pass --template to pandoc directly for HTML templates
+  4. Add integration tests that verify template application
+Note   : The Tera engine is already initialised in build.rs — it only needs
+         to be threaded through to the strategy layer.
+
+FIX-03 → addresses FINDING-03
+-------------------------------
+Title  : Align Pipeline API with actual usage pattern
+Steps  :
+  Option A: Remove Pipeline::run() and document that callers use
+            run_transforms() + run_steps() separately (supports dry-run)
+  Option B: Extend Pipeline::run() to accept a dry_run flag so callers
+            can use the unified API
+  Option C: Mark Pipeline::run() with #[allow(dead_code)] and a doc comment
+            explaining when it is appropriate to use
+Recommendation: Option A is simplest and removes dead code.
+
+FIX-04 → addresses FINDING-04
+-------------------------------
+Title  : Implement additional document transforms
+Steps  :
+  1. Add a VariableSubstitutionTransform to support {{variable}} replacement
+     using values from the config or a separate variables map
+  2. Add a SyntaxHighlightTransform to pre-process fenced code blocks
+  3. Register new transforms in commands/build.rs
+Note   : The trait-based architecture makes this straightforward — implement
+         the Transform trait and add to the pipeline.
+
+FIX-05 → addresses FINDING-05
+-------------------------------
+Title  : Improve error message for unsupported output types
+Steps  :
+  1. Add a DocxPlanned variant to OutputType (or use a raw string fallback)
+  2. In select_strategy(), match on planned-but-unimplemented types and
+     return a descriptive error: "DOCX output is not yet supported. Track
+     progress at: <issue link>"
+  3. Alternatively, handle unknown type strings in the YAML deserializer
+     with a custom error message before validation
+
+================================================================================
+5. POSITIVE OBSERVATIONS
+================================================================================
+
+OBSERVATION-01: Clean Pipeline Architecture
+  The two-phase pipeline (transforms → steps) is well-designed. The separation
+  between pure in-memory transforms and I/O-bound steps is architecturally sound
+  and enables dry-run mode with zero additional code paths.
+
+OBSERVATION-02: Excellent Error Propagation
+  The use of anyhow with with_context() throughout produces actionable,
+  human-readable error messages. Errors include the failing program name, exit
+  code, and stderr output — exactly what a developer needs to diagnose failures.
+
+OBSERVATION-03: Partial-Failure Resilience in Build
+  commands/build.rs collects failed outputs rather than bailing on the first
+  failure. This means a failed PDF render does not prevent a successful HTML
+  render, and vice versa. The final error aggregates all failures clearly.
+
+OBSERVATION-04: Comprehensive Test Coverage
+  Every major module has unit tests. Integration tests cover CLI flags,
+  build command behaviour, and pipeline end-to-end flows. Tests are well-named
+  and use appropriate helpers (tempfile, NamedTempFile) to avoid filesystem
+  pollution.
+
+OBSERVATION-05: Asset Path Normalization
+  The normalize_asset_paths function handles relative paths, absolute paths,
+  URL schemes (http/https/ftp/data), and inline title attributes. The logic
+  is robust and has thorough test coverage including edge cases.
+
+OBSERVATION-06: Developer Workflow Tooling
+  The Taskfile.yml provides a consistent set of named tasks (build, test,
+  lint, format, check, clean) that make the development workflow discoverable
+  and repeatable without memorising cargo commands.
+
+OBSERVATION-07: Strategy Pattern for Output Formats
+  The OutputStrategy trait allows new output formats to be added without
+  modifying the pipeline or build orchestration logic. This is the correct
+  extension point for future formats (DOCX, EPUB, etc.).
+
+OBSERVATION-08: Tectonic Check Before Rendering
+  PdfStrategy::check_tectonic() performs an early availability check with a
+  clear, actionable error message before attempting to invoke pandoc. This
+  prevents confusing downstream failures when tectonic is not installed.
+
+================================================================================
+6. SYSTEM READINESS
+================================================================================
+
+Status: CONDITIONAL
+
+The core document rendering pipeline is functional and well-tested. The system
+can reliably convert Markdown to HTML and PDF (given pandoc and tectonic are
+installed). The codebase follows consistent patterns and has good error
+handling.
+
+The CONDITIONAL status is due to:
+  1. Cargo.lock absent from version control — reproducible builds not guaranteed
+  2. Template system declared but not wired — advertised feature is non-functional
+
+Recommended actions before marking READY:
+  [ ] FIX-01: Commit Cargo.lock (low effort, high value)
+  [ ] FIX-02: Complete template rendering integration (medium effort)
+  [ ] FIX-03: Resolve Pipeline::run() dead code (low effort)
+
+================================================================================
+END OF AUDIT
+================================================================================
