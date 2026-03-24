@@ -4,9 +4,6 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fs;
 
-/// Link to the project issue tracker for users to follow planned features.
-const TRACKER_URL: &str = "https://github.com/egohygiene/renderflow";
-
 fn default_output_dir() -> String {
     "dist".to_string()
 }
@@ -15,6 +12,7 @@ fn default_output_dir() -> String {
 pub enum OutputType {
     Html,
     Pdf,
+    Docx,
     /// An output type that was recognised in the YAML but is not yet implemented
     /// or is entirely unknown.  Storing the raw string allows us to produce a
     /// targeted, user-friendly error message later (in validation / strategy
@@ -31,6 +29,7 @@ impl<'de> Deserialize<'de> for OutputType {
         match s.to_lowercase().as_str() {
             "html" => Ok(OutputType::Html),
             "pdf" => Ok(OutputType::Pdf),
+            "docx" => Ok(OutputType::Docx),
             other => Ok(OutputType::Unsupported(other.to_string())),
         }
     }
@@ -41,6 +40,7 @@ impl fmt::Display for OutputType {
         match self {
             OutputType::Html => write!(f, "html"),
             OutputType::Pdf => write!(f, "pdf"),
+            OutputType::Docx => write!(f, "docx"),
             OutputType::Unsupported(s) => write!(f, "{}", s),
         }
     }
@@ -51,16 +51,10 @@ impl fmt::Display for OutputType {
 /// Known planned types (e.g. `docx`) receive a specific "not yet supported"
 /// message; truly unknown strings get a generic "invalid type" message.
 pub fn unsupported_type_message(type_str: &str) -> String {
-    match type_str {
-        "docx" => format!(
-            "DOCX output is not yet supported. Track progress at: {}",
-            TRACKER_URL
-        ),
-        other => format!(
-            "'{}' is not a valid output type. Supported types are: html, pdf",
-            other
-        ),
-    }
+    format!(
+        "'{}' is not a valid output type. Supported types are: html, pdf, docx",
+        type_str
+    )
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
@@ -244,9 +238,7 @@ output_dir: "dist"
     }
 
     #[test]
-    fn test_load_config_invalid_output_type() {
-        // "docx" is a planned-but-not-yet-implemented type; it must produce a
-        // clear "not yet supported" message rather than a cryptic YAML error.
+    fn test_load_config_with_docx_output() {
         let yaml = r#"
 outputs:
   - type: docx
@@ -254,13 +246,10 @@ input: "input.md"
 output_dir: "dist"
 "#;
         let f = write_temp_yaml(yaml);
-        let result = load_config(f.path().to_str().unwrap());
-        assert!(result.is_err());
-        let msg = format!("{}", result.unwrap_err());
-        assert!(
-            msg.contains("DOCX output is not yet supported"),
-            "unexpected error: {}",
-            msg
+        let config = load_config(f.path().to_str().unwrap()).expect("should parse docx output type");
+        assert_eq!(
+            config.outputs,
+            vec![OutputConfig { output_type: OutputType::Docx, template: None }]
         );
     }
 
@@ -283,6 +272,11 @@ output_dir: "dist"
             "unexpected error: {}",
             msg
         );
+        assert!(
+            msg.contains("docx"),
+            "supported types list should include docx: {}",
+            msg
+        );
     }
 
     #[test]
@@ -291,8 +285,8 @@ output_dir: "dist"
         // reported in a single error rather than stopping after the first one.
         let yaml = r#"
 outputs:
-  - type: docx
   - type: jpeg
+  - type: epub
 input: "input.md"
 output_dir: "dist"
 "#;
@@ -301,13 +295,13 @@ output_dir: "dist"
         assert!(result.is_err());
         let msg = format!("{}", result.unwrap_err());
         assert!(
-            msg.contains("DOCX output is not yet supported"),
-            "expected docx error in: {}",
+            msg.contains("'jpeg' is not a valid output type"),
+            "expected jpeg error in: {}",
             msg
         );
         assert!(
-            msg.contains("not a valid output type"),
-            "expected invalid-type error in: {}",
+            msg.contains("'epub' is not a valid output type"),
+            "expected epub error in: {}",
             msg
         );
     }
