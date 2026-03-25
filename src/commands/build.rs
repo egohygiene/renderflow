@@ -10,7 +10,7 @@ use crate::files::{ensure_output_dir, validate_input};
 use crate::pipeline::{Pipeline, StrategyStep};
 use crate::strategies::select_strategy;
 use crate::template::init_tera;
-use crate::transforms::{register_transforms, TransformRegistry};
+use crate::transforms::register_transforms;
 
 pub fn run(config_path: &str, dry_run: bool) -> Result<()> {
     if dry_run {
@@ -88,11 +88,11 @@ pub fn run(config_path: &str, dry_run: bool) -> Result<()> {
     // Transforms are pure in-memory operations (no files, no external commands) and
     // are not output-format dependent, so they are executed once and reused for all
     // output formats.
-    let registry: TransformRegistry = register_transforms(&config.variables);
+    let transform_pipeline = Pipeline::with_registry(register_transforms(&config.variables));
     info!("Applying transforms (cached for all outputs)");
     pb.set_message("Applying transforms");
-    let transformed = registry
-        .apply_all(normalized_content)
+    let transformed = transform_pipeline
+        .run_transforms(normalized_content)
         .with_context(|| "Transform pipeline failed; no output formats will be rendered")?;
     pb.inc(1);
 
