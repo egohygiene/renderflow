@@ -10,11 +10,12 @@ use crate::strategies::OutputStrategy;
 pub struct PdfStrategy {
     pub template: Option<String>,
     pub template_dir: String,
+    pub input_format: String,
 }
 
 impl PdfStrategy {
-    pub fn new(template: Option<String>, template_dir: String) -> Self {
-        Self { template, template_dir }
+    pub fn new(template: Option<String>, template_dir: String, input_format: String) -> Self {
+        Self { template, template_dir, input_format }
     }
 
     /// Returns an error if the tectonic PDF engine is not installed.
@@ -60,7 +61,7 @@ impl OutputStrategy for PdfStrategy {
 
         let mut args = vec![
             "--from",
-            "markdown",
+            self.input_format.as_str(),
             input,
             "-o",
             output_path,
@@ -97,7 +98,7 @@ mod tests {
 
     #[test]
     fn test_pdf_strategy_errors_on_missing_input() {
-        let strategy = PdfStrategy::new(None, "templates".to_string());
+        let strategy = PdfStrategy::new(None, "templates".to_string(), "markdown".to_string());
         let result = strategy.render("/nonexistent/input.md", "/tmp/output.pdf");
         assert!(result.is_err());
         let msg = format!("{:#}", result.unwrap_err());
@@ -127,7 +128,7 @@ mod tests {
 
     #[test]
     fn test_pdf_strategy_stores_template() {
-        let strategy = PdfStrategy::new(Some("default.html".to_string()), "templates".to_string());
+        let strategy = PdfStrategy::new(Some("default.html".to_string()), "templates".to_string(), "markdown".to_string());
         assert_eq!(strategy.template, Some("default.html".to_string()));
     }
 
@@ -135,8 +136,14 @@ mod tests {
     fn test_pdf_strategy_no_template_does_not_check_template_dir() {
         // When no template is configured the template_dir is never accessed,
         // so a non-existent directory must not cause an error at construction time.
-        let strategy = PdfStrategy::new(None, "/nonexistent/dir".to_string());
+        let strategy = PdfStrategy::new(None, "/nonexistent/dir".to_string(), "markdown".to_string());
         assert!(strategy.template.is_none());
+    }
+
+    #[test]
+    fn test_pdf_strategy_stores_input_format() {
+        let strategy = PdfStrategy::new(None, "templates".to_string(), "rst".to_string());
+        assert_eq!(strategy.input_format, "rst");
     }
 
     #[test]
@@ -151,7 +158,7 @@ mod tests {
         let output = NamedTempFile::new().unwrap();
         let output_path = output.path().with_extension("pdf");
 
-        let strategy = PdfStrategy::new(None, "templates".to_string());
+        let strategy = PdfStrategy::new(None, "templates".to_string(), "markdown".to_string());
         let result = strategy.render(
             input.path().to_str().unwrap(),
             output_path.to_str().unwrap(),

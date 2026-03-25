@@ -9,11 +9,12 @@ use crate::strategies::OutputStrategy;
 pub struct HtmlStrategy {
     pub template: Option<String>,
     pub template_dir: String,
+    pub input_format: String,
 }
 
 impl HtmlStrategy {
-    pub fn new(template: Option<String>, template_dir: String) -> Self {
-        Self { template, template_dir }
+    pub fn new(template: Option<String>, template_dir: String, input_format: String) -> Self {
+        Self { template, template_dir, input_format }
     }
 }
 
@@ -37,7 +38,7 @@ impl OutputStrategy for HtmlStrategy {
             None
         };
 
-        let mut args = vec!["--from", "markdown", input, "-o", output_path];
+        let mut args = vec!["--from", self.input_format.as_str(), input, "-o", output_path];
         if let Some(ref path) = template_path {
             args.extend_from_slice(&["--template", path.as_str()]);
         }
@@ -59,7 +60,7 @@ mod tests {
 
     #[test]
     fn test_html_strategy_errors_on_missing_input() {
-        let strategy = HtmlStrategy::new(None, "templates".to_string());
+        let strategy = HtmlStrategy::new(None, "templates".to_string(), "markdown".to_string());
         let result = strategy.render("/nonexistent/input.md", "/tmp/output.html");
         assert!(result.is_err());
         let msg = format!("{:#}", result.unwrap_err());
@@ -72,7 +73,7 @@ mod tests {
 
     #[test]
     fn test_html_strategy_stores_template() {
-        let strategy = HtmlStrategy::new(Some("default.html".to_string()), "templates".to_string());
+        let strategy = HtmlStrategy::new(Some("default.html".to_string()), "templates".to_string(), "markdown".to_string());
         assert_eq!(strategy.template, Some("default.html".to_string()));
     }
 
@@ -87,6 +88,7 @@ mod tests {
         let strategy = HtmlStrategy::new(
             Some("nonexistent.html".to_string()),
             "/nonexistent/template/dir".to_string(),
+            "markdown".to_string(),
         );
         let result = strategy.render(
             input.path().to_str().unwrap(),
@@ -105,8 +107,14 @@ mod tests {
     fn test_html_strategy_no_template_does_not_check_template_dir() {
         // When no template is configured the template_dir is never accessed,
         // so a non-existent directory must not cause an error at construction time.
-        let strategy = HtmlStrategy::new(None, "/nonexistent/dir".to_string());
+        let strategy = HtmlStrategy::new(None, "/nonexistent/dir".to_string(), "markdown".to_string());
         assert!(strategy.template.is_none());
+    }
+
+    #[test]
+    fn test_html_strategy_stores_input_format() {
+        let strategy = HtmlStrategy::new(None, "templates".to_string(), "html".to_string());
+        assert_eq!(strategy.input_format, "html");
     }
 
     #[test]
@@ -121,7 +129,7 @@ mod tests {
         let output = NamedTempFile::new().unwrap();
         let output_path = output.path().with_extension("html");
 
-        let strategy = HtmlStrategy::new(None, "templates".to_string());
+        let strategy = HtmlStrategy::new(None, "templates".to_string(), "markdown".to_string());
         let result = strategy.render(
             input.path().to_str().unwrap(),
             output_path.to_str().unwrap(),
@@ -151,6 +159,7 @@ mod tests {
         let strategy = HtmlStrategy::new(
             Some("custom.html".to_string()),
             template_dir.path().to_str().unwrap().to_string(),
+            "markdown".to_string(),
         );
         let result = strategy.render(
             input.path().to_str().unwrap(),
