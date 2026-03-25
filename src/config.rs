@@ -4,6 +4,8 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fs;
 
+use crate::input_format::InputFormat;
+
 fn default_output_dir() -> String {
     "dist".to_string()
 }
@@ -73,9 +75,22 @@ pub struct Config {
     pub output_dir: String,
     #[serde(default)]
     pub variables: HashMap<String, String>,
+    #[serde(default)]
+    pub input_format: Option<InputFormat>,
 }
 
 impl Config {
+    /// Return the resolved input format for this config.
+    ///
+    /// Uses the explicitly configured `input_format` when set; otherwise
+    /// auto-detects from the `input` file extension.  Falls back to
+    /// [`InputFormat::Markdown`] when neither source provides a match.
+    pub fn input_format(&self) -> InputFormat {
+        if let Some(ref fmt) = self.input_format {
+            return fmt.clone();
+        }
+        InputFormat::from_extension(&self.input).unwrap_or_default()
+    }
     pub fn validate(&self) -> Result<()> {
         if self.input.trim().is_empty() {
             anyhow::bail!("Config validation failed: 'input' must not be empty");
@@ -334,5 +349,93 @@ output_dir: "dist"
         let f = write_temp_yaml(yaml);
         let config = load_config(f.path().to_str().unwrap()).expect("should parse without variables");
         assert!(config.variables.is_empty());
+    }
+
+    #[test]
+    fn test_input_format_explicit_override() {
+        let yaml = r#"
+outputs:
+  - type: html
+input: "input.md"
+output_dir: "dist"
+input_format: html
+"#;
+        let f = write_temp_yaml(yaml);
+        let config = load_config(f.path().to_str().unwrap()).expect("should parse with explicit input_format");
+        assert_eq!(config.input_format(), InputFormat::Html);
+    }
+
+    #[test]
+    fn test_input_format_auto_detect_from_md_extension() {
+        let yaml = r#"
+outputs:
+  - type: html
+input: "document.md"
+output_dir: "dist"
+"#;
+        let f = write_temp_yaml(yaml);
+        let config = load_config(f.path().to_str().unwrap()).expect("should parse");
+        assert_eq!(config.input_format(), InputFormat::Markdown);
+    }
+
+    #[test]
+    fn test_input_format_auto_detect_from_rst_extension() {
+        let yaml = r#"
+outputs:
+  - type: html
+input: "document.rst"
+output_dir: "dist"
+"#;
+        let f = write_temp_yaml(yaml);
+        let config = load_config(f.path().to_str().unwrap()).expect("should parse");
+        assert_eq!(config.input_format(), InputFormat::Rst);
+    }
+
+    #[test]
+    fn test_input_format_fallback_to_markdown_when_unknown_extension() {
+        let yaml = r#"
+outputs:
+  - type: html
+input: "document.xyz"
+output_dir: "dist"
+"#;
+        let f = write_temp_yaml(yaml);
+        let config = load_config(f.path().to_str().unwrap()).expect("should parse");
+        assert_eq!(config.input_format(), InputFormat::Markdown);
+    }
+
+    #[test]
+    fn test_input_format_override_takes_precedence_over_extension() {
+        // Even though the file has a .rst extension, the explicit config wins.
+        let yaml = r#"
+outputs:
+  - type: html
+input: "document.rst"
+output_dir: "dist"
+input_format: markdown
+"#;
+        let f = write_temp_yaml(yaml);
+        let config = load_config(f.path().to_str().unwrap()).expect("should parse");
+        assert_eq!(config.input_format(), InputFormat::Markdown);
+    }
+
+    #[test]
+    fn test_load_config_unsupported_input_format_returns_error() {
+        let yaml = r#"
+outputs:
+  - type: html
+input: "input.md"
+output_dir: "dist"
+input_format: xml
+"#;
+        let f = write_temp_yaml(yaml);
+        let result = load_config(f.path().to_str().unwrap());
+        assert!(result.is_err());
+        let msg = format!("{:#}", result.unwrap_err());
+        assert!(
+            msg.contains("not a supported input format"),
+            "unexpected error: {}",
+            msg
+        );
     }
 }

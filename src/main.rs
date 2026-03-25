@@ -4,6 +4,7 @@ mod cli;
 mod commands;
 mod config;
 mod files;
+mod input_format;
 mod pipeline;
 mod strategies;
 mod template;
