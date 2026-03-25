@@ -4,17 +4,18 @@ use std::path::Path;
 use tracing::info;
 
 use crate::adapters::command::run_command;
+use crate::input_format::InputFormat;
 use crate::strategies::OutputStrategy;
 
 /// Renders a document to PDF format using pandoc with the tectonic PDF engine.
 pub struct PdfStrategy {
     pub template: Option<String>,
     pub template_dir: String,
-    pub input_format: String,
+    pub input_format: InputFormat,
 }
 
 impl PdfStrategy {
-    pub fn new(template: Option<String>, template_dir: String, input_format: String) -> Self {
+    pub fn new(template: Option<String>, template_dir: String, input_format: InputFormat) -> Self {
         Self { template, template_dir, input_format }
     }
 
@@ -61,7 +62,7 @@ impl OutputStrategy for PdfStrategy {
 
         let mut args = vec![
             "--from",
-            self.input_format.as_str(),
+            self.input_format.as_pandoc_format(),
             input,
             "-o",
             output_path,
@@ -98,7 +99,7 @@ mod tests {
 
     #[test]
     fn test_pdf_strategy_errors_on_missing_input() {
-        let strategy = PdfStrategy::new(None, "templates".to_string(), "markdown".to_string());
+        let strategy = PdfStrategy::new(None, "templates".to_string(), InputFormat::Markdown);
         let result = strategy.render("/nonexistent/input.md", "/tmp/output.pdf");
         assert!(result.is_err());
         let msg = format!("{:#}", result.unwrap_err());
@@ -128,7 +129,7 @@ mod tests {
 
     #[test]
     fn test_pdf_strategy_stores_template() {
-        let strategy = PdfStrategy::new(Some("default.html".to_string()), "templates".to_string(), "markdown".to_string());
+        let strategy = PdfStrategy::new(Some("default.html".to_string()), "templates".to_string(), InputFormat::Markdown);
         assert_eq!(strategy.template, Some("default.html".to_string()));
     }
 
@@ -136,14 +137,14 @@ mod tests {
     fn test_pdf_strategy_no_template_does_not_check_template_dir() {
         // When no template is configured the template_dir is never accessed,
         // so a non-existent directory must not cause an error at construction time.
-        let strategy = PdfStrategy::new(None, "/nonexistent/dir".to_string(), "markdown".to_string());
+        let strategy = PdfStrategy::new(None, "/nonexistent/dir".to_string(), InputFormat::Markdown);
         assert!(strategy.template.is_none());
     }
 
     #[test]
     fn test_pdf_strategy_stores_input_format() {
-        let strategy = PdfStrategy::new(None, "templates".to_string(), "rst".to_string());
-        assert_eq!(strategy.input_format, "rst");
+        let strategy = PdfStrategy::new(None, "templates".to_string(), InputFormat::Rst);
+        assert_eq!(strategy.input_format, InputFormat::Rst);
     }
 
     #[test]
@@ -158,7 +159,7 @@ mod tests {
         let output = NamedTempFile::new().unwrap();
         let output_path = output.path().with_extension("pdf");
 
-        let strategy = PdfStrategy::new(None, "templates".to_string(), "markdown".to_string());
+        let strategy = PdfStrategy::new(None, "templates".to_string(), InputFormat::Markdown);
         let result = strategy.render(
             input.path().to_str().unwrap(),
             output_path.to_str().unwrap(),
