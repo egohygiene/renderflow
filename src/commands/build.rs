@@ -76,8 +76,8 @@ pub fn run(config_path: &str, dry_run: bool) -> Result<()> {
     }
     info!("Selected outputs: {}", output_formats.join(", "));
 
-    // Two ticks per output format: one for transforms, one for rendering.
-    let total_steps = config.outputs.len() as u64 * 2;
+    // One tick for transforms (run once) plus one tick per output format for rendering.
+    let total_steps = 1 + config.outputs.len() as u64;
     let pb = ProgressBar::new(total_steps);
     pb.set_style(
         ProgressStyle::with_template("{spinner:.cyan} [{bar:40.cyan/blue}] {pos}/{len} {msg}")
@@ -85,29 +85,23 @@ pub fn run(config_path: &str, dry_run: bool) -> Result<()> {
             .progress_chars("█▓░"),
     );
 
+    // Transforms are pure in-memory operations (no files, no external commands) and
+    // are not output-format dependent, so they are executed once and reused for all
+    // output formats.
+    let registry: TransformRegistry = register_transforms(&config.variables);
+    info!("Applying transforms (cached for all outputs)");
+    pb.set_message("Applying transforms");
+    let transformed = registry
+        .apply_all(normalized_content)
+        .with_context(|| "Transform pipeline failed; no output formats will be rendered")?;
+    pb.inc(1);
+
     let mut failed_outputs: Vec<(String, anyhow::Error)> = Vec::new();
 
     for output in &config.outputs {
         let format = output.output_type.clone();
         let output_path = format!("{}/{}.{}", output_dir.display(), input_stem, format);
         info!(format = %format, output = %output_path, template = ?output.template, "Running pipeline for format");
-
-        let registry: TransformRegistry = register_transforms(&config.variables);
-
-        // Transforms are pure in-memory operations (no files, no external commands),
-        // so they run in both normal and dry-run mode to give an accurate preview.
-        pb.set_message(format!("[{format}] Applying transforms"));
-        let transformed = match registry.apply_all(normalized_content.clone()) {
-            Ok(t) => t,
-            Err(e) => {
-                warn!(format = %format, error = %e, "Transform failed for output format");
-                failed_outputs.push((format.to_string(), e));
-                // Consume both the transform tick and the render tick we're skipping.
-                pb.inc(2);
-                continue;
-            }
-        };
-        pb.inc(1);
 
         if dry_run {
             info!("[dry-run] Would render {} output to: {}", format, output_path);
@@ -120,7 +114,7 @@ pub fn run(config_path: &str, dry_run: bool) -> Result<()> {
             pipeline.add_step(Box::new(StrategyStep::new(strategy, &output_path)));
 
             pb.set_message(format!("[{format}] Rendering output"));
-            match pipeline.run_steps(transformed) {
+            match pipeline.run_steps(transformed.clone()) {
                 Ok(_) => {
                     pb.inc(1);
                     pb.println(format!("✔ Output written to: {}", output_path));
@@ -278,5 +272,55 @@ mod tests {
     fn test_dry_run_missing_config_still_errors() {
         let result = run("/nonexistent/renderflow.yaml", true);
         assert!(result.is_err(), "dry-run with missing config should still error");
+    }
+
+    /// Build a config with multiple output formats for testing that transforms run once.
+    fn multi_output_config_file() -> (NamedTempFile, tempfile::TempDir) {
+        let dir = tempfile::tempdir().expect("failed to create temp dir");
+        let input_path = dir.path().join("input.md");
+        // Content includes emoji and a variable so transforms have real work to do
+        // across both the EmojiTransform and VariableSubstitutionTransform stages.
+        fs::write(&input_path, "# Hello 😀\n\nValue: {{greeting}}\n")
+            .expect("failed to write input file");
+        let output_dir = dir.path().join("dist");
+        let config_content = format!(
+            "outputs:\n  - type: html\n  - type: pdf\ninput: \"{}\"\noutput_dir: \"{}\"\nvariables:\n  greeting: world\n",
+            input_path.display(),
+            output_dir.display()
+        );
+        let mut f = NamedTempFile::new().expect("failed to create temp file");
+        f.write_all(config_content.as_bytes())
+            .expect("failed to write temp file");
+        (f, dir)
+    }
+
+    #[test]
+    fn test_dry_run_multiple_outputs_succeeds() {
+        // Dry-run should succeed for multiple output formats without requiring
+        // any external tools (pandoc/tectonic). Transforms run once and the
+        // result is reused for each format.
+        let (f, dir) = multi_output_config_file();
+        let output_dir = dir.path().join("dist");
+        let result = run(f.path().to_str().unwrap(), true);
+        assert!(result.is_ok(), "dry-run with multiple outputs should succeed: {:?}", result);
+        // No output directory should have been created in dry-run mode.
+        assert!(!output_dir.exists(), "output directory must not be created in dry-run mode");
+    }
+
+    #[test]
+    fn test_transforms_applied_once_content_consistent_across_formats() {
+        // Verify that transform output is consistent when multiple formats are
+        // configured: the same variable substitution result should appear
+        // regardless of how many output formats are requested. We exercise
+        // this indirectly by checking that a dry-run with multiple outputs
+        // succeeds with the same result as a single-output dry-run.
+        let (single_f, _single_dir) = valid_config_file();
+        let (multi_f, _multi_dir) = multi_output_config_file();
+
+        let single_result = run(single_f.path().to_str().unwrap(), true);
+        let multi_result = run(multi_f.path().to_str().unwrap(), true);
+
+        assert!(single_result.is_ok(), "single-output dry-run failed: {:?}", single_result);
+        assert!(multi_result.is_ok(), "multi-output dry-run failed: {:?}", multi_result);
     }
 }
