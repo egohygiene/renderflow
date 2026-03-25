@@ -1,45 +1,80 @@
-use anyhow::{Context, Result};
-use tracing::debug;
+use anyhow::Result;
 
 use super::step::PipelineStep;
-use crate::transforms::Transform;
+use crate::transforms::{Transform, TransformRegistry};
 
+/// An ordered sequence of transforms and output-format steps.
+///
+/// The pipeline separates document processing into two distinct phases:
+///
+/// 1. **Transform phase** – pure, in-memory text mutations (emoji replacement,
+///    variable substitution, syntax normalisation, …) that are format-agnostic.
+///    Transforms are owned and managed by an internal [`TransformRegistry`];
+///    call [`Pipeline::run_transforms`] to execute them.
+///
+/// 2. **Step phase** – format-specific rendering steps (HTML, PDF, …) that
+///    consume the transformed text and write output files.  Call
+///    [`Pipeline::run_steps`] after transforms have been applied.
+///
+/// Use [`Pipeline::with_registry`] to attach a pre-configured
+/// [`TransformRegistry`] (e.g. the standard one returned by
+/// [`crate::transforms::register_transforms`]) instead of adding transforms
+/// one-by-one with [`Pipeline::add_transform`].
 pub struct Pipeline {
-    transforms: Vec<Box<dyn Transform>>,
+    registry: TransformRegistry,
     steps: Vec<Box<dyn PipelineStep>>,
 }
 
 impl Pipeline {
+    /// Create an empty pipeline with an empty transform registry.
     pub fn new() -> Self {
         Self {
-            transforms: Vec::new(),
+            registry: TransformRegistry::new(),
             steps: Vec::new(),
         }
     }
 
+    /// Create a pipeline pre-loaded with an existing [`TransformRegistry`].
+    ///
+    /// This is the preferred constructor when the standard set of transforms
+    /// is needed; pair it with [`crate::transforms::register_transforms`]:
+    ///
+    /// ```ignore
+    /// let pipeline = Pipeline::with_registry(register_transforms(&variables));
+    /// let output   = pipeline.run_transforms(input)?;
+    /// ```
+    pub fn with_registry(registry: TransformRegistry) -> Self {
+        Self {
+            registry,
+            steps: Vec::new(),
+        }
+    }
+
+    /// Append a transform to the internal registry.
+    ///
+    /// Transforms run in registration order during [`Pipeline::run_transforms`].
     pub fn add_transform(&mut self, transform: Box<dyn Transform>) -> &mut Self {
-        self.transforms.push(transform);
+        self.registry.register(transform);
         self
     }
 
+    /// Append an output-format step.
     pub fn add_step(&mut self, step: Box<dyn PipelineStep>) -> &mut Self {
         self.steps.push(step);
         self
     }
 
+    /// Execute all registered transforms in order by delegating to the
+    /// internal [`TransformRegistry`].
+    ///
+    /// The output of each transform is fed as input to the next. Returns the
+    /// final transformed string, or an error that identifies the failing
+    /// transform.
     pub fn run_transforms(&self, input: String) -> Result<String> {
-        let mut current = input;
-        for transform in &self.transforms {
-            let name = transform.name();
-            debug!(transform = %name, "Starting transform");
-            current = transform
-                .apply(current)
-                .with_context(|| format!("Transform failed: {}", name))?;
-            debug!(transform = %name, "Transform completed");
-        }
-        Ok(current)
+        self.registry.apply_all(input)
     }
 
+    /// Execute all registered steps in order.
     pub fn run_steps(&self, input: String) -> Result<String> {
         let mut current = input;
         for step in &self.steps {
