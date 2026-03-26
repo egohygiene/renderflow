@@ -3,25 +3,23 @@ use std::path::Path;
 use tracing::info;
 
 use crate::adapters::command::run_command;
-use crate::input_format::InputFormat;
-use crate::strategies::OutputStrategy;
+use crate::strategies::{OutputStrategy, RenderContext};
 
 /// Renders a document to DOCX (Microsoft Word) format using pandoc.
 pub struct DocxStrategy {
     pub template: Option<String>,
     pub template_dir: String,
-    pub input_format: InputFormat,
 }
 
 impl DocxStrategy {
-    pub fn new(template: Option<String>, template_dir: String, input_format: InputFormat) -> Self {
-        Self { template, template_dir, input_format }
+    pub fn new(template: Option<String>, template_dir: String) -> Self {
+        Self { template, template_dir }
     }
 }
 
 impl OutputStrategy for DocxStrategy {
-    fn render(&self, input: &str, output_path: &str) -> Result<()> {
-        info!(input = %input, output = %output_path, template = ?self.template, "Rendering DOCX via pandoc");
+    fn render(&self, ctx: &RenderContext) -> Result<()> {
+        info!(input = %ctx.input_path, output = %ctx.output_path, template = ?self.template, "Rendering DOCX via pandoc");
 
         // Resolve the optional template to a reference document path within the
         // template directory.  DOCX customisation is applied via pandoc's
@@ -41,7 +39,7 @@ impl OutputStrategy for DocxStrategy {
             None
         };
 
-        let mut args = vec!["--from", self.input_format.as_pandoc_format(), input, "-o", output_path];
+        let mut args = vec!["--from", ctx.input_format.as_pandoc_format(), ctx.input_path, "-o", ctx.output_path];
         if let Some(ref path) = reference_doc {
             args.extend_from_slice(&["--reference-doc", path.as_str()]);
         }
@@ -50,9 +48,9 @@ impl OutputStrategy for DocxStrategy {
             .with_context(|| format!(
                 "Failed to render DOCX output '{}'. \
                  Check that pandoc is installed (`pandoc --version`) and that the input file '{}' is valid Markdown.",
-                output_path, input
+                ctx.output_path, ctx.input_path
             ))?;
-        info!(output = %output_path, "DOCX rendering completed successfully");
+        info!(output = %ctx.output_path, "DOCX rendering completed successfully");
         Ok(())
     }
 }
@@ -60,11 +58,25 @@ impl OutputStrategy for DocxStrategy {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashMap;
+    use crate::input_format::InputFormat;
+
+    fn default_ctx<'a>(input: &'a str, output: &'a str, vars: &'a HashMap<String, String>) -> RenderContext<'a> {
+        RenderContext {
+            input_path: input,
+            input_format: InputFormat::Markdown,
+            output_path: output,
+            variables: vars,
+            dry_run: false,
+        }
+    }
 
     #[test]
     fn test_docx_strategy_errors_on_missing_input() {
-        let strategy = DocxStrategy::new(None, "templates".to_string(), InputFormat::Markdown);
-        let result = strategy.render("/nonexistent/input.md", "/tmp/output.docx");
+        let vars = HashMap::new();
+        let strategy = DocxStrategy::new(None, "templates".to_string());
+        let ctx = default_ctx("/nonexistent/input.md", "/tmp/output.docx", &vars);
+        let result = strategy.render(&ctx);
         assert!(result.is_err());
         let msg = format!("{:#}", result.unwrap_err());
         assert!(
@@ -76,7 +88,7 @@ mod tests {
 
     #[test]
     fn test_docx_strategy_stores_template() {
-        let strategy = DocxStrategy::new(Some("reference.docx".to_string()), "templates".to_string(), InputFormat::Markdown);
+        let strategy = DocxStrategy::new(Some("reference.docx".to_string()), "templates".to_string());
         assert_eq!(strategy.template, Some("reference.docx".to_string()));
     }
 
@@ -84,18 +96,19 @@ mod tests {
     fn test_docx_strategy_no_template_does_not_check_template_dir() {
         // When no template is configured the template_dir is never accessed,
         // so a non-existent directory must not cause an error at construction time.
-        let strategy = DocxStrategy::new(None, "/nonexistent/dir".to_string(), InputFormat::Markdown);
+        let strategy = DocxStrategy::new(None, "/nonexistent/dir".to_string());
         assert!(strategy.template.is_none());
     }
 
     #[test]
     fn test_docx_strategy_missing_template_file_returns_error() {
+        let vars = HashMap::new();
         let strategy = DocxStrategy::new(
             Some("nonexistent.docx".to_string()),
             "/nonexistent/dir".to_string(),
-            InputFormat::Markdown,
         );
-        let result = strategy.render("/any/input.md", "/tmp/output.docx");
+        let ctx = default_ctx("/any/input.md", "/tmp/output.docx", &vars);
+        let result = strategy.render(&ctx);
         assert!(result.is_err());
         let msg = format!("{}", result.unwrap_err());
         assert!(
@@ -106,9 +119,16 @@ mod tests {
     }
 
     #[test]
-    fn test_docx_strategy_stores_input_format() {
-        let strategy = DocxStrategy::new(None, "templates".to_string(), InputFormat::Html);
-        assert_eq!(strategy.input_format, InputFormat::Html);
+    fn test_docx_strategy_context_carries_input_format() {
+        let vars = HashMap::new();
+        let ctx = RenderContext {
+            input_path: "input.html",
+            input_format: InputFormat::Html,
+            output_path: "/tmp/output.docx",
+            variables: &vars,
+            dry_run: false,
+        };
+        assert_eq!(ctx.input_format, InputFormat::Html);
     }
 
     #[test]
@@ -123,11 +143,16 @@ mod tests {
         let output = NamedTempFile::new().unwrap();
         let output_path = output.path().with_extension("docx");
 
-        let strategy = DocxStrategy::new(None, "templates".to_string(), InputFormat::Markdown);
-        let result = strategy.render(
-            input.path().to_str().unwrap(),
-            output_path.to_str().unwrap(),
-        );
+        let vars = HashMap::new();
+        let strategy = DocxStrategy::new(None, "templates".to_string());
+        let ctx = RenderContext {
+            input_path: input.path().to_str().unwrap(),
+            input_format: InputFormat::Markdown,
+            output_path: output_path.to_str().unwrap(),
+            variables: &vars,
+            dry_run: false,
+        };
+        let result = strategy.render(&ctx);
         assert!(result.is_ok());
         assert!(output_path.exists());
     }

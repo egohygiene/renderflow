@@ -109,9 +109,9 @@ pub fn run(config_path: &str, dry_run: bool) -> Result<()> {
             pb.inc(1);
             pb.println(format!("[dry-run] Would write output to: {}", output_path));
         } else {
-            let strategy = select_strategy(format.clone(), output.template.clone(), "templates".to_string(), config.input_format())?;
+            let strategy = select_strategy(format.clone(), output.template.clone(), "templates".to_string())?;
             let mut pipeline = Pipeline::new();
-            pipeline.add_step(Box::new(StrategyStep::new(strategy, &output_path)));
+            pipeline.add_step(Box::new(StrategyStep::new(strategy, &output_path, config.input_format(), config.variables.clone(), false)));
 
             pb.set_message(format!("[{format}] Rendering output"));
             match pipeline.run_steps(transformed.clone()) {

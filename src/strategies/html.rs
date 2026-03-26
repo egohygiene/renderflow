@@ -3,25 +3,23 @@ use std::path::Path;
 use tracing::info;
 
 use crate::adapters::command::run_command;
-use crate::input_format::InputFormat;
-use crate::strategies::OutputStrategy;
+use crate::strategies::{OutputStrategy, RenderContext};
 
 /// Renders a document to HTML format using pandoc.
 pub struct HtmlStrategy {
     pub template: Option<String>,
     pub template_dir: String,
-    pub input_format: InputFormat,
 }
 
 impl HtmlStrategy {
-    pub fn new(template: Option<String>, template_dir: String, input_format: InputFormat) -> Self {
-        Self { template, template_dir, input_format }
+    pub fn new(template: Option<String>, template_dir: String) -> Self {
+        Self { template, template_dir }
     }
 }
 
 impl OutputStrategy for HtmlStrategy {
-    fn render(&self, input: &str, output_path: &str) -> Result<()> {
-        info!(input = %input, output = %output_path, template = ?self.template, "Rendering HTML via pandoc");
+    fn render(&self, ctx: &RenderContext) -> Result<()> {
+        info!(input = %ctx.input_path, output = %ctx.output_path, template = ?self.template, "Rendering HTML via pandoc");
 
         // Resolve the optional template to a file path within the template directory.
         let template_path = if let Some(ref name) = self.template {
@@ -39,7 +37,7 @@ impl OutputStrategy for HtmlStrategy {
             None
         };
 
-        let mut args = vec!["--from", self.input_format.as_pandoc_format(), input, "-o", output_path];
+        let mut args = vec!["--from", ctx.input_format.as_pandoc_format(), ctx.input_path, "-o", ctx.output_path];
         if let Some(ref path) = template_path {
             args.extend_from_slice(&["--template", path.as_str()]);
         }
@@ -48,9 +46,9 @@ impl OutputStrategy for HtmlStrategy {
             .with_context(|| format!(
                 "Failed to render HTML output '{}'. \
                  Check that pandoc is installed (`pandoc --version`) and that the input file '{}' is valid Markdown.",
-                output_path, input
+                ctx.output_path, ctx.input_path
             ))?;
-        info!(output = %output_path, "HTML rendering completed successfully");
+        info!(output = %ctx.output_path, "HTML rendering completed successfully");
         Ok(())
     }
 }
@@ -58,11 +56,25 @@ impl OutputStrategy for HtmlStrategy {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashMap;
+    use crate::input_format::InputFormat;
+
+    fn default_ctx<'a>(input: &'a str, output: &'a str, vars: &'a HashMap<String, String>) -> RenderContext<'a> {
+        RenderContext {
+            input_path: input,
+            input_format: InputFormat::Markdown,
+            output_path: output,
+            variables: vars,
+            dry_run: false,
+        }
+    }
 
     #[test]
     fn test_html_strategy_errors_on_missing_input() {
-        let strategy = HtmlStrategy::new(None, "templates".to_string(), InputFormat::Markdown);
-        let result = strategy.render("/nonexistent/input.md", "/tmp/output.html");
+        let vars = HashMap::new();
+        let strategy = HtmlStrategy::new(None, "templates".to_string());
+        let ctx = default_ctx("/nonexistent/input.md", "/tmp/output.html", &vars);
+        let result = strategy.render(&ctx);
         assert!(result.is_err());
         let msg = format!("{:#}", result.unwrap_err());
         assert!(
@@ -74,7 +86,7 @@ mod tests {
 
     #[test]
     fn test_html_strategy_stores_template() {
-        let strategy = HtmlStrategy::new(Some("default.html".to_string()), "templates".to_string(), InputFormat::Markdown);
+        let strategy = HtmlStrategy::new(Some("default.html".to_string()), "templates".to_string());
         assert_eq!(strategy.template, Some("default.html".to_string()));
     }
 
@@ -86,15 +98,19 @@ mod tests {
         let mut input = NamedTempFile::new().unwrap();
         writeln!(input, "# Hello\n\nThis is a test.").unwrap();
 
+        let vars = HashMap::new();
         let strategy = HtmlStrategy::new(
             Some("nonexistent.html".to_string()),
             "/nonexistent/template/dir".to_string(),
-            InputFormat::Markdown,
         );
-        let result = strategy.render(
-            input.path().to_str().unwrap(),
-            "/tmp/output.html",
-        );
+        let ctx = RenderContext {
+            input_path: input.path().to_str().unwrap(),
+            input_format: InputFormat::Markdown,
+            output_path: "/tmp/output.html",
+            variables: &vars,
+            dry_run: false,
+        };
+        let result = strategy.render(&ctx);
         assert!(result.is_err());
         let msg = result.unwrap_err().to_string();
         assert!(
@@ -108,14 +124,21 @@ mod tests {
     fn test_html_strategy_no_template_does_not_check_template_dir() {
         // When no template is configured the template_dir is never accessed,
         // so a non-existent directory must not cause an error at construction time.
-        let strategy = HtmlStrategy::new(None, "/nonexistent/dir".to_string(), InputFormat::Markdown);
+        let strategy = HtmlStrategy::new(None, "/nonexistent/dir".to_string());
         assert!(strategy.template.is_none());
     }
 
     #[test]
-    fn test_html_strategy_stores_input_format() {
-        let strategy = HtmlStrategy::new(None, "templates".to_string(), InputFormat::Html);
-        assert_eq!(strategy.input_format, InputFormat::Html);
+    fn test_html_strategy_context_carries_input_format() {
+        let vars = HashMap::new();
+        let ctx = RenderContext {
+            input_path: "input.html",
+            input_format: InputFormat::Html,
+            output_path: "/tmp/output.html",
+            variables: &vars,
+            dry_run: false,
+        };
+        assert_eq!(ctx.input_format, InputFormat::Html);
     }
 
     #[test]
@@ -130,11 +153,16 @@ mod tests {
         let output = NamedTempFile::new().unwrap();
         let output_path = output.path().with_extension("html");
 
-        let strategy = HtmlStrategy::new(None, "templates".to_string(), InputFormat::Markdown);
-        let result = strategy.render(
-            input.path().to_str().unwrap(),
-            output_path.to_str().unwrap(),
-        );
+        let vars = HashMap::new();
+        let strategy = HtmlStrategy::new(None, "templates".to_string());
+        let ctx = RenderContext {
+            input_path: input.path().to_str().unwrap(),
+            input_format: InputFormat::Markdown,
+            output_path: output_path.to_str().unwrap(),
+            variables: &vars,
+            dry_run: false,
+        };
+        let result = strategy.render(&ctx);
         assert!(result.is_ok());
         assert!(output_path.exists());
     }
@@ -157,15 +185,19 @@ mod tests {
         let output = NamedTempFile::new().unwrap();
         let output_path = output.path().with_extension("html");
 
+        let vars = HashMap::new();
         let strategy = HtmlStrategy::new(
             Some("custom.html".to_string()),
             template_dir.path().to_str().unwrap().to_string(),
-            InputFormat::Markdown,
         );
-        let result = strategy.render(
-            input.path().to_str().unwrap(),
-            output_path.to_str().unwrap(),
-        );
+        let ctx = RenderContext {
+            input_path: input.path().to_str().unwrap(),
+            input_format: InputFormat::Markdown,
+            output_path: output_path.to_str().unwrap(),
+            variables: &vars,
+            dry_run: false,
+        };
+        let result = strategy.render(&ctx);
         assert!(result.is_ok(), "expected render to succeed with a valid template: {:?}", result);
         assert!(output_path.exists());
     }

@@ -4,19 +4,17 @@ use std::path::Path;
 use tracing::info;
 
 use crate::adapters::command::run_command;
-use crate::input_format::InputFormat;
-use crate::strategies::OutputStrategy;
+use crate::strategies::{OutputStrategy, RenderContext};
 
 /// Renders a document to PDF format using pandoc with the tectonic PDF engine.
 pub struct PdfStrategy {
     pub template: Option<String>,
     pub template_dir: String,
-    pub input_format: InputFormat,
 }
 
 impl PdfStrategy {
-    pub fn new(template: Option<String>, template_dir: String, input_format: InputFormat) -> Self {
-        Self { template, template_dir, input_format }
+    pub fn new(template: Option<String>, template_dir: String) -> Self {
+        Self { template, template_dir }
     }
 
     /// Returns an error if the tectonic PDF engine is not installed.
@@ -39,8 +37,8 @@ impl PdfStrategy {
 }
 
 impl OutputStrategy for PdfStrategy {
-    fn render(&self, input: &str, output_path: &str) -> Result<()> {
-        info!(input = %input, output = %output_path, template = ?self.template, "Rendering PDF via pandoc");
+    fn render(&self, ctx: &RenderContext) -> Result<()> {
+        info!(input = %ctx.input_path, output = %ctx.output_path, template = ?self.template, "Rendering PDF via pandoc");
 
         Self::check_tectonic()?;
 
@@ -62,10 +60,10 @@ impl OutputStrategy for PdfStrategy {
 
         let mut args = vec![
             "--from",
-            self.input_format.as_pandoc_format(),
-            input,
+            ctx.input_format.as_pandoc_format(),
+            ctx.input_path,
             "-o",
-            output_path,
+            ctx.output_path,
             "--pdf-engine=tectonic",
         ];
         if let Some(ref path) = template_path {
@@ -77,9 +75,9 @@ impl OutputStrategy for PdfStrategy {
             "Failed to render PDF output '{}'. \
              Check that pandoc and tectonic are installed (`pandoc --version`, `tectonic --version`) \
              and that the input file '{}' is valid Markdown.",
-            output_path, input
+            ctx.output_path, ctx.input_path
         ))?;
-        info!(output = %output_path, "PDF rendering completed successfully");
+        info!(output = %ctx.output_path, "PDF rendering completed successfully");
         Ok(())
     }
 }
@@ -87,6 +85,18 @@ impl OutputStrategy for PdfStrategy {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashMap;
+    use crate::input_format::InputFormat;
+
+    fn default_ctx<'a>(input: &'a str, output: &'a str, vars: &'a HashMap<String, String>) -> RenderContext<'a> {
+        RenderContext {
+            input_path: input,
+            input_format: InputFormat::Markdown,
+            output_path: output,
+            variables: vars,
+            dry_run: false,
+        }
+    }
 
     /// Returns `true` if the `tectonic` binary is available in PATH.
     fn tectonic_available() -> bool {
@@ -99,8 +109,10 @@ mod tests {
 
     #[test]
     fn test_pdf_strategy_errors_on_missing_input() {
-        let strategy = PdfStrategy::new(None, "templates".to_string(), InputFormat::Markdown);
-        let result = strategy.render("/nonexistent/input.md", "/tmp/output.pdf");
+        let vars = HashMap::new();
+        let strategy = PdfStrategy::new(None, "templates".to_string());
+        let ctx = default_ctx("/nonexistent/input.md", "/tmp/output.pdf", &vars);
+        let result = strategy.render(&ctx);
         assert!(result.is_err());
         let msg = format!("{:#}", result.unwrap_err());
         // The error is either a missing-tectonic error or a pandoc render error.
@@ -129,7 +141,7 @@ mod tests {
 
     #[test]
     fn test_pdf_strategy_stores_template() {
-        let strategy = PdfStrategy::new(Some("default.html".to_string()), "templates".to_string(), InputFormat::Markdown);
+        let strategy = PdfStrategy::new(Some("default.html".to_string()), "templates".to_string());
         assert_eq!(strategy.template, Some("default.html".to_string()));
     }
 
@@ -137,14 +149,21 @@ mod tests {
     fn test_pdf_strategy_no_template_does_not_check_template_dir() {
         // When no template is configured the template_dir is never accessed,
         // so a non-existent directory must not cause an error at construction time.
-        let strategy = PdfStrategy::new(None, "/nonexistent/dir".to_string(), InputFormat::Markdown);
+        let strategy = PdfStrategy::new(None, "/nonexistent/dir".to_string());
         assert!(strategy.template.is_none());
     }
 
     #[test]
-    fn test_pdf_strategy_stores_input_format() {
-        let strategy = PdfStrategy::new(None, "templates".to_string(), InputFormat::Rst);
-        assert_eq!(strategy.input_format, InputFormat::Rst);
+    fn test_pdf_strategy_context_carries_input_format() {
+        let vars = HashMap::new();
+        let ctx = RenderContext {
+            input_path: "input.rst",
+            input_format: InputFormat::Rst,
+            output_path: "/tmp/output.pdf",
+            variables: &vars,
+            dry_run: false,
+        };
+        assert_eq!(ctx.input_format, InputFormat::Rst);
     }
 
     #[test]
@@ -159,11 +178,16 @@ mod tests {
         let output = NamedTempFile::new().unwrap();
         let output_path = output.path().with_extension("pdf");
 
-        let strategy = PdfStrategy::new(None, "templates".to_string(), InputFormat::Markdown);
-        let result = strategy.render(
-            input.path().to_str().unwrap(),
-            output_path.to_str().unwrap(),
-        );
+        let vars = HashMap::new();
+        let strategy = PdfStrategy::new(None, "templates".to_string());
+        let ctx = RenderContext {
+            input_path: input.path().to_str().unwrap(),
+            input_format: InputFormat::Markdown,
+            output_path: output_path.to_str().unwrap(),
+            variables: &vars,
+            dry_run: false,
+        };
+        let result = strategy.render(&ctx);
         assert!(result.is_ok());
         assert!(output_path.exists());
     }
