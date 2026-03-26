@@ -109,7 +109,7 @@ pub fn run(config_path: &str, dry_run: bool) -> Result<()> {
             pb.inc(1);
             pb.println(format!("[dry-run] Would write output to: {}", output_path));
         } else {
-            let strategy = select_strategy(format.clone(), output.template.clone(), "templates".to_string(), config.input_format().as_pandoc_format().to_string())?;
+            let strategy = select_strategy(format.clone(), output.template.clone(), "templates".to_string(), config.input_format())?;
             let mut pipeline = Pipeline::new();
             pipeline.add_step(Box::new(StrategyStep::new(strategy, &output_path)));
 

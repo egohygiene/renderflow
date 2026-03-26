@@ -3,17 +3,18 @@ use std::path::Path;
 use tracing::info;
 
 use crate::adapters::command::run_command;
+use crate::input_format::InputFormat;
 use crate::strategies::OutputStrategy;
 
 /// Renders a document to DOCX (Microsoft Word) format using pandoc.
 pub struct DocxStrategy {
     pub template: Option<String>,
     pub template_dir: String,
-    pub input_format: String,
+    pub input_format: InputFormat,
 }
 
 impl DocxStrategy {
-    pub fn new(template: Option<String>, template_dir: String, input_format: String) -> Self {
+    pub fn new(template: Option<String>, template_dir: String, input_format: InputFormat) -> Self {
         Self { template, template_dir, input_format }
     }
 }
@@ -40,7 +41,7 @@ impl OutputStrategy for DocxStrategy {
             None
         };
 
-        let mut args = vec!["--from", self.input_format.as_str(), input, "-o", output_path];
+        let mut args = vec!["--from", self.input_format.as_pandoc_format(), input, "-o", output_path];
         if let Some(ref path) = reference_doc {
             args.extend_from_slice(&["--reference-doc", path.as_str()]);
         }
@@ -62,7 +63,7 @@ mod tests {
 
     #[test]
     fn test_docx_strategy_errors_on_missing_input() {
-        let strategy = DocxStrategy::new(None, "templates".to_string(), "markdown".to_string());
+        let strategy = DocxStrategy::new(None, "templates".to_string(), InputFormat::Markdown);
         let result = strategy.render("/nonexistent/input.md", "/tmp/output.docx");
         assert!(result.is_err());
         let msg = format!("{:#}", result.unwrap_err());
@@ -75,7 +76,7 @@ mod tests {
 
     #[test]
     fn test_docx_strategy_stores_template() {
-        let strategy = DocxStrategy::new(Some("reference.docx".to_string()), "templates".to_string(), "markdown".to_string());
+        let strategy = DocxStrategy::new(Some("reference.docx".to_string()), "templates".to_string(), InputFormat::Markdown);
         assert_eq!(strategy.template, Some("reference.docx".to_string()));
     }
 
@@ -83,7 +84,7 @@ mod tests {
     fn test_docx_strategy_no_template_does_not_check_template_dir() {
         // When no template is configured the template_dir is never accessed,
         // so a non-existent directory must not cause an error at construction time.
-        let strategy = DocxStrategy::new(None, "/nonexistent/dir".to_string(), "markdown".to_string());
+        let strategy = DocxStrategy::new(None, "/nonexistent/dir".to_string(), InputFormat::Markdown);
         assert!(strategy.template.is_none());
     }
 
@@ -92,7 +93,7 @@ mod tests {
         let strategy = DocxStrategy::new(
             Some("nonexistent.docx".to_string()),
             "/nonexistent/dir".to_string(),
-            "markdown".to_string(),
+            InputFormat::Markdown,
         );
         let result = strategy.render("/any/input.md", "/tmp/output.docx");
         assert!(result.is_err());
@@ -106,8 +107,8 @@ mod tests {
 
     #[test]
     fn test_docx_strategy_stores_input_format() {
-        let strategy = DocxStrategy::new(None, "templates".to_string(), "html".to_string());
-        assert_eq!(strategy.input_format, "html");
+        let strategy = DocxStrategy::new(None, "templates".to_string(), InputFormat::Html);
+        assert_eq!(strategy.input_format, InputFormat::Html);
     }
 
     #[test]
@@ -122,7 +123,7 @@ mod tests {
         let output = NamedTempFile::new().unwrap();
         let output_path = output.path().with_extension("docx");
 
-        let strategy = DocxStrategy::new(None, "templates".to_string(), "markdown".to_string());
+        let strategy = DocxStrategy::new(None, "templates".to_string(), InputFormat::Markdown);
         let result = strategy.render(
             input.path().to_str().unwrap(),
             output_path.to_str().unwrap(),
