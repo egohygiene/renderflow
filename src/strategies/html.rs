@@ -3,7 +3,7 @@ use std::path::Path;
 use tracing::info;
 
 use crate::adapters::command::run_command;
-use crate::strategies::{OutputStrategy, RenderContext};
+use crate::strategies::{OutputStrategy, PandocArgs, RenderContext};
 
 /// Renders a document to HTML format using pandoc.
 pub struct HtmlStrategy {
@@ -37,12 +37,15 @@ impl OutputStrategy for HtmlStrategy {
             None
         };
 
-        let mut args = vec!["--from", ctx.input_format.as_pandoc_format(), ctx.input_path, "-o", ctx.output_path];
-        if let Some(ref path) = template_path {
-            args.extend_from_slice(&["--template", path.as_str()]);
+        let builder = PandocArgs::new(ctx.input_format.as_pandoc_format(), ctx.input_path, ctx.output_path);
+        let args = match template_path {
+            Some(ref path) => builder.with_template(path.as_str()),
+            None => builder,
         }
+        .build();
+        let args_refs: Vec<&str> = args.iter().map(String::as_str).collect();
 
-        run_command("pandoc", &args)
+        run_command("pandoc", &args_refs)
             .with_context(|| format!(
                 "Failed to render HTML output '{}'. \
                  Check that pandoc is installed (`pandoc --version`) and that the input file '{}' is valid Markdown.",

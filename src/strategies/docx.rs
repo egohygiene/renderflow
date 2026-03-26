@@ -3,7 +3,7 @@ use std::path::Path;
 use tracing::info;
 
 use crate::adapters::command::run_command;
-use crate::strategies::{OutputStrategy, RenderContext};
+use crate::strategies::{OutputStrategy, PandocArgs, RenderContext};
 
 /// Renders a document to DOCX (Microsoft Word) format using pandoc.
 pub struct DocxStrategy {
@@ -39,12 +39,15 @@ impl OutputStrategy for DocxStrategy {
             None
         };
 
-        let mut args = vec!["--from", ctx.input_format.as_pandoc_format(), ctx.input_path, "-o", ctx.output_path];
-        if let Some(ref path) = reference_doc {
-            args.extend_from_slice(&["--reference-doc", path.as_str()]);
+        let builder = PandocArgs::new(ctx.input_format.as_pandoc_format(), ctx.input_path, ctx.output_path);
+        let args = match reference_doc {
+            Some(ref path) => builder.with_reference_doc(path.as_str()),
+            None => builder,
         }
+        .build();
+        let args_refs: Vec<&str> = args.iter().map(String::as_str).collect();
 
-        run_command("pandoc", &args)
+        run_command("pandoc", &args_refs)
             .with_context(|| format!(
                 "Failed to render DOCX output '{}'. \
                  Check that pandoc is installed (`pandoc --version`) and that the input file '{}' is valid Markdown.",
