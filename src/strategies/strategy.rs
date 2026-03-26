@@ -1,15 +1,39 @@
+use std::collections::HashMap;
+
 use anyhow::Result;
+
+use crate::input_format::InputFormat;
+
+/// Structured context passed to every [`OutputStrategy::render`] call.
+///
+/// Centralises all information a strategy needs to produce output, making
+/// the interface future-proof and simplifying parameter passing.
+pub struct RenderContext<'a> {
+    /// Path to the input file that the strategy should read.
+    pub input_path: &'a str,
+    /// The document input format; mapped to a pandoc `--from` string via
+    /// [`InputFormat::as_pandoc_format`] when invoking pandoc.
+    pub input_format: InputFormat,
+    /// Destination path where the rendered output should be written.
+    pub output_path: &'a str,
+    /// Template variables available for substitution.
+    pub variables: &'a HashMap<String, String>,
+    /// When `true` the strategy should skip any file system writes or
+    /// external commands.
+    pub dry_run: bool,
+}
 
 /// Defines how a specific output format (e.g. HTML, PDF) is rendered.
 ///
-/// Implementors receive raw input content and a destination path, and are
-/// responsible for producing the final artefact at that path.
+/// Implementors receive a [`RenderContext`] containing all information
+/// required to produce the final artefact at the configured output path.
 pub trait OutputStrategy {
-    /// Render `input` content and write the result to `output_path`.
+    /// Render the document described by `ctx` and write the result to
+    /// `ctx.output_path`.
     ///
     /// # Errors
     ///
     /// Returns an error if the rendering process fails or the output cannot be
-    /// written to `output_path`.
-    fn render(&self, input: &str, output_path: &str) -> Result<()>;
+    /// written to `ctx.output_path`.
+    fn render(&self, ctx: &RenderContext) -> Result<()>;
 }
