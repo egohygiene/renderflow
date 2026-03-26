@@ -2,6 +2,7 @@ mod adapters;
 mod assets;
 mod cli;
 mod commands;
+mod compat;
 mod config;
 mod files;
 mod input_format;

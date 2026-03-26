@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fs;
 
+use crate::compat::{is_supported, unsupported_combination_message};
 use crate::input_format::InputFormat;
 
 fn default_output_dir() -> String {
@@ -115,6 +116,19 @@ impl Config {
         if !bad.is_empty() {
             anyhow::bail!("{}", bad.join("\n"));
         }
+
+        // Check that each output type is compatible with the resolved input format.
+        let input_fmt = self.input_format();
+        let incompatible: Vec<String> = self
+            .outputs
+            .iter()
+            .filter(|o| !is_supported(&input_fmt, &o.output_type))
+            .map(|o| unsupported_combination_message(&input_fmt, &o.output_type))
+            .collect();
+        if !incompatible.is_empty() {
+            anyhow::bail!("{}", incompatible.join("\n"));
+        }
+
         Ok(())
     }
 }
@@ -436,6 +450,97 @@ input_format: xml
             msg.contains("not a supported input format"),
             "unexpected error: {}",
             msg
+        );
+    }
+
+    #[test]
+    fn test_valid_combination_epub_to_html_passes() {
+        let yaml = r#"
+outputs:
+  - type: html
+input: "input.epub"
+output_dir: "dist"
+"#;
+        let f = write_temp_yaml(yaml);
+        let config = load_config(f.path().to_str().unwrap())
+            .expect("epub → html should be a valid combination");
+        assert_eq!(config.input_format(), InputFormat::Epub);
+    }
+
+    #[test]
+    fn test_invalid_combination_epub_to_docx_returns_error() {
+        let yaml = r#"
+outputs:
+  - type: docx
+input: "input.epub"
+output_dir: "dist"
+"#;
+        let f = write_temp_yaml(yaml);
+        let result = load_config(f.path().to_str().unwrap());
+        assert!(result.is_err());
+        let msg = format!("{}", result.unwrap_err());
+        assert!(
+            msg.contains("epub"),
+            "error should mention input format: {msg}"
+        );
+        assert!(
+            msg.contains("docx"),
+            "error should mention output type: {msg}"
+        );
+        assert!(
+            msg.contains("not supported yet"),
+            "error should say 'not supported yet': {msg}"
+        );
+    }
+
+    #[test]
+    fn test_invalid_combination_latex_to_docx_returns_error() {
+        let yaml = r#"
+outputs:
+  - type: docx
+input: "input.tex"
+output_dir: "dist"
+"#;
+        let f = write_temp_yaml(yaml);
+        let result = load_config(f.path().to_str().unwrap());
+        assert!(result.is_err());
+        let msg = format!("{}", result.unwrap_err());
+        assert!(
+            msg.contains("latex"),
+            "error should mention input format: {msg}"
+        );
+        assert!(
+            msg.contains("docx"),
+            "error should mention output type: {msg}"
+        );
+        assert!(
+            msg.contains("not supported yet"),
+            "error should say 'not supported yet': {msg}"
+        );
+    }
+
+    #[test]
+    fn test_multiple_invalid_combinations_reports_all() {
+        // epub → docx and epub → (another invalid) should both be reported.
+        // We use two outputs where at least one is unsupported.
+        let yaml = r#"
+outputs:
+  - type: docx
+  - type: html
+input: "input.epub"
+output_dir: "dist"
+"#;
+        let f = write_temp_yaml(yaml);
+        let result = load_config(f.path().to_str().unwrap());
+        assert!(result.is_err());
+        let msg = format!("{}", result.unwrap_err());
+        assert!(
+            msg.contains("epub"),
+            "error should mention input format: {msg}"
+        );
+        assert!(
+            msg.contains("docx"),
+            "error should mention unsupported output: {msg}"
         );
     }
 }
