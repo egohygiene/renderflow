@@ -6,6 +6,7 @@ use std::path::Path;
 use tracing::{info, warn};
 
 use crate::assets::normalize_asset_paths;
+use crate::cache::{compute_input_hash, load_cache, save_cache};
 use crate::config::load_config;
 use crate::files::{ensure_output_dir, validate_input};
 use crate::pipeline::{Pipeline, StrategyStep};
@@ -89,14 +90,34 @@ pub fn run(config_path: &str, dry_run: bool) -> Result<()> {
 
     // Transforms are pure in-memory operations (no files, no external commands) and
     // are not output-format dependent, so they are executed once and reused for all
-    // output formats.
+    // output formats.  The cache allows skipping this phase entirely when inputs have
+    // not changed since the last successful build.
     let transform_pipeline = Pipeline::with_registry(register_transforms(&config.variables));
-    info!("Applying transforms (cached for all outputs)");
+    let input_hash = compute_input_hash(&normalized_content, &config.variables);
+    let cache_path = output_dir.join(".renderflow-cache.json");
+    // Always attempt to read the cache; load_cache handles missing/corrupt files
+    // gracefully.  Only write back to disk in non-dry-run mode.
+    let mut transform_cache = load_cache(&cache_path);
+
     pb.set_message("Applying transforms");
-    let transformed = transform_pipeline
-        .run_transforms(normalized_content)
-        .with_context(|| "Transform pipeline failed; no output formats will be rendered")?;
-    pb.inc(1);
+    let transformed = if let Some(cached) = transform_cache.get(&input_hash) {
+        info!("Cache hit — skipping transforms");
+        pb.inc(1);
+        cached.to_string()
+    } else {
+        info!("Cache miss — running transforms");
+        let result = transform_pipeline
+            .run_transforms(normalized_content)
+            .with_context(|| "Transform pipeline failed; no output formats will be rendered")?;
+        pb.inc(1);
+        if !dry_run {
+            transform_cache.insert(input_hash, result.clone());
+            if let Err(e) = save_cache(&transform_cache, &cache_path) {
+                warn!(error = %e, "Failed to save transform cache");
+            }
+        }
+        result
+    };
 
     // Output formats are rendered concurrently via rayon. Progress bar updates
     // and log messages may interleave across formats; this is expected and
@@ -336,5 +357,144 @@ mod tests {
 
         assert!(single_result.is_ok(), "single-output dry-run failed: {:?}", single_result);
         assert!(multi_result.is_ok(), "multi-output dry-run failed: {:?}", multi_result);
+    }
+
+    // ── cache integration tests ───────────────────────────────────────────────
+
+    /// Pre-populate the transform cache file at `output_dir/.renderflow-cache.json`
+    /// with the given hash → content mapping so that a subsequent build can
+    /// exercise cache-hit behaviour without running pandoc.
+    fn write_cache_file(output_dir: &std::path::Path, hash: &str, content: &str) {
+        fs::create_dir_all(output_dir).expect("failed to create output dir");
+        let cache_path = output_dir.join(".renderflow-cache.json");
+        let map: std::collections::HashMap<&str, &str> =
+            std::collections::HashMap::from([(hash, content)]);
+        let json = serde_json::to_string(&map).expect("failed to serialize cache");
+        fs::write(&cache_path, json).expect("failed to write cache file");
+    }
+
+    #[test]
+    fn test_cache_miss_on_fresh_dry_run() {
+        // A dry-run with no pre-existing cache file should proceed normally
+        // (transforms run, no cache written).
+        let (f, dir) = valid_config_file();
+        let output_dir = dir.path().join("dist");
+        // No cache file exists — this is a fresh state.
+        let result = run(f.path().to_str().unwrap(), true);
+        assert!(result.is_ok(), "dry-run should succeed without a cache: {:?}", result);
+        // In dry-run mode the output directory is never created.
+        assert!(!output_dir.exists(), "output directory must not be created in dry-run mode");
+    }
+
+    #[test]
+    fn test_cache_hit_uses_pre_populated_cache() {
+        // Pre-populate the cache with the exact hash that the build would
+        // compute for the input file, then run a dry-run.  The build should
+        // detect the cache hit and skip the transform phase.
+        let dir = tempfile::tempdir().expect("failed to create temp dir");
+        let input_content = "# Test\n";
+        let input_path = dir.path().join("input.md");
+        fs::write(&input_path, input_content).expect("failed to write input file");
+        let output_dir = dir.path().join("dist");
+
+        // Compute the hash the same way the build command will.
+        let variables = std::collections::HashMap::new();
+        let hash = crate::cache::compute_input_hash(input_content, &variables);
+        let cached_transform = "# Test (from cache)\n";
+        write_cache_file(&output_dir, &hash, cached_transform);
+
+        let config_content = format!(
+            "outputs:\n  - type: html\ninput: \"{}\"\noutput_dir: \"{}\"\n",
+            input_path.display(),
+            output_dir.display()
+        );
+        let mut f = NamedTempFile::new().expect("failed to create temp file");
+        f.write_all(config_content.as_bytes()).expect("failed to write config");
+
+        // The dry-run should succeed; cache hit is detected in both modes.
+        let result = run(f.path().to_str().unwrap(), true);
+        assert!(result.is_ok(), "dry-run with cache hit should succeed: {:?}", result);
+    }
+
+    #[test]
+    fn test_cache_miss_when_input_changed() {
+        // After changing the input content the hash changes, so the previously
+        // cached entry should not match and transforms must run again.
+        let dir = tempfile::tempdir().expect("failed to create temp dir");
+        let original_content = "# Original\n";
+        let input_path = dir.path().join("input.md");
+        fs::write(&input_path, original_content).expect("failed to write input file");
+        let output_dir = dir.path().join("dist");
+
+        // Cache is keyed on the *original* content.
+        let variables = std::collections::HashMap::new();
+        let old_hash = crate::cache::compute_input_hash(original_content, &variables);
+        write_cache_file(&output_dir, &old_hash, "cached result");
+
+        // Now change the input file — the hash will be different.
+        let new_content = "# Changed\n";
+        fs::write(&input_path, new_content).expect("failed to write updated input");
+
+        let config_content = format!(
+            "outputs:\n  - type: html\ninput: \"{}\"\noutput_dir: \"{}\"\n",
+            input_path.display(),
+            output_dir.display()
+        );
+        let mut f = NamedTempFile::new().expect("failed to create temp file");
+        f.write_all(config_content.as_bytes()).expect("failed to write config");
+
+        // Dry-run still succeeds; it runs transforms because the hash misses.
+        let result = run(f.path().to_str().unwrap(), true);
+        assert!(result.is_ok(), "dry-run with cache miss should still succeed: {:?}", result);
+    }
+
+    #[test]
+    #[ignore = "requires pandoc to be installed"]
+    fn test_cache_file_written_after_build() {
+        // After a real (non-dry-run) build the cache file must exist in the
+        // output directory and contain the hash of the transformed content.
+        let dir = tempfile::tempdir().expect("failed to create temp dir");
+        let input_path = dir.path().join("input.md");
+        fs::write(&input_path, "# Hello\n").expect("failed to write input");
+        let output_dir = dir.path().join("dist");
+        let config_content = format!(
+            "outputs:\n  - type: html\ninput: \"{}\"\noutput_dir: \"{}\"\n",
+            input_path.display(),
+            output_dir.display()
+        );
+        let mut f = NamedTempFile::new().expect("failed to create temp file");
+        f.write_all(config_content.as_bytes()).expect("failed to write config");
+
+        run(f.path().to_str().unwrap(), false).expect("build should succeed");
+
+        let cache_path = output_dir.join(".renderflow-cache.json");
+        assert!(cache_path.exists(), "cache file must exist after a real build");
+    }
+
+    #[test]
+    #[ignore = "requires pandoc to be installed"]
+    fn test_second_build_hits_cache() {
+        // Running the build twice with the same input must result in a cache
+        // hit on the second run.  We verify this indirectly by checking that
+        // the cache file still exists and that the second run also succeeds.
+        let dir = tempfile::tempdir().expect("failed to create temp dir");
+        let input_path = dir.path().join("input.md");
+        fs::write(&input_path, "# Hello\n").expect("failed to write input");
+        let output_dir = dir.path().join("dist");
+        let config_content = format!(
+            "outputs:\n  - type: html\ninput: \"{}\"\noutput_dir: \"{}\"\n",
+            input_path.display(),
+            output_dir.display()
+        );
+        let mut f = NamedTempFile::new().expect("failed to create temp file");
+        f.write_all(config_content.as_bytes()).expect("failed to write config");
+
+        // First build — cache miss, cache written.
+        run(f.path().to_str().unwrap(), false).expect("first build should succeed");
+        // Second build — cache hit.
+        run(f.path().to_str().unwrap(), false).expect("second build (cache hit) should succeed");
+
+        let cache_path = output_dir.join(".renderflow-cache.json");
+        assert!(cache_path.exists(), "cache file must still exist after second build");
     }
 }

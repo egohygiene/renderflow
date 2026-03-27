@@ -17,3 +17,6 @@ target/
 Thumbs.db
 
 **/.history/
+
+# Renderflow build cache
+dist/.renderflow-cache.json
