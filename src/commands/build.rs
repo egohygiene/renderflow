@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
-use indicatif::{ProgressBar, ProgressStyle};
+use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
+use rayon::prelude::*;
 use std::fs;
 use std::path::Path;
 use tracing::{info, warn};
@@ -78,7 +79,8 @@ pub fn run(config_path: &str, dry_run: bool) -> Result<()> {
 
     // One tick for transforms (run once) plus one tick per output format for rendering.
     let total_steps = 1 + config.outputs.len() as u64;
-    let pb = ProgressBar::new(total_steps);
+    let mp = MultiProgress::new();
+    let pb = mp.add(ProgressBar::new(total_steps));
     pb.set_style(
         ProgressStyle::with_template("{spinner:.cyan} [{bar:40.cyan/blue}] {pos}/{len} {msg}")
             .expect("hardcoded progress bar template is valid")
@@ -96,9 +98,13 @@ pub fn run(config_path: &str, dry_run: bool) -> Result<()> {
         .with_context(|| "Transform pipeline failed; no output formats will be rendered")?;
     pb.inc(1);
 
-    let mut failed_outputs: Vec<(String, anyhow::Error)> = Vec::new();
-
-    for output in &config.outputs {
+    // Output formats are rendered concurrently via rayon. Progress bar updates
+    // and log messages may interleave across formats; this is expected and
+    // acceptable for parallel execution.
+    let failed_outputs: Vec<(String, anyhow::Error)> = config
+        .outputs
+        .par_iter()
+        .map(|output| {
         let format = output.output_type.clone();
         let output_path = format!("{}/{}.{}", output_dir.display(), input_stem, format);
         info!(format = %format, output = %output_path, template = ?output.template, "Running pipeline for format");
@@ -108,13 +114,19 @@ pub fn run(config_path: &str, dry_run: bool) -> Result<()> {
             pb.set_message(format!("[{format}] Would render output"));
             pb.inc(1);
             pb.println(format!("[dry-run] Would write output to: {}", output_path));
+            (format.to_string(), Ok(()))
         } else {
-            let strategy = select_strategy(format.clone(), output.template.clone(), "templates".to_string())?;
-            let mut pipeline = Pipeline::new();
-            pipeline.add_step(Box::new(StrategyStep::new(strategy, &output_path, config.input_format(), config.variables.clone(), false)));
+            let result = (|| -> Result<()> {
+                let strategy = select_strategy(format.clone(), output.template.clone(), "templates".to_string())?;
+                let mut pipeline = Pipeline::new();
+                pipeline.add_step(Box::new(StrategyStep::new(strategy, &output_path, config.input_format(), config.variables.clone(), false)));
 
-            pb.set_message(format!("[{format}] Rendering output"));
-            match pipeline.run_steps(transformed.clone()) {
+                pb.set_message(format!("[{format}] Rendering output"));
+                pipeline.run_steps(transformed.clone())?;
+                Ok(())
+            })();
+
+            match &result {
                 Ok(_) => {
                     pb.inc(1);
                     pb.println(format!("✔ Output written to: {}", output_path));
@@ -124,11 +136,13 @@ pub fn run(config_path: &str, dry_run: bool) -> Result<()> {
                     warn!(format = %format, error = %e, "Rendering failed for output format");
                     pb.inc(1);
                     pb.println(format!("✘ Failed to render {} output: {:#}", format, e));
-                    failed_outputs.push((format.to_string(), e));
                 }
             }
+            (format.to_string(), result)
         }
-    }
+    })
+    .filter_map(|(fmt, r)| r.err().map(|e| (fmt, e)))
+    .collect();
 
     if dry_run {
         pb.finish_with_message("✔ Dry-run complete — no output written");
