@@ -1,0 +1,6 @@
+# Cross compilation configuration for renderflow
+# https://github.com/cross-rs/cross
+
+[build]
+# Build in the cross Docker container instead of the host
+default-target = "x86_64-unknown-linux-gnu"
