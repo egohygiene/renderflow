@@ -7,6 +7,90 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use tracing::warn;
 
+// ── OutputCache ──────────────────────────────────────────────────────────────
+
+/// On-disk representation of the output cache.
+///
+/// Keys are output file paths; values are hex-encoded SHA-256 hashes of the
+/// render inputs (transformed content + output type + template) that produced
+/// them.  A cache hit means the output file is already up-to-date and pandoc
+/// can be skipped.
+#[derive(Debug, Default, Serialize, Deserialize)]
+pub struct OutputCache(HashMap<String, String>);
+
+impl OutputCache {
+    /// Look up the stored render-input hash for a given output file path.
+    pub fn get(&self, output_path: &str) -> Option<&str> {
+        self.0.get(output_path).map(String::as_str)
+    }
+
+    /// Record that `output_path` was produced from the inputs identified by
+    /// `hash`.
+    pub fn insert(&mut self, output_path: String, hash: String) {
+        self.0.insert(output_path, hash);
+    }
+}
+
+/// Compute a stable SHA-256 hash of the render inputs for one output.
+///
+/// The hash covers:
+/// * transformed document content (post-transform pipeline)
+/// * output type string (e.g. `"html"`, `"pdf"`, `"docx"`)
+/// * optional template name (empty string when absent)
+///
+/// A change to any of these fields produces a different hash, causing a cache
+/// miss and triggering a fresh pandoc run.
+pub fn compute_output_hash(transformed_content: &str, output_type: &str, template: Option<&str>) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(transformed_content.as_bytes());
+    hasher.update(b"\x00output-type\x00");
+    hasher.update(output_type.as_bytes());
+    hasher.update(b"\x00template\x00");
+    hasher.update(template.unwrap_or("").as_bytes());
+    format!("{:x}", hasher.finalize())
+}
+
+/// Load the output cache from disk.
+///
+/// Returns an empty cache if the file does not exist or cannot be parsed.
+/// Non-fatal errors are logged at `WARN` level.
+pub fn load_output_cache(cache_path: &Path) -> OutputCache {
+    if !cache_path.exists() {
+        return OutputCache::default();
+    }
+
+    match fs::read_to_string(cache_path) {
+        Err(e) => {
+            warn!(
+                path = %cache_path.display(),
+                error = %e,
+                "Failed to read output cache file; starting with empty cache"
+            );
+            OutputCache::default()
+        }
+        Ok(content) => match serde_json::from_str(&content) {
+            Ok(cache) => cache,
+            Err(e) => {
+                warn!(
+                    path = %cache_path.display(),
+                    error = %e,
+                    "Failed to parse output cache file; starting with empty cache"
+                );
+                OutputCache::default()
+            }
+        },
+    }
+}
+
+/// Persist the output cache to disk as pretty-printed JSON.
+///
+/// Errors are propagated to the caller.
+pub fn save_output_cache(cache: &OutputCache, cache_path: &Path) -> Result<()> {
+    let json = serde_json::to_string_pretty(cache)?;
+    fs::write(cache_path, json)?;
+    Ok(())
+}
+
 /// On-disk representation of the transform cache.
 ///
 /// Keys are hex-encoded SHA-256 hashes of the transform inputs (file content
@@ -220,5 +304,119 @@ mod tests {
         let raw = fs::read_to_string(&cache_path).expect("read failed");
         let parsed: serde_json::Value = serde_json::from_str(&raw).expect("must be valid JSON");
         assert_eq!(parsed["testhash"], "testcontent");
+    }
+
+    // ── compute_output_hash ──────────────────────────────────────────────────
+
+    #[test]
+    fn test_output_hash_same_inputs_stable() {
+        let h1 = compute_output_hash("content", "html", None);
+        let h2 = compute_output_hash("content", "html", None);
+        assert_eq!(h1, h2);
+    }
+
+    #[test]
+    fn test_output_hash_different_output_type_differs() {
+        let h1 = compute_output_hash("content", "html", None);
+        let h2 = compute_output_hash("content", "pdf", None);
+        assert_ne!(h1, h2);
+    }
+
+    #[test]
+    fn test_output_hash_different_template_differs() {
+        let h1 = compute_output_hash("content", "html", Some("a.html"));
+        let h2 = compute_output_hash("content", "html", Some("b.html"));
+        assert_ne!(h1, h2);
+    }
+
+    #[test]
+    fn test_output_hash_no_template_differs_from_with_template() {
+        let h1 = compute_output_hash("content", "html", None);
+        let h2 = compute_output_hash("content", "html", Some("tmpl.html"));
+        assert_ne!(h1, h2);
+    }
+
+    #[test]
+    fn test_output_hash_different_content_differs() {
+        let h1 = compute_output_hash("content A", "html", None);
+        let h2 = compute_output_hash("content B", "html", None);
+        assert_ne!(h1, h2);
+    }
+
+    #[test]
+    fn test_output_hash_is_hex_string() {
+        let h = compute_output_hash("content", "html", None);
+        assert!(h.chars().all(|c| c.is_ascii_hexdigit()), "hash must be hex: {h}");
+        assert_eq!(h.len(), 64, "SHA-256 hex must be 64 chars");
+    }
+
+    // ── OutputCache ──────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_output_cache_miss_returns_none() {
+        let cache = OutputCache::default();
+        assert!(cache.get("/tmp/output.html").is_none());
+    }
+
+    #[test]
+    fn test_output_cache_hit_returns_stored_value() {
+        let mut cache = OutputCache::default();
+        cache.insert("/tmp/output.html".to_string(), "abc123".to_string());
+        assert_eq!(cache.get("/tmp/output.html"), Some("abc123"));
+    }
+
+    #[test]
+    fn test_output_cache_insert_overwrites_existing() {
+        let mut cache = OutputCache::default();
+        cache.insert("/tmp/output.html".to_string(), "old_hash".to_string());
+        cache.insert("/tmp/output.html".to_string(), "new_hash".to_string());
+        assert_eq!(cache.get("/tmp/output.html"), Some("new_hash"));
+    }
+
+    // ── load_output_cache / save_output_cache ────────────────────────────────
+
+    #[test]
+    fn test_load_output_cache_missing_file_returns_empty() {
+        let path = Path::new("/nonexistent/.renderflow-output-cache.json");
+        let cache = load_output_cache(path);
+        assert!(cache.get("/any/path").is_none());
+    }
+
+    #[test]
+    fn test_save_and_reload_output_cache_round_trips() {
+        let dir = tempfile::tempdir().expect("failed to create temp dir");
+        let cache_path = dir.path().join(".renderflow-output-cache.json");
+
+        let mut cache = OutputCache::default();
+        cache.insert("/out/doc.html".to_string(), "hash1".to_string());
+        cache.insert("/out/doc.pdf".to_string(), "hash2".to_string());
+
+        save_output_cache(&cache, &cache_path).expect("save should succeed");
+
+        let reloaded = load_output_cache(&cache_path);
+        assert_eq!(reloaded.get("/out/doc.html"), Some("hash1"));
+        assert_eq!(reloaded.get("/out/doc.pdf"), Some("hash2"));
+    }
+
+    #[test]
+    fn test_load_output_cache_invalid_json_returns_empty() {
+        let mut f = NamedTempFile::new().expect("failed to create temp file");
+        f.write_all(b"not valid json {{").expect("write failed");
+        let cache = load_output_cache(f.path());
+        assert!(cache.get("/any/path").is_none());
+    }
+
+    #[test]
+    fn test_save_output_cache_writes_valid_json() {
+        let dir = tempfile::tempdir().expect("failed to create temp dir");
+        let cache_path = dir.path().join(".renderflow-output-cache.json");
+
+        let mut cache = OutputCache::default();
+        cache.insert("/out/doc.html".to_string(), "testhash".to_string());
+        save_output_cache(&cache, &cache_path).expect("save should succeed");
+
+        let raw = fs::read_to_string(&cache_path).expect("read failed");
+        let parsed: serde_json::Value = serde_json::from_str(&raw).expect("must be valid JSON");
+        assert_eq!(parsed["/out/doc.html"], "testhash");
     }
 }

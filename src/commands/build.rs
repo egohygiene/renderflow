@@ -6,7 +6,7 @@ use std::path::Path;
 use tracing::{info, warn};
 
 use crate::assets::normalize_asset_paths;
-use crate::cache::{compute_input_hash, load_cache, save_cache};
+use crate::cache::{compute_input_hash, compute_output_hash, load_cache, load_output_cache, save_cache, save_output_cache};
 use crate::config::load_config;
 use crate::files::{ensure_output_dir, validate_input};
 use crate::pipeline::{Pipeline, StrategyStep};
@@ -119,10 +119,19 @@ pub fn run(config_path: &str, dry_run: bool) -> Result<()> {
         result
     };
 
+    // Load the output cache so that individual render steps can be skipped when
+    // their inputs (transformed content + output type + template) have not changed.
+    let output_cache_path = output_dir.join(".renderflow-output-cache.json");
+    let mut output_cache = load_output_cache(&output_cache_path);
+
     // Output formats are rendered concurrently via rayon. Progress bar updates
     // and log messages may interleave across formats; this is expected and
     // acceptable for parallel execution.
-    let failed_outputs: Vec<(String, anyhow::Error)> = config
+    //
+    // Each element is (format_name, output_path, result, Option<new_output_hash>).
+    // The optional hash is Some only when the render succeeded (or was skipped as
+    // up-to-date), and is used to update the output cache after all formats finish.
+    let render_results: Vec<(String, String, Result<()>, Option<String>)> = config
         .outputs
         .par_iter()
         .map(|output| {
@@ -135,8 +144,22 @@ pub fn run(config_path: &str, dry_run: bool) -> Result<()> {
             pb.set_message(format!("[{format}] Would render output"));
             pb.inc(1);
             pb.println(format!("[dry-run] Would write output to: {}", output_path));
-            (format.to_string(), Ok(()))
+            (format.to_string(), output_path, Ok(()), None)
         } else {
+            // Compute a hash of all inputs that determine this output's content.
+            // If the stored hash matches and the output file already exists, pandoc
+            // can be skipped entirely.
+            let output_hash = compute_output_hash(&transformed, &format.to_string(), output.template.as_deref());
+
+            if Path::new(&output_path).exists()
+                && output_cache.get(&output_path) == Some(output_hash.as_str())
+            {
+                info!("Skipping {} render (unchanged)", format);
+                pb.inc(1);
+                pb.println(format!("↩ Skipping {} output (unchanged): {}", format, output_path));
+                return (format.to_string(), output_path, Ok(()), Some(output_hash));
+            }
+
             let result = (|| -> Result<()> {
                 let strategy = select_strategy(format.clone(), output.template.clone(), "templates".to_string())?;
                 let mut pipeline = Pipeline::new();
@@ -146,6 +169,8 @@ pub fn run(config_path: &str, dry_run: bool) -> Result<()> {
                 pipeline.run_steps(transformed.clone())?;
                 Ok(())
             })();
+
+            let new_hash = if result.is_ok() { Some(output_hash) } else { None };
 
             match &result {
                 Ok(_) => {
@@ -159,11 +184,29 @@ pub fn run(config_path: &str, dry_run: bool) -> Result<()> {
                     pb.println(format!("✘ Failed to render {} output: {:#}", format, e));
                 }
             }
-            (format.to_string(), result)
+            (format.to_string(), output_path, result, new_hash)
         }
     })
-    .filter_map(|(fmt, r)| r.err().map(|e| (fmt, e)))
     .collect();
+
+    // Persist updated output cache for all successful renders (including skipped ones).
+    if !dry_run {
+        for (_, output_path, result, new_hash) in &render_results {
+            if result.is_ok() {
+                if let Some(hash) = new_hash {
+                    output_cache.insert(output_path.clone(), hash.clone());
+                }
+            }
+        }
+        if let Err(e) = save_output_cache(&output_cache, &output_cache_path) {
+            warn!(error = %e, "Failed to save output cache");
+        }
+    }
+
+    let failed_outputs: Vec<(String, anyhow::Error)> = render_results
+        .into_iter()
+        .filter_map(|(fmt, _, r, _)| r.err().map(|e| (fmt, e)))
+        .collect();
 
     if dry_run {
         pb.finish_with_message("✔ Dry-run complete — no output written");
@@ -496,5 +539,134 @@ mod tests {
 
         let cache_path = output_dir.join(".renderflow-cache.json");
         assert!(cache_path.exists(), "cache file must still exist after second build");
+    }
+
+    // ── output cache integration tests ───────────────────────────────────────
+
+    /// Write a pre-populated output cache file at `output_dir/.renderflow-output-cache.json`.
+    fn write_output_cache_file(output_dir: &std::path::Path, output_path: &str, hash: &str) {
+        fs::create_dir_all(output_dir).expect("failed to create output dir");
+        let cache_path = output_dir.join(".renderflow-output-cache.json");
+        let map: std::collections::HashMap<&str, &str> =
+            std::collections::HashMap::from([(output_path, hash)]);
+        let json = serde_json::to_string(&map).expect("failed to serialize output cache");
+        fs::write(&cache_path, json).expect("failed to write output cache file");
+    }
+
+    #[test]
+    #[ignore = "requires pandoc to be installed"]
+    fn test_output_cache_file_written_after_build() {
+        // After a successful (non-dry-run) build the output cache file must
+        // exist alongside the transform cache.
+        let dir = tempfile::tempdir().expect("failed to create temp dir");
+        let input_path = dir.path().join("input.md");
+        fs::write(&input_path, "# Hello\n").expect("failed to write input");
+        let output_dir = dir.path().join("dist");
+        let config_content = format!(
+            "outputs:\n  - type: html\ninput: \"{}\"\noutput_dir: \"{}\"\n",
+            input_path.display(),
+            output_dir.display()
+        );
+        let mut f = NamedTempFile::new().expect("failed to create temp file");
+        f.write_all(config_content.as_bytes()).expect("failed to write config");
+
+        run(f.path().to_str().unwrap(), false).expect("build should succeed");
+
+        let output_cache_path = output_dir.join(".renderflow-output-cache.json");
+        assert!(output_cache_path.exists(), "output cache file must exist after a real build");
+    }
+
+    #[test]
+    #[ignore = "requires pandoc to be installed"]
+    fn test_second_build_skips_unchanged_output() {
+        // Run the build twice with the same inputs; the second run must skip
+        // pandoc for all outputs because the output cache indicates they are
+        // already up-to-date.  We verify indirectly that both runs succeed and
+        // the output cache file persists.
+        let dir = tempfile::tempdir().expect("failed to create temp dir");
+        let input_path = dir.path().join("input.md");
+        fs::write(&input_path, "# Hello\n").expect("failed to write input");
+        let output_dir = dir.path().join("dist");
+        let config_content = format!(
+            "outputs:\n  - type: html\ninput: \"{}\"\noutput_dir: \"{}\"\n",
+            input_path.display(),
+            output_dir.display()
+        );
+        let mut f = NamedTempFile::new().expect("failed to create temp file");
+        f.write_all(config_content.as_bytes()).expect("failed to write config");
+
+        // First build — output cache miss, pandoc runs, cache written.
+        run(f.path().to_str().unwrap(), false).expect("first build should succeed");
+        // Second build — output cache hit, pandoc skipped.
+        run(f.path().to_str().unwrap(), false).expect("second build (output cache hit) should succeed");
+
+        let output_cache_path = output_dir.join(".renderflow-output-cache.json");
+        assert!(output_cache_path.exists(), "output cache must still exist after second build");
+    }
+
+    #[test]
+    #[ignore = "requires pandoc to be installed"]
+    fn test_changed_input_triggers_rebuild() {
+        // After modifying the input file, a subsequent build must re-run pandoc
+        // because both the transform cache and output cache hashes change.
+        let dir = tempfile::tempdir().expect("failed to create temp dir");
+        let input_path = dir.path().join("input.md");
+        fs::write(&input_path, "# Original\n").expect("failed to write input");
+        let output_dir = dir.path().join("dist");
+        let config_content = format!(
+            "outputs:\n  - type: html\ninput: \"{}\"\noutput_dir: \"{}\"\n",
+            input_path.display(),
+            output_dir.display()
+        );
+        let mut f = NamedTempFile::new().expect("failed to create temp file");
+        f.write_all(config_content.as_bytes()).expect("failed to write config");
+
+        // First build with original content.
+        run(f.path().to_str().unwrap(), false).expect("first build should succeed");
+
+        // Modify input — caches must be invalidated.
+        fs::write(&input_path, "# Modified\n").expect("failed to write updated input");
+
+        // Second build must succeed (re-render triggered by cache miss).
+        run(f.path().to_str().unwrap(), false).expect("second build after input change should succeed");
+    }
+
+    #[test]
+    fn test_output_cache_not_written_in_dry_run() {
+        // In dry-run mode the output cache file must never be created.
+        let (f, dir) = valid_config_file();
+        let output_dir = dir.path().join("dist");
+        run(f.path().to_str().unwrap(), true).expect("dry-run should succeed");
+        let output_cache_path = output_dir.join(".renderflow-output-cache.json");
+        assert!(
+            !output_cache_path.exists(),
+            "output cache must not be written in dry-run mode"
+        );
+    }
+
+    #[test]
+    fn test_pre_populated_output_cache_loaded_without_error() {
+        // Even when a pre-populated output cache exists, a dry-run should
+        // complete without error (the cache is read but never written back).
+        let dir = tempfile::tempdir().expect("failed to create temp dir");
+        let input_content = "# Test\n";
+        let input_path = dir.path().join("input.md");
+        fs::write(&input_path, input_content).expect("failed to write input file");
+        let output_dir = dir.path().join("dist");
+
+        // Write a dummy output cache entry.
+        let output_path = format!("{}/input.html", output_dir.display());
+        write_output_cache_file(&output_dir, &output_path, "dummy_hash");
+
+        let config_content = format!(
+            "outputs:\n  - type: html\ninput: \"{}\"\noutput_dir: \"{}\"\n",
+            input_path.display(),
+            output_dir.display()
+        );
+        let mut f = NamedTempFile::new().expect("failed to create temp file");
+        f.write_all(config_content.as_bytes()).expect("failed to write config");
+
+        let result = run(f.path().to_str().unwrap(), true);
+        assert!(result.is_ok(), "dry-run with output cache should succeed: {:?}", result);
     }
 }
