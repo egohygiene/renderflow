@@ -27,4 +27,7 @@ rayon = "1"
 
 tempfile = "3"
 
+notify = "6"
+notify-debouncer-mini = "0.4"
+
 [dev-dependencies]
