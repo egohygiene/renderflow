@@ -45,6 +45,58 @@ fn test_help_output_lists_build_command() {
 }
 
 #[test]
+fn test_help_output_lists_watch_command() {
+    let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
+        .arg("--help")
+        .output()
+        .expect("failed to execute renderflow");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("watch"),
+        "--help should list the watch subcommand, got: {stdout}"
+    );
+}
+
+#[test]
+fn test_watch_help_flag_exits_successfully() {
+    let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
+        .args(["watch", "--help"])
+        .output()
+        .expect("failed to execute renderflow");
+
+    assert!(output.status.success(), "watch --help should exit with code 0");
+}
+
+#[test]
+fn test_watch_help_documents_debounce_option() {
+    let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
+        .args(["watch", "--help"])
+        .output()
+        .expect("failed to execute renderflow");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("--debounce"),
+        "watch --help should document --debounce, got: {stdout}"
+    );
+}
+
+#[test]
+fn test_watch_help_contains_examples() {
+    let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
+        .args(["watch", "--help"])
+        .output()
+        .expect("failed to execute renderflow");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("Examples"),
+        "watch --help should include an examples section, got: {stdout}"
+    );
+}
+
+#[test]
 fn test_build_help_flag_exits_successfully() {
     let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
         .args(["build", "--help"])
