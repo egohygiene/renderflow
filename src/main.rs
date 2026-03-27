@@ -5,6 +5,7 @@ mod cli;
 mod commands;
 mod compat;
 mod config;
+mod deps;
 mod files;
 mod input_format;
 mod pipeline;

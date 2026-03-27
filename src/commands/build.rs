@@ -7,7 +7,8 @@ use tracing::{info, warn};
 
 use crate::assets::normalize_asset_paths;
 use crate::cache::{compute_input_hash, compute_output_hash, load_cache, load_output_cache, save_cache, save_output_cache};
-use crate::config::load_config;
+use crate::config::{load_config, OutputType};
+use crate::deps::validate_dependencies;
 use crate::files::{ensure_output_dir, validate_input};
 use crate::pipeline::{Pipeline, StrategyStep};
 use crate::strategies::select_strategy;
@@ -24,6 +25,13 @@ pub fn run(config_path: &str, dry_run: bool) -> Result<()> {
     info!("Loaded config successfully");
 
     let canonical_input = validate_input(&config.input)?;
+
+    // Validate required system dependencies after confirming the config and input
+    // are accessible. Skip in dry-run mode because no external tools are invoked.
+    if !dry_run {
+        let pdf_requested = config.outputs.iter().any(|o| o.output_type == OutputType::Pdf);
+        validate_dependencies(pdf_requested)?;
+    }
 
     let input_dir = canonical_input
         .parent()
