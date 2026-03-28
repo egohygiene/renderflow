@@ -2,8 +2,14 @@
 name = "renderflow"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.75"
 description = "Spec-driven document rendering engine"
 license = "MIT"
+repository = "https://github.com/egohygiene/renderflow"
+homepage = "https://github.com/egohygiene/renderflow"
+keywords = ["document", "rendering", "pandoc", "markdown", "pdf"]
+categories = ["command-line-utilities", "development-tools", "text-processing"]
+authors = ["Ego Hygiene <egohygiene@users.noreply.github.com>"]
 
 [dependencies]
 clap = { version = "4", features = ["derive"] }
@@ -31,3 +37,10 @@ notify = "6"
 notify-debouncer-mini = "0.4"
 
 [dev-dependencies]
+
+[profile.release]
+opt-level     = 3
+lto           = true
+codegen-units = 1
+strip         = true
+panic         = "abort"

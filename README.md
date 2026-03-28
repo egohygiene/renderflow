@@ -24,12 +24,13 @@ Define your output spec in YAML. Point it at your Markdown. Run one command.
 
 ## Features
 
-- 📄 **Multi-format output** — Render to PDF and HTML from a single config file
+- 📄 **Multi-format output** — Render to PDF, HTML, and DOCX from a single config file
 - 🗂️ **YAML-driven spec** — Declarative, repeatable, version-controllable builds
 - 🖼️ **Asset management** — Automatically resolves and validates image paths
 - 🔄 **Transform pipeline** — Pluggable in-memory content transforms
 - 🧩 **Custom templates** — Per-output Jinja2-compatible templates via [Tera](https://keats.github.io/tera/)
 - 🔍 **Dry-run mode** — Preview what will be built without writing any files
+- 👁️ **Watch mode** — Automatically rebuild on file changes
 - 🦀 **Built with Rust** — Fast, safe, and reliable
 
 ---
@@ -149,6 +150,7 @@ outputs:
 |--------|-------------------------------|-------------------|
 | `html` | Renders to HTML               | Pandoc            |
 | `pdf`  | Renders to PDF via LaTeX      | Pandoc + Tectonic |
+| `docx` | Renders to Word document      | Pandoc            |
 
 ### Templates
 
@@ -187,11 +189,10 @@ Output Files (PDF / HTML)
 
 ## Roadmap
 
-- [ ] DOCX output format
-- [ ] Watch mode (re-render on file change)
 - [ ] Built-in stylesheet themes
 - [ ] SVG / emoji embedding in PDFs
 - [ ] Plugin system for custom transforms
+- [ ] Automated release workflow for pre-built binaries
 
 ---
 

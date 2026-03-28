@@ -16,10 +16,16 @@ pub struct RenderContext<'a> {
     pub input_format: InputFormat,
     /// Destination path where the rendered output should be written.
     pub output_path: &'a str,
-    /// Template variables available for substitution.
+    /// Template variables from the renderflow config.
+    /// Populated by the build pipeline but not yet consumed by any strategy;
+    /// reserved for future use (e.g. passing `--variable key=value` to pandoc).
+    #[allow(dead_code)]
     pub variables: &'a HashMap<String, String>,
-    /// When `true` the strategy should skip any file system writes or
-    /// external commands.
+    /// When `true` the strategy should skip file system writes and external
+    /// commands. Strategies are currently never invoked in dry-run mode because
+    /// the build command short-circuits before reaching them; this field is
+    /// populated for future strategy-level dry-run support.
+    #[allow(dead_code)]
     pub dry_run: bool,
 }
 

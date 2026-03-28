@@ -43,6 +43,7 @@ impl TransformRegistry {
     ///
     /// * `true` (default) – abort on the first transform failure.
     /// * `false` – log failures and continue with the unmodified input.
+    #[allow(dead_code)]
     pub fn with_fail_fast(mut self, fail_fast: bool) -> Self {
         self.fail_fast = fail_fast;
         self

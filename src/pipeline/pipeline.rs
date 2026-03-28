@@ -53,6 +53,7 @@ impl Pipeline {
     /// Append a transform to the internal registry.
     ///
     /// Transforms run in registration order during [`Pipeline::run_transforms`].
+    #[allow(dead_code)]
     pub fn add_transform(&mut self, transform: Box<dyn Transform>) -> &mut Self {
         self.registry.register(transform);
         self
