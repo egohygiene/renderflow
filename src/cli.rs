@@ -14,7 +14,7 @@ use clap::{Parser, Subcommand};
         renderflow build --config custom.yaml   Build with a custom config file\n  \
         renderflow build --dry-run              Preview what would be built\n  \
         renderflow watch                        Watch using renderflow.yaml\n  \
-        renderflow watch custom.yaml            Watch with a custom config file\n  \
+        renderflow watch --config custom.yaml   Watch with a custom config file\n  \
         renderflow my-project.yaml              Shorthand: run build on the given config"
 )]
 pub struct Cli {
@@ -55,13 +55,13 @@ pub enum Commands {
     /// Watch for file changes and automatically rebuild
     #[command(
         after_help = "Examples:\n  \
-            renderflow watch                              Watch using renderflow.yaml\n  \
-            renderflow watch custom.yaml                  Watch with a custom config file\n  \
-            renderflow watch custom.yaml --debounce 300   Watch with a 300 ms debounce delay"
+            renderflow watch                                    Watch using renderflow.yaml\n  \
+            renderflow watch --config custom.yaml               Watch with a custom config file\n  \
+            renderflow watch --config custom.yaml --debounce 300   Watch with a 300 ms debounce delay"
     )]
     Watch {
         /// Path to the renderflow configuration file
-        #[arg(default_value = "renderflow.yaml", value_name = "FILE")]
+        #[arg(long, default_value = "renderflow.yaml", value_name = "FILE")]
         config: String,
 
         /// Debounce delay in milliseconds: wait this long after the last change before rebuilding
