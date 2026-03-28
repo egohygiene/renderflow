@@ -69,6 +69,20 @@ fn test_watch_help_flag_exits_successfully() {
 }
 
 #[test]
+fn test_watch_help_documents_config_option() {
+    let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
+        .args(["watch", "--help"])
+        .output()
+        .expect("failed to execute renderflow");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("--config"),
+        "watch --help should document --config, got: {stdout}"
+    );
+}
+
+#[test]
 fn test_watch_help_documents_debounce_option() {
     let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
         .args(["watch", "--help"])
