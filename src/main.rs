@@ -6,6 +6,7 @@ mod commands;
 mod compat;
 mod config;
 mod deps;
+pub mod error;
 mod files;
 mod input_format;
 mod pipeline;
