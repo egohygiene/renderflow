@@ -9,16 +9,16 @@ use crate::strategies::{DocxStrategy, HtmlStrategy, OutputStrategy, PdfStrategy}
 /// strategy so that it can locate the correct template file when rendering.
 /// When `template` is `None` the strategy falls back to default pandoc behaviour.
 pub fn select_strategy(
-    output_type: OutputType,
-    template: Option<String>,
-    template_dir: String,
+    output_type: &OutputType,
+    template: Option<&str>,
+    template_dir: &str,
 ) -> Result<Box<dyn OutputStrategy + Send + Sync>> {
     match output_type {
-        OutputType::Html => Ok(Box::new(HtmlStrategy::new(template, template_dir))),
-        OutputType::Pdf => Ok(Box::new(PdfStrategy::new(template, template_dir))),
-        OutputType::Docx => Ok(Box::new(DocxStrategy::new(template, template_dir))),
-        OutputType::Unsupported(ref t) => {
-            anyhow::bail!("{}", unsupported_type_message(t))
+        OutputType::Html => Ok(Box::new(HtmlStrategy::new(template.map(str::to_owned), template_dir.to_owned()))),
+        OutputType::Pdf => Ok(Box::new(PdfStrategy::new(template.map(str::to_owned), template_dir.to_owned()))),
+        OutputType::Docx => Ok(Box::new(DocxStrategy::new(template.map(str::to_owned), template_dir.to_owned()))),
+        OutputType::Unsupported(t) => {
+            anyhow::bail!("{}", unsupported_type_message(t.as_str()))
         }
     }
 }
@@ -42,20 +42,20 @@ mod tests {
 
     #[test]
     fn test_select_strategy_html() {
-        let result = select_strategy(OutputType::Html, None, "templates".to_string());
+        let result = select_strategy(&OutputType::Html, None, "templates");
         assert!(result.is_ok(), "expected html strategy to be selected");
     }
 
     #[test]
     fn test_select_strategy_pdf() {
-        let result = select_strategy(OutputType::Pdf, None, "templates".to_string());
+        let result = select_strategy(&OutputType::Pdf, None, "templates");
         assert!(result.is_ok(), "expected pdf strategy to be selected");
     }
 
     #[test]
     fn test_select_strategy_html_renders_error_on_missing_input() {
         let vars = HashMap::new();
-        let strategy = select_strategy(OutputType::Html, None, "templates".to_string()).unwrap();
+        let strategy = select_strategy(&OutputType::Html, None, "templates").unwrap();
         let ctx = default_ctx("/nonexistent/input.md", "/tmp/output.html", &vars);
         let result = strategy.render(&ctx);
         assert!(result.is_err());
@@ -64,16 +64,16 @@ mod tests {
     #[test]
     fn test_select_strategy_passes_template_to_strategy() {
         let strategy = select_strategy(
-            OutputType::Html,
-            Some("default.html".to_string()),
-            "templates".to_string(),
+            &OutputType::Html,
+            Some("default.html"),
+            "templates",
         );
         assert!(strategy.is_ok());
     }
 
     #[test]
     fn test_select_strategy_docx() {
-        let result = select_strategy(OutputType::Docx, None, "templates".to_string());
+        let result = select_strategy(&OutputType::Docx, None, "templates");
         assert!(result.is_ok(), "expected docx strategy to be selected");
     }
 
@@ -81,9 +81,9 @@ mod tests {
     fn test_select_strategy_unsupported_type_returns_error() {
         // A truly unknown type must return a clear error from select_strategy.
         let result = select_strategy(
-            OutputType::Unsupported("epub".to_string()),
+            &OutputType::Unsupported("epub".to_string()),
             None,
-            "templates".to_string(),
+            "templates",
         );
         assert!(result.is_err());
         let msg = format!("{}", result.err().expect("expected an error"));
@@ -97,9 +97,9 @@ mod tests {
     #[test]
     fn test_select_strategy_truly_invalid_type_returns_error() {
         let result = select_strategy(
-            OutputType::Unsupported("jpeg".to_string()),
+            &OutputType::Unsupported("jpeg".to_string()),
             None,
-            "templates".to_string(),
+            "templates",
         );
         assert!(result.is_err());
         let msg = format!("{}", result.err().expect("expected an error"));
@@ -113,7 +113,7 @@ mod tests {
     #[test]
     fn test_select_strategy_html_with_non_markdown_input_format() {
         let vars = HashMap::new();
-        let strategy = select_strategy(OutputType::Html, None, "templates".to_string()).unwrap();
+        let strategy = select_strategy(&OutputType::Html, None, "templates").unwrap();
         let ctx = RenderContext {
             input_path: "/nonexistent/input.html",
             input_format: InputFormat::Html,
@@ -129,7 +129,7 @@ mod tests {
     #[test]
     fn test_select_strategy_docx_with_html_input_format() {
         let vars = HashMap::new();
-        let strategy = select_strategy(OutputType::Docx, None, "templates".to_string()).unwrap();
+        let strategy = select_strategy(&OutputType::Docx, None, "templates").unwrap();
         let ctx = RenderContext {
             input_path: "/nonexistent/input.html",
             input_format: InputFormat::Html,
@@ -144,7 +144,7 @@ mod tests {
     #[test]
     fn test_select_strategy_pdf_with_rst_input_format() {
         let vars = HashMap::new();
-        let strategy = select_strategy(OutputType::Pdf, None, "templates".to_string()).unwrap();
+        let strategy = select_strategy(&OutputType::Pdf, None, "templates").unwrap();
         let ctx = RenderContext {
             input_path: "/nonexistent/input.rst",
             input_format: InputFormat::Rst,

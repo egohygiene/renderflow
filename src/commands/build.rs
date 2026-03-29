@@ -178,7 +178,7 @@ pub fn run(config_path: &str, dry_run: bool) -> Result<()> {
             }
 
             let result = (|| -> Result<()> {
-                let strategy = select_strategy(format.clone(), output.template.clone(), "templates".to_string())?;
+                let strategy = select_strategy(&format, output.template.as_deref(), "templates")?;
                 let mut pipeline = Pipeline::new();
                 pipeline.add_step(Box::new(StrategyStep::new(strategy, &output_path, config.input_format(), config.variables.clone(), false)));
 
