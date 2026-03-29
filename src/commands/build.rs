@@ -112,7 +112,7 @@ pub fn run(config_path: &str, dry_run: bool) -> Result<()> {
         } else {
             info!("Cache miss — running transforms for {}", format_str);
             Pipeline::with_standard_transforms(&config.variables, format)
-                .run_transforms(normalized_content.clone())
+                .run_transforms(normalized_content.as_ref().to_owned())
                 .with_context(|| format!("Transform pipeline failed for format: {format_str}; aborting build"))?
         };
 

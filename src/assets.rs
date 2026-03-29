@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use std::borrow::Cow;
 use std::path::{Path, PathBuf};
 
 /// Resolves an asset path relative to `base_dir`.
@@ -26,11 +27,21 @@ pub fn resolve_asset_path(base_dir: &Path, asset_path: &str) -> Result<PathBuf> 
 /// and returns the content with all local paths replaced by their canonical
 /// absolute equivalents.
 ///
+/// Returns [`Cow::Borrowed`] when no substitutions are needed (e.g. the
+/// content contains no local image paths), avoiding any heap allocation.
+/// Returns [`Cow::Owned`] only when at least one local path is rewritten.
+///
 /// URL-based paths (e.g. `http://`, `https://`, `ftp://`, `data:`) are left
 /// unchanged. Paths that cannot be found on disk cause an immediate error.
-pub fn normalize_asset_paths(content: &str, base_dir: &Path) -> Result<String> {
+pub fn normalize_asset_paths<'a>(content: &'a str, base_dir: &Path) -> Result<Cow<'a, str>> {
+    // Fast path: no image references at all — nothing to allocate.
+    if !content.contains("![") {
+        return Ok(Cow::Borrowed(content));
+    }
+
     let mut result = String::with_capacity(content.len());
     let mut remaining = content;
+    let mut changed = false;
 
     while let Some(img_start) = remaining.find("![") {
         // Append everything before this image reference unchanged.
@@ -43,7 +54,7 @@ pub fn normalize_asset_paths(content: &str, base_dir: &Path) -> Result<String> {
             None => {
                 // No closing bracket — not a valid reference; keep remainder as-is.
                 result.push_str(remaining);
-                return Ok(result);
+                return Ok(Cow::Owned(result));
             }
         };
 
@@ -63,7 +74,7 @@ pub fn normalize_asset_paths(content: &str, base_dir: &Path) -> Result<String> {
             None => {
                 // No closing paren — keep remainder as-is.
                 result.push_str(remaining);
-                return Ok(result);
+                return Ok(Cow::Owned(result));
             }
         };
 
@@ -88,13 +99,20 @@ pub fn normalize_asset_paths(content: &str, base_dir: &Path) -> Result<String> {
                 result.push_str(title_part);
             }
             result.push(')');
+            changed = true;
         }
 
         remaining = &remaining[close_bracket + 2 + close_paren + 1..];
     }
 
     result.push_str(remaining);
-    Ok(result)
+
+    if changed {
+        Ok(Cow::Owned(result))
+    } else {
+        // All image references were URLs — content is identical to input.
+        Ok(Cow::Borrowed(content))
+    }
 }
 
 /// Returns `true` when `path` begins with a URL scheme that should be left
@@ -177,14 +195,18 @@ mod tests {
         let dir = TempDir::new().unwrap();
         make_asset(&dir, "photo.png");
         let content = "# Doc\n\n![A photo](photo.png)\n";
-        let normalized = normalize_asset_paths(content, dir.path()).unwrap();
+        let result = normalize_asset_paths(content, dir.path()).unwrap();
+        assert!(
+            matches!(result, Cow::Owned(_)),
+            "local path replacement must return Cow::Owned"
+        );
         // The resolved path must be absolute and point to the real file.
         assert!(
-            normalized.contains(&dir.path().to_string_lossy().to_string()),
+            result.contains(&dir.path().to_string_lossy().to_string()),
             "expected absolute path in output: {}",
-            normalized
+            result
         );
-        assert!(normalized.contains("photo.png"));
+        assert!(result.contains("photo.png"));
     }
 
     #[test]
@@ -201,32 +223,42 @@ mod tests {
     fn test_normalize_leaves_urls_unchanged() {
         let dir = TempDir::new().unwrap();
         let content = "![Remote](https://example.com/image.png)";
-        let normalized = normalize_asset_paths(content, dir.path()).unwrap();
-        assert_eq!(normalized, content, "URL-based image should not be modified");
+        let result = normalize_asset_paths(content, dir.path()).unwrap();
+        assert!(
+            matches!(result, Cow::Borrowed(_)),
+            "URL-only content must return Cow::Borrowed"
+        );
+        assert_eq!(result, content, "URL-based image should not be modified");
     }
 
     #[test]
     fn test_normalize_leaves_http_url_unchanged() {
         let dir = TempDir::new().unwrap();
         let content = "![Logo](http://example.com/logo.png)";
-        let normalized = normalize_asset_paths(content, dir.path()).unwrap();
-        assert_eq!(normalized, content);
+        let result = normalize_asset_paths(content, dir.path()).unwrap();
+        assert!(matches!(result, Cow::Borrowed(_)));
+        assert_eq!(result, content);
     }
 
     #[test]
     fn test_normalize_leaves_data_url_unchanged() {
         let dir = TempDir::new().unwrap();
         let content = "![Icon](data:image/png;base64,abc==)";
-        let normalized = normalize_asset_paths(content, dir.path()).unwrap();
-        assert_eq!(normalized, content);
+        let result = normalize_asset_paths(content, dir.path()).unwrap();
+        assert!(matches!(result, Cow::Borrowed(_)));
+        assert_eq!(result, content);
     }
 
     #[test]
     fn test_normalize_preserves_plain_text() {
         let dir = TempDir::new().unwrap();
         let content = "No images here, just text.";
-        let normalized = normalize_asset_paths(content, dir.path()).unwrap();
-        assert_eq!(normalized, content);
+        let result = normalize_asset_paths(content, dir.path()).unwrap();
+        assert!(
+            matches!(result, Cow::Borrowed(_)),
+            "plain text must return Cow::Borrowed (no allocation)"
+        );
+        assert_eq!(result, content);
     }
 
     #[test]
@@ -235,9 +267,10 @@ mod tests {
         make_asset(&dir, "a.png");
         make_asset(&dir, "b.png");
         let content = "![A](a.png) and ![B](b.png)";
-        let normalized = normalize_asset_paths(content, dir.path()).unwrap();
+        let result = normalize_asset_paths(content, dir.path()).unwrap();
+        assert!(matches!(result, Cow::Owned(_)));
         let base = dir.path().to_string_lossy();
-        assert!(normalized.contains(&*base), "expected absolute paths: {}", normalized);
+        assert!(result.contains(&*base), "expected absolute paths: {}", result);
     }
 
     #[test]
@@ -245,18 +278,23 @@ mod tests {
         let dir = TempDir::new().unwrap();
         make_asset(&dir, "photo.png");
         let content = r#"![Alt](photo.png "My title")"#;
-        let normalized = normalize_asset_paths(content, dir.path()).unwrap();
+        let result = normalize_asset_paths(content, dir.path()).unwrap();
+        assert!(matches!(result, Cow::Owned(_)));
         assert!(
-            normalized.contains("\"My title\""),
+            result.contains("\"My title\""),
             "title should be preserved: {}",
-            normalized
+            result
         );
     }
 
     #[test]
     fn test_normalize_empty_content() {
         let dir = TempDir::new().unwrap();
-        let normalized = normalize_asset_paths("", dir.path()).unwrap();
-        assert_eq!(normalized, "");
+        let result = normalize_asset_paths("", dir.path()).unwrap();
+        assert!(
+            matches!(result, Cow::Borrowed(_)),
+            "empty content must return Cow::Borrowed"
+        );
+        assert_eq!(result, "");
     }
 }
