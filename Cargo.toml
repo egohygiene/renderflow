@@ -36,6 +36,8 @@ tempfile = "3"
 notify = "6"
 notify-debouncer-mini = "0.4"
 
+itertools = "0.14"
+
 [dev-dependencies]
 
 [profile.release]

@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
+use itertools::Itertools as _;
 use rayon::prelude::*;
 use std::collections::HashMap;
 use std::fs;
@@ -70,12 +71,11 @@ pub fn run(config_path: &str, dry_run: bool) -> Result<()> {
     // rather than discovered later during rendering.
     validate_templates(&config.outputs, "templates")?;
 
-    let output_formats: Vec<String> = config.outputs.iter().map(|o| o.output_type.to_string()).collect();
-    if output_formats.is_empty() {
+    if config.outputs.is_empty() {
         warn!("No output formats configured — nothing to build");
         return Ok(());
     }
-    info!("Selected outputs: {}", output_formats.join(", "));
+    info!("Selected outputs: {}", config.outputs.iter().map(|o| o.output_type.to_string()).join(", "));
 
     // One tick for the transform phase plus one tick per output format for rendering.
     let total_steps = 1 + config.outputs.len() as u64;
