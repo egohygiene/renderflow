@@ -6,6 +6,16 @@ use tracing::{debug, error, warn};
 use super::{EmojiTransform, SyntaxHighlightTransform, Transform, VariableSubstitutionTransform};
 use crate::config::OutputType;
 
+/// Controls how [`TransformRegistry`] reacts to a transform failure.
+#[derive(Debug, Clone, PartialEq)]
+pub enum FailureMode {
+    /// Abort `apply_all` on the first transform error (default).
+    FailFast,
+    /// Log failures and continue the pipeline with the unmodified input.
+    #[allow(dead_code)]
+    ContinueOnError,
+}
+
 /// A central registry that holds an ordered collection of [`Transform`]
 /// implementations and applies them sequentially to document content.
 ///
@@ -15,38 +25,37 @@ use crate::config::OutputType;
 ///
 /// # Error handling
 ///
-/// By default the registry operates in *fail-fast* mode: the first transform
-/// error immediately aborts `apply_all` and returns an `Err` whose message
-/// identifies the offending transform (e.g.
+/// By default the registry operates in [`FailureMode::FailFast`] mode: the
+/// first transform error immediately aborts `apply_all` and returns an `Err`
+/// whose message identifies the offending transform (e.g.
 /// `"Transform failed: VariableSubstitutionTransform"`).
 ///
-/// Set `fail_fast = false` via [`TransformRegistry::with_fail_fast`] to
-/// instead skip the failing transform (logging the error at `ERROR` level),
-/// pass the unmodified input through to the next transform, and continue the
-/// pipeline.
+/// Set [`FailureMode::ContinueOnError`] via
+/// [`TransformRegistry::with_failure_mode`] to instead skip the failing
+/// transform (logging the error at `ERROR` level), pass the unmodified input
+/// through to the next transform, and continue the pipeline.
 pub struct TransformRegistry {
     transforms: Vec<Box<dyn Transform>>,
-    /// When `true` (default), the first transform failure aborts `apply_all`.
-    /// When `false`, failures are logged and the pipeline continues.
-    fail_fast: bool,
+    /// Controls whether a transform failure aborts the pipeline or is skipped.
+    failure_mode: FailureMode,
 }
 
 impl TransformRegistry {
-    /// Create an empty registry with fail-fast mode enabled.
+    /// Create an empty registry with [`FailureMode::FailFast`] enabled.
     pub fn new() -> Self {
         Self {
             transforms: Vec::new(),
-            fail_fast: true,
+            failure_mode: FailureMode::FailFast,
         }
     }
 
-    /// Configure the fail-fast behavior and return `self` for chaining.
+    /// Configure the failure mode and return `self` for chaining.
     ///
-    /// * `true` (default) – abort on the first transform failure.
-    /// * `false` – log failures and continue with the unmodified input.
+    /// * [`FailureMode::FailFast`] (default) – abort on the first transform failure.
+    /// * [`FailureMode::ContinueOnError`] – log failures and continue with the unmodified input.
     #[allow(dead_code)]
-    pub fn with_fail_fast(mut self, fail_fast: bool) -> Self {
-        self.fail_fast = fail_fast;
+    pub fn with_failure_mode(mut self, failure_mode: FailureMode) -> Self {
+        self.failure_mode = failure_mode;
         self
     }
 
@@ -64,15 +73,16 @@ impl TransformRegistry {
     ///
     /// Each transform is logged at `DEBUG` level on start and completion.
     /// Failures are wrapped with context identifying the transform name and
-    /// logged at `ERROR` level before being propagated (fail-fast) or skipped
-    /// (continue mode).
+    /// logged at `ERROR` level before being propagated
+    /// ([`FailureMode::FailFast`]) or skipped
+    /// ([`FailureMode::ContinueOnError`]).
     pub fn apply_all(&self, input: String) -> Result<String> {
         let mut current = input;
         for transform in &self.transforms {
             let name = transform.name();
             debug!(transform = %name, "Starting transform");
 
-            if self.fail_fast {
+            if self.failure_mode == FailureMode::FailFast {
                 current = transform
                     .apply(current)
                     .with_context(|| format!("Transform failed: {}", name))?;
@@ -90,7 +100,7 @@ impl TransformRegistry {
                         error!(
                             transform = %name,
                             error = %wrapped,
-                            "Transform failed; continuing pipeline (fail_fast = false)"
+                            "Transform failed; continuing pipeline (failure_mode = ContinueOnError)"
                         );
                         warn!(
                             transform = %name,
@@ -350,7 +360,7 @@ mod tests {
         assert_eq!(r1, r2);
     }
 
-    // ── fail_fast = false (continue-on-failure) tests ────────────────────────
+    // ── failure_mode = ContinueOnError tests ─────────────────────────────────
 
     #[test]
     fn test_continue_on_failure_skips_bad_transform() {
@@ -380,13 +390,13 @@ mod tests {
             }
         }
 
-        let mut registry = TransformRegistry::new().with_fail_fast(false);
+        let mut registry = TransformRegistry::new().with_failure_mode(FailureMode::ContinueOnError);
         registry
             .register(Box::new(UpperTransform))
             .register(Box::new(AlwaysFails))
             .register(Box::new(AppendBang));
 
-        // With fail_fast=false, the failing transform is skipped and the
+        // With ContinueOnError, the failing transform is skipped and the
         // pipeline continues.  The final output reflects the surrounding
         // transforms but not the failed one's effect (which was none anyway).
         let result = registry.apply_all("hello".to_string()).unwrap();
@@ -414,7 +424,7 @@ mod tests {
             }
         }
 
-        let mut registry = TransformRegistry::new().with_fail_fast(false);
+        let mut registry = TransformRegistry::new().with_failure_mode(FailureMode::ContinueOnError);
         registry
             .register(Box::new(Doubler))
             .register(Box::new(FailMidway))
