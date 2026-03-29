@@ -189,49 +189,49 @@ mod tests {
 
     #[test]
     fn test_deserialize_markdown() {
-        let fmt: InputFormat = serde_yaml::from_str("markdown").unwrap();
+        let fmt: InputFormat = serde_yaml_ng::from_str("markdown").unwrap();
         assert_eq!(fmt, InputFormat::Markdown);
     }
 
     #[test]
     fn test_deserialize_md_alias() {
-        let fmt: InputFormat = serde_yaml::from_str("md").unwrap();
+        let fmt: InputFormat = serde_yaml_ng::from_str("md").unwrap();
         assert_eq!(fmt, InputFormat::Markdown);
     }
 
     #[test]
     fn test_deserialize_html() {
-        let fmt: InputFormat = serde_yaml::from_str("html").unwrap();
+        let fmt: InputFormat = serde_yaml_ng::from_str("html").unwrap();
         assert_eq!(fmt, InputFormat::Html);
     }
 
     #[test]
     fn test_deserialize_epub() {
-        let fmt: InputFormat = serde_yaml::from_str("epub").unwrap();
+        let fmt: InputFormat = serde_yaml_ng::from_str("epub").unwrap();
         assert_eq!(fmt, InputFormat::Epub);
     }
 
     #[test]
     fn test_deserialize_rst() {
-        let fmt: InputFormat = serde_yaml::from_str("rst").unwrap();
+        let fmt: InputFormat = serde_yaml_ng::from_str("rst").unwrap();
         assert_eq!(fmt, InputFormat::Rst);
     }
 
     #[test]
     fn test_deserialize_latex() {
-        let fmt: InputFormat = serde_yaml::from_str("latex").unwrap();
+        let fmt: InputFormat = serde_yaml_ng::from_str("latex").unwrap();
         assert_eq!(fmt, InputFormat::Latex);
     }
 
     #[test]
     fn test_deserialize_tex_alias() {
-        let fmt: InputFormat = serde_yaml::from_str("tex").unwrap();
+        let fmt: InputFormat = serde_yaml_ng::from_str("tex").unwrap();
         assert_eq!(fmt, InputFormat::Latex);
     }
 
     #[test]
     fn test_deserialize_unknown_returns_error() {
-        let result: serde_yaml::Result<InputFormat> = serde_yaml::from_str("xml");
+        let result: serde_yaml_ng::Result<InputFormat> = serde_yaml_ng::from_str("xml");
         assert!(result.is_err());
         let msg = result.unwrap_err().to_string();
         assert!(
@@ -243,7 +243,7 @@ mod tests {
 
     #[test]
     fn test_deserialize_case_insensitive() {
-        let fmt: InputFormat = serde_yaml::from_str("Markdown").unwrap();
+        let fmt: InputFormat = serde_yaml_ng::from_str("Markdown").unwrap();
         assert_eq!(fmt, InputFormat::Markdown);
     }
 }
