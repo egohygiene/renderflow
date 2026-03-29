@@ -136,7 +136,7 @@ impl Config {
 pub fn load_config(path: &str) -> Result<Config> {
     let content = fs::read_to_string(path)
         .with_context(|| format!("Failed to read config file: {}", path))?;
-    let config: Config = serde_yaml::from_str(&content)
+    let config: Config = serde_yaml_ng::from_str(&content)
         .with_context(|| format!("Failed to parse YAML config: {}", path))?;
     config.validate()?;
     Ok(config)
