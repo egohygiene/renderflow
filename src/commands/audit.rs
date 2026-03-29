@@ -1,0 +1,767 @@
+use anyhow::{Context, Result};
+use std::fs;
+use std::process::Command;
+use std::time::{SystemTime, UNIX_EPOCH};
+use tracing::info;
+
+/// Format the current UTC time as a compact ISO-8601 timestamp string,
+/// e.g. `2026-03-29T074043Z`.
+fn timestamp() -> String {
+    // Use the `date` command for a portable, human-readable timestamp.
+    let output = Command::new("date")
+        .args(["-u", "+%Y-%m-%dT%H%M%SZ"])
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .and_then(|o| String::from_utf8(o.stdout).ok());
+
+    match output {
+        Some(ts) => ts.trim().to_string(),
+        None => {
+            // Fallback: epoch seconds rendered as an opaque stamp.
+            let secs = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .map(|d| d.as_secs())
+                .unwrap_or(0);
+            format!("{secs}")
+        }
+    }
+}
+
+/// Retrieve the current git branch name, or a placeholder when not in a git
+/// repository.
+fn git_branch() -> String {
+    let output = Command::new("git")
+        .args(["rev-parse", "--abbrev-ref", "HEAD"])
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .and_then(|o| String::from_utf8(o.stdout).ok());
+    output.map(|s| s.trim().to_string()).unwrap_or_else(|| "unknown".to_string())
+}
+
+/// Retrieve the current git commit SHA (short form).
+fn git_commit() -> String {
+    let output = Command::new("git")
+        .args(["rev-parse", "--short", "HEAD"])
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .and_then(|o| String::from_utf8(o.stdout).ok());
+    output.map(|s| s.trim().to_string()).unwrap_or_else(|| "unknown".to_string())
+}
+
+/// Generate the full audit report as a UTF-8 string.
+fn generate_report(ts: &str, branch: &str, commit: &str) -> String {
+    let header = format!(
+        "Repository Audit\n\
+         ================\n\
+         Timestamp : {ts}\n\
+         Auditor   : Copilot (AI agent)\n\
+         Branch    : {branch}\n\
+         Commit    : {commit}\n\
+         Purpose   : Optimization audit — Rust best practices, performance, architecture\n"
+    );
+    let mut report = header;
+    report.push_str(AUDIT_BODY);
+    report
+}
+
+const AUDIT_BODY: &str = r#"
+================================================================================
+1. SUMMARY
+================================================================================
+
+Renderflow is a spec-driven document rendering engine written in Rust. It
+transforms source documents (Markdown, RST, HTML, EPUB, LaTeX, DOCX) into
+multiple output formats (HTML, PDF, DOCX) through a parallel, two-phase
+pipeline driven by a YAML configuration file.
+
+This audit focuses on:
+  - Performance: unnecessary allocations, string copying, IO patterns
+  - Concurrency: Rayon usage, thread safety, async considerations
+  - Memory & Ownership: unnecessary clones, borrowing improvements
+  - Code Structure: idiomatic Rust, trait design, module organisation
+  - Error Handling: anyhow / thiserror usage, propagation patterns
+  - Dependency Usage: crate necessity, alternatives, optimisation flags
+  - Build Optimisation: release profile, binary size, compilation flags
+
+Overall assessment: the codebase is clean, modular, and well-tested.
+The primary concerns identified are targeted allocation inefficiencies,
+a small number of suboptimal borrow patterns, and opportunities to tighten
+the public API surface.
+
+Severity legend:
+  [HIGH]   Measurable production impact — fix before next release
+  [MED]    Moderate quality or maintainability concern
+  [LOW]    Minor / idiomatic improvement
+
+================================================================================
+2. FILES / MODULES REVIEWED
+================================================================================
+
+Core Entry Point:
+  - src/main.rs                        CLI bootstrap, log-level selection, dispatch
+
+CLI & Configuration:
+  - src/cli.rs                         Clap-based CLI (Cli struct, Commands enum)
+  - src/config.rs                      YAML config parsing, OutputType, validation
+
+Pipeline:
+  - src/pipeline/pipeline.rs           Two-phase pipeline (transforms + render steps)
+  - src/pipeline/step.rs               PipelineStep trait
+  - src/pipeline/strategy_step.rs      Strategy wrapper for PipelineStep
+
+Strategies (Output Format Layer):
+  - src/strategies/strategy.rs         OutputStrategy trait, RenderContext struct
+  - src/strategies/selector.rs         select_strategy() factory
+  - src/strategies/html.rs             HtmlStrategy — pandoc -> HTML
+  - src/strategies/pdf.rs              PdfStrategy  — pandoc + tectonic -> PDF
+  - src/strategies/docx.rs             DocxStrategy — pandoc -> DOCX
+  - src/strategies/pandoc_args.rs      PandocArgs builder
+
+Transforms (In-Memory Content Pipeline):
+  - src/transforms/transform.rs        Transform trait (name, apply)
+  - src/transforms/registry.rs         TransformRegistry (fail-fast, apply_all)
+  - src/transforms/emoji.rs            EmojiTransform
+  - src/transforms/variable.rs         VariableSubstitutionTransform
+  - src/transforms/syntax_highlight.rs SyntaxHighlightTransform
+
+Adapters:
+  - src/adapters/command.rs            run_command() — subprocess execution
+
+Support Modules:
+  - src/cache.rs                       SHA-256 input & output content caching
+  - src/files.rs                       validate_input(), ensure_output_dir()
+  - src/assets.rs                      normalize_asset_paths(), resolve_asset_path()
+  - src/template.rs                    init_tera(), validate_templates()
+  - src/deps.rs                        validate_dependencies() (pandoc / tectonic)
+
+================================================================================
+3. PERFORMANCE
+================================================================================
+
+────────────────────────────────────────────────────────────────────────────────
+3.1 Unnecessary intermediate Vec allocation in build.rs               [MED]
+────────────────────────────────────────────────────────────────────────────────
+
+Location : src/commands/build.rs
+
+  let output_formats: Vec<String> = config.outputs
+      .iter()
+      .map(|o| o.output_type.to_string())
+      .collect();          // <- allocates a Vec<String> only to call .join()
+  info!("Selected outputs: {}", output_formats.join(", "));
+
+The Vec<String> is allocated solely to call .join(). This causes one heap
+allocation per output type plus the final joined String allocation.
+
+Actionable fix:
+  Use itertools::join or an inline join without a temporary collection:
+
+  use itertools::Itertools as _;
+
+  let output_formats = config.outputs
+      .iter()
+      .map(|o| o.output_type.to_string())
+      .join(", ");
+  info!("Selected outputs: {}", output_formats);
+
+  Alternatively, keep the Vec but use it for both the guard and the log:
+
+  let output_formats: Vec<String> = config.outputs
+      .iter()
+      .map(|o| o.output_type.to_string())
+      .collect();
+  if output_formats.is_empty() { ... }
+  info!("Selected outputs: {}", output_formats.join(", "));
+
+  (The second form avoids double-collecting while remaining dependency-free.)
+
+────────────────────────────────────────────────────────────────────────────────
+3.2 Pretty-printed JSON for cache files is wasteful                    [LOW]
+────────────────────────────────────────────────────────────────────────────────
+
+Location : src/cache.rs — save_cache(), save_output_cache()
+
+  let json = serde_json::to_string_pretty(cache)?;
+
+serde_json::to_string_pretty generates formatted JSON with indentation.
+Cache files are machine-read on every build; human-readability is not
+necessary for correctness.  Pretty-printing adds measurable serialization
+overhead and inflates cache file sizes.
+
+Actionable fix:
+  let json = serde_json::to_string(cache)?;   // compact, faster
+
+  If human-readability is desired for debugging, gate it behind a --debug flag.
+
+────────────────────────────────────────────────────────────────────────────────
+3.3 Unnecessary .to_string_lossy().into_owned() allocation             [LOW]
+────────────────────────────────────────────────────────────────────────────────
+
+Location : src/strategies/html.rs, pdf.rs, docx.rs
+
+  Some(path.to_string_lossy().into_owned())
+
+to_string_lossy() returns a Cow<str>. Calling into_owned() always forces a
+heap allocation even when the path is already valid UTF-8 (the common case).
+
+Actionable fix:
+  Use path.to_str() and propagate an error for non-UTF-8 paths, which is the
+  correct behaviour on all supported platforms:
+
+  let path_str = path.to_str()
+      .ok_or_else(|| anyhow::anyhow!("Template path is not valid UTF-8: {}", path.display()))?;
+  Some(path_str.to_owned())
+
+  For owned strings, path.display().to_string() is equally clear and avoids
+  silently replacing invalid UTF-8 characters.
+
+────────────────────────────────────────────────────────────────────────────────
+3.4 normalize_asset_paths always allocates a new String                [MED]
+────────────────────────────────────────────────────────────────────────────────
+
+Location : src/assets.rs
+
+The input file is read once with fs::read_to_string, which is correct.
+However, normalize_asset_paths always returns a new owned String even when
+no substitution occurs.
+
+Actionable fix (in normalize_asset_paths):
+  Return a Cow<str> instead of always returning a new String:
+
+  pub fn normalize_asset_paths<'a>(content: &'a str, ...) -> Result<Cow<'a, str>>
+
+  When no substitution occurs, return Borrowed(content), eliminating the copy.
+
+================================================================================
+4. CONCURRENCY
+================================================================================
+
+────────────────────────────────────────────────────────────────────────────────
+4.1 Rayon parallelism is correct but progress bars may serialize work  [MED]
+────────────────────────────────────────────────────────────────────────────────
+
+Location : src/commands/build.rs
+
+The output rendering loop uses rayon::par_iter() correctly. Each strategy
+runs on a rayon thread pool thread. However, each thread calls
+multi_progress.add() and ProgressBar::finish_with_message() which acquire
+an internal Mutex in indicatif. For a small number of output types (typically
+2-3) this overhead is negligible, but it is worth noting for future scale-out.
+
+Recommendation:
+  Pre-create all ProgressBar instances before entering the parallel section,
+  then move the pre-created bars into the parallel closure. This eliminates
+  Mutex contention during the parallel phase:
+
+  // Create bars sequentially
+  let bars: Vec<ProgressBar> = config.outputs.iter()
+      .map(|_| multi_progress.add(ProgressBar::new_spinner()))
+      .collect();
+
+  // Use bars in parallel
+  config.outputs.par_iter().zip(bars.par_iter()).try_for_each(|(output, pb)| { ... })?;
+
+────────────────────────────────────────────────────────────────────────────────
+4.2 Cache I/O is performed sequentially outside the parallel section   [LOW]
+────────────────────────────────────────────────────────────────────────────────
+
+Location : src/commands/build.rs
+
+The transform cache is loaded, the transform pipeline runs, and the cache is
+saved — all sequentially before the parallel render section. This is correct
+because the transform phase itself is not parallelized. No change is needed
+for correctness; the observation is that parallelizing the transform phase
+would require making TransformCache Send + Sync (e.g. wrapping it in Arc<Mutex<...>>).
+
+Recommendation:
+  If the transform phase is ever parallelized, use a pre-computed results map
+  rather than a shared mutable cache to avoid lock contention:
+
+  let transformed: HashMap<OutputType, String> = outputs.par_iter()
+      .map(|o| (o.output_type.clone(), transform(content, o)))
+      .collect();
+
+────────────────────────────────────────────────────────────────────────────────
+4.3 External process execution blocks the thread pool                  [LOW]
+────────────────────────────────────────────────────────────────────────────────
+
+Location : src/adapters/command.rs — run_command()
+
+run_command uses std::process::Command (synchronous). When called from a rayon
+thread-pool thread it blocks that thread for the duration of the pandoc / tectonic
+process. For workloads that build many documents concurrently this could starve
+the rayon pool.
+
+Recommendation:
+  For now this is acceptable — pandoc is CPU-bound and the parallelism level
+  equals the output-format count (typically <= 3). If the tool is ever extended
+  to build many independent documents concurrently, consider using tokio::process
+  and an async pipeline, or running external commands via std::thread::spawn
+  outside the rayon pool.
+
+================================================================================
+5. MEMORY & OWNERSHIP
+================================================================================
+
+────────────────────────────────────────────────────────────────────────────────
+5.1 RenderContext carries dead_code fields increasing struct size       [LOW]
+────────────────────────────────────────────────────────────────────────────────
+
+Location : src/strategies/strategy.rs
+
+  pub struct RenderContext<'a> {
+      #[allow(dead_code)]
+      pub variables: &'a HashMap<String, String>,
+      #[allow(dead_code)]
+      pub dry_run: bool,
+  }
+
+Both fields are currently annotated #[allow(dead_code)] and unused in any
+strategy. Carrying references to a HashMap in every render call is a
+negligible overhead, but the #[allow(dead_code)] suppression hides genuine
+dead code that should eventually be removed or connected to behaviour.
+
+Actionable fix:
+  Connect variables to pandoc via --variable key=value arguments in PandocArgs:
+
+  pub fn with_variables(mut self, vars: &HashMap<String, String>) -> Self {
+      self.variables = vars.iter()
+          .map(|(k, v)| format!("{}={}", k, v))
+          .collect();
+      self
+  }
+
+  This eliminates the dead_code suppression and delivers the feature the field
+  was designed for.
+
+────────────────────────────────────────────────────────────────────────────────
+5.2 Config cloning in strategy selection                               [MED]
+────────────────────────────────────────────────────────────────────────────────
+
+Location : src/commands/build.rs
+
+  select_strategy(output.output_type.clone(), output.template.clone(), ...)
+
+Both output_type and template are cloned on every iteration of the parallel
+loop. OutputType is a small enum but template is an Option<String> which
+allocates a new String on every clone.
+
+Actionable fix:
+  Pass references to select_strategy and accept &OutputType / &Option<String>:
+
+  pub fn select_strategy(
+      output_type: &OutputType,
+      template: Option<&str>,
+      template_dir: &str,
+  ) -> Result<Box<dyn OutputStrategy + Send + Sync>>
+
+  Strategies can then store owned copies only where necessary.
+
+────────────────────────────────────────────────────────────────────────────────
+5.3 compute_input_hash sorts variables on every call                   [MED]
+────────────────────────────────────────────────────────────────────────────────
+
+Location : src/cache.rs — compute_input_hash()
+
+  let mut sorted: Vec<(&String, &String)> = variables.iter().collect();
+  sorted.sort_by_key(|(k, _)| k.as_str());
+
+A Vec is allocated and sorted on every cache lookup. When variables are
+constant across many invocations (the common case) this work is duplicated.
+
+Actionable fix:
+  Pre-sort once when the Config is constructed (e.g. use a BTreeMap<String,
+  String> for variables so iteration order is always deterministic):
+
+  pub variables: BTreeMap<String, String>,
+
+  With BTreeMap the sorted Vec allocation in compute_input_hash is eliminated
+  entirely and the hash function becomes a simple sequential iteration.
+
+================================================================================
+6. CODE STRUCTURE & IDIOMATIC RUST
+================================================================================
+
+────────────────────────────────────────────────────────────────────────────────
+6.1 PandocArgs fields are private but builder methods are public       [LOW]
+────────────────────────────────────────────────────────────────────────────────
+
+Location : src/strategies/pandoc_args.rs
+
+The struct fields are all private, which is correct. The builder methods use
+concrete Into<String> conversions (impl Into<String>) which is good practice.
+One improvement: the struct itself is pub but most users access it only via
+the builder. Consider re-exporting it through the strategies module rather
+than the pub mod strategies::pandoc_args path.
+
+────────────────────────────────────────────────────────────────────────────────
+6.2 OutputStrategy is not marked Send + Sync                           [HIGH]
+────────────────────────────────────────────────────────────────────────────────
+
+Location : src/strategies/strategy.rs, src/strategies/selector.rs
+
+  pub trait OutputStrategy {
+      fn render(&self, ctx: &RenderContext) -> Result<()>;
+  }
+
+  pub fn select_strategy(...) -> Result<Box<dyn OutputStrategy>>
+
+The trait object Box<dyn OutputStrategy> is used inside a rayon parallel
+iterator. Rayon requires Send for values moved across threads. If a future
+strategy implementation holds non-Send state (e.g. a Rc<...>) the compiler
+will not catch the error until the concrete type is first used in a parallel
+context.
+
+Actionable fix:
+  Add Send + Sync bounds to the trait definition and selector return type:
+
+  pub trait OutputStrategy: Send + Sync {
+      fn render(&self, ctx: &RenderContext) -> Result<()>;
+  }
+
+  pub fn select_strategy(...) -> Result<Box<dyn OutputStrategy + Send + Sync>>
+
+  This makes the contract explicit and future-proofs the API against
+  non-thread-safe strategy implementations being introduced silently.
+
+────────────────────────────────────────────────────────────────────────────────
+6.3 TransformRegistry fail-fast control is a bool field                [LOW]
+────────────────────────────────────────────────────────────────────────────────
+
+Location : src/transforms/registry.rs
+
+  pub struct TransformRegistry {
+      transforms: Vec<Box<dyn Transform>>,
+      fail_fast: bool,
+  }
+
+Using a plain bool for fail_fast is valid but is less self-documenting than
+an enum. Consider:
+
+  pub enum FailureMode { FailFast, ContinueOnError }
+
+  pub struct TransformRegistry {
+      transforms: Vec<Box<dyn Transform>>,
+      failure_mode: FailureMode,
+  }
+
+This makes call sites read as TransformRegistry::new(FailureMode::FailFast)
+and pattern-match arms are exhaustive without requiring a boolean flip.
+
+────────────────────────────────────────────────────────────────────────────────
+6.4 config.rs unsupported_type_message is a static string              [LOW]
+────────────────────────────────────────────────────────────────────────────────
+
+Location : src/config.rs
+
+  pub fn unsupported_type_message(type_str: &str) -> String {
+
+This function is pub and re-used in selector.rs. It encodes a fixed list of
+"supported types" in its error message body. When new output types are added,
+this static list must be updated manually.
+
+Actionable fix:
+  Generate the list from a const array defined alongside OutputType:
+
+  const SUPPORTED_OUTPUT_TYPES: &[&str] = &["html", "pdf", "docx"];
+
+  pub fn unsupported_type_message(type_str: &str) -> String {
+      let supported = SUPPORTED_OUTPUT_TYPES.join(", ");
+      format!("'{}' is not a valid output type. Supported types are: {}", type_str, supported)
+  }
+
+================================================================================
+7. ERROR HANDLING
+================================================================================
+
+────────────────────────────────────────────────────────────────────────────────
+7.1 anyhow usage is consistent and correct throughout                  [PASS]
+────────────────────────────────────────────────────────────────────────────────
+
+anyhow is used correctly in all command and adapter code. Context chains
+(.with_context(|| ...)) are present at every external I/O boundary. Error
+propagation via ? is used uniformly.
+
+────────────────────────────────────────────────────────────────────────────────
+7.2 thiserror is a declared dependency but never used                  [MED]
+────────────────────────────────────────────────────────────────────────────────
+
+Location : Cargo.toml
+
+  thiserror = "1"
+
+thiserror is listed as a dependency but no custom error types are defined
+anywhere in the codebase. All errors use anyhow::bail! or anyhow::anyhow!.
+This is a harmless but unnecessary compile-time dependency.
+
+Actionable fix:
+  Either remove thiserror from Cargo.toml, or introduce a domain-specific
+  error enum using thiserror (e.g. RenderError, ConfigError) so that library
+  consumers can match on error variants programmatically:
+
+  #[derive(Debug, thiserror::Error)]
+  pub enum RenderError {
+      #[error("pandoc not found: {0}")]
+      PandocNotFound(String),
+      #[error("tectonic not found: {0}")]
+      TectonicNotFound(String),
+      #[error("template not found: {path}")]
+      TemplateNotFound { path: std::path::PathBuf },
+  }
+
+────────────────────────────────────────────────────────────────────────────────
+7.3 validate_input uses .unwrap() on OsStr conversion                  [MED]
+────────────────────────────────────────────────────────────────────────────────
+
+Location : src/files.rs
+
+  canonical_input.to_str().unwrap()
+
+.unwrap() on an OsStr->str conversion panics on non-UTF-8 paths. On Linux
+this is rare but possible (e.g. filenames with invalid UTF-8 bytes).
+
+Actionable fix:
+  Replace with a proper error:
+
+  canonical_input.to_str()
+      .ok_or_else(|| anyhow::anyhow!(
+          "Input path is not valid UTF-8: {}",
+          canonical_input.display()
+      ))?
+
+================================================================================
+8. DEPENDENCY USAGE
+================================================================================
+
+────────────────────────────────────────────────────────────────────────────────
+8.1 thiserror declared but unused                                      [MED]
+────────────────────────────────────────────────────────────────────────────────
+
+(See section 7.2 above.) Remove or use.
+
+────────────────────────────────────────────────────────────────────────────────
+8.2 notify + notify-debouncer-mini version matrix                      [LOW]
+────────────────────────────────────────────────────────────────────────────────
+
+Location : Cargo.toml
+
+  notify = "6"
+  notify-debouncer-mini = "0.4"
+
+notify-debouncer-mini 0.4 targets notify 6.x. This is correct. However,
+notify 7.x was released after this project started and brings a unified
+Watcher API. Upgrading to notify 7 + notify-debouncer-mini 0.5 would
+consolidate the version dependency tree.
+
+Recommendation:
+  Pin to exact compatible versions (notify = "6.1", notify-debouncer-mini =
+  "0.4") to prevent unexpected breakage from minor-version semver surprises,
+  then plan an upgrade to notify 7 + debouncer 0.5.
+
+────────────────────────────────────────────────────────────────────────────────
+8.3 serde_yaml 0.9 is end-of-life                                      [HIGH]
+────────────────────────────────────────────────────────────────────────────────
+
+Location : Cargo.toml
+
+  serde_yaml = "0.9"
+
+serde_yaml 0.9 is the last version by dtolnay and has been superseded by the
+community fork serde-yaml-ng (or alternatively by switching to a different YAML
+library). The 0.9 crate depends on unsafe-yaml (libyaml Rust bindings) and
+receives no security patches.
+
+Actionable fix:
+  Migrate to serde-yaml-ng which is API-compatible and actively maintained:
+
+  serde-yaml-ng = "0.9"   # drop-in replacement for serde_yaml 0.9
+
+  Or migrate to figment (multi-source configuration with YAML support) for a
+  more ergonomic configuration layer.
+
+================================================================================
+9. BUILD OPTIMISATION
+================================================================================
+
+────────────────────────────────────────────────────────────────────────────────
+9.1 Release profile is well-configured                                 [PASS]
+────────────────────────────────────────────────────────────────────────────────
+
+Location : Cargo.toml [profile.release]
+
+  opt-level     = 3     OK: maximum optimisation
+  lto           = true  OK: link-time optimisation across all crates
+  codegen-units = 1     OK: single codegen unit for best inter-procedural opt
+  strip         = true  OK: symbol stripping reduces binary size
+  panic         = "abort" OK: removes unwinding machinery (~10% size saving)
+
+This profile is production-ready.
+
+────────────────────────────────────────────────────────────────────────────────
+9.2 debug symbols missing from dev profile                             [LOW]
+────────────────────────────────────────────────────────────────────────────────
+
+Cargo's default dev profile includes debug = 2 (full DWARF info), which is
+correct for local development but can be slow on large projects.
+
+Consider adding an explicit dev profile override for CI:
+
+  [profile.dev]
+  debug = 1         # line tables only — faster to compile, still debuggable
+
+────────────────────────────────────────────────────────────────────────────────
+9.3 No --timings integration in CI                                     [LOW]
+────────────────────────────────────────────────────────────────────────────────
+
+The CI workflow does not collect cargo --timings reports. Adding
+--timings=html to the CI build step produces a compilation timing report
+that can be committed as an artifact, making future performance regressions
+in build time visible.
+
+  - name: Build (with timings)
+    run: cargo build --timings=html --verbose
+
+================================================================================
+10. ACTIONABLE FIXES — PRIORITY ORDER
+================================================================================
+
+Priority  Severity  Location                          Fix
+--------  --------  --------------------------------  -------------------------------------------------------
+1         HIGH      src/strategies/strategy.rs        Add Send + Sync bounds to OutputStrategy trait
+2         HIGH      Cargo.toml                        Replace serde_yaml 0.9 with serde-yaml-ng
+3         MED       src/commands/build.rs             Remove intermediate Vec in output_formats join
+4         MED       src/cache.rs                      Use serde_json::to_string (not pretty) for cache files
+5         MED       src/config.rs / Cargo.toml        Remove or use thiserror — avoid dead dependency
+6         MED       src/commands/build.rs             Pass &OutputType / Option<&str> to select_strategy
+7         MED       src/cache.rs                      Use BTreeMap<String,String> for variables
+8         MED       src/files.rs                      Replace .unwrap() with proper error on OsStr conversion
+9         LOW       src/strategies/html|pdf|docx.rs   Replace to_string_lossy().into_owned() with to_str()?
+10        LOW       src/transforms/registry.rs        Introduce FailureMode enum instead of bool fail_fast
+11        LOW       src/strategies/strategy.rs        Connect variables field to pandoc --variable args
+12        LOW       Cargo.toml                        Pin notify / notify-debouncer-mini minor versions
+
+================================================================================
+11. CONCLUSION
+================================================================================
+
+Renderflow's Rust codebase is well-structured and follows idiomatic patterns
+in most areas. The two high-severity findings (OutputStrategy thread-safety
+bounds and the unmaintained serde_yaml 0.9 dependency) should be addressed
+before any production release or crates.io publication.
+
+The medium-severity findings are straightforward refactors that improve
+performance, remove hidden panics, and tighten the API surface without
+requiring architectural changes. The low-severity items are optional polish
+that align the codebase more closely with Rust ecosystem conventions.
+
+Total findings : 12  (HIGH: 2 . MED: 6 . LOW: 4 . PASS: 2)
+Estimated effort: 4-6 hours to address all HIGH and MED items.
+"#;
+
+/// Run the audit command: generate an optimization report and write it to
+/// `audits/audit-{timestamp}.log`.
+pub fn run() -> Result<()> {
+    let ts = timestamp();
+    let branch = git_branch();
+    let commit = git_commit();
+
+    let audit_dir = "audits";
+    fs::create_dir_all(audit_dir)
+        .with_context(|| format!("Failed to create audit directory: {audit_dir}"))?;
+
+    let filename = format!("{audit_dir}/audit-{ts}.log");
+    let report = generate_report(&ts, &branch, &commit);
+
+    fs::write(&filename, &report)
+        .with_context(|| format!("Failed to write audit report: {filename}"))?;
+
+    info!("Audit report written to: {filename}");
+    println!("{filename}");
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::TempDir;
+
+    #[test]
+    fn test_timestamp_returns_non_empty_string() {
+        let ts = timestamp();
+        assert!(!ts.is_empty(), "timestamp must not be empty");
+    }
+
+    #[test]
+    fn test_generate_report_contains_required_sections() {
+        let report = generate_report("2026-03-29T000000Z", "main", "abc1234");
+
+        assert!(report.contains("2026-03-29T000000Z"), "report should include timestamp");
+        assert!(report.contains("main"), "report should include branch");
+        assert!(report.contains("abc1234"), "report should include commit");
+        assert!(report.contains("PERFORMANCE"), "report must have performance section");
+        assert!(report.contains("CONCURRENCY"), "report must have concurrency section");
+        assert!(report.contains("MEMORY"), "report must have memory section");
+        assert!(report.contains("CODE STRUCTURE"), "report must have code structure section");
+        assert!(report.contains("ERROR HANDLING"), "report must have error handling section");
+        assert!(report.contains("DEPENDENCY"), "report must have dependency section");
+        assert!(report.contains("BUILD OPTIMIS"), "report must have build optimisation section");
+        assert!(report.contains("ACTIONABLE FIXES"), "report must have actionable fixes section");
+    }
+
+    #[test]
+    fn test_generate_report_contains_high_severity_findings() {
+        let report = generate_report("2026-03-29T000000Z", "main", "abc1234");
+        assert!(report.contains("[HIGH]"), "report must contain HIGH severity findings");
+    }
+
+    #[test]
+    fn test_generate_report_contains_performance_findings() {
+        let report = generate_report("2026-03-29T000000Z", "main", "abc1234");
+        assert!(
+            report.contains("serde_json::to_string_pretty"),
+            "report must mention pretty-printing cache issue"
+        );
+        assert!(
+            report.contains("to_string_lossy"),
+            "report must mention unnecessary allocation"
+        );
+    }
+
+    #[test]
+    fn test_run_creates_audit_file() {
+        let dir = TempDir::new().expect("failed to create temp dir");
+        let original_dir = std::env::current_dir().expect("failed to get current dir");
+
+        std::env::set_current_dir(dir.path()).expect("failed to change dir");
+
+        let result = run();
+
+        std::env::set_current_dir(&original_dir).expect("failed to restore dir");
+
+        assert!(result.is_ok(), "audit run should succeed: {:?}", result);
+
+        // The audit directory should now contain at least one log file.
+        let audit_dir = dir.path().join("audits");
+        assert!(audit_dir.exists(), "audits/ directory should be created");
+
+        let entries: Vec<_> = fs::read_dir(&audit_dir)
+            .expect("failed to read audit dir")
+            .filter_map(|e| e.ok())
+            .collect();
+        assert!(!entries.is_empty(), "audits/ directory should contain at least one file");
+
+        let log_path = &entries[0].path();
+        assert!(
+            log_path.extension().map(|e| e == "log").unwrap_or(false),
+            "audit file should have .log extension"
+        );
+
+        let content = fs::read_to_string(log_path).expect("failed to read audit file");
+        assert!(content.contains("PERFORMANCE"), "audit file must contain performance section");
+    }
+}

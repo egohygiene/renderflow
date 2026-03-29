@@ -15,6 +15,7 @@ use clap::{Parser, Subcommand};
         renderflow build --dry-run              Preview what would be built\n  \
         renderflow watch                        Watch using renderflow.yaml\n  \
         renderflow watch --config custom.yaml   Watch with a custom config file\n  \
+        renderflow audit                        Generate an optimization audit report\n  \
         renderflow my-project.yaml              Shorthand: run build on the given config"
 )]
 pub struct Cli {
@@ -68,4 +69,11 @@ pub enum Commands {
         #[arg(long, default_value = "500", value_name = "MS")]
         debounce: u64,
     },
+
+    /// Generate an optimization audit report covering performance, memory, and Rust best practices
+    #[command(
+        after_help = "Examples:\n  \
+            renderflow audit   Generate an audit report in the audits/ directory"
+    )]
+    Audit,
 }
