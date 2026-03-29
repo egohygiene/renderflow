@@ -34,7 +34,14 @@ impl OutputStrategy for DocxStrategy {
                 );
             }
             info!("Using reference doc: {}", name);
-            Some(path.to_string_lossy().into_owned())
+            Some(
+                path.to_str()
+                    .ok_or_else(|| anyhow::anyhow!(
+                        "Template path '{}' contains invalid UTF-8",
+                        path.display()
+                    ))?
+                    .to_owned(),
+            )
         } else {
             None
         };
