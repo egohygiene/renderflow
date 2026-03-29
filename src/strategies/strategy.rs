@@ -33,7 +33,7 @@ pub struct RenderContext<'a> {
 ///
 /// Implementors receive a [`RenderContext`] containing all information
 /// required to produce the final artefact at the configured output path.
-pub trait OutputStrategy {
+pub trait OutputStrategy: Send + Sync {
     /// Render the document described by `ctx` and write the result to
     /// `ctx.output_path`.
     ///

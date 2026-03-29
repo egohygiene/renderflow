@@ -12,7 +12,7 @@ pub fn select_strategy(
     output_type: OutputType,
     template: Option<String>,
     template_dir: String,
-) -> Result<Box<dyn OutputStrategy>> {
+) -> Result<Box<dyn OutputStrategy + Send + Sync>> {
     match output_type {
         OutputType::Html => Ok(Box::new(HtmlStrategy::new(template, template_dir))),
         OutputType::Pdf => Ok(Box::new(PdfStrategy::new(template, template_dir))),
