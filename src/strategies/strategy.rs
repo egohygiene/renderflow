@@ -17,9 +17,8 @@ pub struct RenderContext<'a> {
     /// Destination path where the rendered output should be written.
     pub output_path: &'a str,
     /// Template variables from the renderflow config.
-    /// Populated by the build pipeline but not yet consumed by any strategy;
-    /// reserved for future use (e.g. passing `--variable key=value` to pandoc).
-    #[allow(dead_code)]
+    /// Passed to pandoc as `--variable key=value` arguments, making them
+    /// available inside pandoc templates.
     pub variables: &'a HashMap<String, String>,
     /// When `true` the strategy should skip file system writes and external
     /// commands. Strategies are currently never invoked in dry-run mode because
