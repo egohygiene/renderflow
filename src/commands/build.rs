@@ -13,7 +13,6 @@ use crate::files::{ensure_output_dir, validate_input};
 use crate::pipeline::{Pipeline, StrategyStep};
 use crate::strategies::select_strategy;
 use crate::template::init_tera;
-use crate::transforms::register_transforms;
 
 pub fn run(config_path: &str, dry_run: bool) -> Result<()> {
     if dry_run {
@@ -100,7 +99,7 @@ pub fn run(config_path: &str, dry_run: bool) -> Result<()> {
     // are not output-format dependent, so they are executed once and reused for all
     // output formats.  The cache allows skipping this phase entirely when inputs have
     // not changed since the last successful build.
-    let transform_pipeline = Pipeline::with_registry(register_transforms(&config.variables));
+    let transform_pipeline = Pipeline::with_standard_transforms(&config.variables);
     let input_hash = compute_input_hash(&normalized_content, &config.variables);
     let cache_path = output_dir.join(".renderflow-cache.json");
     // Always attempt to read the cache; load_cache handles missing/corrupt files

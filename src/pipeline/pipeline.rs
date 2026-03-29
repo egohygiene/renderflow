@@ -1,7 +1,9 @@
+use std::collections::HashMap;
+
 use anyhow::Result;
 
 use super::step::PipelineStep;
-use crate::transforms::{Transform, TransformRegistry};
+use crate::transforms::{register_transforms, Transform, TransformRegistry};
 
 /// An ordered sequence of transforms and output-format steps.
 ///
@@ -35,19 +37,27 @@ impl Pipeline {
     }
 
     /// Create a pipeline pre-loaded with an existing [`TransformRegistry`].
-    ///
-    /// This is the preferred constructor when the standard set of transforms
-    /// is needed; pair it with [`crate::transforms::register_transforms`]:
-    ///
-    /// ```ignore
-    /// let pipeline = Pipeline::with_registry(register_transforms(&variables));
-    /// let output   = pipeline.run_transforms(input)?;
-    /// ```
     pub fn with_registry(registry: TransformRegistry) -> Self {
         Self {
             registry,
             steps: Vec::new(),
         }
+    }
+
+    /// Create a pipeline pre-loaded with the standard set of document transforms.
+    ///
+    /// This is the preferred constructor for document processing; it internalises
+    /// the transform setup so callers never need to interact with
+    /// [`TransformRegistry`] or [`crate::transforms::register_transforms`]
+    /// directly.
+    ///
+    /// ```ignore
+    /// let mut pipeline = Pipeline::with_standard_transforms(&variables);
+    /// pipeline.add_step(Box::new(my_step));
+    /// let output = pipeline.run(input)?;
+    /// ```
+    pub fn with_standard_transforms(variables: &HashMap<String, String>) -> Self {
+        Self::with_registry(register_transforms(variables))
     }
 
     /// Append a transform to the internal registry.
@@ -82,6 +92,16 @@ impl Pipeline {
             current = step.execute(current)?;
         }
         Ok(current)
+    }
+
+    /// Execute the full pipeline: transforms first, then steps.
+    ///
+    /// This is the primary entry point for the unified execution model:
+    /// `input → transforms → steps`.  It is equivalent to calling
+    /// [`Pipeline::run_transforms`] followed by [`Pipeline::run_steps`].
+    pub fn run(&self, input: String) -> Result<String> {
+        let transformed = self.run_transforms(input)?;
+        self.run_steps(transformed)
     }
 }
 
@@ -260,5 +280,69 @@ mod tests {
 
         let result = pipeline.run_transforms("hello".to_string()).unwrap();
         assert_eq!(result, "HELLO!");
+    }
+
+    #[test]
+    fn test_run_combines_transforms_and_steps() {
+        let mut pipeline = Pipeline::new();
+        pipeline
+            .add_transform(Box::new(AppendTransform(" transformed".to_string())))
+            .add_step(Box::new(AppendStep(" rendered".to_string())));
+
+        let result = pipeline.run("input".to_string()).unwrap();
+        assert_eq!(result, "input transformed rendered");
+    }
+
+    #[test]
+    fn test_run_transform_error_short_circuits() {
+        let mut pipeline = Pipeline::new();
+        pipeline
+            .add_transform(Box::new(FailingTransform))
+            .add_step(Box::new(AppendStep(" should not run".to_string())));
+
+        let result = pipeline.run("input".to_string());
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Transform failed: FailingTransform"));
+    }
+
+    #[test]
+    fn test_run_step_error_propagates() {
+        let mut pipeline = Pipeline::new();
+        pipeline
+            .add_transform(Box::new(AppendTransform(" t".to_string())))
+            .add_step(Box::new(FailingStep));
+
+        let result = pipeline.run("input".to_string());
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("step failed"));
+    }
+
+    #[test]
+    fn test_with_standard_transforms_applies_emoji() {
+        use std::collections::HashMap;
+        let pipeline = Pipeline::with_standard_transforms(&HashMap::new());
+        let result = pipeline.run_transforms("Hello 😀".to_string()).unwrap();
+        assert_eq!(result, "Hello [emoji]");
+    }
+
+    #[test]
+    fn test_with_standard_transforms_substitutes_variables() {
+        use std::collections::HashMap;
+        let mut vars = HashMap::new();
+        vars.insert("name".to_string(), "World".to_string());
+        let pipeline = Pipeline::with_standard_transforms(&vars);
+        let result = pipeline.run_transforms("Hello {{name}}".to_string()).unwrap();
+        assert_eq!(result, "Hello World");
+    }
+
+    #[test]
+    fn test_with_standard_transforms_and_step_unified_run() {
+        use std::collections::HashMap;
+        let mut vars = HashMap::new();
+        vars.insert("name".to_string(), "World".to_string());
+        let mut pipeline = Pipeline::with_standard_transforms(&vars);
+        pipeline.add_step(Box::new(AppendStep("!".to_string())));
+        let result = pipeline.run("Hello {{name}}".to_string()).unwrap();
+        assert_eq!(result, "Hello World!");
     }
 }
