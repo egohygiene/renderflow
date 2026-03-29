@@ -179,7 +179,7 @@ Actionable fix:
   (The second form avoids double-collecting while remaining dependency-free.)
 
 ────────────────────────────────────────────────────────────────────────────────
-3.2 Pretty-printed JSON for cache files is wasteful                    [LOW]
+3.2 Pretty-printed JSON for cache files is wasteful                [RESOLVED]
 ────────────────────────────────────────────────────────────────────────────────
 
 Location : src/cache.rs — save_cache(), save_output_cache()
@@ -191,10 +191,10 @@ Cache files are machine-read on every build; human-readability is not
 necessary for correctness.  Pretty-printing adds measurable serialization
 overhead and inflates cache file sizes.
 
-Actionable fix:
+Fix applied:
   let json = serde_json::to_string(cache)?;   // compact, faster
 
-  If human-readability is desired for debugging, gate it behind a --debug flag.
+  Both save_cache() and save_output_cache() now use compact serialization.
 
 ────────────────────────────────────────────────────────────────────────────────
 3.3 Unnecessary .to_string_lossy().into_owned() allocation             [LOW]

@@ -82,11 +82,11 @@ pub fn load_output_cache(cache_path: &Path) -> OutputCache {
     }
 }
 
-/// Persist the output cache to disk as pretty-printed JSON.
+/// Persist the output cache to disk as compact JSON.
 ///
 /// Errors are propagated to the caller.
 pub fn save_output_cache(cache: &OutputCache, cache_path: &Path) -> Result<()> {
-    let json = serde_json::to_string_pretty(cache)?;
+    let json = serde_json::to_string(cache)?;
     fs::write(cache_path, json)?;
     Ok(())
 }
@@ -171,10 +171,10 @@ pub fn load_cache(cache_path: &Path) -> TransformCache {
 
 /// Persist the transform cache to disk.
 ///
-/// The cache is written as pretty-printed JSON so it is human-readable and
-/// diff-friendly.  Errors are propagated to the caller.
+/// The cache is written as compact JSON to minimize file size and serialization
+/// overhead.  Errors are propagated to the caller.
 pub fn save_cache(cache: &TransformCache, cache_path: &Path) -> Result<()> {
-    let json = serde_json::to_string_pretty(cache)?;
+    let json = serde_json::to_string(cache)?;
     fs::write(cache_path, json)?;
     Ok(())
 }
