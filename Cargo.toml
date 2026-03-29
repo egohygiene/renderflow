@@ -33,7 +33,7 @@ rayon = "1"
 
 tempfile = "3"
 
-notify = "6"
+notify = "6.1"
 notify-debouncer-mini = "0.4"
 
 itertools = "0.14"
