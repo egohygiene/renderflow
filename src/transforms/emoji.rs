@@ -1,16 +1,39 @@
 use anyhow::Result;
 
 use super::Transform;
+use crate::config::OutputType;
 
 /// Replaces emoji characters in text with a `[emoji]` placeholder.
 ///
 /// This is a V1 implementation that prepares the system for future
 /// asset-based rendering (e.g., SVG/PDF embedding).
-pub struct EmojiTransform;
+///
+/// HTML natively renders emoji, so the transform is skipped for HTML output to
+/// avoid destructive replacement.  For all other formats (PDF, DOCX, …) emoji
+/// are replaced with `[emoji]` as before.  Use [`EmojiTransform::new_for_format`]
+/// to create a format-aware instance; [`EmojiTransform::new`] always applies
+/// the replacement regardless of format (backwards-compatible default).
+pub struct EmojiTransform {
+    enabled: bool,
+}
 
 impl EmojiTransform {
+    /// Create an `EmojiTransform` that **always** replaces emoji.
+    ///
+    /// Prefer [`EmojiTransform::new_for_format`] when the output format is
+    /// known so that HTML output preserves emoji unchanged.
     pub fn new() -> Self {
-        EmojiTransform
+        EmojiTransform { enabled: true }
+    }
+
+    /// Create an `EmojiTransform` that skips emoji replacement for HTML output.
+    ///
+    /// * `OutputType::Html` → pass input through unchanged.
+    /// * All other formats → replace emoji with `[emoji]` as normal.
+    pub fn new_for_format(output_type: &OutputType) -> Self {
+        EmojiTransform {
+            enabled: *output_type != OutputType::Html,
+        }
     }
 
     fn is_emoji(c: char) -> bool {
@@ -57,6 +80,9 @@ impl Transform for EmojiTransform {
     }
 
     fn apply(&self, input: String) -> Result<String> {
+        if !self.enabled {
+            return Ok(input);
+        }
         let mut result = String::with_capacity(input.len());
         for c in input.chars() {
             if Self::is_emoji(c) {
@@ -135,5 +161,44 @@ mod tests {
             .apply("Line one 😀\nLine two 🎉".to_string())
             .unwrap();
         assert_eq!(result, "Line one [emoji]\nLine two [emoji]");
+    }
+
+    // ── format-aware tests ────────────────────────────────────────────────────
+
+    #[test]
+    fn test_emoji_transform_html_preserves_emoji() {
+        let transform = EmojiTransform::new_for_format(&OutputType::Html);
+        let input = "Hello 😀 World".to_string();
+        let result = transform.apply(input.clone()).unwrap();
+        assert_eq!(result, input, "HTML output must leave emoji unchanged");
+    }
+
+    #[test]
+    fn test_emoji_transform_html_preserves_multiple_emoji() {
+        let transform = EmojiTransform::new_for_format(&OutputType::Html);
+        let input = "😀😂🎉".to_string();
+        let result = transform.apply(input.clone()).unwrap();
+        assert_eq!(result, input);
+    }
+
+    #[test]
+    fn test_emoji_transform_html_preserves_empty_string() {
+        let transform = EmojiTransform::new_for_format(&OutputType::Html);
+        let result = transform.apply(String::new()).unwrap();
+        assert_eq!(result, "");
+    }
+
+    #[test]
+    fn test_emoji_transform_pdf_replaces_emoji() {
+        let transform = EmojiTransform::new_for_format(&OutputType::Pdf);
+        let result = transform.apply("Hello 😀 World".to_string()).unwrap();
+        assert_eq!(result, "Hello [emoji] World");
+    }
+
+    #[test]
+    fn test_emoji_transform_docx_replaces_emoji() {
+        let transform = EmojiTransform::new_for_format(&OutputType::Docx);
+        let result = transform.apply("Hello 😀 World".to_string()).unwrap();
+        assert_eq!(result, "Hello [emoji] World");
     }
 }

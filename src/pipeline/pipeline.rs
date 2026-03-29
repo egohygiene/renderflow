@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use anyhow::Result;
 
 use super::step::PipelineStep;
+use crate::config::OutputType;
 use crate::transforms::{register_transforms, Transform, TransformRegistry};
 
 /// An ordered sequence of transforms and output-format steps.
@@ -44,20 +45,25 @@ impl Pipeline {
         }
     }
 
-    /// Create a pipeline pre-loaded with the standard set of document transforms.
+    /// Create a pipeline pre-loaded with the standard set of document transforms
+    /// for the given output format.
     ///
     /// This is the preferred constructor for document processing; it internalises
     /// the transform setup so callers never need to interact with
     /// [`TransformRegistry`] or [`crate::transforms::register_transforms`]
     /// directly.
     ///
+    /// The `output_type` parameter controls format-specific transform behaviour.
+    /// In particular, emoji replacement is skipped for `OutputType::Html` because
+    /// HTML renders emoji natively.
+    ///
     /// ```ignore
-    /// let mut pipeline = Pipeline::with_standard_transforms(&variables);
+    /// let mut pipeline = Pipeline::with_standard_transforms(&variables, &OutputType::Pdf);
     /// pipeline.add_step(Box::new(my_step));
     /// let output = pipeline.run(input)?;
     /// ```
-    pub fn with_standard_transforms(variables: &HashMap<String, String>) -> Self {
-        Self::with_registry(register_transforms(variables))
+    pub fn with_standard_transforms(variables: &HashMap<String, String>, output_type: &OutputType) -> Self {
+        Self::with_registry(register_transforms(variables, output_type))
     }
 
     /// Append a transform to the internal registry.
@@ -115,6 +121,7 @@ impl Default for Pipeline {
 mod tests {
     use super::*;
     use anyhow::bail;
+    use crate::config::OutputType;
     use crate::transforms::Transform;
 
     struct AppendStep(String);
@@ -320,9 +327,17 @@ mod tests {
     #[test]
     fn test_with_standard_transforms_applies_emoji() {
         use std::collections::HashMap;
-        let pipeline = Pipeline::with_standard_transforms(&HashMap::new());
+        let pipeline = Pipeline::with_standard_transforms(&HashMap::new(), &OutputType::Pdf);
         let result = pipeline.run_transforms("Hello 😀".to_string()).unwrap();
         assert_eq!(result, "Hello [emoji]");
+    }
+
+    #[test]
+    fn test_with_standard_transforms_preserves_emoji_for_html() {
+        use std::collections::HashMap;
+        let pipeline = Pipeline::with_standard_transforms(&HashMap::new(), &OutputType::Html);
+        let result = pipeline.run_transforms("Hello 😀".to_string()).unwrap();
+        assert_eq!(result, "Hello 😀");
     }
 
     #[test]
@@ -330,7 +345,7 @@ mod tests {
         use std::collections::HashMap;
         let mut vars = HashMap::new();
         vars.insert("name".to_string(), "World".to_string());
-        let pipeline = Pipeline::with_standard_transforms(&vars);
+        let pipeline = Pipeline::with_standard_transforms(&vars, &OutputType::Pdf);
         let result = pipeline.run_transforms("Hello {{name}}".to_string()).unwrap();
         assert_eq!(result, "Hello World");
     }
@@ -340,7 +355,7 @@ mod tests {
         use std::collections::HashMap;
         let mut vars = HashMap::new();
         vars.insert("name".to_string(), "World".to_string());
-        let mut pipeline = Pipeline::with_standard_transforms(&vars);
+        let mut pipeline = Pipeline::with_standard_transforms(&vars, &OutputType::Pdf);
         pipeline.add_step(Box::new(AppendStep("!".to_string())));
         let result = pipeline.run("Hello {{name}}".to_string()).unwrap();
         assert_eq!(result, "Hello World!");
