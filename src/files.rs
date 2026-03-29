@@ -4,13 +4,16 @@ use std::path::{Path, PathBuf};
 use tracing::info;
 
 /// Validates that the input file exists and returns its canonical path.
-pub fn validate_input(path: &str) -> Result<PathBuf> {
-    let p = Path::new(path);
+pub fn validate_input(path: impl AsRef<Path>) -> Result<PathBuf> {
+    let p = path.as_ref();
     if !p.exists() {
-        anyhow::bail!("Input file not found: {}", path);
+        anyhow::bail!("Input file not found: {}", p.display());
     }
     let canonical = fs::canonicalize(p)
-        .with_context(|| format!("Failed to resolve input path: {}", path))?;
+        .with_context(|| format!("Failed to resolve input path: {}", p.display()))?;
+    canonical
+        .to_str()
+        .ok_or_else(|| anyhow::anyhow!("Input path is not valid UTF-8: {}", canonical.display()))?;
     info!(input = %canonical.display(), "Validated input file");
     Ok(canonical)
 }
@@ -36,7 +39,7 @@ mod tests {
     fn test_validate_input_success() {
         let mut f = NamedTempFile::new().expect("failed to create temp file");
         f.write_all(b"hello").expect("failed to write");
-        let result = validate_input(f.path().to_str().unwrap());
+        let result = validate_input(f.path());
         assert!(result.is_ok(), "expected Ok for existing file");
         let path = result.unwrap();
         assert!(path.is_absolute(), "canonical path should be absolute");
