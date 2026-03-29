@@ -16,8 +16,10 @@ fn tool_available(name: &str) -> bool {
 pub fn check_pandoc() -> Result<()> {
     if !tool_available("pandoc") {
         anyhow::bail!(
-            "Pandoc not found. Please install pandoc to continue.\n\
-             See: https://pandoc.org/installing.html"
+            "Pandoc is not installed.\n\n\
+             Install:\n\
+             \x20 sudo apt install pandoc\n\
+             or see: https://pandoc.org/installing.html"
         );
     }
     Ok(())
@@ -69,8 +71,8 @@ mod tests {
             assert!(result.is_err(), "check_pandoc should fail when pandoc is not installed");
             let msg = result.unwrap_err().to_string();
             assert!(
-                msg.contains("Pandoc not found"),
-                "error should say 'Pandoc not found', got: {msg}"
+                msg.contains("Pandoc is not installed"),
+                "error should say 'Pandoc is not installed', got: {msg}"
             );
             assert!(
                 msg.contains("pandoc"),
@@ -130,7 +132,7 @@ mod tests {
         } else {
             assert!(result.is_err());
             let msg = result.unwrap_err().to_string();
-            assert!(msg.contains("Pandoc not found"), "error should be about pandoc: {msg}");
+            assert!(msg.contains("Pandoc is not installed"), "error should be about pandoc: {msg}");
         }
     }
 
