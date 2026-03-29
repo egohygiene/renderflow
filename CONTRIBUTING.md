@@ -187,13 +187,19 @@ src/
 
 ## Commit Conventions
 
-This project uses [Conventional Commits](https://www.conventionalcommits.org/). Each commit message must follow this structure:
+This project uses [Conventional Commits](https://www.conventionalcommits.org/) to drive automated changelog generation and predictable version bumps.
+
+Each commit message must follow this structure:
 
 ```
 <type>(<scope>): <short summary>
+
+[optional body]
+
+[optional footer(s)]
 ```
 
-**Types:**
+### Types
 
 | Type | When to use |
 |------|-------------|
@@ -206,19 +212,71 @@ This project uses [Conventional Commits](https://www.conventionalcommits.org/). 
 | `perf` | Performance improvements |
 | `ci` | CI/CD configuration changes |
 
-**Examples:**
+### Scopes
+
+Scopes are optional but strongly recommended. Use a scope that matches the area of the codebase being changed:
+
+| Scope | Area |
+|-------|------|
+| `cli` | CLI argument parsing (`src/cli.rs`) |
+| `config` | YAML config handling (`src/config.rs`) |
+| `pipeline` | Pipeline orchestration (`src/pipeline/`) |
+| `strategies` | Output format strategies (`src/strategies/`) |
+| `transforms` | In-memory text transforms (`src/transforms/`) |
+| `assets` | Asset path resolution (`src/assets.rs`) |
+| `cache` | Build caching (`src/cache.rs`) |
+| `deps` | External dependency checks (`src/deps.rs`) |
+| `template` | Tera template rendering (`src/template.rs`) |
+| `release` | Release and versioning tasks |
+
+### Breaking Changes
+
+Breaking changes must be indicated in one of two ways:
+
+1. **Append `!` after the type/scope:**
+   ```
+   feat(cli)!: remove --legacy flag
+   ```
+
+2. **Add a `BREAKING CHANGE:` footer in the commit body:**
+   ```
+   feat(config): rename output_dir to output_path
+
+   BREAKING CHANGE: The `output_dir` key in renderflow.yaml has been
+   renamed to `output_path`. Update your config files accordingly.
+   ```
+
+Both approaches may be combined.
+
+### Version Bump Mapping
+
+Commit types determine how the version is automatically incremented following [Semantic Versioning](https://semver.org/):
+
+| Trigger | Version bump | Example |
+|---------|-------------|---------|
+| Any commit with `BREAKING CHANGE` or `!` | **Major** (`x.0.0`) | `feat(cli)!: redesign config format` |
+| `feat` commit | **Minor** (`0.x.0`) | `feat(pipeline): add watch mode` |
+| `fix`, `perf`, or any other type | **Patch** (`0.0.x`) | `fix(transforms): handle empty input` |
+
+### Examples
 
 ```
-feat(pipeline): add caching support for unchanged outputs
-fix(transforms): handle unclosed template placeholders gracefully
-docs: add CONTRIBUTING.md
+feat(cli): add --watch flag for live reloading
+fix(pipeline): correct transform caching for unchanged outputs
+docs: update README with cross-compilation instructions
+refactor(strategies): extract shared HTML rendering logic
 test(cli): add integration test for --dry-run flag
-chore: update Cargo dependencies
+chore(release): bump version to 0.2.0
+perf(transforms): cache compiled regex patterns
+ci: add commit linting workflow
+feat(config)!: rename output_dir to output_path
 ```
 
-**Rules:**
+### Rules
+
 - Use the imperative mood in the summary ("add", not "added" or "adds")
-- Keep the summary under 72 characters
+- Keep the summary line under 72 characters
+- Separate the body from the summary with a blank line
 - Reference issues where relevant: `fix(config): validate output type (#42)`
 
 ---
@@ -241,7 +299,9 @@ chore: update Cargo dependencies
    - Summarise what changed and why
    - Reference any related issues (e.g. `Closes #42`)
 
-5. **CI runs automatically** on every pull request (see `.github/workflows/ci.yml`). All checks must pass before merging.
+5. **CI runs automatically** on every pull request. All checks must pass before merging:
+   - **Build & Test** (`.github/workflows/ci.yml`) — compiles and runs the test suite
+   - **Commit Lint** (`.github/workflows/commitlint.yml`) — validates commit messages against the Conventional Commits format
 
 ---
 
