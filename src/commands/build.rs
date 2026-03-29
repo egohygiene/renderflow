@@ -13,7 +13,7 @@ use crate::deps::validate_dependencies;
 use crate::files::{ensure_output_dir, validate_input};
 use crate::pipeline::{Pipeline, StrategyStep};
 use crate::strategies::select_strategy;
-use crate::template::init_tera;
+use crate::template::{init_tera, validate_templates};
 
 pub fn run(config_path: &str, dry_run: bool) -> Result<()> {
     if dry_run {
@@ -65,19 +65,10 @@ pub fn run(config_path: &str, dry_run: bool) -> Result<()> {
     let template_count = tera.get_template_names().count();
     info!("Tera template engine initialised with {} template(s)", template_count);
 
-    // Warn early if any configured template is not present in the templates directory.
-    for output in &config.outputs {
-        if let Some(ref name) = output.template {
-            if !tera.get_template_names().any(|n| n == name) {
-                warn!(
-                    template = %name,
-                    "Configured template '{}' was not found in the templates directory; \
-                     rendering will fail if this template is required.",
-                    name
-                );
-            }
-        }
-    }
+    // Validate all configured templates early, before any pipeline execution,
+    // so that missing templates are detected immediately with a clear error
+    // rather than discovered later during rendering.
+    validate_templates(&config.outputs, "templates")?;
 
     let output_formats: Vec<String> = config.outputs.iter().map(|o| o.output_type.to_string()).collect();
     if output_formats.is_empty() {
