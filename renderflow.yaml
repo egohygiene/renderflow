@@ -2,5 +2,5 @@ outputs:
   - type: pdf
   - type: html
 
-input: "input.md"
+input: "examples/input.md"
 output_dir: "dist"
