@@ -29,6 +29,16 @@ RUN curl --proto '=https' --tlsv1.2 -fsSL \
     rm /tmp/task.tar.gz && \
     chmod +x /usr/local/bin/task
 
+# Install git-cliff – pinned to v2.12.0, downloaded directly from GitHub releases
+ARG GIT_CLIFF_VERSION=v2.12.0
+RUN curl --proto '=https' --tlsv1.2 -fsSL \
+    "https://github.com/orhun/git-cliff/releases/download/${GIT_CLIFF_VERSION}/git-cliff-${GIT_CLIFF_VERSION#v}-x86_64-unknown-linux-musl.tar.gz" \
+    -o /tmp/git-cliff.tar.gz && \
+    tar -xzf /tmp/git-cliff.tar.gz -C /tmp "git-cliff-${GIT_CLIFF_VERSION#v}/git-cliff" && \
+    mv "/tmp/git-cliff-${GIT_CLIFF_VERSION#v}/git-cliff" /usr/local/bin/git-cliff && \
+    rm -rf /tmp/git-cliff.tar.gz "/tmp/git-cliff-${GIT_CLIFF_VERSION#v}" && \
+    chmod +x /usr/local/bin/git-cliff
+
 # Switch to the devcontainer non-root user and install Rust in the user's home directory
 USER vscode
 
