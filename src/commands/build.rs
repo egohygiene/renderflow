@@ -1,6 +1,7 @@
 use anyhow::{Context, Result};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use rayon::prelude::*;
+use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 use tracing::{info, warn};
@@ -85,7 +86,7 @@ pub fn run(config_path: &str, dry_run: bool) -> Result<()> {
     }
     info!("Selected outputs: {}", output_formats.join(", "));
 
-    // One tick for transforms (run once) plus one tick per output format for rendering.
+    // One tick for the transform phase plus one tick per output format for rendering.
     let total_steps = 1 + config.outputs.len() as u64;
     let mp = MultiProgress::new();
     let pb = mp.add(ProgressBar::new(total_steps));
@@ -95,36 +96,47 @@ pub fn run(config_path: &str, dry_run: bool) -> Result<()> {
             .progress_chars("█▓░"),
     );
 
-    // Transforms are pure in-memory operations (no files, no external commands) and
-    // are not output-format dependent, so they are executed once and reused for all
-    // output formats.  The cache allows skipping this phase entirely when inputs have
-    // not changed since the last successful build.
-    let transform_pipeline = Pipeline::with_standard_transforms(&config.variables);
-    let input_hash = compute_input_hash(&normalized_content, &config.variables);
+    // Transforms are run once per output format (serially, before parallel rendering)
+    // because some transforms are format-specific.  In particular, EmojiTransform skips
+    // replacement for HTML (which renders emoji natively) but applies it for PDF, DOCX,
+    // and other formats.  A format-keyed cache avoids redundant work across builds.
+    let base_input_hash = compute_input_hash(&normalized_content, &config.variables);
     let cache_path = output_dir.join(".renderflow-cache.json");
     // Always attempt to read the cache; load_cache handles missing/corrupt files
     // gracefully.  Only write back to disk in non-dry-run mode.
     let mut transform_cache = load_cache(&cache_path);
 
     pb.set_message("Applying transforms");
-    let transformed = if let Some(cached) = transform_cache.get(&input_hash) {
-        info!("Cache hit — skipping transforms");
-        pb.inc(1);
-        cached.to_string()
-    } else {
-        info!("Cache miss — running transforms");
-        let result = transform_pipeline
-            .run_transforms(normalized_content)
-            .with_context(|| "Transform pipeline failed; no output formats will be rendered")?;
-        pb.inc(1);
+    let mut format_transformed: HashMap<String, String> = HashMap::new();
+    for output in &config.outputs {
+        let format = &output.output_type;
+        let format_str = format.to_string();
+        // Include the output format in the cache key so that HTML and PDF
+        // transformations are cached independently.
+        let hash_key = format!("{base_input_hash}-{format_str}");
+
+        let transformed = if let Some(cached) = transform_cache.get(&hash_key) {
+            info!("Cache hit — skipping transforms for {}", format_str);
+            cached.to_string()
+        } else {
+            info!("Cache miss — running transforms for {}", format_str);
+            Pipeline::with_standard_transforms(&config.variables, format)
+                .run_transforms(normalized_content.clone())
+                .with_context(|| format!("Transform pipeline failed for format: {format_str}; aborting build"))?
+        };
+
         if !dry_run {
-            transform_cache.insert(input_hash, result.clone());
-            if let Err(e) = save_cache(&transform_cache, &cache_path) {
-                warn!(error = %e, "Failed to save transform cache");
-            }
+            transform_cache.insert(hash_key, transformed.clone());
         }
-        result
-    };
+        format_transformed.insert(format_str, transformed);
+    }
+    pb.inc(1);
+
+    if !dry_run {
+        if let Err(e) = save_cache(&transform_cache, &cache_path) {
+            warn!(error = %e, "Failed to save transform cache");
+        }
+    }
 
     // Load the output cache so that individual render steps can be skipped when
     // their inputs (transformed content + output type + template) have not changed.
@@ -143,20 +155,27 @@ pub fn run(config_path: &str, dry_run: bool) -> Result<()> {
         .par_iter()
         .map(|output| {
         let format = output.output_type.clone();
+        let format_str = format.to_string();
         let output_path = format!("{}/{}.{}", output_dir.display(), input_stem, format);
         info!(format = %format, output = %output_path, template = ?output.template, "Running pipeline for format");
+
+        // format_transformed is populated for every configured output in the serial loop above.
+        let transformed = format_transformed
+            .get(&format_str)
+            .expect("format_str must be present in format_transformed")
+            .clone();
 
         if dry_run {
             info!("[dry-run] Would render {} output to: {}", format, output_path);
             pb.set_message(format!("[{format}] Would render output"));
             pb.inc(1);
             pb.println(format!("[dry-run] Would write output to: {}", output_path));
-            (format.to_string(), output_path, Ok(()), None)
+            (format_str, output_path, Ok(()), None)
         } else {
             // Compute a hash of all inputs that determine this output's content.
             // If the stored hash matches and the output file already exists, pandoc
             // can be skipped entirely.
-            let output_hash = compute_output_hash(&transformed, &format.to_string(), output.template.as_deref());
+            let output_hash = compute_output_hash(&transformed, &format_str, output.template.as_deref());
 
             if Path::new(&output_path).exists()
                 && output_cache.get(&output_path) == Some(output_hash.as_str())
@@ -164,7 +183,7 @@ pub fn run(config_path: &str, dry_run: bool) -> Result<()> {
                 info!("Skipping {} render (unchanged)", format);
                 pb.inc(1);
                 pb.println(format!("↩ Skipping {} output (unchanged): {}", format, output_path));
-                return (format.to_string(), output_path, Ok(()), Some(output_hash));
+                return (format_str, output_path, Ok(()), Some(output_hash));
             }
 
             let result = (|| -> Result<()> {
@@ -173,7 +192,7 @@ pub fn run(config_path: &str, dry_run: bool) -> Result<()> {
                 pipeline.add_step(Box::new(StrategyStep::new(strategy, &output_path, config.input_format(), config.variables.clone(), false)));
 
                 pb.set_message(format!("[{format}] Rendering output"));
-                pipeline.run_steps(transformed.clone())?;
+                pipeline.run_steps(transformed)?;
                 Ok(())
             })();
 
@@ -191,7 +210,7 @@ pub fn run(config_path: &str, dry_run: bool) -> Result<()> {
                     pb.println(format!("✘ Failed to render {} output: {:#}", format, e));
                 }
             }
-            (format.to_string(), output_path, result, new_hash)
+            (format_str, output_path, result, new_hash)
         }
     })
     .collect();
@@ -439,19 +458,20 @@ mod tests {
     #[test]
     fn test_cache_hit_uses_pre_populated_cache() {
         // Pre-populate the cache with the exact hash that the build would
-        // compute for the input file, then run a dry-run.  The build should
-        // detect the cache hit and skip the transform phase.
+        // compute for the input file + format, then run a dry-run.  The build
+        // should detect the cache hit and skip the transform phase for that format.
         let dir = tempfile::tempdir().expect("failed to create temp dir");
         let input_content = "# Test\n";
         let input_path = dir.path().join("input.md");
         fs::write(&input_path, input_content).expect("failed to write input file");
         let output_dir = dir.path().join("dist");
 
-        // Compute the hash the same way the build command will.
+        // Compute the hash the same way the build command will: base hash + "-html".
         let variables = std::collections::HashMap::new();
-        let hash = crate::cache::compute_input_hash(input_content, &variables);
+        let base_hash = crate::cache::compute_input_hash(input_content, &variables);
+        let hash_key = format!("{base_hash}-html");
         let cached_transform = "# Test (from cache)\n";
-        write_cache_file(&output_dir, &hash, cached_transform);
+        write_cache_file(&output_dir, &hash_key, cached_transform);
 
         let config_content = format!(
             "outputs:\n  - type: html\ninput: \"{}\"\noutput_dir: \"{}\"\n",
@@ -476,10 +496,11 @@ mod tests {
         fs::write(&input_path, original_content).expect("failed to write input file");
         let output_dir = dir.path().join("dist");
 
-        // Cache is keyed on the *original* content.
+        // Cache is keyed on the *original* content + format.
         let variables = std::collections::HashMap::new();
-        let old_hash = crate::cache::compute_input_hash(original_content, &variables);
-        write_cache_file(&output_dir, &old_hash, "cached result");
+        let old_base_hash = crate::cache::compute_input_hash(original_content, &variables);
+        let old_hash_key = format!("{old_base_hash}-html");
+        write_cache_file(&output_dir, &old_hash_key, "cached result");
 
         // Now change the input file — the hash will be different.
         let new_content = "# Changed\n";

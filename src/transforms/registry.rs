@@ -4,6 +4,7 @@ use anyhow::{Context, Result};
 use tracing::{debug, error, warn};
 
 use super::{EmojiTransform, SyntaxHighlightTransform, Transform, VariableSubstitutionTransform};
+use crate::config::OutputType;
 
 /// A central registry that holds an ordered collection of [`Transform`]
 /// implementations and applies them sequentially to document content.
@@ -116,17 +117,21 @@ impl Default for TransformRegistry {
 /// Build the standard transform registry used during document rendering.
 ///
 /// Transforms are registered in the following order:
-/// 1. **Emoji** – replaces emoji characters with `[emoji]` placeholders.
+/// 1. **Emoji** – replaces emoji characters with `[emoji]` placeholders (skipped for HTML).
 /// 2. **Variables** – substitutes `{{key}}` placeholders with config values.
 /// 3. **Syntax highlight** – normalises fenced code-block language tags.
+///
+/// The `output_type` parameter controls format-specific behaviour.  In
+/// particular, [`EmojiTransform`] is skipped for `OutputType::Html` because
+/// HTML renders emoji natively and replacing them would be destructive.
 ///
 /// When `variables` is empty the variable-substitution transform is still
 /// registered but becomes a no-op, ensuring consistent ordering regardless of
 /// configuration.
-pub fn register_transforms(variables: &HashMap<String, String>) -> TransformRegistry {
+pub fn register_transforms(variables: &HashMap<String, String>, output_type: &OutputType) -> TransformRegistry {
     let mut registry = TransformRegistry::new();
     registry
-        .register(Box::new(EmojiTransform::new()))
+        .register(Box::new(EmojiTransform::new_for_format(output_type)))
         .register(Box::new(VariableSubstitutionTransform::new(
             variables.clone(),
         )))
@@ -261,21 +266,28 @@ mod tests {
 
     #[test]
     fn test_register_transforms_emoji_replaced() {
-        let registry = register_transforms(&vars(&[]));
+        let registry = register_transforms(&vars(&[]), &OutputType::Pdf);
         let result = registry.apply_all("Hello 😀".to_string()).unwrap();
         assert_eq!(result, "Hello [emoji]");
     }
 
     #[test]
+    fn test_register_transforms_emoji_preserved_for_html() {
+        let registry = register_transforms(&vars(&[]), &OutputType::Html);
+        let result = registry.apply_all("Hello 😀".to_string()).unwrap();
+        assert_eq!(result, "Hello 😀", "HTML output must preserve emoji");
+    }
+
+    #[test]
     fn test_register_transforms_variables_substituted() {
-        let registry = register_transforms(&vars(&[("name", "World")]));
+        let registry = register_transforms(&vars(&[("name", "World")]), &OutputType::Pdf);
         let result = registry.apply_all("Hello {{name}}".to_string()).unwrap();
         assert_eq!(result, "Hello World");
     }
 
     #[test]
     fn test_register_transforms_syntax_highlight_normalised() {
-        let registry = register_transforms(&vars(&[]));
+        let registry = register_transforms(&vars(&[]), &OutputType::Pdf);
         let input = "```Rust\nfn main() {}\n```".to_string();
         let result = registry.apply_all(input).unwrap();
         assert!(result.starts_with("```rust\n"));
@@ -286,7 +298,7 @@ mod tests {
         // Emoji first → variable second → syntax third.
         // The code fence must start at the beginning of a line so the syntax
         // highlight transform can detect it.
-        let registry = register_transforms(&vars(&[("lang", "Rust")]));
+        let registry = register_transforms(&vars(&[("lang", "Rust")]), &OutputType::Pdf);
         let input = "😀\n```{{lang}}\ncode\n```".to_string();
         let result = registry.apply_all(input).unwrap();
         // Emoji replaced, variable substituted, language tag lowercased.
@@ -298,9 +310,22 @@ mod tests {
     }
 
     #[test]
+    fn test_register_transforms_html_emoji_and_variables_and_syntax() {
+        // For HTML: emoji preserved, variables substituted, syntax normalised.
+        let registry = register_transforms(&vars(&[("lang", "Rust")]), &OutputType::Html);
+        let input = "😀\n```{{lang}}\ncode\n```".to_string();
+        let result = registry.apply_all(input).unwrap();
+        assert!(
+            result.starts_with("😀\n```rust\n"),
+            "unexpected result: {:?}",
+            result
+        );
+    }
+
+    #[test]
     fn test_register_transforms_empty_variables_is_consistent() {
-        let registry_empty = register_transforms(&vars(&[]));
-        let registry_nonempty = register_transforms(&vars(&[("x", "y")]));
+        let registry_empty = register_transforms(&vars(&[]), &OutputType::Pdf);
+        let registry_nonempty = register_transforms(&vars(&[("x", "y")]), &OutputType::Pdf);
 
         // Plain text without placeholders should be identical regardless of
         // whether variables are configured.
@@ -317,10 +342,10 @@ mod tests {
         let input = "Hello 😀 {{title}} ```Rust\ncode\n```".to_string();
         let vars_map = vars(&[("title", "Doc")]);
 
-        let r1 = register_transforms(&vars_map)
+        let r1 = register_transforms(&vars_map, &OutputType::Pdf)
             .apply_all(input.clone())
             .unwrap();
-        let r2 = register_transforms(&vars_map).apply_all(input).unwrap();
+        let r2 = register_transforms(&vars_map, &OutputType::Pdf).apply_all(input).unwrap();
 
         assert_eq!(r1, r2);
     }
