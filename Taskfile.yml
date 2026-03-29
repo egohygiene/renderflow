@@ -52,6 +52,12 @@ tasks:
     cmds:
       - cargo clippy
 
+  # Generate CHANGELOG.md from commit history using git-cliff
+  changelog:
+    desc: Generate CHANGELOG.md from commit history
+    cmds:
+      - git-cliff -o CHANGELOG.md
+
   # Cross-compile a release binary for a specific target using `cross`
   # Usage: task cross-build TARGET=<target>
   # Example: task cross-build TARGET=aarch64-unknown-linux-gnu
