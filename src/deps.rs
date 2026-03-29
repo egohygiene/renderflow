@@ -1,6 +1,8 @@
 use anyhow::Result;
 use std::process::Command;
 
+use crate::error::RenderError;
+
 /// Check whether a tool is available in the system PATH.
 fn tool_available(name: &str) -> bool {
     Command::new(name)
@@ -12,28 +14,22 @@ fn tool_available(name: &str) -> bool {
 
 /// Verify that `pandoc` is installed and available in PATH.
 ///
-/// Returns an error with a clear install instruction if it is not found.
+/// Returns a [`RenderError::PandocNotFound`] error with a clear install
+/// instruction if it is not found.
 pub fn check_pandoc() -> Result<()> {
     if !tool_available("pandoc") {
-        anyhow::bail!(
-            "Pandoc is not installed.\n\n\
-             Install:\n\
-             \x20 sudo apt install pandoc\n\
-             or see: https://pandoc.org/installing.html"
-        );
+        return Err(RenderError::PandocNotFound.into());
     }
     Ok(())
 }
 
 /// Verify that `tectonic` is installed and available in PATH.
 ///
-/// Returns an error with a clear install instruction if it is not found.
+/// Returns a [`RenderError::TectonicNotFound`] error with a clear install
+/// instruction if it is not found.
 pub fn check_tectonic() -> Result<()> {
     if !tool_available("tectonic") {
-        anyhow::bail!(
-            "Tectonic not found. Please install tectonic to continue.\n\
-             See: https://tectonic-typesetting.github.io/en-US/"
-        );
+        return Err(RenderError::TectonicNotFound.into());
     }
     Ok(())
 }
