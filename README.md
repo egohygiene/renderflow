@@ -97,6 +97,22 @@ sudo mv renderflow /usr/local/bin/
 
 Download `renderflow-windows.exe` from the [Releases page](https://github.com/egohygiene/renderflow/releases/latest) and place it somewhere on your `PATH`.
 
+### Arch Linux (AUR)
+
+Install via the AUR using an AUR helper like `yay` or `paru`:
+
+```bash
+yay -S renderflow-git
+```
+
+Or manually with `makepkg`:
+
+```bash
+git clone https://aur.archlinux.org/renderflow-git.git
+cd renderflow-git
+makepkg -si
+```
+
 ### Build from source
 
 Requires [Rust](https://rustup.rs) and [Pandoc](https://pandoc.org/installing.html).
