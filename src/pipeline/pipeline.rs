@@ -65,12 +65,7 @@ impl Pipeline {
     /// let output = pipeline.run(input)?;
     /// ```
     pub fn with_standard_transforms(variables: &HashMap<String, String>, output_type: &OutputType) -> Self {
-        let mut pipeline = Self::new();
-        pipeline
-            .add_transform(Box::new(EmojiTransform::new_for_format(output_type)))
-            .add_transform(Box::new(VariableSubstitutionTransform::new(variables.clone())))
-            .add_transform(Box::new(SyntaxHighlightTransform::new()));
-        pipeline
+        Self::with_registry(register_transforms(variables, output_type))
     }
 
     /// Create a pipeline pre-loaded with the standard set of document transforms
@@ -86,9 +81,13 @@ impl Pipeline {
     /// let output = pipeline.run(input)?;
     /// ```
     pub fn with_standard_transforms_resilient(variables: &HashMap<String, String>, output_type: &OutputType) -> Self {
-        let registry = register_transforms(variables, output_type)
-            .with_failure_mode(FailureMode::ContinueOnError);
-        Self::with_registry(registry)
+        let registry = TransformRegistry::new().with_failure_mode(FailureMode::ContinueOnError);
+        let mut pipeline = Self::with_registry(registry);
+        pipeline
+            .add_transform(Box::new(EmojiTransform::new_for_format(output_type)))
+            .add_transform(Box::new(VariableSubstitutionTransform::new(variables.clone())))
+            .add_transform(Box::new(SyntaxHighlightTransform::new()));
+        pipeline
     }
 
     /// Append a transform to the internal registry.
@@ -411,11 +410,15 @@ mod tests {
             }
         }
 
-        // Add a failing transform on top of the resilient registry; the pipeline
-        // should still succeed because ContinueOnError skips failing transforms.
-        let pipeline = Pipeline::with_standard_transforms_resilient(&HashMap::new(), &OutputType::Pdf);
-        // The standard resilient pipeline should succeed on plain text.
+        // Build a resilient pipeline and add an always-failing transform.
+        // ContinueOnError should skip the failure and let the pipeline succeed.
+        let mut pipeline = Pipeline::with_standard_transforms_resilient(&HashMap::new(), &OutputType::Pdf);
+        pipeline.add_transform(Box::new(AlwaysFails));
+
         let result = pipeline.run_transforms("plain text".to_string());
-        assert!(result.is_ok(), "resilient pipeline should not fail on clean input: {:?}", result);
+        assert!(result.is_ok(), "resilient pipeline should skip failing transforms and succeed: {:?}", result);
+        // The standard transforms (emoji, variable substitution, syntax) still run;
+        // AlwaysFails is skipped and its input is passed through unchanged.
+        assert_eq!(result.unwrap(), "plain text");
     }
 }
