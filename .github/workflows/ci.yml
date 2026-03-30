@@ -20,6 +20,8 @@ jobs:
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.94"
 
       - name: Build
         run: cargo build --verbose
@@ -53,6 +55,8 @@ jobs:
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.94"
 
       - name: Install cross
         uses: taiki-e/install-action@v2

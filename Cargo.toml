@@ -2,7 +2,7 @@
 name = "renderflow"
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.75"
+rust-version = "1.94"
 description = "Spec-driven document rendering engine"
 readme = "README.md"
 license = "MIT"
