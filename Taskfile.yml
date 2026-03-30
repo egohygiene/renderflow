@@ -76,3 +76,10 @@ tasks:
     cmds:
       - cargo build --release
       - cargo deb --no-build
+
+  # Validate the Arch Linux PKGBUILD using namcap
+  # Requires: namcap (pacman -S namcap on Arch Linux)
+  validate-pkgbuild:
+    desc: Validate the Arch Linux PKGBUILD with namcap (requires namcap)
+    cmds:
+      - namcap pkg/aur/renderflow-git/PKGBUILD

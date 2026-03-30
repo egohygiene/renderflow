@@ -1,0 +1,31 @@
+# Maintainer: Ego Hygiene <egohygiene@users.noreply.github.com>
+pkgname=renderflow-git
+pkgver=r1.c97b893
+pkgrel=1
+pkgdesc="Spec-driven document rendering engine"
+arch=('x86_64' 'aarch64')
+url="https://github.com/egohygiene/renderflow"
+license=('MIT')
+depends=('pandoc')
+makedepends=('rust')
+provides=('renderflow')
+conflicts=('renderflow')
+source=("$pkgname::git+https://github.com/egohygiene/renderflow.git")
+sha256sums=('SKIP')
+
+pkgver() {
+	cd "$pkgname"
+	printf "r%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+}
+
+build() {
+	cd "$pkgname"
+	export CARGO_TARGET_DIR="$srcdir/target"
+	cargo build --release --locked
+}
+
+package() {
+	cd "$pkgname"
+	install -Dm755 "$srcdir/target/release/renderflow" "$pkgdir/usr/bin/renderflow"
+	install -Dm644 "LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
