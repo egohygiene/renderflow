@@ -51,6 +51,12 @@ notify-debouncer-mini = "0.4"
 
 itertools = "0.14"
 
+[package.metadata.generate-rpm]
+assets = [
+    { source = "target/release/renderflow", dest = "/usr/bin/renderflow", mode = "0755" },
+    { source = "LICENSE", dest = "/usr/share/licenses/renderflow/LICENSE", mode = "0644", doc = true },
+]
+
 [package.metadata.deb]
 maintainer = "Ego Hygiene <egohygiene@users.noreply.github.com>"
 copyright = "2024, Ego Hygiene"
