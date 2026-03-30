@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [0.1.0] - 2026-03-30
 
 ### Features
 
@@ -26,9 +26,23 @@ All notable changes to this project will be documented in this file.
 - Implement output caching to skip redundant pandoc execution
 - Implement watch mode for automatic rebuild on file changes
 - Add cross compilation support using cross
+- Add audit subcommand and generate optimization audit report
+- Add research-paper Copilot agent for generation and polishing
+- Add research paper template (Pandoc LaTeX + HTML compatible)"
+- Add Debian package (.deb) support for APT distribution
+- Create Arch Linux PKGBUILD for AUR (renderflow-git)
+- Add RPM package support for YUM/DNF distribution
+- Add Homebrew formula and macOS binary builds
+- *(ci)* Integrate changelog generation into release workflow
 
 ### Fixes
 
 - *(devcontainer)* Install Rust as vscode user to resolve cargo permission errors (#76)
+- Replace to_string_lossy().into_owned() with to_str()? in strategies
+- Replace unwrap in validate_input with proper error handling
+
+### Improvements
+
+- Update select_strategy to accept references instead of owned values
 
 
