@@ -51,6 +51,18 @@ notify-debouncer-mini = "0.4"
 
 itertools = "0.14"
 
+[package.metadata.deb]
+maintainer = "Ego Hygiene <egohygiene@users.noreply.github.com>"
+copyright = "2024, Ego Hygiene"
+license-file = ["LICENSE", "0"]
+extended-description = "Spec-driven document rendering engine for transforming Markdown into PDF, HTML, and DOCX output."
+depends = "$auto"
+section = "utils"
+priority = "optional"
+assets = [
+    ["target/release/renderflow", "usr/bin/", "755"],
+]
+
 [dev-dependencies]
 
 [profile.release]
