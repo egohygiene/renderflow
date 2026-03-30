@@ -201,26 +201,24 @@ Actionable fix:
   pub fn select_strategy(...) -> Result<Box<dyn OutputStrategy + Send + Sync>>
 
 ────────────────────────────────────────────────────────────────────────────────
-3.4 RenderContext fields are annotated dead_code — API surface gap     [MED]
+3.4 RenderContext fields connected to runtime behaviour              [RESOLVED]
 ────────────────────────────────────────────────────────────────────────────────
 
 Location : src/strategies/strategy.rs
 
   pub struct RenderContext<'a> {
-      #[allow(dead_code)]
       pub variables: &'a HashMap<String, String>,
-      #[allow(dead_code)]
       pub dry_run: bool,
   }
 
-Both fields are part of the public API but suppressed as dead code. This
-indicates planned-but-unimplemented features. Before v1.0.0 these should
-either be removed (breaking the intent) or connected to actual behaviour.
+Both fields are now connected to actual behaviour.  `variables` is forwarded to
+pandoc via `--variable key=value` arguments in every strategy.  `dry_run`
+causes each strategy to skip external command execution and return immediately,
+enabling a true no-op execution path without requiring caller-side guards.
 
-Actionable fix:
-  Connect variables to pandoc via --variable key=value arguments in PandocArgs.
-  Connect dry_run to skip subprocess execution in each strategy, enabling a
-  genuine no-op execution path. Both fields then serve their intended purpose.
+The `#[allow(dead_code)]` annotations have been removed and the pipeline
+provides a resilient `with_standard_transforms_resilient` constructor that uses
+`FailureMode::ContinueOnError` for watch-mode rebuilds.
 
 ────────────────────────────────────────────────────────────────────────────────
 3.5 Compatibility matrix (compat.rs) is not exhaustively enforced      [MED]

@@ -38,6 +38,10 @@ impl PdfStrategy {
 
 impl OutputStrategy for PdfStrategy {
     fn render(&self, ctx: &RenderContext) -> Result<()> {
+        if ctx.dry_run {
+            info!(input = %ctx.input_path, output = %ctx.output_path, "[dry-run] Would render PDF output via pandoc");
+            return Ok(());
+        }
         info!(input = %ctx.input_path, output = %ctx.output_path, template = ?self.template, "Rendering PDF via pandoc");
 
         Self::check_tectonic()?;
@@ -169,6 +173,44 @@ mod tests {
             dry_run: false,
         };
         assert_eq!(ctx.input_format, InputFormat::Rst);
+    }
+
+    /// Verifies that `dry_run = true` causes the strategy to skip pandoc and
+    /// tectonic checks entirely and return `Ok(())`.
+    #[test]
+    fn test_pdf_strategy_dry_run_skips_execution() {
+        let vars = HashMap::new();
+        let strategy = PdfStrategy::new(None, "templates".to_string());
+        // Use a non-existent input path; real pandoc/tectonic calls would fail,
+        // but dry-run must succeed without invoking any external tools.
+        let ctx = RenderContext {
+            input_path: "/nonexistent/input.md",
+            input_format: InputFormat::Markdown,
+            output_path: "/nonexistent/output.pdf",
+            variables: &vars,
+            dry_run: true,
+        };
+        let result = strategy.render(&ctx);
+        assert!(result.is_ok(), "dry-run should succeed without invoking pandoc or tectonic: {:?}", result);
+    }
+
+    /// Verifies that `dry_run = true` skips even template validation.
+    #[test]
+    fn test_pdf_strategy_dry_run_with_missing_template_skips_execution() {
+        let vars = HashMap::new();
+        let strategy = PdfStrategy::new(
+            Some("nonexistent.tex".to_string()),
+            "/nonexistent/template/dir".to_string(),
+        );
+        let ctx = RenderContext {
+            input_path: "/nonexistent/input.md",
+            input_format: InputFormat::Markdown,
+            output_path: "/nonexistent/output.pdf",
+            variables: &vars,
+            dry_run: true,
+        };
+        let result = strategy.render(&ctx);
+        assert!(result.is_ok(), "dry-run should succeed even with a missing template: {:?}", result);
     }
 
     #[test]

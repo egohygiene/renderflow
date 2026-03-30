@@ -16,7 +16,23 @@ use crate::pipeline::{Pipeline, StrategyStep};
 use crate::strategies::select_strategy;
 use crate::template::{init_tera, validate_templates};
 
+/// Run the full build pipeline.
+///
+/// Transforms fail fast: the first transform error aborts the build and returns an error.
 pub fn run(config_path: &str, dry_run: bool) -> Result<()> {
+    run_impl(config_path, dry_run, false)
+}
+
+/// Run the build pipeline in resilient mode.
+///
+/// Like [`run`], but transform failures are logged and skipped rather than
+/// aborting the build.  Suitable for watch-mode rebuilds where a transient
+/// transform error should not stop the file watcher.
+pub fn run_resilient(config_path: &str) -> Result<()> {
+    run_impl(config_path, false, true)
+}
+
+fn run_impl(config_path: &str, dry_run: bool, resilient: bool) -> Result<()> {
     if dry_run {
         info!("Dry-run mode enabled — no files will be created and no commands will be executed");
     }
@@ -111,7 +127,12 @@ pub fn run(config_path: &str, dry_run: bool) -> Result<()> {
             cached.to_string()
         } else {
             info!("Cache miss — running transforms for {}", format_str);
-            Pipeline::with_standard_transforms(&config.variables, format)
+            let pipeline = if resilient {
+                Pipeline::with_standard_transforms_resilient(&config.variables, format)
+            } else {
+                Pipeline::with_standard_transforms(&config.variables, format)
+            };
+            pipeline
                 .run_transforms(normalized_content.as_ref().to_owned())
                 .with_context(|| format!("Transform pipeline failed for format: {format_str}; aborting build"))?
         };
