@@ -4,12 +4,25 @@ version = "0.1.0"
 edition = "2021"
 rust-version = "1.75"
 description = "Spec-driven document rendering engine"
+readme = "README.md"
 license = "MIT"
 repository = "https://github.com/egohygiene/renderflow"
 homepage = "https://github.com/egohygiene/renderflow"
 keywords = ["document", "rendering", "pandoc", "markdown", "pdf"]
 categories = ["command-line-utilities", "development-tools", "text-processing"]
 authors = ["Ego Hygiene <egohygiene@users.noreply.github.com>"]
+exclude = [
+    "dist/",
+    "audits/",
+    ".devcontainer/",
+    ".github/",
+    ".commitlintrc.yml",
+    "Taskfile.yml",
+    "Cross.toml",
+    "cliff.toml",
+    "renderflow.code-workspace",
+    "renderflow.yaml",
+]
 
 [dependencies]
 clap = { version = "4", features = ["derive"] }
