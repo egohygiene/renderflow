@@ -1,0 +1,26 @@
+# cargo-release configuration
+# https://github.com/crate-ci/cargo-release/blob/master/docs/reference.md
+
+# Create a git tag for each release (e.g. v0.2.0)
+tag = true
+
+# Tag name format
+tag-name = "v{{version}}"
+
+# Tag message
+tag-message = "chore(release): release version {{version}}"
+
+# Do not push commits and tags to remote automatically
+push = false
+
+# Commit message for the version bump commit
+pre-release-commit-message = "chore(release): bump version to {{version}}"
+
+# Do not publish to crates.io by default
+publish = false
+
+# Sign tags with GPG if available
+sign-tag = false
+
+# Allow dirty working directories (no staged changes required)
+allow-branch = ["main"]
