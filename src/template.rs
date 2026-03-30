@@ -207,4 +207,81 @@ mod tests {
             msg
         );
     }
+
+    // ── research template ─────────────────────────────────────────────────────
+
+    #[test]
+    fn test_research_tex_template_exists() {
+        let path = std::path::Path::new("templates/research/research.tex");
+        assert!(
+            path.exists(),
+            "research LaTeX template must exist at templates/research/research.tex"
+        );
+    }
+
+    #[test]
+    fn test_research_html_template_exists() {
+        let path = std::path::Path::new("templates/research/research.html");
+        assert!(
+            path.exists(),
+            "research HTML template must exist at templates/research/research.html"
+        );
+    }
+
+    #[test]
+    fn test_research_tex_template_contains_pandoc_variables() {
+        let content = fs::read_to_string("templates/research/research.tex")
+            .expect("failed to read research.tex template");
+        assert!(content.contains("$title$"), "research.tex should interpolate $$title$$");
+        assert!(content.contains("$author$"), "research.tex should interpolate $$author$$");
+        assert!(content.contains("$date$"), "research.tex should interpolate $$date$$");
+        assert!(content.contains("$abstract$"), "research.tex should interpolate $$abstract$$");
+        assert!(content.contains("$body$"), "research.tex should contain $$body$$ for document content");
+        assert!(content.contains("$toc$") || content.contains("$if(toc)$"), "research.tex should support optional table of contents");
+    }
+
+    #[test]
+    fn test_research_tex_template_is_valid_latex_document() {
+        let content = fs::read_to_string("templates/research/research.tex")
+            .expect("failed to read research.tex template");
+        assert!(
+            content.contains("\\documentclass"),
+            "research.tex should begin with a \\documentclass declaration"
+        );
+        assert!(content.contains("\\begin{document}"), "research.tex must have \\begin{{document}}");
+        assert!(content.contains("\\end{document}"), "research.tex must have \\end{{document}}");
+    }
+
+    #[test]
+    fn test_validate_templates_accepts_research_tex() {
+        let outputs = vec![
+            OutputConfig {
+                output_type: OutputType::Pdf,
+                template: Some("research/research.tex".to_string()),
+            },
+        ];
+        // The template_dir is the workspace-relative "templates" folder.
+        let result = validate_templates(&outputs, "templates");
+        assert!(
+            result.is_ok(),
+            "validate_templates should accept the research LaTeX template: {:?}",
+            result.err()
+        );
+    }
+
+    #[test]
+    fn test_validate_templates_accepts_research_html() {
+        let outputs = vec![
+            OutputConfig {
+                output_type: OutputType::Html,
+                template: Some("research/research.html".to_string()),
+            },
+        ];
+        let result = validate_templates(&outputs, "templates");
+        assert!(
+            result.is_ok(),
+            "validate_templates should accept the research HTML template: {:?}",
+            result.err()
+        );
+    }
 }
