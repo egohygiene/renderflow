@@ -79,23 +79,48 @@ dist/
 
 Pre-built binaries are available for Linux, macOS, and Windows on the [Releases page](https://github.com/egohygiene/renderflow/releases).
 
-**Linux:**
+**Linux (x86_64):**
 ```bash
-curl -L https://github.com/egohygiene/renderflow/releases/latest/download/renderflow-linux -o renderflow
+curl -L https://github.com/egohygiene/renderflow/releases/latest/download/renderflow-linux-x86_64 -o renderflow
 chmod +x renderflow
 sudo mv renderflow /usr/local/bin/
 ```
 
-**macOS:**
+**Linux (ARM64):**
 ```bash
-curl -L https://github.com/egohygiene/renderflow/releases/latest/download/renderflow-macos -o renderflow
+curl -L https://github.com/egohygiene/renderflow/releases/latest/download/renderflow-linux-aarch64 -o renderflow
+chmod +x renderflow
+sudo mv renderflow /usr/local/bin/
+```
+
+**macOS (Intel):**
+```bash
+curl -L https://github.com/egohygiene/renderflow/releases/latest/download/renderflow-macos-x86_64 -o renderflow
+chmod +x renderflow
+sudo mv renderflow /usr/local/bin/
+```
+
+**macOS (Apple Silicon):**
+```bash
+curl -L https://github.com/egohygiene/renderflow/releases/latest/download/renderflow-macos-aarch64 -o renderflow
 chmod +x renderflow
 sudo mv renderflow /usr/local/bin/
 ```
 
 **Windows:**
 
-Download `renderflow-windows.exe` from the [Releases page](https://github.com/egohygiene/renderflow/releases/latest) and place it somewhere on your `PATH`.
+Download `renderflow-windows-x86_64.exe` from the [Releases page](https://github.com/egohygiene/renderflow/releases/latest) and place it somewhere on your `PATH`.
+
+### Homebrew (macOS)
+
+Install via [Homebrew](https://brew.sh) using the renderflow tap:
+
+```bash
+brew tap egohygiene/renderflow https://github.com/egohygiene/renderflow
+brew install renderflow
+```
+
+Requires [Pandoc](https://pandoc.org/installing.html) as a runtime dependency (installed automatically by Homebrew).
 
 ### Arch Linux (AUR)
 
