@@ -71,6 +71,7 @@ impl OutputStrategy for PdfStrategy {
             Some(ref path) => builder.with_template(path.as_str()),
             None => builder,
         }
+        .with_variables(ctx.variables)
         .build();
         let args_refs: Vec<&str> = args.iter().map(String::as_str).collect();
 

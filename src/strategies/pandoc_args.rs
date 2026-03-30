@@ -21,6 +21,7 @@ pub struct PandocArgs {
     template: Option<String>,
     pdf_engine: Option<String>,
     reference_doc: Option<String>,
+    variables: Vec<(String, String)>,
 }
 
 impl PandocArgs {
@@ -37,6 +38,7 @@ impl PandocArgs {
             template: None,
             pdf_engine: None,
             reference_doc: None,
+            variables: Vec::new(),
         }
     }
 
@@ -55,6 +57,16 @@ impl PandocArgs {
     /// Add a `--reference-doc <path>` argument (used by the DOCX strategy).
     pub fn with_reference_doc(mut self, path: impl Into<String>) -> Self {
         self.reference_doc = Some(path.into());
+        self
+    }
+
+    /// Add `--variable key=value` arguments for each entry in `vars`.
+    ///
+    /// Variables are passed to pandoc in the order returned by the iterator.
+    /// Each entry produces a separate `--variable key=value` argument pair so
+    /// that pandoc template variables are set correctly.
+    pub fn with_variables(mut self, vars: &std::collections::HashMap<String, String>) -> Self {
+        self.variables = vars.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
         self
     }
 
@@ -89,6 +101,11 @@ impl PandocArgs {
         if let Some(reference_doc) = self.reference_doc {
             args.push("--reference-doc".to_owned());
             args.push(reference_doc);
+        }
+
+        for (key, value) in self.variables {
+            args.push("--variable".to_owned());
+            args.push(format!("{key}={value}"));
         }
 
         args
@@ -171,5 +188,45 @@ mod tests {
         assert!(!args.iter().any(|a| a.contains("--template")), "should not have --template");
         assert!(!args.iter().any(|a| a.contains("--pdf-engine")), "should not have --pdf-engine");
         assert!(!args.iter().any(|a| a.contains("--reference-doc")), "should not have --reference-doc");
+        assert!(!args.iter().any(|a| a.contains("--variable")), "should not have --variable");
+    }
+
+    #[test]
+    fn test_build_with_single_variable() {
+        use std::collections::HashMap;
+        let mut vars = HashMap::new();
+        vars.insert("author".to_string(), "Alice".to_string());
+        let args = PandocArgs::new("markdown", "input.md", "output.html")
+            .with_variables(&vars)
+            .build();
+        let var_pos = args.iter().position(|a| a == "--variable").expect("--variable flag expected");
+        assert_eq!(args[var_pos + 1], "author=Alice");
+    }
+
+    #[test]
+    fn test_build_with_multiple_variables() {
+        use std::collections::HashMap;
+        let mut vars = HashMap::new();
+        vars.insert("title".to_string(), "My Doc".to_string());
+        vars.insert("author".to_string(), "Bob".to_string());
+        let args = PandocArgs::new("markdown", "input.md", "output.html")
+            .with_variables(&vars)
+            .build();
+        // Collect all --variable values from the argument list.
+        let mut pairs: Vec<String> = args.windows(2)
+            .filter(|w| w[0] == "--variable")
+            .map(|w| w[1].clone())
+            .collect();
+        pairs.sort();
+        assert_eq!(pairs, vec!["author=Bob", "title=My Doc"]);
+    }
+
+    #[test]
+    fn test_build_with_empty_variables_has_no_variable_flags() {
+        use std::collections::HashMap;
+        let args = PandocArgs::new("markdown", "input.md", "output.html")
+            .with_variables(&HashMap::new())
+            .build();
+        assert!(!args.iter().any(|a| a == "--variable"), "empty variables should produce no --variable flags");
     }
 }

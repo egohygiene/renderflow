@@ -51,6 +51,7 @@ impl OutputStrategy for DocxStrategy {
             Some(ref path) => builder.with_reference_doc(path.as_str()),
             None => builder,
         }
+        .with_variables(ctx.variables)
         .build();
         let args_refs: Vec<&str> = args.iter().map(String::as_str).collect();
 
