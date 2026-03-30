@@ -91,3 +91,24 @@ tasks:
     desc: Validate the Arch Linux PKGBUILD with namcap (requires namcap)
     cmds:
       - namcap pkg/aur/renderflow-git/PKGBUILD
+
+  # Bump the patch version (e.g. 0.1.0 -> 0.1.1), commit, and tag
+  # Requires: cargo-release (cargo install cargo-release)
+  release-patch:
+    desc: Bump patch version, commit, and tag (requires cargo-release)
+    cmds:
+      - cargo release patch --execute
+
+  # Bump the minor version (e.g. 0.1.0 -> 0.2.0), commit, and tag
+  # Requires: cargo-release (cargo install cargo-release)
+  release-minor:
+    desc: Bump minor version, commit, and tag (requires cargo-release)
+    cmds:
+      - cargo release minor --execute
+
+  # Bump the major version (e.g. 0.1.0 -> 1.0.0), commit, and tag
+  # Requires: cargo-release (cargo install cargo-release)
+  release-major:
+    desc: Bump major version, commit, and tag (requires cargo-release)
+    cmds:
+      - cargo release major --execute

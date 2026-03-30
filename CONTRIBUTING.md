@@ -10,6 +10,7 @@ Thank you for your interest in contributing to Renderflow! This guide walks you 
   - [Option A: Dev Container (recommended)](#option-a-dev-container-recommended)
   - [Option B: Local Setup](#option-b-local-setup)
 - [Build, Test, and Lint](#build-test-and-lint)
+- [Releases](#releases)
 - [Architecture Overview](#architecture-overview)
 - [Coding Guidelines](#coding-guidelines)
 - [Commit Conventions](#commit-conventions)
@@ -111,6 +112,64 @@ Run the following to catch issues early:
 task format   # format code
 task lint     # run Clippy
 task test     # run all tests
+```
+
+---
+
+## Releases
+
+Releases are managed using [`cargo-release`](https://github.com/crate-ci/cargo-release), which automates version bumping, committing, and tagging.
+
+### Install cargo-release
+
+```bash
+cargo install cargo-release
+```
+
+### Release Commands
+
+Use the Taskfile tasks to trigger a release. Each command bumps the corresponding version component in `Cargo.toml`, commits the change, and creates a git tag.
+
+| Command | Version bump | Example |
+|---------|-------------|---------|
+| `task release-patch` | Patch (`0.1.x`) | `0.1.0 → 0.1.1` |
+| `task release-minor` | Minor (`0.x.0`) | `0.1.0 → 0.2.0` |
+| `task release-major` | Major (`x.0.0`) | `0.1.0 → 1.0.0` |
+
+You can also invoke `cargo-release` directly:
+
+```bash
+cargo release patch --execute
+cargo release minor --execute
+cargo release major --execute
+```
+
+> **Note:** Omit `--execute` to perform a dry run and preview what would change without applying any modifications.
+
+### Release Configuration
+
+Release behaviour is controlled by [`release.toml`](./release.toml) at the root of the repository. Key settings:
+
+- **`tag = true`** — a git tag (e.g. `v0.2.0`) is created automatically
+- **`push = false`** — the tag and commit are not pushed automatically; push manually after reviewing
+- **`publish = false`** — the crate is not published to crates.io
+- **`allow-branch = ["main"]`** — releases must be made from the `main` branch
+
+### Typical Release Workflow
+
+```bash
+# 1. Ensure working tree is clean and on main
+git checkout main
+git pull
+
+# 2. Perform a dry run to preview changes
+cargo release patch
+
+# 3. Execute the release (bumps version, commits, tags)
+task release-patch
+
+# 4. Push the commit and tag to trigger CI
+git push && git push --tags
 ```
 
 ---
