@@ -99,14 +99,14 @@ jobs:
     strategy:
       matrix:
         include:
-          - target: x86_64-unknown-linux-gnu
+          - target: x86_64-unknown-linux-musl
             artifact_name: renderflow-linux-x86_64
-            binary: target/x86_64-unknown-linux-gnu/release/renderflow
+            binary: target/x86_64-unknown-linux-musl/release/renderflow
             runner: ubuntu-latest
             use_cross: true
-          - target: aarch64-unknown-linux-gnu
+          - target: aarch64-unknown-linux-musl
             artifact_name: renderflow-linux-aarch64
-            binary: target/aarch64-unknown-linux-gnu/release/renderflow
+            binary: target/aarch64-unknown-linux-musl/release/renderflow
             runner: ubuntu-latest
             use_cross: true
           - target: x86_64-pc-windows-gnu
@@ -153,16 +153,29 @@ jobs:
         shell: bash
         run: cp ${{ matrix.binary }} ${{ matrix.artifact_name }}
 
+      - name: Generate SHA256 checksum
+        shell: bash
+        run: |
+          if command -v sha256sum &>/dev/null; then
+            sha256sum "${{ matrix.artifact_name }}" > "${{ matrix.artifact_name }}.sha256"
+          else
+            shasum -a 256 "${{ matrix.artifact_name }}" > "${{ matrix.artifact_name }}.sha256"
+          fi
+
       - name: Upload release artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
-          path: ${{ matrix.artifact_name }}
+          path: |
+            ${{ matrix.artifact_name }}
+            ${{ matrix.artifact_name }}.sha256
 
       - name: Upload binary to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ matrix.artifact_name }}
+          files: |
+            ${{ matrix.artifact_name }}
+            ${{ matrix.artifact_name }}.sha256
 
   package-deb:
     name: Package .deb (x86_64)

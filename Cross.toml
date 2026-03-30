@@ -3,4 +3,4 @@
 
 [build]
 # Build in the cross Docker container instead of the host
-default-target = "x86_64-unknown-linux-gnu"
+default-target = "x86_64-unknown-linux-musl"
