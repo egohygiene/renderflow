@@ -7,8 +7,9 @@ use std::path::Path;
 /// Used to determine the `--from` flag passed to pandoc when rendering output.
 /// The format can be specified explicitly in the config via `input_format`, or
 /// auto-detected from the input file's extension.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub enum InputFormat {
+    #[default]
     Markdown,
     Docx,
     Html,
@@ -56,11 +57,6 @@ impl InputFormat {
     }
 }
 
-impl Default for InputFormat {
-    fn default() -> Self {
-        InputFormat::Markdown
-    }
-}
 
 impl fmt::Display for InputFormat {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

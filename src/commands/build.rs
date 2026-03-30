@@ -183,7 +183,7 @@ pub fn run(config_path: &str, dry_run: bool) -> Result<()> {
                 pipeline.add_step(Box::new(StrategyStep::new(strategy, &output_path, config.input_format(), config.variables.clone(), false)));
 
                 pb.set_message(format!("[{format}] Rendering output"));
-                pipeline.run_steps(transformed)?;
+                pipeline.run(transformed)?;
                 Ok(())
             })();
 

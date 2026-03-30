@@ -1,3 +1,4 @@
+#[allow(clippy::module_inception)]
 pub mod pipeline;
 pub mod step;
 pub mod strategy_step;

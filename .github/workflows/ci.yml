@@ -22,6 +22,10 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: "1.94"
+          components: clippy
+
+      - name: Lint (clippy)
+        run: cargo clippy -- -D warnings
 
       - name: Build
         run: cargo build --verbose
