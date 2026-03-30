@@ -231,10 +231,10 @@ Watch mode monitors your source files and automatically rebuilds whenever a chan
 renderflow watch
 
 # Watch using a custom config file
-renderflow watch my-project.yaml
+renderflow watch --config my-project.yaml
 
 # Override the debounce delay (default: 500 ms)
-renderflow watch my-project.yaml --debounce 300
+renderflow watch --config my-project.yaml --debounce 300
 ```
 
 **How it works:**
