@@ -1,0 +1,122 @@
+%% research.tex — Pandoc-compatible LaTeX template for research papers
+%%
+%% Usage:
+%%   pandoc input.md --template templates/research/research.tex -o output.pdf
+%%
+%% Required metadata (YAML front matter):
+%%   title: "My Paper"
+%%   author: "Alan"
+%%   date: "2026"
+%%
+%% Optional metadata:
+%%   abstract: "A short summary of the paper."
+%%   toc: true
+
+\documentclass[$if(fontsize)$$fontsize$$else$11pt$endif$,$if(papersize)$$papersize$$else$a4paper$endif$]{article}
+
+%% ── Core packages ────────────────────────────────────────────────────────────
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}          % scalable vector fonts
+\usepackage{microtype}        % improved character spacing
+\usepackage{parskip}          % paragraph spacing instead of indentation
+
+%% ── Page geometry ────────────────────────────────────────────────────────────
+\usepackage[
+  $if(geometry)$$geometry$$else$
+  top=2.5cm, bottom=2.5cm,
+  left=3cm,  right=3cm
+  $endif$
+]{geometry}
+
+%% ── Graphics & colour ────────────────────────────────────────────────────────
+\usepackage{graphicx}
+\usepackage{xcolor}
+
+%% ── Hyperlinks ───────────────────────────────────────────────────────────────
+\usepackage[
+  colorlinks=true,
+  linkcolor=black,
+  citecolor=black,
+  urlcolor=blue
+]{hyperref}
+
+%% ── Section styling ──────────────────────────────────────────────────────────
+\usepackage{titlesec}
+\titleformat{\section}{\large\bfseries}{\thesection}{1em}{}[\titlerule]
+\titleformat{\subsection}{\normalsize\bfseries}{\thesubsection}{1em}{}
+\titleformat{\subsubsection}{\normalsize\itshape}{\thesubsubsection}{1em}{}
+
+%% ── Headers and footers ──────────────────────────────────────────────────────
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\itshape $if(title)$$title$$endif$}
+\fancyhead[R]{\small\itshape $if(author)$$author$$endif$}
+\fancyfoot[C]{\small\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+%% ── Lists ────────────────────────────────────────────────────────────────────
+\usepackage{enumitem}
+\setlist{noitemsep, topsep=4pt}
+
+%% ── Tables ───────────────────────────────────────────────────────────────────
+\usepackage{booktabs}
+\usepackage{longtable}
+
+%% ── Code blocks ──────────────────────────────────────────────────────────────
+\usepackage{fancyvrb}
+\usepackage{listings}
+\lstset{
+  basicstyle=\small\ttfamily,
+  breaklines=true,
+  frame=single,
+  framerule=0.4pt,
+  xleftmargin=0.5em,
+  xrightmargin=0.5em
+}
+
+%% ── Mathematics ──────────────────────────────────────────────────────────────
+\usepackage{amsmath}
+\usepackage{amssymb}
+
+%% ── User-supplied header includes ────────────────────────────────────────────
+$for(header-includes)$
+$header-includes$
+$endfor$
+
+%% ── Pandoc-generated definitions (tight lists, etc.) ─────────────────────────
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+
+%% ─────────────────────────────────────────────────────────────────────────────
+\begin{document}
+
+%% ── Title block ──────────────────────────────────────────────────────────────
+$if(title)$
+\begin{center}
+  {\LARGE\bfseries $title$}\\[0.8em]
+  $if(author)${\large $author$}\\[0.4em]$endif$
+  $if(date)${\normalsize $date$}$endif$
+\end{center}
+\vspace{1em}
+$endif$
+
+%% ── Abstract ─────────────────────────────────────────────────────────────────
+$if(abstract)$
+\begin{abstract}
+  \noindent $abstract$
+\end{abstract}
+\vspace{1em}
+$endif$
+
+%% ── Table of contents ────────────────────────────────────────────────────────
+$if(toc)$
+\tableofcontents
+\newpage
+$endif$
+
+%% ── Document body ────────────────────────────────────────────────────────────
+$body$
+
+\end{document}
