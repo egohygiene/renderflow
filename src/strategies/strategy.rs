@@ -20,11 +20,11 @@ pub struct RenderContext<'a> {
     /// Passed to pandoc as `--variable key=value` arguments, making them
     /// available inside pandoc templates.
     pub variables: &'a HashMap<String, String>,
-    /// When `true` the strategy should skip file system writes and external
-    /// commands. Strategies are currently never invoked in dry-run mode because
-    /// the build command short-circuits before reaching them; this field is
-    /// populated for future strategy-level dry-run support.
-    #[allow(dead_code)]
+    /// When `true` the strategy must skip file system writes and external
+    /// commands, logging what it would do instead.  Checked at the start of
+    /// every [`OutputStrategy::render`] implementation so that strategies are
+    /// self-consistently safe to call with dry-run enabled regardless of
+    /// whether the caller also guards the invocation.
     pub dry_run: bool,
 }
 

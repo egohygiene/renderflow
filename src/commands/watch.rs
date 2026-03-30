@@ -48,7 +48,7 @@ pub fn run(config_path: &str, debounce_ms: u64) -> Result<()> {
                 for event in &events {
                     info!("File changed → rebuilding... ({})", event.path.display());
                 }
-                if let Err(e) = build::run(config_path, false) {
+                if let Err(e) = build::run_resilient(config_path) {
                     error!("Build failed: {:#}", e);
                 }
             }

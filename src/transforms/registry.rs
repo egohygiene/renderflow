@@ -12,7 +12,6 @@ pub enum FailureMode {
     /// Abort `apply_all` on the first transform error (default).
     FailFast,
     /// Log failures and continue the pipeline with the unmodified input.
-    #[allow(dead_code)]
     ContinueOnError,
 }
 
@@ -53,7 +52,6 @@ impl TransformRegistry {
     ///
     /// * [`FailureMode::FailFast`] (default) – abort on the first transform failure.
     /// * [`FailureMode::ContinueOnError`] – log failures and continue with the unmodified input.
-    #[allow(dead_code)]
     pub fn with_failure_mode(mut self, failure_mode: FailureMode) -> Self {
         self.failure_mode = failure_mode;
         self
