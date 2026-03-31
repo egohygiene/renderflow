@@ -365,12 +365,14 @@ Replaces emoji characters with the literal text `[emoji]`.
 
 **Why:** PDF and some LaTeX backends cannot render Unicode emoji directly. This transform ensures the pipeline doesn't crash on emoji-heavy content.
 
+**Format-aware behaviour:** When rendering to HTML, emoji are preserved unchanged because browsers render them natively. For PDF and DOCX outputs, emoji are always replaced with `[emoji]`.
+
 **Example:**
 
-| Input                  | Output                  |
-|------------------------|-------------------------|
-| `Hello 😀 World`       | `Hello [emoji] World`   |
-| `🎉 Party time! 🎉`   | `[emoji] Party time! [emoji]` |
+| Input                  | PDF / DOCX output             | HTML output            |
+|------------------------|-------------------------------|------------------------|
+| `Hello 😀 World`       | `Hello [emoji] World`         | `Hello 😀 World`       |
+| `🎉 Party time! 🎉`   | `[emoji] Party time! [emoji]` | `🎉 Party time! 🎉`   |
 
 **Limitation:** The replacement is a plain-text placeholder. Full SVG/image-based emoji embedding is planned for a future release.
 
@@ -385,6 +387,7 @@ Replaces `{{key}}` placeholders in the source document with values defined in th
 - Keys are matched exactly (whitespace around the key name is trimmed, so `{{ title }}` and `{{title}}` are equivalent).
 - If a placeholder references a key that is not in `variables`, the placeholder is left unchanged and a warning is emitted.
 - Unclosed placeholders (e.g. `{{unclosed`) are also left unchanged.
+- **Code block protection:** Placeholders inside fenced code blocks (` ``` ... ``` `) and inline code spans (`` `...` ``) are **not** substituted, so example code in your document is never corrupted.
 
 **Example:**
 
@@ -395,15 +398,21 @@ variables:
   year: "2024"
 ```
 
-Document:
+`report.md`:
 ```markdown
 # {{title}} — {{year}}
 ```
 
-Rendered:
+After the transform, the document becomes:
 ```markdown
 # Annual Report — 2024
 ```
+
+**Code block protection example:**
+
+The placeholder `{{title}}` in normal prose → **replaced**.
+The placeholder in an inline code span `` `{{title}}` `` → **left unchanged**.
+The placeholder inside a fenced code block body → **left unchanged**.
 
 ### SyntaxHighlightTransform
 
@@ -421,6 +430,8 @@ Normalises the language tags on fenced code blocks (` ``` `) to lowercase with s
 
 **Limitation (V1):** Only the opening fence language tag is normalised. The code body itself is passed through unchanged.
 
+> **See it in action:** The [`examples/transforms/`](examples/transforms/) directory contains a complete working example that exercises all three transforms.
+
 ---
 
 ## Architecture
@@ -431,9 +442,12 @@ Renderflow processes documents through a two-phase pipeline:
 Input Markdown
       │
       ▼
-┌─────────────────────┐
-│   Transform Phase   │  In-memory text transformations (emoji, etc.)
-└─────────────────────┘
+┌─────────────────────────────────────┐
+│           Transform Phase           │
+│  1. EmojiTransform                  │  Replace emoji (format-aware)
+│  2. VariableSubstitutionTransform   │  Substitute {{key}} placeholders
+│  3. SyntaxHighlightTransform        │  Normalise code fence language tags
+└─────────────────────────────────────┘
       │
       ▼
 ┌─────────────────────┐
@@ -441,7 +455,7 @@ Input Markdown
 └─────────────────────┘
       │
       ▼
-Output Files (PDF / HTML)
+Output Files (PDF / HTML / DOCX)
 ```
 
 **Key design patterns:**
