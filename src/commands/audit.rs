@@ -290,17 +290,16 @@ files. Non-UTF-8 paths produce a clear anyhow error
 invalid bytes, and no unconditional heap allocation is forced.
 
 ────────────────────────────────────────────────────────────────────────────────
-4.4 normalize_asset_paths always allocates a new String                [MED]
+4.4 normalize_asset_paths always allocates a new String            [RESOLVED]
 ────────────────────────────────────────────────────────────────────────────────
 
 Location : src/assets.rs
 
-normalize_asset_paths returns a new owned String even when no substitution
-occurs, wasting an allocation for content with no local asset references.
-
-Actionable fix:
-  Return Cow<str> and borrow when unchanged:
-  pub fn normalize_asset_paths<'a>(content: &'a str, ...) -> Result<Cow<'a, str>>
+Fix applied: normalize_asset_paths now returns Result<Cow<'a, str>> instead of
+Result<String>. When no local asset paths are rewritten (plain text, URL-only
+images, or no images at all), the function returns Cow::Borrowed(content)
+without any heap allocation. Cow::Owned is returned only when at least one
+local path is canonicalised and substituted into the output string.
 
 ================================================================================
 5. CONCURRENCY
@@ -898,7 +897,7 @@ Priority  Severity  Location                           Fix
 11        MED       examples/                           Add working hello-world example
 12        MED       README.md                          Document input_format config key
 13        MED       README.md                          Document variable substitution and transforms
-14        LOW       src/assets.rs                      Return Cow<str> from normalize_asset_paths
+14        LOW       src/assets.rs                      RESOLVED: Return Cow<str> from normalize_asset_paths
 15        LOW       src/transforms/registry.rs         Introduce FailureMode enum instead of bool fail_fast
 16        LOW       Cargo.toml                         Move tempfile to [dev-dependencies]
 17        LOW       src/commands/build.rs              Prefix progress messages with "[DRY RUN]" in dry-run mode
