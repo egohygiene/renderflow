@@ -46,11 +46,32 @@ pub fn is_supported(input: &InputFormat, output: &OutputType) -> bool {
     }
 }
 
+/// Return the output types that are supported for a given input format.
+pub fn supported_outputs_for(input: &InputFormat) -> Vec<OutputType> {
+    [OutputType::Html, OutputType::Pdf, OutputType::Docx]
+        .into_iter()
+        .filter(|o| is_supported(input, o))
+        .collect()
+}
+
 /// Build a user-facing error message for an unsupported input → output pair.
+///
+/// The message names the invalid combination and lists the outputs that *are*
+/// supported for the given input format so the user knows what to use instead.
 pub fn unsupported_combination_message(input: &InputFormat, output: &OutputType) -> String {
+    let supported: Vec<String> = supported_outputs_for(input)
+        .iter()
+        .map(|o| o.to_string())
+        .collect();
+    let alternatives = if supported.is_empty() {
+        "none".to_string()
+    } else {
+        supported.join(", ")
+    };
     format!(
-        "Input format '{}' → output '{}' is not supported yet.",
-        input, output
+        "Input format '{}' → output '{}' is not supported yet. \
+         Supported outputs for '{}' are: {}",
+        input, output, input, alternatives
     )
 }
 
@@ -155,6 +176,32 @@ mod tests {
         ));
     }
 
+    // --- supported_outputs_for ---
+
+    #[test]
+    fn test_supported_outputs_for_epub() {
+        let supported = supported_outputs_for(&InputFormat::Epub);
+        assert!(supported.contains(&OutputType::Html));
+        assert!(supported.contains(&OutputType::Pdf));
+        assert!(!supported.contains(&OutputType::Docx));
+    }
+
+    #[test]
+    fn test_supported_outputs_for_markdown_includes_all() {
+        let supported = supported_outputs_for(&InputFormat::Markdown);
+        assert!(supported.contains(&OutputType::Html));
+        assert!(supported.contains(&OutputType::Pdf));
+        assert!(supported.contains(&OutputType::Docx));
+    }
+
+    #[test]
+    fn test_supported_outputs_for_docx_excludes_docx() {
+        let supported = supported_outputs_for(&InputFormat::Docx);
+        assert!(supported.contains(&OutputType::Html));
+        assert!(supported.contains(&OutputType::Pdf));
+        assert!(!supported.contains(&OutputType::Docx));
+    }
+
     // --- unsupported_combination_message ---
 
     #[test]
@@ -171,6 +218,36 @@ mod tests {
         assert!(
             msg.contains("not supported yet"),
             "message should say 'not supported yet': {msg}"
+        );
+    }
+
+    #[test]
+    fn test_error_message_includes_supported_alternatives() {
+        let msg = unsupported_combination_message(&InputFormat::Epub, &OutputType::Docx);
+        assert!(
+            msg.contains("html"),
+            "message should list 'html' as a supported alternative: {msg}"
+        );
+        assert!(
+            msg.contains("pdf"),
+            "message should list 'pdf' as a supported alternative: {msg}"
+        );
+    }
+
+    #[test]
+    fn test_error_message_latex_to_docx_includes_alternatives() {
+        let msg = unsupported_combination_message(&InputFormat::Latex, &OutputType::Docx);
+        assert!(
+            msg.contains("latex"),
+            "message should contain input format: {msg}"
+        );
+        assert!(
+            msg.contains("html"),
+            "message should list 'html' as a supported alternative: {msg}"
+        );
+        assert!(
+            msg.contains("pdf"),
+            "message should list 'pdf' as a supported alternative: {msg}"
         );
     }
 }
