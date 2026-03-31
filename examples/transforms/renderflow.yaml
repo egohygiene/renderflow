@@ -1,0 +1,8 @@
+input: "document.md"
+output_dir: "dist"
+variables:
+  title: "Transform Pipeline Demo"
+  author: "Jane Smith"
+  version: "1.0"
+outputs:
+  - type: html
