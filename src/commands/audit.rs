@@ -956,7 +956,7 @@ pub fn run() -> Result<()> {
         .with_context(|| format!("Failed to write audit report: {filename}"))?;
 
     info!("Audit report written to: {filename}");
-    println!("{filename}");
+    eprintln!("✓ Audit written to: {filename}");
 
     Ok(())
 }
