@@ -67,7 +67,7 @@ fn run_impl(config_path: &str, dry_run: bool, resilient: bool) -> Result<()> {
 
     let output_dir = if dry_run {
         let path = std::path::PathBuf::from(&config.output_dir);
-        info!("[dry-run] Would create output directory: {}", path.display());
+        info!("[DRY RUN] Would create output directory: {}", path.display());
         path
     } else {
         ensure_output_dir(&config.output_dir)?
@@ -113,7 +113,7 @@ fn run_impl(config_path: &str, dry_run: bool, resilient: bool) -> Result<()> {
     // gracefully.  Only write back to disk in non-dry-run mode.
     let mut transform_cache = load_cache(&cache_path);
 
-    pb.set_message("Applying transforms");
+    pb.set_message(if dry_run { "[DRY RUN] Applying transforms" } else { "Applying transforms" });
     let mut format_transformed: HashMap<String, String> = HashMap::new();
     for output in &config.outputs {
         let format = &output.output_type;
@@ -178,10 +178,10 @@ fn run_impl(config_path: &str, dry_run: bool, resilient: bool) -> Result<()> {
             .clone();
 
         if dry_run {
-            info!("[dry-run] Would render {} output to: {}", format, output_path);
-            pb.set_message(format!("[{format}] Would render output"));
+            info!("[DRY RUN] Would render {} output to: {}", format, output_path);
+            pb.set_message(format!("[DRY RUN] [{format}] Would render output"));
             pb.inc(1);
-            pb.println(format!("[dry-run] Would write output to: {}", output_path));
+            pb.println(format!("[DRY RUN] Would write output to: {}", output_path));
             (format_str, output_path, Ok(()), None)
         } else {
             // Compute a hash of all inputs that determine this output's content.
@@ -247,7 +247,7 @@ fn run_impl(config_path: &str, dry_run: bool, resilient: bool) -> Result<()> {
         .collect();
 
     if dry_run {
-        pb.finish_with_message("✔ Dry-run complete — no output written");
+        pb.finish_with_message("[DRY RUN] ✔ Dry-run complete — no output written");
     } else if failed_outputs.is_empty() {
         pb.finish_with_message("✔ Build complete");
     } else {

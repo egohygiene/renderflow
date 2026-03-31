@@ -253,6 +253,26 @@ fn test_debug_flag_accepted() {
 }
 
 #[test]
+fn test_dry_run_output_labeled() {
+    let (f, _dir) = common::valid_config_file();
+    let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
+        .arg("build")
+        .arg("--dry-run")
+        .arg("--config")
+        .arg(f.path())
+        .output()
+        .expect("failed to execute renderflow");
+
+    assert!(output.status.success(), "dry-run should exit with code 0");
+    // Tracing log messages go to stdout; verify [DRY RUN] prefix is present
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("[DRY RUN]"),
+        "dry-run output should contain [DRY RUN] label, got stdout: {stdout}"
+    );
+}
+
+#[test]
 fn test_no_input_provided_exits_with_error() {
     let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
         .output()
