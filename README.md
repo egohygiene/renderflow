@@ -220,6 +220,21 @@ outputs:
 
 Renderflow will render using `templates/newsletter.html` (Jinja2-compatible [Tera](https://keats.github.io/tera/) syntax).
 
+### Input format override example
+
+By default, Renderflow infers the input format from the file extension. Use `input_format` to override this explicitly — useful when the file extension doesn't match the content, or when working with formats such as RST, HTML, or EPUB:
+
+```yaml
+input: "document.rst"
+input_format: rst       # explicitly tell Pandoc to read this as reStructuredText
+output_dir: "dist"
+outputs:
+  - type: html
+  - type: pdf
+```
+
+See [Supported Input Formats](#supported-input-formats) for the full list of accepted values.
+
 ---
 
 ## Watch Mode
