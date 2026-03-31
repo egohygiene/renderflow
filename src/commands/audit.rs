@@ -852,18 +852,21 @@ The struct fields are private with public builder methods accepting
 impl Into<String>. This is correct and idiomatic Rust.
 
 ────────────────────────────────────────────────────────────────────────────────
-14.2 TransformRegistry fail-fast control should use an enum            [LOW]
+14.2 TransformRegistry fail-fast control should use an enum        [RESOLVED]
 ────────────────────────────────────────────────────────────────────────────────
 
 Location : src/transforms/registry.rs
 
-  fail_fast: bool
-
-Using a bool is less self-documenting than an enum. Consider:
+Fix applied: `fail_fast: bool` has been replaced with `failure_mode: FailureMode`
+where `FailureMode` is a new public enum:
 
   pub enum FailureMode { FailFast, ContinueOnError }
 
-This makes call sites and pattern-match arms self-documenting.
+`TransformRegistry` defaults to `FailureMode::FailFast` and exposes a
+`with_failure_mode` builder method for configuration.  `Pipeline` gains a
+`with_standard_transforms_resilient` constructor that sets
+`FailureMode::ContinueOnError` for watch-mode rebuilds.  All call sites and
+`apply_all` branching use the enum variants, making intent self-documenting.
 
 ────────────────────────────────────────────────────────────────────────────────
 14.3 config.rs unsupported_type_message hardcodes supported list       [LOW]
@@ -898,7 +901,7 @@ Priority  Severity  Location                           Fix
 12        MED       README.md                          Document input_format config key
 13        MED       README.md                          Document variable substitution and transforms
 14        LOW       src/assets.rs                      RESOLVED: Return Cow<str> from normalize_asset_paths
-15        LOW       src/transforms/registry.rs         Introduce FailureMode enum instead of bool fail_fast
+15        LOW       src/transforms/registry.rs         RESOLVED: Introduce FailureMode enum instead of bool fail_fast
 16        LOW       Cargo.toml                         Move tempfile to [dev-dependencies]
 17        LOW       src/commands/build.rs              Prefix progress messages with "[DRY RUN]" in dry-run mode
 18        LOW       src/cache.rs                       Log cache hit/miss events at debug level
