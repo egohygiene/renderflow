@@ -44,8 +44,6 @@ tera = "1"
 indicatif = "0.17"
 rayon = "1"
 
-tempfile = "3"
-
 notify = "6.1"
 notify-debouncer-mini = "0.4"
 
@@ -70,6 +68,8 @@ assets = [
 ]
 
 [dev-dependencies]
+
+tempfile = "3"
 
 [profile.release]
 opt-level     = 3
