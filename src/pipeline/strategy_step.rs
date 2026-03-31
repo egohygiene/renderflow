@@ -1,12 +1,51 @@
 use anyhow::{Context, Result};
 use std::collections::HashMap;
 use std::io::Write;
-use tempfile::NamedTempFile;
+use std::sync::atomic::{AtomicU64, Ordering};
 use tracing::info;
 
 use crate::input_format::InputFormat;
 use crate::pipeline::step::PipelineStep;
 use crate::strategies::{OutputStrategy, RenderContext};
+
+/// A temporary file that is automatically deleted when dropped.
+///
+/// This is a minimal stdlib-only alternative to `tempfile::NamedTempFile`
+/// for use in production code, keeping `tempfile` a dev-only dependency.
+struct TempFile {
+    path: std::path::PathBuf,
+}
+
+impl TempFile {
+    /// Create a new temporary file containing `content` and return its handle.
+    fn with_content(content: &[u8]) -> Result<Self> {
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
+        let count = COUNTER.fetch_add(1, Ordering::Relaxed);
+        let mut path = std::env::temp_dir();
+        path.push(format!(
+            "renderflow-{}-{}.tmp",
+            std::process::id(),
+            count
+        ));
+        let mut file = std::fs::File::create_new(&path)
+            .context("Failed to create temporary file for strategy input")?;
+        file.write_all(content)
+            .context("Failed to write content to temporary file")?;
+        Ok(Self { path })
+    }
+
+    fn path(&self) -> &std::path::Path {
+        &self.path
+    }
+}
+
+impl Drop for TempFile {
+    fn drop(&mut self) {
+        if let Err(e) = std::fs::remove_file(&self.path) {
+            tracing::warn!(path = %self.path.display(), error = %e, "Failed to remove temporary file");
+        }
+    }
+}
 
 /// A pipeline step that delegates rendering to an [`OutputStrategy`].
 ///
@@ -46,11 +85,7 @@ impl StrategyStep {
 impl PipelineStep for StrategyStep {
     fn execute(&self, input: String) -> Result<String> {
         info!(output = %self.output_path, "Executing strategy step");
-        let mut temp_file =
-            NamedTempFile::new().context("Failed to create temporary file for strategy input")?;
-        temp_file
-            .write_all(input.as_bytes())
-            .context("Failed to write content to temporary file")?;
+        let temp_file = TempFile::with_content(input.as_bytes())?;
         let temp_path = temp_file
             .path()
             .to_str()
