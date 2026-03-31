@@ -277,20 +277,17 @@ Fix applied: serde_json::to_string() (compact) is now used. Both cache writers
 use compact serialization, reducing file size and serialization overhead.
 
 ────────────────────────────────────────────────────────────────────────────────
-4.3 Unnecessary .to_string_lossy().into_owned() allocation             [LOW]
+4.3 Unnecessary .to_string_lossy().into_owned() allocation        [RESOLVED]
 ────────────────────────────────────────────────────────────────────────────────
 
 Location : src/strategies/html.rs, pdf.rs, docx.rs
 
   Some(path.to_string_lossy().into_owned())
 
-to_string_lossy() returns a Cow<str>. Calling into_owned() forces an
-unconditional heap allocation.
-
-Actionable fix:
-  let path_str = path.to_str()
-      .ok_or_else(|| anyhow::anyhow!("Template path is not valid UTF-8: {}", path.display()))?;
-  Some(path_str.to_owned())
+Fix applied: path.to_str().ok_or_else(…) is now used in all three strategy
+files. Non-UTF-8 paths produce a clear anyhow error
+("Template path '…' contains invalid UTF-8") instead of silently replacing
+invalid bytes, and no unconditional heap allocation is forced.
 
 ────────────────────────────────────────────────────────────────────────────────
 4.4 normalize_asset_paths always allocates a new String                [MED]
@@ -901,13 +898,12 @@ Priority  Severity  Location                           Fix
 11        MED       examples/                           Add working hello-world example
 12        MED       README.md                          Document input_format config key
 13        MED       README.md                          Document variable substitution and transforms
-14        LOW       src/strategies/html|pdf|docx.rs    Replace to_string_lossy().into_owned() with to_str()?
-15        LOW       src/assets.rs                      Return Cow<str> from normalize_asset_paths
-16        LOW       src/transforms/registry.rs         Introduce FailureMode enum instead of bool fail_fast
-17        LOW       Cargo.toml                         Move tempfile to [dev-dependencies]
-18        LOW       src/commands/build.rs              Prefix progress messages with "[DRY RUN]" in dry-run mode
-19        LOW       src/cache.rs                       Log cache hit/miss events at debug level
-20        LOW       src/cli.rs                         Surface --debounce default value in --help output
+14        LOW       src/assets.rs                      Return Cow<str> from normalize_asset_paths
+15        LOW       src/transforms/registry.rs         Introduce FailureMode enum instead of bool fail_fast
+16        LOW       Cargo.toml                         Move tempfile to [dev-dependencies]
+17        LOW       src/commands/build.rs              Prefix progress messages with "[DRY RUN]" in dry-run mode
+18        LOW       src/cache.rs                       Log cache hit/miss events at debug level
+19        LOW       src/cli.rs                         Surface --debounce default value in --help output
 
 ================================================================================
 16. V1.0.0 READINESS VERDICT
