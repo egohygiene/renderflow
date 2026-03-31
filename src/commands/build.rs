@@ -5,7 +5,7 @@ use rayon::prelude::*;
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
-use tracing::{info, warn};
+use tracing::{debug, info, warn};
 
 use crate::assets::normalize_asset_paths;
 use crate::cache::{compute_input_hash, compute_output_hash, load_cache, load_output_cache, save_cache, save_output_cache};
@@ -123,10 +123,10 @@ fn run_impl(config_path: &str, dry_run: bool, resilient: bool) -> Result<()> {
         let hash_key = format!("{base_input_hash}-{format_str}");
 
         let transformed = if let Some(cached) = transform_cache.get(&hash_key) {
-            info!("Cache hit — skipping transforms for {}", format_str);
+            debug!(hash = %hash_key, format = %format_str, "Transform cache hit — skipping transforms");
             cached.to_string()
         } else {
-            info!("Cache miss — running transforms for {}", format_str);
+            debug!(hash = %hash_key, format = %format_str, "Transform cache miss — running transforms");
             let pipeline = if resilient {
                 Pipeline::with_standard_transforms_resilient(&config.variables, format)
             } else {
@@ -192,6 +192,7 @@ fn run_impl(config_path: &str, dry_run: bool, resilient: bool) -> Result<()> {
             if Path::new(&output_path).exists()
                 && output_cache.get(&output_path) == Some(output_hash.as_str())
             {
+                debug!(hash = %output_hash, output = %output_path, "Output cache hit — skipping render");
                 info!("Skipping {} render (unchanged)", format);
                 pb.inc(1);
                 pb.println(format!("↩ Skipping {} output (unchanged): {}", format, output_path));
@@ -199,6 +200,7 @@ fn run_impl(config_path: &str, dry_run: bool, resilient: bool) -> Result<()> {
             }
 
             let result = (|| -> Result<()> {
+                debug!(hash = %output_hash, output = %output_path, "Output cache miss — rendering output");
                 let strategy = select_strategy(&format, output.template.as_deref(), "templates")?;
                 let mut pipeline = Pipeline::new();
                 pipeline.add_step(Box::new(StrategyStep::new(strategy, &output_path, config.input_format(), config.variables.clone(), false)));
