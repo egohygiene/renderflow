@@ -8,6 +8,7 @@ pub use multi_target::MultiTargetDag;
 pub use pathfinding::TransformPath;
 pub use transform_edge::TransformEdge;
 
+use crate::optimization::OptimizationMode;
 use petgraph::graph::{DiGraph, NodeIndex};
 use petgraph::visit::EdgeRef;
 use std::collections::HashMap;
@@ -133,6 +134,33 @@ impl TransformGraph {
             .collect()
     }
 
+    /// Like [`edges_from_node_path`], but picks the edge with the lowest
+    /// `mode`-specific weight when multiple parallel edges connect the same
+    /// pair of nodes.
+    fn edges_from_node_path_with_mode(
+        &self,
+        node_path: &[NodeIndex],
+        mode: OptimizationMode,
+    ) -> Vec<TransformEdge> {
+        node_path
+            .windows(2)
+            .map(|w| {
+                let (a, b) = (w[0], w[1]);
+                self.graph
+                    .edges(a)
+                    .filter(|e| e.target() == b)
+                    .min_by(|x, y| {
+                        let wx = mode.edge_weight(x.weight().cost, x.weight().quality);
+                        let wy = mode.edge_weight(y.weight().cost, y.weight().quality);
+                        wx.partial_cmp(&wy).unwrap_or(std::cmp::Ordering::Equal)
+                    })
+                    .expect("node path contains a pair with no connecting edge")
+                    .weight()
+                    .clone()
+            })
+            .collect()
+    }
+
     /// Find the lowest-cost path from `from` to `to` using Dijkstra's
     /// algorithm.
     ///
@@ -142,6 +170,23 @@ impl TransformGraph {
     ///
     /// Returns `None` when no path exists between the two formats.
     pub fn find_path(&self, from: Format, to: Format) -> Option<TransformPath> {
+        self.find_path_with_mode(from, to, OptimizationMode::Speed)
+    }
+
+    /// Find the optimal path from `from` to `to` according to `mode`.
+    ///
+    /// The edge weights passed to A\* are determined by
+    /// [`OptimizationMode::edge_weight`], so the selected path will be the
+    /// one that minimises cost (`Speed`), maximises quality (`Quality`), or
+    /// balances both (`Balanced`).
+    ///
+    /// Returns `None` when no path exists between the two formats.
+    pub fn find_path_with_mode(
+        &self,
+        from: Format,
+        to: Format,
+        mode: OptimizationMode,
+    ) -> Option<TransformPath> {
         use petgraph::algo::astar;
 
         let (&from_idx, &to_idx) =
@@ -154,11 +199,13 @@ impl TransformGraph {
             &self.graph,
             from_idx,
             |n| n == to_idx,
-            |e| e.weight().cost,
+            |e| mode.edge_weight(e.weight().cost, e.weight().quality),
             |_| 0.0_f32,
         )?;
 
-        Some(TransformPath::from_steps(self.edges_from_node_path(&node_path)))
+        Some(TransformPath::from_steps(
+            self.edges_from_node_path_with_mode(&node_path, mode),
+        ))
     }
 
     /// Return all simple paths (no repeated nodes) from `from` to `to`.
@@ -228,9 +275,20 @@ impl TransformGraph {
         from: Format,
         targets: &[Format],
     ) -> Option<MultiTargetDag> {
+        self.build_multi_target_dag_with_mode(from, targets, OptimizationMode::Speed)
+    }
+
+    /// Like [`build_multi_target_dag`](Self::build_multi_target_dag), but
+    /// selects paths according to the given [`OptimizationMode`].
+    pub fn build_multi_target_dag_with_mode(
+        &self,
+        from: Format,
+        targets: &[Format],
+        mode: OptimizationMode,
+    ) -> Option<MultiTargetDag> {
         let mut dag = MultiTargetDag::new();
         for &target in targets {
-            let path = self.find_path(from, target)?;
+            let path = self.find_path_with_mode(from, target, mode)?;
             for edge in path.steps {
                 dag.merge_edge(edge);
             }
@@ -248,6 +306,7 @@ impl Default for TransformGraph {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::optimization::OptimizationMode;
 
     fn markdown_to_pdf() -> TransformEdge {
         TransformEdge::new(Format::Markdown, Format::Pdf, 1.0, 0.9)
@@ -612,5 +671,91 @@ mod tests {
         assert_eq!(paths.len(), 1);
         assert!((paths[0].total_cost - 1.3).abs() < 1e-5);
         assert!((paths[0].total_quality - 0.85).abs() < 1e-5);
+    }
+
+    // ── find_path_with_mode ───────────────────────────────────────────────────
+
+    #[test]
+    fn test_find_path_with_mode_speed_minimises_cost() {
+        let mut graph = TransformGraph::new();
+        // Direct path: cost=5.0, quality=0.99
+        graph.add_transform(TransformEdge::new(Format::Markdown, Format::Pdf, 5.0, 0.99));
+        // Indirect path via Html: total cost=1.3, total quality=0.85
+        graph.add_transform(markdown_to_html());
+        graph.add_transform(html_to_pdf());
+
+        let path = graph
+            .find_path_with_mode(Format::Markdown, Format::Pdf, OptimizationMode::Speed)
+            .unwrap();
+        // Speed mode should choose the cheaper indirect path (1.3 < 5.0).
+        assert_eq!(path.steps.len(), 2);
+        assert!((path.total_cost - 1.3).abs() < 1e-5);
+    }
+
+    #[test]
+    fn test_find_path_with_mode_quality_maximises_quality() {
+        let mut graph = TransformGraph::new();
+        // Direct path: cost=1.0, quality=0.5 (poor quality)
+        graph.add_transform(TransformEdge::new(Format::Markdown, Format::Pdf, 1.0, 0.5));
+        // Indirect path via Html: total cost=1.3, quality=0.85 (better quality)
+        graph.add_transform(markdown_to_html()); // quality 1.0
+        graph.add_transform(html_to_pdf()); // quality 0.85
+
+        let path = graph
+            .find_path_with_mode(Format::Markdown, Format::Pdf, OptimizationMode::Quality)
+            .unwrap();
+        // Quality mode should prefer the path with higher total quality (0.85 > 0.5).
+        assert_eq!(path.steps.len(), 2);
+        assert!(path.total_quality > 0.5 + 1e-5);
+    }
+
+    #[test]
+    fn test_find_path_with_mode_balanced_chooses_balanced_path() {
+        let mut graph = TransformGraph::new();
+        // Path A: cheap but poor quality (cost=0.5, quality=0.3)
+        graph.add_transform(TransformEdge::new(Format::Markdown, Format::Pdf, 0.5, 0.3));
+        // Path B: expensive but high quality (cost=5.0, quality=1.0)
+        graph.add_transform(TransformEdge::new(Format::Markdown, Format::Html, 5.0, 1.0));
+        graph.add_transform(TransformEdge::new(Format::Html, Format::Pdf, 0.0, 1.0));
+
+        let path_a = TransformPath::from_steps(vec![TransformEdge::new(
+            Format::Markdown,
+            Format::Pdf,
+            0.5,
+            0.3,
+        )]);
+        let path_b = TransformPath::from_steps(vec![
+            TransformEdge::new(Format::Markdown, Format::Html, 5.0, 1.0),
+            TransformEdge::new(Format::Html, Format::Pdf, 0.0, 1.0),
+        ]);
+
+        // Balanced scores: A = -0.5*0.5 + 0.5*0.3 = -0.1, B = -0.5*5.0 + 0.5*1.0 = -2.0
+        // So A has a higher balanced score than B in this extreme case.
+        assert!(
+            OptimizationMode::Balanced.score(&path_a)
+                > OptimizationMode::Balanced.score(&path_b)
+        );
+    }
+
+    #[test]
+    fn test_find_path_with_mode_returns_none_for_unknown_format() {
+        let graph = TransformGraph::new();
+        assert!(graph
+            .find_path_with_mode(Format::Markdown, Format::Pdf, OptimizationMode::Quality)
+            .is_none());
+    }
+
+    #[test]
+    fn test_find_path_with_mode_speed_same_as_find_path() {
+        let mut graph = TransformGraph::new();
+        graph.add_transform(markdown_to_html());
+        graph.add_transform(html_to_pdf());
+
+        let path_default = graph.find_path(Format::Markdown, Format::Pdf).unwrap();
+        let path_speed = graph
+            .find_path_with_mode(Format::Markdown, Format::Pdf, OptimizationMode::Speed)
+            .unwrap();
+        assert_eq!(path_default.steps.len(), path_speed.steps.len());
+        assert!((path_default.total_cost - path_speed.total_cost).abs() < 1e-5);
     }
 }

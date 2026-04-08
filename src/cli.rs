@@ -1,5 +1,7 @@
 use clap::{Parser, Subcommand};
 
+use crate::optimization::OptimizationMode;
+
 /// Spec-driven document rendering engine
 #[derive(Parser)]
 #[command(
@@ -41,7 +43,8 @@ pub enum Commands {
         after_help = "Examples:\n  \
             renderflow build                        Build using renderflow.yaml\n  \
             renderflow build --config custom.yaml   Build with a custom config file\n  \
-            renderflow build --dry-run              Preview what would be built"
+            renderflow build --dry-run              Preview what would be built\n  \
+            renderflow build --optimization speed   Build using speed optimization mode"
     )]
     Build {
         /// Path to the renderflow configuration file
@@ -51,6 +54,12 @@ pub enum Commands {
         /// Simulate execution: log intended actions without creating files or running commands
         #[arg(long)]
         dry_run: bool,
+
+        /// Optimisation mode: controls how transformation paths are selected.
+        /// Overrides the value set in the config file when provided.
+        /// Choices: speed (minimise cost), quality (maximise quality), balanced (default).
+        #[arg(long, value_name = "MODE")]
+        optimization: Option<OptimizationMode>,
     },
 
     /// Watch for file changes and automatically rebuild

@@ -13,7 +13,7 @@ pub fn run(config_path: &str, debounce_ms: u64) -> Result<()> {
     info!("Starting watch mode for: {}", config_path);
 
     // Perform an initial build before entering the watch loop.
-    if let Err(e) = build::run(config_path, false) {
+    if let Err(e) = build::run(config_path, false, None) {
         error!("Initial build failed: {:#}", e);
     }
 
