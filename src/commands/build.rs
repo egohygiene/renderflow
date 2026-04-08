@@ -12,6 +12,7 @@ use crate::cache::{compute_input_hash, compute_output_hash, load_cache, load_out
 use crate::config::{load_config, OutputType};
 use crate::deps::validate_dependencies;
 use crate::files::{ensure_output_dir, validate_input};
+use crate::optimization::OptimizationMode;
 use crate::pipeline::{Pipeline, StrategyStep};
 use crate::strategies::select_strategy;
 use crate::template::{init_tera, validate_templates};
@@ -19,8 +20,10 @@ use crate::template::{init_tera, validate_templates};
 /// Run the full build pipeline.
 ///
 /// Transforms fail fast: the first transform error aborts the build and returns an error.
-pub fn run(config_path: &str, dry_run: bool) -> Result<()> {
-    run_impl(config_path, dry_run, false)
+///
+/// `optimization` overrides the mode from the config file when `Some`.
+pub fn run(config_path: &str, dry_run: bool, optimization: Option<OptimizationMode>) -> Result<()> {
+    run_impl(config_path, dry_run, false, optimization)
 }
 
 /// Run the build pipeline in resilient mode.
@@ -29,10 +32,10 @@ pub fn run(config_path: &str, dry_run: bool) -> Result<()> {
 /// aborting the build.  Suitable for watch-mode rebuilds where a transient
 /// transform error should not stop the file watcher.
 pub fn run_resilient(config_path: &str) -> Result<()> {
-    run_impl(config_path, false, true)
+    run_impl(config_path, false, true, None)
 }
 
-fn run_impl(config_path: &str, dry_run: bool, resilient: bool) -> Result<()> {
+fn run_impl(config_path: &str, dry_run: bool, resilient: bool, optimization: Option<OptimizationMode>) -> Result<()> {
     if dry_run {
         info!("Dry-run mode enabled — no files will be created and no commands will be executed");
     }
@@ -40,6 +43,10 @@ fn run_impl(config_path: &str, dry_run: bool, resilient: bool) -> Result<()> {
 
     let config = load_config(config_path)?;
     info!("Loaded config successfully");
+
+    // CLI flag takes precedence over config file; fall back to config value.
+    let opt_mode = optimization.unwrap_or(config.optimization);
+    info!(optimization = %opt_mode, "Using optimization mode");
 
     let canonical_input = validate_input(&config.input)?;
 
@@ -294,12 +301,12 @@ mod tests {
     #[ignore = "requires pandoc to be installed"]
     fn test_build_run_succeeds() {
         let (f, _dir) = valid_config_file();
-        assert!(run(f.path().to_str().unwrap(), false).is_ok());
+        assert!(run(f.path().to_str().unwrap(), false, None).is_ok());
     }
 
     #[test]
     fn test_build_run_missing_config() {
-        let result = run("/nonexistent/renderflow.yaml", false);
+        let result = run("/nonexistent/renderflow.yaml", false, None);
         assert!(result.is_err());
     }
 
@@ -314,7 +321,7 @@ mod tests {
         let mut f = NamedTempFile::new().expect("failed to create temp file");
         f.write_all(config_content.as_bytes())
             .expect("failed to write config");
-        let result = run(f.path().to_str().unwrap(), false);
+        let result = run(f.path().to_str().unwrap(), false, None);
         assert!(result.is_err(), "expected error when input file is missing");
         let msg = format!("{}", result.unwrap_err());
         assert!(msg.contains("Input file not found"), "unexpected error: {}", msg);
@@ -334,7 +341,7 @@ mod tests {
         let mut f = NamedTempFile::new().expect("failed to create temp file");
         f.write_all(config_content.as_bytes())
             .expect("failed to write config");
-        let result = run(f.path().to_str().unwrap(), false);
+        let result = run(f.path().to_str().unwrap(), false, None);
         assert!(result.is_err(), "expected error for unsupported format");
         let msg = format!("{}", result.unwrap_err());
         assert!(
@@ -363,7 +370,7 @@ mod tests {
             .write_all(config_content.as_bytes())
             .unwrap();
 
-        assert!(run(config_file.path().to_str().unwrap(), false).is_ok());
+        assert!(run(config_file.path().to_str().unwrap(), false, None).is_ok());
         assert!(output_dir.join("input.html").exists());
     }
 
@@ -371,7 +378,7 @@ mod tests {
     fn test_dry_run_succeeds_without_pandoc() {
         let (f, dir) = valid_config_file();
         let output_dir = dir.path().join("dist");
-        let result = run(f.path().to_str().unwrap(), true);
+        let result = run(f.path().to_str().unwrap(), true, None);
         assert!(result.is_ok(), "dry-run should succeed: {:?}", result);
         // No output directory should have been created in dry-run mode
         assert!(!output_dir.exists(), "output directory must not be created in dry-run mode");
@@ -381,14 +388,14 @@ mod tests {
     fn test_dry_run_does_not_create_output_files() {
         let (f, dir) = valid_config_file();
         let output_dir = dir.path().join("dist");
-        run(f.path().to_str().unwrap(), true).expect("dry-run should not fail");
+        run(f.path().to_str().unwrap(), true, None).expect("dry-run should not fail");
         // The dist directory and any rendered files must not exist
         assert!(!output_dir.exists(), "output directory must not be created in dry-run mode");
     }
 
     #[test]
     fn test_dry_run_missing_config_still_errors() {
-        let result = run("/nonexistent/renderflow.yaml", true);
+        let result = run("/nonexistent/renderflow.yaml", true, None);
         assert!(result.is_err(), "dry-run with missing config should still error");
     }
 
@@ -419,7 +426,7 @@ mod tests {
         // result is reused for each format.
         let (f, dir) = multi_output_config_file();
         let output_dir = dir.path().join("dist");
-        let result = run(f.path().to_str().unwrap(), true);
+        let result = run(f.path().to_str().unwrap(), true, None);
         assert!(result.is_ok(), "dry-run with multiple outputs should succeed: {:?}", result);
         // No output directory should have been created in dry-run mode.
         assert!(!output_dir.exists(), "output directory must not be created in dry-run mode");
@@ -435,8 +442,8 @@ mod tests {
         let (single_f, _single_dir) = valid_config_file();
         let (multi_f, _multi_dir) = multi_output_config_file();
 
-        let single_result = run(single_f.path().to_str().unwrap(), true);
-        let multi_result = run(multi_f.path().to_str().unwrap(), true);
+        let single_result = run(single_f.path().to_str().unwrap(), true, None);
+        let multi_result = run(multi_f.path().to_str().unwrap(), true, None);
 
         assert!(single_result.is_ok(), "single-output dry-run failed: {:?}", single_result);
         assert!(multi_result.is_ok(), "multi-output dry-run failed: {:?}", multi_result);
@@ -463,7 +470,7 @@ mod tests {
         let (f, dir) = valid_config_file();
         let output_dir = dir.path().join("dist");
         // No cache file exists — this is a fresh state.
-        let result = run(f.path().to_str().unwrap(), true);
+        let result = run(f.path().to_str().unwrap(), true, None);
         assert!(result.is_ok(), "dry-run should succeed without a cache: {:?}", result);
         // In dry-run mode the output directory is never created.
         assert!(!output_dir.exists(), "output directory must not be created in dry-run mode");
@@ -496,7 +503,7 @@ mod tests {
         f.write_all(config_content.as_bytes()).expect("failed to write config");
 
         // The dry-run should succeed; cache hit is detected in both modes.
-        let result = run(f.path().to_str().unwrap(), true);
+        let result = run(f.path().to_str().unwrap(), true, None);
         assert!(result.is_ok(), "dry-run with cache hit should succeed: {:?}", result);
     }
 
@@ -529,7 +536,7 @@ mod tests {
         f.write_all(config_content.as_bytes()).expect("failed to write config");
 
         // Dry-run still succeeds; it runs transforms because the hash misses.
-        let result = run(f.path().to_str().unwrap(), true);
+        let result = run(f.path().to_str().unwrap(), true, None);
         assert!(result.is_ok(), "dry-run with cache miss should still succeed: {:?}", result);
     }
 
@@ -550,7 +557,7 @@ mod tests {
         let mut f = NamedTempFile::new().expect("failed to create temp file");
         f.write_all(config_content.as_bytes()).expect("failed to write config");
 
-        run(f.path().to_str().unwrap(), false).expect("build should succeed");
+        run(f.path().to_str().unwrap(), false, None).expect("build should succeed");
 
         let cache_path = output_dir.join(".renderflow-cache.json");
         assert!(cache_path.exists(), "cache file must exist after a real build");
@@ -575,9 +582,9 @@ mod tests {
         f.write_all(config_content.as_bytes()).expect("failed to write config");
 
         // First build — cache miss, cache written.
-        run(f.path().to_str().unwrap(), false).expect("first build should succeed");
+        run(f.path().to_str().unwrap(), false, None).expect("first build should succeed");
         // Second build — cache hit.
-        run(f.path().to_str().unwrap(), false).expect("second build (cache hit) should succeed");
+        run(f.path().to_str().unwrap(), false, None).expect("second build (cache hit) should succeed");
 
         let cache_path = output_dir.join(".renderflow-cache.json");
         assert!(cache_path.exists(), "cache file must still exist after second build");
@@ -612,7 +619,7 @@ mod tests {
         let mut f = NamedTempFile::new().expect("failed to create temp file");
         f.write_all(config_content.as_bytes()).expect("failed to write config");
 
-        run(f.path().to_str().unwrap(), false).expect("build should succeed");
+        run(f.path().to_str().unwrap(), false, None).expect("build should succeed");
 
         let output_cache_path = output_dir.join(".renderflow-output-cache.json");
         assert!(output_cache_path.exists(), "output cache file must exist after a real build");
@@ -638,9 +645,9 @@ mod tests {
         f.write_all(config_content.as_bytes()).expect("failed to write config");
 
         // First build — output cache miss, pandoc runs, cache written.
-        run(f.path().to_str().unwrap(), false).expect("first build should succeed");
+        run(f.path().to_str().unwrap(), false, None).expect("first build should succeed");
         // Second build — output cache hit, pandoc skipped.
-        run(f.path().to_str().unwrap(), false).expect("second build (output cache hit) should succeed");
+        run(f.path().to_str().unwrap(), false, None).expect("second build (output cache hit) should succeed");
 
         let output_cache_path = output_dir.join(".renderflow-output-cache.json");
         assert!(output_cache_path.exists(), "output cache must still exist after second build");
@@ -664,13 +671,13 @@ mod tests {
         f.write_all(config_content.as_bytes()).expect("failed to write config");
 
         // First build with original content.
-        run(f.path().to_str().unwrap(), false).expect("first build should succeed");
+        run(f.path().to_str().unwrap(), false, None).expect("first build should succeed");
 
         // Modify input — caches must be invalidated.
         fs::write(&input_path, "# Modified\n").expect("failed to write updated input");
 
         // Second build must succeed (re-render triggered by cache miss).
-        run(f.path().to_str().unwrap(), false).expect("second build after input change should succeed");
+        run(f.path().to_str().unwrap(), false, None).expect("second build after input change should succeed");
     }
 
     #[test]
@@ -678,7 +685,7 @@ mod tests {
         // In dry-run mode the output cache file must never be created.
         let (f, dir) = valid_config_file();
         let output_dir = dir.path().join("dist");
-        run(f.path().to_str().unwrap(), true).expect("dry-run should succeed");
+        run(f.path().to_str().unwrap(), true, None).expect("dry-run should succeed");
         let output_cache_path = output_dir.join(".renderflow-output-cache.json");
         assert!(
             !output_cache_path.exists(),
@@ -708,7 +715,7 @@ mod tests {
         let mut f = NamedTempFile::new().expect("failed to create temp file");
         f.write_all(config_content.as_bytes()).expect("failed to write config");
 
-        let result = run(f.path().to_str().unwrap(), true);
+        let result = run(f.path().to_str().unwrap(), true, None);
         assert!(result.is_ok(), "dry-run with output cache should succeed: {:?}", result);
     }
 }

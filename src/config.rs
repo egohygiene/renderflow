@@ -6,6 +6,7 @@ use std::fs;
 
 use crate::compat::{is_supported, unsupported_combination_message};
 use crate::input_format::InputFormat;
+use crate::optimization::OptimizationMode;
 
 fn default_output_dir() -> String {
     "dist".to_string()
@@ -78,6 +79,10 @@ pub struct Config {
     pub variables: HashMap<String, String>,
     #[serde(default)]
     pub input_format: Option<InputFormat>,
+    /// Optimization strategy used when selecting transformation paths.
+    /// Defaults to [`OptimizationMode::Balanced`] when omitted.
+    #[serde(default)]
+    pub optimization: OptimizationMode,
 }
 
 impl Config {
@@ -363,6 +368,61 @@ output_dir: "dist"
         let f = write_temp_yaml(yaml);
         let config = load_config(f.path().to_str().unwrap()).expect("should parse without variables");
         assert!(config.variables.is_empty());
+    }
+
+    #[test]
+    fn test_load_config_optimization_defaults_to_balanced() {
+        let yaml = r#"
+outputs:
+  - type: html
+input: "input.md"
+output_dir: "dist"
+"#;
+        let f = write_temp_yaml(yaml);
+        let config = load_config(f.path().to_str().unwrap()).expect("should parse");
+        assert_eq!(config.optimization, crate::optimization::OptimizationMode::Balanced);
+    }
+
+    #[test]
+    fn test_load_config_optimization_speed() {
+        let yaml = r#"
+outputs:
+  - type: html
+input: "input.md"
+output_dir: "dist"
+optimization: speed
+"#;
+        let f = write_temp_yaml(yaml);
+        let config = load_config(f.path().to_str().unwrap()).expect("should parse");
+        assert_eq!(config.optimization, crate::optimization::OptimizationMode::Speed);
+    }
+
+    #[test]
+    fn test_load_config_optimization_quality() {
+        let yaml = r#"
+outputs:
+  - type: html
+input: "input.md"
+output_dir: "dist"
+optimization: quality
+"#;
+        let f = write_temp_yaml(yaml);
+        let config = load_config(f.path().to_str().unwrap()).expect("should parse");
+        assert_eq!(config.optimization, crate::optimization::OptimizationMode::Quality);
+    }
+
+    #[test]
+    fn test_load_config_optimization_balanced_explicit() {
+        let yaml = r#"
+outputs:
+  - type: html
+input: "input.md"
+output_dir: "dist"
+optimization: balanced
+"#;
+        let f = write_temp_yaml(yaml);
+        let config = load_config(f.path().to_str().unwrap()).expect("should parse");
+        assert_eq!(config.optimization, crate::optimization::OptimizationMode::Balanced);
     }
 
     #[test]
