@@ -1,8 +1,10 @@
 mod format;
+mod multi_target;
 mod pathfinding;
 mod transform_edge;
 
 pub use format::Format;
+pub use multi_target::MultiTargetDag;
 pub use pathfinding::TransformPath;
 pub use transform_edge::TransformEdge;
 
@@ -188,6 +190,52 @@ impl TransformGraph {
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
         paths
+    }
+
+    /// Build a minimal DAG that covers all `targets` reachable from `from`.
+    ///
+    /// For each target the cheapest path is computed independently via
+    /// [`find_path`](Self::find_path).  All resulting edges are then merged
+    /// into a single [`MultiTargetDag`], deduplicating any edges that are
+    /// shared across paths.  When two paths contribute an edge for the same
+    /// `(from, to)` pair the cheaper edge is kept.
+    ///
+    /// Returns `None` when at least one target is unreachable from `from`.
+    /// Returns `Some` with an empty DAG when `targets` is empty.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use renderflow::graph::{Format, TransformEdge, TransformGraph};
+    ///
+    /// let mut graph = TransformGraph::new();
+    /// graph.add_transform(TransformEdge::new(Format::Markdown, Format::Html, 0.5, 1.0));
+    /// graph.add_transform(TransformEdge::new(Format::Html, Format::Pdf,  0.8, 0.85));
+    /// graph.add_transform(TransformEdge::new(Format::Html, Format::Docx, 0.6, 0.90));
+    ///
+    /// let dag = graph
+    ///     .build_multi_target_dag(Format::Markdown, &[Format::Pdf, Format::Docx])
+    ///     .expect("all targets must be reachable");
+    ///
+    /// // Markdown → Html is shared: 3 unique edges, not 4.
+    /// assert_eq!(dag.edge_count(), 3);
+    ///
+    /// let order = dag.execution_order();
+    /// assert_eq!(order.len(), 3);
+    /// ```
+    pub fn build_multi_target_dag(
+        &self,
+        from: Format,
+        targets: &[Format],
+    ) -> Option<MultiTargetDag> {
+        let mut dag = MultiTargetDag::new();
+        for &target in targets {
+            let path = self.find_path(from, target)?;
+            for edge in path.steps {
+                dag.merge_edge(edge);
+            }
+        }
+        Some(dag)
     }
 }
 
