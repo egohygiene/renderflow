@@ -1,10 +1,13 @@
 mod format;
+mod pathfinding;
 mod transform_edge;
 
 pub use format::Format;
+pub use pathfinding::TransformPath;
 pub use transform_edge::TransformEdge;
 
 use petgraph::graph::{DiGraph, NodeIndex};
+use petgraph::visit::EdgeRef;
 use std::collections::HashMap;
 
 /// A directed graph of document format transformations.
@@ -99,6 +102,92 @@ impl TransformGraph {
             return false;
         };
         self.graph.contains_edge(from_idx, to_idx)
+    }
+
+    /// Reconstruct the cheapest directed edge between each consecutive pair of
+    /// nodes in `node_path` and return them as an ordered `Vec<TransformEdge>`.
+    ///
+    /// When multiple parallel edges connect the same pair of nodes the one with
+    /// the lowest cost is chosen, which is consistent with the cost function
+    /// used by the pathfinding algorithms.
+    fn edges_from_node_path(&self, node_path: &[NodeIndex]) -> Vec<TransformEdge> {
+        node_path
+            .windows(2)
+            .map(|w| {
+                let (a, b) = (w[0], w[1]);
+                self.graph
+                    .edges(a)
+                    .filter(|e| e.target() == b)
+                    .min_by(|x, y| {
+                        x.weight()
+                            .cost
+                            .partial_cmp(&y.weight().cost)
+                            .unwrap_or(std::cmp::Ordering::Equal)
+                    })
+                    .expect("node path contains a pair with no connecting edge")
+                    .weight()
+                    .clone()
+            })
+            .collect()
+    }
+
+    /// Find the lowest-cost path from `from` to `to` using Dijkstra's
+    /// algorithm.
+    ///
+    /// Cost is treated as additive (sum of edge costs) and the path is
+    /// selected to minimise total cost.  Quality is computed multiplicatively
+    /// along the chosen path and stored in the returned [`TransformPath`].
+    ///
+    /// Returns `None` when no path exists between the two formats.
+    pub fn find_path(&self, from: Format, to: Format) -> Option<TransformPath> {
+        use petgraph::algo::astar;
+
+        let (&from_idx, &to_idx) =
+            match (self.nodes.get(&from), self.nodes.get(&to)) {
+                (Some(f), Some(t)) => (f, t),
+                _ => return None,
+            };
+
+        let (_cost, node_path) = astar(
+            &self.graph,
+            from_idx,
+            |n| n == to_idx,
+            |e| e.weight().cost,
+            |_| 0.0_f32,
+        )?;
+
+        Some(TransformPath::from_steps(self.edges_from_node_path(&node_path)))
+    }
+
+    /// Return all simple paths (no repeated nodes) from `from` to `to`.
+    ///
+    /// The returned [`Vec`] is sorted by `total_cost` ascending so callers can
+    /// easily compare candidate pipelines.  An empty `Vec` is returned when no
+    /// path exists.
+    pub fn find_all_paths(&self, from: Format, to: Format) -> Vec<TransformPath> {
+        use petgraph::algo::all_simple_paths;
+
+        let (&from_idx, &to_idx) =
+            match (self.nodes.get(&from), self.nodes.get(&to)) {
+                (Some(f), Some(t)) => (f, t),
+                _ => return Vec::new(),
+            };
+
+        let mut paths: Vec<TransformPath> =
+            all_simple_paths::<Vec<_>, _, std::collections::hash_map::RandomState>(
+                &self.graph, from_idx, to_idx, 0, None,
+            )
+            .map(|node_path: Vec<NodeIndex>| {
+                TransformPath::from_steps(self.edges_from_node_path(&node_path))
+            })
+            .collect();
+
+        paths.sort_by(|a, b| {
+            a.total_cost
+                .partial_cmp(&b.total_cost)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+        paths
     }
 }
 
@@ -316,5 +405,164 @@ mod tests {
                 fmt
             );
         }
+    }
+
+    // ── find_path ─────────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_find_path_direct_single_hop() {
+        let mut graph = TransformGraph::new();
+        graph.add_transform(markdown_to_pdf());
+
+        let path = graph.find_path(Format::Markdown, Format::Pdf).unwrap();
+        assert_eq!(path.steps.len(), 1);
+        assert_eq!(path.steps[0].from, Format::Markdown);
+        assert_eq!(path.steps[0].to, Format::Pdf);
+        assert!((path.total_cost - 1.0).abs() < 1e-5);
+        assert!((path.total_quality - 0.9).abs() < 1e-5);
+    }
+
+    #[test]
+    fn test_find_path_multi_hop() {
+        let mut graph = TransformGraph::new();
+        graph.add_transform(markdown_to_html()); // cost 0.5, quality 1.0
+        graph.add_transform(html_to_pdf()); // cost 0.8, quality 0.85
+
+        let path = graph.find_path(Format::Markdown, Format::Pdf).unwrap();
+        assert_eq!(path.steps.len(), 2);
+        assert_eq!(path.steps[0].to, Format::Html);
+        assert_eq!(path.steps[1].to, Format::Pdf);
+        assert!((path.total_cost - 1.3).abs() < 1e-5);
+        assert!((path.total_quality - 0.85).abs() < 1e-5);
+    }
+
+    #[test]
+    fn test_find_path_prefers_lower_cost() {
+        let mut graph = TransformGraph::new();
+        // Direct path — more expensive.
+        graph.add_transform(TransformEdge::new(Format::Markdown, Format::Pdf, 5.0, 0.9));
+        // Indirect path via HTML — cheaper overall (0.5 + 0.8 = 1.3).
+        graph.add_transform(markdown_to_html());
+        graph.add_transform(html_to_pdf());
+
+        let path = graph.find_path(Format::Markdown, Format::Pdf).unwrap();
+        // The indirect path (total_cost 1.3) should be chosen over the direct
+        // path (total_cost 5.0).
+        assert_eq!(path.steps.len(), 2);
+        assert!((path.total_cost - 1.3).abs() < 1e-5);
+    }
+
+    #[test]
+    fn test_find_path_returns_none_when_no_path() {
+        let mut graph = TransformGraph::new();
+        graph.add_transform(markdown_to_html());
+        // No edge from Html → Pdf, so Markdown → Pdf has no path.
+        assert!(graph.find_path(Format::Markdown, Format::Pdf).is_none());
+    }
+
+    #[test]
+    fn test_find_path_returns_none_for_unknown_format() {
+        let graph = TransformGraph::new();
+        assert!(graph.find_path(Format::Markdown, Format::Pdf).is_none());
+    }
+
+    #[test]
+    fn test_find_path_cost_additive() {
+        let mut graph = TransformGraph::new();
+        // Three hops: Markdown → Html (1.0) → Pdf (2.0) — total 3.0
+        graph.add_transform(TransformEdge::new(Format::Markdown, Format::Html, 1.0, 1.0));
+        graph.add_transform(TransformEdge::new(Format::Html, Format::Pdf, 2.0, 1.0));
+
+        let path = graph.find_path(Format::Markdown, Format::Pdf).unwrap();
+        assert!((path.total_cost - 3.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn test_find_path_quality_multiplicative() {
+        let mut graph = TransformGraph::new();
+        // quality: 0.9 * 0.8 = 0.72
+        graph.add_transform(TransformEdge::new(Format::Markdown, Format::Html, 1.0, 0.9));
+        graph.add_transform(TransformEdge::new(Format::Html, Format::Pdf, 1.0, 0.8));
+
+        let path = graph.find_path(Format::Markdown, Format::Pdf).unwrap();
+        assert!((path.total_quality - 0.72).abs() < 1e-5);
+    }
+
+    #[test]
+    fn test_find_path_chooses_cheapest_parallel_edge() {
+        let mut graph = TransformGraph::new();
+        // Two parallel edges between the same nodes with different costs.
+        graph.add_transform(TransformEdge::new(Format::Markdown, Format::Pdf, 3.0, 0.9));
+        graph.add_transform(TransformEdge::new(Format::Markdown, Format::Pdf, 1.0, 0.7));
+
+        let path = graph.find_path(Format::Markdown, Format::Pdf).unwrap();
+        assert!((path.total_cost - 1.0).abs() < 1e-5);
+    }
+
+    // ── find_all_paths ────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_find_all_paths_single_path() {
+        let mut graph = TransformGraph::new();
+        graph.add_transform(markdown_to_pdf());
+
+        let paths = graph.find_all_paths(Format::Markdown, Format::Pdf);
+        assert_eq!(paths.len(), 1);
+        assert_eq!(paths[0].steps.len(), 1);
+    }
+
+    #[test]
+    fn test_find_all_paths_returns_both_direct_and_indirect() {
+        let mut graph = TransformGraph::new();
+        graph.add_transform(markdown_to_pdf()); // direct
+        graph.add_transform(markdown_to_html());
+        graph.add_transform(html_to_pdf()); // indirect via Html
+
+        let paths = graph.find_all_paths(Format::Markdown, Format::Pdf);
+        assert_eq!(paths.len(), 2);
+    }
+
+    #[test]
+    fn test_find_all_paths_sorted_by_cost_ascending() {
+        let mut graph = TransformGraph::new();
+        // Direct (cost 5.0) and indirect (cost 1.3).
+        graph.add_transform(TransformEdge::new(Format::Markdown, Format::Pdf, 5.0, 0.9));
+        graph.add_transform(markdown_to_html());
+        graph.add_transform(html_to_pdf());
+
+        let paths = graph.find_all_paths(Format::Markdown, Format::Pdf);
+        assert_eq!(paths.len(), 2);
+        // Cheaper path comes first.
+        assert!(paths[0].total_cost <= paths[1].total_cost);
+        assert!((paths[0].total_cost - 1.3).abs() < 1e-5);
+        assert!((paths[1].total_cost - 5.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn test_find_all_paths_empty_when_no_path() {
+        let mut graph = TransformGraph::new();
+        graph.add_transform(markdown_to_html());
+
+        let paths = graph.find_all_paths(Format::Markdown, Format::Pdf);
+        assert!(paths.is_empty());
+    }
+
+    #[test]
+    fn test_find_all_paths_empty_for_unknown_format() {
+        let graph = TransformGraph::new();
+        assert!(graph.find_all_paths(Format::Markdown, Format::Pdf).is_empty());
+    }
+
+    #[test]
+    fn test_find_all_paths_metrics_correct() {
+        let mut graph = TransformGraph::new();
+        // cost 0.5, quality 1.0 then cost 0.8, quality 0.85
+        graph.add_transform(markdown_to_html());
+        graph.add_transform(html_to_pdf());
+
+        let paths = graph.find_all_paths(Format::Markdown, Format::Pdf);
+        assert_eq!(paths.len(), 1);
+        assert!((paths[0].total_cost - 1.3).abs() < 1e-5);
+        assert!((paths[0].total_quality - 0.85).abs() < 1e-5);
     }
 }
