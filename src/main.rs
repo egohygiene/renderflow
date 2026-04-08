@@ -8,6 +8,7 @@ mod config;
 mod deps;
 pub mod error;
 mod files;
+pub mod graph;
 mod input_format;
 mod pipeline;
 mod strategies;

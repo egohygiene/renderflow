@@ -49,6 +49,8 @@ notify-debouncer-mini = "0.4"
 
 itertools = "0.14"
 
+petgraph = "0.8"
+
 [package.metadata.generate-rpm]
 assets = [
     { source = "target/release/renderflow", dest = "/usr/bin/renderflow", mode = "0755" },
