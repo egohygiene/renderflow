@@ -231,21 +231,22 @@ mod tests {
 
         let order = dag.execution_order();
 
-        // The Markdown → Html edge must appear before Html → Pdf and Html → Docx.
-        let md_html_pos = order
-            .iter()
-            .position(|e| e.from == Format::Markdown && e.to == Format::Html)
-            .expect("Markdown→Html edge must be present");
+        // Find all three positions in a single pass.
+        let mut md_html_pos = None;
+        let mut html_pdf_pos = None;
+        let mut html_docx_pos = None;
+        for (i, e) in order.iter().enumerate() {
+            match (e.from, e.to) {
+                (Format::Markdown, Format::Html) => md_html_pos = Some(i),
+                (Format::Html, Format::Pdf) => html_pdf_pos = Some(i),
+                (Format::Html, Format::Docx) => html_docx_pos = Some(i),
+                _ => {}
+            }
+        }
 
-        let html_pdf_pos = order
-            .iter()
-            .position(|e| e.from == Format::Html && e.to == Format::Pdf)
-            .expect("Html→Pdf edge must be present");
-
-        let html_docx_pos = order
-            .iter()
-            .position(|e| e.from == Format::Html && e.to == Format::Docx)
-            .expect("Html→Docx edge must be present");
+        let md_html_pos = md_html_pos.expect("Markdown→Html edge must be present");
+        let html_pdf_pos = html_pdf_pos.expect("Html→Pdf edge must be present");
+        let html_docx_pos = html_docx_pos.expect("Html→Docx edge must be present");
 
         assert!(
             md_html_pos < html_pdf_pos,
@@ -276,32 +277,29 @@ mod tests {
     // ── edge deduplication (cheaper edge wins) ────────────────────────────────
 
     #[test]
-    fn test_merge_keeps_cheaper_edge_when_paths_overlap() {
-        let mut g = TransformGraph::new();
-        // Two routes to Pdf, both via Html, but with different Html→Pdf costs.
-        // Route A: Markdown → Html (cost 0.5) → Pdf (cost 2.0)
-        // Route B: Markdown → Html (cost 0.5) → Pdf (cost 1.0)  ← cheaper
-        // We add a direct cheaper edge so the second route is preferred.
-        g.add_transform(TransformEdge::new(Format::Markdown, Format::Html, 0.5, 1.0));
-        g.add_transform(TransformEdge::new(Format::Html, Format::Pdf, 2.0, 0.9));
-        // Add a cheaper alternative for Html→Pdf so the graph prefers it.
-        // We achieve this by having two separate "targets" that share Html→Pdf
-        // but one path contributes a cheaper edge.
-        //
-        // Simpler: build the DAG manually by calling build_multi_target_dag
-        // with a graph that already has the cheaper edge as the sole path.
-        let dag = g
-            .build_multi_target_dag(Format::Markdown, &[Format::Pdf])
-            .unwrap();
+    fn test_merge_edge_deduplicates_and_keeps_cheaper() {
+        let mut dag = MultiTargetDag::new();
+        // Add the same (from, to) pair twice: expensive first, then cheaper.
+        dag.merge_edge(TransformEdge::new(Format::Markdown, Format::Html, 2.0, 0.9));
+        dag.merge_edge(TransformEdge::new(Format::Markdown, Format::Html, 1.0, 0.95));
 
-        // Only one Html→Pdf edge should exist.
-        let html_pdf_edges: Vec<_> = dag
-            .all_edges()
-            .into_iter()
-            .filter(|e| e.from == Format::Html && e.to == Format::Pdf)
-            .collect();
-        assert_eq!(html_pdf_edges.len(), 1);
-        assert!((html_pdf_edges[0].cost - 2.0).abs() < 1e-5);
+        // Only one edge should be stored.
+        assert_eq!(dag.edge_count(), 1);
+        // The cheaper edge (cost 1.0) must be kept.
+        let edges = dag.all_edges();
+        assert!((edges[0].cost - 1.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn test_merge_edge_retains_existing_when_new_is_more_expensive() {
+        let mut dag = MultiTargetDag::new();
+        // Add the cheaper edge first, then try to replace it with a more expensive one.
+        dag.merge_edge(TransformEdge::new(Format::Markdown, Format::Html, 1.0, 0.95));
+        dag.merge_edge(TransformEdge::new(Format::Markdown, Format::Html, 2.0, 0.9));
+
+        assert_eq!(dag.edge_count(), 1);
+        let edges = dag.all_edges();
+        assert!((edges[0].cost - 1.0).abs() < 1e-5);
     }
 
     #[test]
