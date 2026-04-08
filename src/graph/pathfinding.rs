@@ -44,3 +44,106 @@ impl TransformPath {
         Self { steps, total_cost, total_quality }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::graph::{Format, TransformEdge};
+
+    fn edge(from: Format, to: Format, cost: f32, quality: f32) -> TransformEdge {
+        TransformEdge::new(from, to, cost, quality)
+    }
+
+    // ── single-step paths ─────────────────────────────────────────────────────
+
+    #[test]
+    fn test_single_step_quality_preserved() {
+        let steps = vec![edge(Format::Markdown, Format::Html, 1.0, 0.9)];
+        let path = TransformPath::from_steps(steps);
+        assert!((path.total_quality - 0.9).abs() < 1e-5,
+            "single-step quality must equal the edge quality");
+    }
+
+    #[test]
+    fn test_single_step_cost_preserved() {
+        let steps = vec![edge(Format::Markdown, Format::Html, 2.5, 1.0)];
+        let path = TransformPath::from_steps(steps);
+        assert!((path.total_cost - 2.5).abs() < 1e-5);
+    }
+
+    // ── multi-step quality is multiplicative ──────────────────────────────────
+
+    #[test]
+    fn test_two_step_quality_is_product() {
+        // 0.9 * 0.8 = 0.72
+        let steps = vec![
+            edge(Format::Markdown, Format::Html, 1.0, 0.9),
+            edge(Format::Html, Format::Pdf, 1.0, 0.8),
+        ];
+        let path = TransformPath::from_steps(steps);
+        assert!((path.total_quality - 0.72).abs() < 1e-5,
+            "two-step quality must be the product of both edge qualities");
+    }
+
+    #[test]
+    fn test_two_step_cost_is_sum() {
+        let steps = vec![
+            edge(Format::Markdown, Format::Html, 0.5, 1.0),
+            edge(Format::Html, Format::Pdf, 0.8, 0.85),
+        ];
+        let path = TransformPath::from_steps(steps);
+        assert!((path.total_cost - 1.3).abs() < 1e-5);
+    }
+
+    #[test]
+    fn test_three_step_quality_propagates_multiplicatively() {
+        // 0.9 * 0.8 * 0.7 = 0.504
+        let steps = vec![
+            edge(Format::Markdown, Format::Html, 1.0, 0.9),
+            edge(Format::Html, Format::Rst, 1.0, 0.8),
+            edge(Format::Rst, Format::Pdf, 1.0, 0.7),
+        ];
+        let path = TransformPath::from_steps(steps);
+        assert!((path.total_quality - 0.504_f32).abs() < 1e-5,
+            "three-step quality must be the product of all three edge qualities");
+    }
+
+    // ── perfect quality path ──────────────────────────────────────────────────
+
+    #[test]
+    fn test_all_quality_one_yields_product_one() {
+        let steps = vec![
+            edge(Format::Markdown, Format::Html, 1.0, 1.0),
+            edge(Format::Html, Format::Pdf, 1.0, 1.0),
+        ];
+        let path = TransformPath::from_steps(steps);
+        assert!((path.total_quality - 1.0).abs() < 1e-5,
+            "product of 1.0 values must equal 1.0");
+    }
+
+    // ── zero quality collapses path quality ───────────────────────────────────
+
+    #[test]
+    fn test_zero_quality_edge_collapses_path_quality() {
+        let steps = vec![
+            edge(Format::Markdown, Format::Html, 1.0, 0.9),
+            edge(Format::Html, Format::Pdf, 1.0, 0.0),
+        ];
+        let path = TransformPath::from_steps(steps);
+        assert!((path.total_quality - 0.0).abs() < 1e-5,
+            "a zero-quality edge must bring total path quality to 0.0");
+    }
+
+    // ── step count ────────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_steps_count_matches_input() {
+        let steps = vec![
+            edge(Format::Markdown, Format::Html, 1.0, 1.0),
+            edge(Format::Html, Format::Pdf, 1.0, 1.0),
+            edge(Format::Pdf, Format::Epub, 1.0, 1.0),
+        ];
+        let path = TransformPath::from_steps(steps);
+        assert_eq!(path.steps.len(), 3);
+    }
+}
