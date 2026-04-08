@@ -177,7 +177,7 @@ impl TransformGraph {
     ///
     /// The edge weights passed to A\* are determined by
     /// [`OptimizationMode::edge_weight`], so the selected path will be the
-    /// one that minimises cost (`Speed`), maximises quality (`Quality`), or
+    /// one that minimizes cost (`Speed`), maximizes quality (`Quality`), or
     /// balances both (`Balanced`).
     ///
     /// Returns `None` when no path exists between the two formats.
@@ -676,7 +676,7 @@ mod tests {
     // ── find_path_with_mode ───────────────────────────────────────────────────
 
     #[test]
-    fn test_find_path_with_mode_speed_minimises_cost() {
+    fn test_find_path_with_mode_speed_minimizes_cost() {
         let mut graph = TransformGraph::new();
         // Direct path: cost=5.0, quality=0.99
         graph.add_transform(TransformEdge::new(Format::Markdown, Format::Pdf, 5.0, 0.99));
@@ -693,7 +693,7 @@ mod tests {
     }
 
     #[test]
-    fn test_find_path_with_mode_quality_maximises_quality() {
+    fn test_find_path_with_mode_quality_maximizes_quality() {
         let mut graph = TransformGraph::new();
         // Direct path: cost=1.0, quality=0.5 (poor quality)
         graph.add_transform(TransformEdge::new(Format::Markdown, Format::Pdf, 1.0, 0.5));

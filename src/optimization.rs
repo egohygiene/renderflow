@@ -5,8 +5,8 @@ use crate::graph::TransformPath;
 
 /// Controls how the pathfinding engine scores and selects transformation paths.
 ///
-/// * `Speed`    – minimises total cost; fastest but potentially lower quality.
-/// * `Quality`  – maximises total quality; best output but potentially slower.
+/// * `Speed`    – minimizes total cost; fastest but potentially lower quality.
+/// * `Quality`  – maximizes total quality; best output but potentially slower.
 /// * `Balanced` – weighted combination of cost and quality (default).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize, Serialize, ValueEnum)]
 #[serde(rename_all = "lowercase")]
@@ -21,7 +21,7 @@ pub enum OptimizationMode {
 }
 
 impl OptimizationMode {
-    /// Compute a score for `path` under this optimisation mode.
+    /// Compute a score for `path` under this optimization mode.
     ///
     /// Higher values indicate a more desirable path.
     ///

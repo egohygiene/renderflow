@@ -46,7 +46,7 @@ fn run_impl(config_path: &str, dry_run: bool, resilient: bool, optimization: Opt
 
     // CLI flag takes precedence over config file; fall back to config value.
     let opt_mode = optimization.unwrap_or(config.optimization);
-    info!(optimization = %opt_mode, "Using optimisation mode");
+    info!(optimization = %opt_mode, "Using optimization mode");
 
     let canonical_input = validate_input(&config.input)?;
 

@@ -55,7 +55,7 @@ pub enum Commands {
         #[arg(long)]
         dry_run: bool,
 
-        /// Optimisation mode: controls how transformation paths are selected.
+        /// Optimization mode: controls how transformation paths are selected.
         /// Overrides the value set in the config file when provided.
         /// Choices: speed (minimise cost), quality (maximise quality), balanced (default).
         #[arg(long, value_name = "MODE")]

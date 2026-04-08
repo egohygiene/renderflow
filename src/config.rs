@@ -79,7 +79,7 @@ pub struct Config {
     pub variables: HashMap<String, String>,
     #[serde(default)]
     pub input_format: Option<InputFormat>,
-    /// Optimisation strategy used when selecting transformation paths.
+    /// Optimization strategy used when selecting transformation paths.
     /// Defaults to [`OptimizationMode::Balanced`] when omitted.
     #[serde(default)]
     pub optimization: OptimizationMode,
