@@ -24,7 +24,7 @@ impl Default for SyntaxHighlightTransform {
 }
 
 impl Transform for SyntaxHighlightTransform {
-    fn name(&self) -> &'static str {
+    fn name(&self) -> &str {
         "SyntaxHighlightTransform"
     }
 

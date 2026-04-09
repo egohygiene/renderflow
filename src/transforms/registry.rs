@@ -239,7 +239,7 @@ mod tests {
 
         struct BadTransform;
         impl Transform for BadTransform {
-            fn name(&self) -> &'static str {
+            fn name(&self) -> &str {
                 "BadTransform"
             }
             fn apply(&self, _input: String) -> Result<String> {
@@ -373,7 +373,7 @@ mod tests {
 
         struct AlwaysFails;
         impl Transform for AlwaysFails {
-            fn name(&self) -> &'static str {
+            fn name(&self) -> &str {
                 "AlwaysFails"
             }
             fn apply(&self, _input: String) -> Result<String> {
@@ -414,7 +414,7 @@ mod tests {
 
         struct FailMidway;
         impl Transform for FailMidway {
-            fn name(&self) -> &'static str {
+            fn name(&self) -> &str {
                 "FailMidway"
             }
             fn apply(&self, _input: String) -> Result<String> {
@@ -461,7 +461,7 @@ mod tests {
 
         struct NamedFailing;
         impl Transform for NamedFailing {
-            fn name(&self) -> &'static str {
+            fn name(&self) -> &str {
                 "VariableSubstitutionTransform"
             }
             fn apply(&self, _input: String) -> Result<String> {

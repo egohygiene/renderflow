@@ -75,7 +75,7 @@ impl Default for EmojiTransform {
 }
 
 impl Transform for EmojiTransform {
-    fn name(&self) -> &'static str {
+    fn name(&self) -> &str {
         "EmojiTransform"
     }
 
