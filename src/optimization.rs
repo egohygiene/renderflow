@@ -105,11 +105,18 @@ pub fn pareto_frontier(paths: &[TransformPath], cap: Option<usize>) -> Vec<Trans
     }
 
     // Sort by total_cost ascending (cheapest first).
+    // Paths with NaN metrics sort as equal to each other due to partial_cmp fallback.
     frontier.sort_by(|a, b| {
         a.total_cost
             .partial_cmp(&b.total_cost)
             .unwrap_or(std::cmp::Ordering::Equal)
     });
+
+    // Deduplicate paths with identical objectives: two paths that share both
+    // total_cost and total_quality represent the same trade-off point and only
+    // one needs to be kept in the frontier.
+    let mut seen = std::collections::HashSet::new();
+    frontier.retain(|p| seen.insert((p.total_cost.to_bits(), p.total_quality.to_bits())));
 
     if let Some(limit) = cap {
         frontier.truncate(limit);
@@ -339,12 +346,11 @@ mod tests {
     }
 
     #[test]
-    fn test_pareto_frontier_equal_paths_not_dominated() {
-        // Two identical paths: neither dominates the other (no strict improvement).
+    fn test_pareto_frontier_equal_paths_deduplicated() {
+        // Two paths with identical objectives: only one should be kept.
         let paths = vec![make_path(1.0, 0.9), make_path(1.0, 0.9)];
         let frontier = pareto_frontier(&paths, None);
-        // Both are kept since neither strictly dominates the other.
-        assert_eq!(frontier.len(), 2);
+        assert_eq!(frontier.len(), 1);
     }
 
     #[test]
