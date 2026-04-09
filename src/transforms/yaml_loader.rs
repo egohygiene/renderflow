@@ -3,7 +3,7 @@ use std::fs;
 use anyhow::{Context, Result};
 use serde::Deserialize;
 
-use super::{command::CommandTransform, Transform, TransformRegistry};
+use super::{command::CommandTransform, plugin::{PluginRegistry, PluginTransform}, Transform, TransformRegistry};
 
 /// Top-level structure of a YAML transform configuration file.
 ///
@@ -33,14 +33,24 @@ pub struct YamlTransformConfig {
 
 /// A single YAML-defined transform entry.
 ///
-/// Each entry describes an external command that converts one document format
-/// to another, along with metadata used for graph-based path-finding.
+/// Each entry describes either an external command or a named plugin that
+/// converts one document format to another, along with metadata used for
+/// graph-based path-finding.
+///
+/// Exactly one of `program` or `plugin` must be provided:
+///
+/// * Set `program` to invoke an external binary (see [`CommandTransform`]).
+/// * Set `plugin` to reference a [`PluginExecutor`](super::plugin::PluginExecutor)
+///   that has been registered in a [`PluginRegistry`].
 #[derive(Debug, Deserialize, PartialEq)]
 pub struct YamlTransformDef {
     /// Unique human-readable name; used in log messages and error context.
     pub name: String,
     /// External program to invoke (looked up on `PATH`).
-    pub program: String,
+    ///
+    /// Required when `plugin` is not set.  Ignored when `plugin` is set.
+    #[serde(default)]
+    pub program: Option<String>,
     /// Arguments passed to the program.
     ///
     /// Use `{input}` as a placeholder for a temporary file that contains the
@@ -50,6 +60,13 @@ pub struct YamlTransformDef {
     /// and the output is read from `stdout`.
     #[serde(default)]
     pub args: Vec<String>,
+    /// Name of a [`PluginExecutor`](super::plugin::PluginExecutor) registered
+    /// in the [`PluginRegistry`] that should be used to execute this transform.
+    ///
+    /// Required when `program` is not set.  When both `plugin` and `program`
+    /// are provided, `plugin` takes precedence.
+    #[serde(default)]
+    pub plugin: Option<String>,
     /// Source document format (e.g. `"markdown"`, `"html"`).
     pub from: String,
     /// Target document format produced by this transform (e.g. `"html"`, `"pdf"`).
@@ -65,7 +82,7 @@ impl YamlTransformDef {
     ///
     /// Checks:
     /// * `name` must not be blank.
-    /// * `program` must not be blank.
+    /// * Exactly one of `program` or `plugin` must be provided.
     /// * `from` and `to` must both be non-blank and parseable as a known [`Format`].
     ///
     /// [`Format`]: crate::graph::Format
@@ -73,8 +90,17 @@ impl YamlTransformDef {
         if self.name.trim().is_empty() {
             anyhow::bail!("transform 'name' must not be empty");
         }
-        if self.program.trim().is_empty() {
-            anyhow::bail!("transform '{}': 'program' must not be empty", self.name);
+        match (&self.plugin, &self.program) {
+            (Some(p), _) if p.trim().is_empty() => {
+                anyhow::bail!("transform '{}': 'plugin' must not be empty when provided", self.name);
+            }
+            (None, None) => {
+                anyhow::bail!("transform '{}': one of 'program' or 'plugin' must be provided", self.name);
+            }
+            (None, Some(prog)) if prog.trim().is_empty() => {
+                anyhow::bail!("transform '{}': 'program' must not be empty", self.name);
+            }
+            _ => {}
         }
         if self.from.trim().is_empty() {
             anyhow::bail!("transform '{}': 'from' must not be empty", self.name);
@@ -92,8 +118,32 @@ impl YamlTransformDef {
     }
 
     /// Build a [`CommandTransform`] from this definition.
+    ///
+    /// # Panics
+    ///
+    /// Panics when `program` is `None`.  Always call [`validate`](Self::validate)
+    /// first, or check that `program` is `Some` before calling this method.
     pub fn to_command_transform(&self) -> CommandTransform {
-        CommandTransform::new(self.name.clone(), self.program.clone(), self.args.clone())
+        let program = self
+            .program
+            .as_deref()
+            .expect("to_command_transform called without a program field");
+        CommandTransform::new(self.name.clone(), program, self.args.clone())
+    }
+
+    /// Build a [`PluginTransform`] from this definition by looking up the
+    /// named plugin in `registry`.
+    ///
+    /// Returns an error when the plugin name is not registered.
+    pub fn to_plugin_transform(&self, registry: &PluginRegistry) -> Result<PluginTransform> {
+        let plugin_name = self
+            .plugin
+            .as_deref()
+            .expect("to_plugin_transform called without a plugin field");
+        let executor = registry
+            .get(plugin_name)
+            .ok_or_else(|| anyhow::anyhow!("transform '{}': plugin '{}' not found in registry", self.name, plugin_name))?;
+        Ok(PluginTransform::new(executor))
     }
 }
 
@@ -116,17 +166,53 @@ pub fn load_transforms_from_yaml(path: &str) -> Result<TransformRegistry> {
         .with_context(|| format!("Failed to load transforms from: {}", path))
 }
 
+/// Load YAML transform definitions from a file and return a populated [`TransformRegistry`].
+///
+/// Equivalent to [`load_transforms_from_yaml`] but also accepts a
+/// [`PluginRegistry`] so that transforms with a `plugin` field can be
+/// resolved.  Use [`load_transforms_from_yaml`] when no plugins are needed.
+///
+/// # Errors
+///
+/// Returns an error when:
+/// * the file cannot be read,
+/// * the YAML is malformed,
+/// * any transform definition fails validation (see [`YamlTransformDef::validate`]),
+/// * a referenced plugin is not registered in `plugins`.
+#[allow(dead_code)]
+pub fn load_transforms_from_yaml_with_plugins(path: &str, plugins: &PluginRegistry) -> Result<TransformRegistry> {
+    let content = fs::read_to_string(path)
+        .with_context(|| format!("Failed to read transform config: {}", path))?;
+    parse_transforms_from_str_with_plugins(&content, plugins)
+        .with_context(|| format!("Failed to load transforms from: {}", path))
+}
+
 /// Parse YAML transform definitions from a string and return a populated [`TransformRegistry`].
 ///
 /// See [`load_transforms_from_yaml`] for the expected schema and error behaviour.
 pub fn parse_transforms_from_str(yaml: &str) -> Result<TransformRegistry> {
+    parse_transforms_from_str_with_plugins(yaml, &PluginRegistry::new())
+}
+
+/// Parse YAML transform definitions from a string and return a populated [`TransformRegistry`].
+///
+/// Equivalent to [`parse_transforms_from_str`] but also accepts a
+/// [`PluginRegistry`] so that transforms with a `plugin` field can be
+/// resolved.  Use [`parse_transforms_from_str`] when no plugins are needed.
+///
+/// See [`load_transforms_from_yaml_with_plugins`] for the expected schema and error behaviour.
+pub fn parse_transforms_from_str_with_plugins(yaml: &str, plugins: &PluginRegistry) -> Result<TransformRegistry> {
     let config: YamlTransformConfig =
         serde_yaml_ng::from_str(yaml).context("Failed to parse YAML transform config")?;
 
     let mut registry = TransformRegistry::new();
     for def in &config.transforms {
         def.validate()?;
-        let transform: Box<dyn Transform> = Box::new(def.to_command_transform());
+        let transform: Box<dyn Transform> = if def.plugin.is_some() {
+            Box::new(def.to_plugin_transform(plugins)?)
+        } else {
+            Box::new(def.to_command_transform())
+        };
         registry.register(transform);
     }
     Ok(registry)
@@ -371,7 +457,7 @@ transforms:
 
     #[test]
     fn test_missing_required_field_returns_error() {
-        // 'program' is required; omitting it must fail.
+        // Neither 'program' nor 'plugin' is provided; must fail.
         let yaml = r#"
 transforms:
   - name: no-program
@@ -381,7 +467,7 @@ transforms:
     quality: 0.9
 "#;
         let result = parse_transforms_from_str(yaml);
-        assert!(result.is_err(), "missing 'program' should be an error");
+        assert!(result.is_err(), "missing 'program' or 'plugin' should be an error");
     }
 
     // ── load_transforms_from_yaml ─────────────────────────────────────────────
@@ -443,11 +529,189 @@ transforms:
             serde_yaml_ng::from_str(yaml).expect("should parse");
         let def = &config.transforms[0];
         assert_eq!(def.name, "meta-test");
-        assert_eq!(def.program, "pandoc");
+        assert_eq!(def.program, Some("pandoc".to_string()));
         assert_eq!(def.args, vec!["{input}", "-o", "{output}"]);
         assert_eq!(def.from, "markdown");
         assert_eq!(def.to, "pdf");
         assert!((def.cost - 2.5).abs() < 1e-5);
         assert!((def.quality - 0.95).abs() < 1e-5);
+    }
+
+    // ── plugin field ──────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_plugin_transform_executes_correctly() {
+        use std::sync::Arc;
+        use crate::transforms::plugin::{PluginExecutor, PluginRegistry};
+
+        struct UpperPlugin;
+        impl PluginExecutor for UpperPlugin {
+            fn name(&self) -> &str { "upper" }
+            fn execute(&self, input: String) -> anyhow::Result<String> {
+                Ok(input.to_uppercase())
+            }
+        }
+
+        let mut plugins = PluginRegistry::new();
+        plugins.register(Arc::new(UpperPlugin));
+
+        let yaml = r#"
+transforms:
+  - name: upper-plugin-transform
+    plugin: upper
+    from: markdown
+    to: html
+    cost: 0.5
+    quality: 1.0
+"#;
+        let registry = parse_transforms_from_str_with_plugins(yaml, &plugins)
+            .expect("should parse with plugin");
+        let result = registry.apply_all("hello".to_string()).unwrap();
+        assert_eq!(result, "HELLO");
+    }
+
+    #[test]
+    fn test_plugin_field_parsed_correctly() {
+        let yaml = r#"
+transforms:
+  - name: my-plugin-transform
+    plugin: my-plugin
+    from: markdown
+    to: html
+    cost: 1.0
+    quality: 0.8
+"#;
+        let config: YamlTransformConfig =
+            serde_yaml_ng::from_str(yaml).expect("should parse");
+        let def = &config.transforms[0];
+        assert_eq!(def.plugin, Some("my-plugin".to_string()));
+        assert_eq!(def.program, None);
+    }
+
+    #[test]
+    fn test_missing_plugin_in_registry_returns_error() {
+        let yaml = r#"
+transforms:
+  - name: ghost-plugin
+    plugin: nonexistent
+    from: markdown
+    to: html
+    cost: 0.5
+    quality: 1.0
+"#;
+        let plugins = PluginRegistry::new();
+        let err = parse_transforms_from_str_with_plugins(yaml, &plugins)
+            .err()
+            .expect("should fail: plugin not registered");
+        assert!(
+            err.to_string().contains("not found in registry"),
+            "unexpected: {}",
+            err
+        );
+    }
+
+    #[test]
+    fn test_empty_plugin_field_returns_error() {
+        let yaml = r#"
+transforms:
+  - name: empty-plugin
+    plugin: ""
+    from: markdown
+    to: html
+    cost: 0.5
+    quality: 1.0
+"#;
+        let plugins = PluginRegistry::new();
+        let err = parse_transforms_from_str_with_plugins(yaml, &plugins)
+            .err()
+            .expect("should fail: empty plugin name");
+        assert!(
+            err.to_string().contains("'plugin' must not be empty"),
+            "unexpected: {}",
+            err
+        );
+    }
+
+    #[test]
+    fn test_neither_program_nor_plugin_returns_error() {
+        let yaml = r#"
+transforms:
+  - name: no-executor
+    from: markdown
+    to: html
+    cost: 1.0
+    quality: 0.9
+"#;
+        let err = parse_transforms_from_str(yaml).err().expect("expected an error");
+        assert!(
+            err.to_string().contains("one of 'program' or 'plugin' must be provided"),
+            "unexpected: {}",
+            err
+        );
+    }
+
+    #[test]
+    fn test_plugin_takes_precedence_over_program_when_both_set() {
+        use std::sync::Arc;
+        use crate::transforms::plugin::{PluginExecutor, PluginRegistry};
+
+        struct AppendBangPlugin;
+        impl PluginExecutor for AppendBangPlugin {
+            fn name(&self) -> &str { "bang" }
+            fn execute(&self, input: String) -> anyhow::Result<String> {
+                Ok(format!("{}!", input))
+            }
+        }
+
+        let mut plugins = PluginRegistry::new();
+        plugins.register(Arc::new(AppendBangPlugin));
+
+        // Both plugin and program are set; plugin must win.
+        let yaml = r#"
+transforms:
+  - name: plugin-wins
+    plugin: bang
+    program: cat
+    from: markdown
+    to: html
+    cost: 0.5
+    quality: 1.0
+"#;
+        let registry = parse_transforms_from_str_with_plugins(yaml, &plugins)
+            .expect("should parse");
+        let result = registry.apply_all("hello".to_string()).unwrap();
+        assert_eq!(result, "hello!");
+    }
+
+    #[test]
+    fn test_load_from_file_with_plugins() {
+        use std::sync::Arc;
+        use crate::transforms::plugin::{PluginExecutor, PluginRegistry};
+
+        struct ReversePlugin;
+        impl PluginExecutor for ReversePlugin {
+            fn name(&self) -> &str { "reverse" }
+            fn execute(&self, input: String) -> anyhow::Result<String> {
+                Ok(input.chars().rev().collect())
+            }
+        }
+
+        let yaml = r#"
+transforms:
+  - name: reverse-transform
+    plugin: reverse
+    from: markdown
+    to: html
+    cost: 0.5
+    quality: 1.0
+"#;
+        let f = write_temp_yaml(yaml);
+        let mut plugins = PluginRegistry::new();
+        plugins.register(Arc::new(ReversePlugin));
+
+        let registry = load_transforms_from_yaml_with_plugins(f.path().to_str().unwrap(), &plugins)
+            .expect("should load from file with plugin");
+        let result = registry.apply_all("hello".to_string()).unwrap();
+        assert_eq!(result, "olleh");
     }
 }
