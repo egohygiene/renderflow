@@ -83,6 +83,14 @@ pub struct Config {
     /// Defaults to [`OptimizationMode::Balanced`] when omitted.
     #[serde(default)]
     pub optimization: OptimizationMode,
+    /// Optional path to a YAML file defining additional command-based transforms.
+    ///
+    /// When set, the named transforms are loaded and applied after the standard
+    /// built-in pipeline (emoji replacement, variable substitution, syntax
+    /// highlighting).  The file must conform to the schema expected by
+    /// [`crate::transforms::load_transforms_from_yaml`].
+    #[serde(default)]
+    pub transforms: Option<String>,
 }
 
 impl Config {
@@ -602,5 +610,32 @@ output_dir: "dist"
             msg.contains("docx"),
             "error should mention unsupported output: {msg}"
         );
+    }
+
+    #[test]
+    fn test_load_config_with_transforms_path() {
+        let yaml = r#"
+outputs:
+  - type: html
+input: "input.md"
+output_dir: "dist"
+transforms: "transforms.yaml"
+"#;
+        let f = write_temp_yaml(yaml);
+        let config = load_config(f.path().to_str().unwrap()).expect("should parse with transforms");
+        assert_eq!(config.transforms.as_deref(), Some("transforms.yaml"));
+    }
+
+    #[test]
+    fn test_load_config_without_transforms_defaults_to_none() {
+        let yaml = r#"
+outputs:
+  - type: html
+input: "input.md"
+output_dir: "dist"
+"#;
+        let f = write_temp_yaml(yaml);
+        let config = load_config(f.path().to_str().unwrap()).expect("should parse without transforms");
+        assert!(config.transforms.is_none());
     }
 }

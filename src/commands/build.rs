@@ -16,6 +16,7 @@ use crate::optimization::OptimizationMode;
 use crate::pipeline::{Pipeline, StrategyStep};
 use crate::strategies::select_strategy;
 use crate::template::{init_tera, validate_templates};
+use crate::transforms::{load_transforms_from_yaml, FailureMode, TransformRegistry};
 
 /// Run the full build pipeline.
 ///
@@ -120,6 +121,20 @@ fn run_impl(config_path: &str, dry_run: bool, resilient: bool, optimization: Opt
     // gracefully.  Only write back to disk in non-dry-run mode.
     let mut transform_cache = load_cache(&cache_path);
 
+    // Load command-based transforms from the YAML file specified in config, if any.
+    // These are applied after the standard built-in pipeline (emoji, variables, syntax).
+    let command_registry: Option<TransformRegistry> = if let Some(ref path) = config.transforms {
+        info!(path = %path, "Loading command-based transforms");
+        let mode = if resilient { FailureMode::ContinueOnError } else { FailureMode::FailFast };
+        Some(
+            load_transforms_from_yaml(path)
+                .with_context(|| format!("Failed to load command-based transforms from '{}'", path))?
+                .with_failure_mode(mode),
+        )
+    } else {
+        None
+    };
+
     pb.set_message(if dry_run { "[DRY RUN] Applying transforms" } else { "Applying transforms" });
     let mut format_transformed: HashMap<String, String> = HashMap::new();
     for output in &config.outputs {
@@ -139,9 +154,18 @@ fn run_impl(config_path: &str, dry_run: bool, resilient: bool, optimization: Opt
             } else {
                 Pipeline::with_standard_transforms(&config.variables, format)
             };
-            pipeline
+            let standard_output = pipeline
                 .run_transforms(normalized_content.as_ref().to_owned())
-                .with_context(|| format!("Transform pipeline failed for format: {format_str}; aborting build"))?
+                .with_context(|| format!("Transform pipeline failed for format: {format_str}; aborting build"))?;
+            // Apply command-based transforms (e.g. ImageMagick, Pandoc) if configured.
+            if let Some(ref cmd_registry) = command_registry {
+                debug!(format = %format_str, "Applying command-based transforms");
+                cmd_registry
+                    .apply_all(standard_output)
+                    .with_context(|| format!("Command transform pipeline failed for format: {format_str}"))?
+            } else {
+                standard_output
+            }
         };
 
         if !dry_run {
