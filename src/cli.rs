@@ -44,7 +44,8 @@ pub enum Commands {
             renderflow build                        Build using renderflow.yaml\n  \
             renderflow build --config custom.yaml   Build with a custom config file\n  \
             renderflow build --dry-run              Preview what would be built\n  \
-            renderflow build --optimization speed   Build using speed optimization mode"
+            renderflow build --optimization speed   Build using speed optimization mode\n  \
+            renderflow build --optimization pareto  Build with Pareto-optimal path selection"
     )]
     Build {
         /// Path to the renderflow configuration file
@@ -57,7 +58,8 @@ pub enum Commands {
 
         /// Optimization mode: controls how transformation paths are selected.
         /// Overrides the value set in the config file when provided.
-        /// Choices: speed (minimise cost), quality (maximise quality), balanced (default).
+        /// Choices: speed (minimise cost), quality (maximise quality), balanced (default),
+        /// pareto (return Pareto-optimal frontier of non-dominated paths).
         #[arg(long, value_name = "MODE")]
         optimization: Option<OptimizationMode>,
     },

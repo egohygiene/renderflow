@@ -295,6 +295,46 @@ impl TransformGraph {
         }
         Some(dag)
     }
+
+    /// Return the Pareto-optimal frontier of paths from `from` to `to`.
+    ///
+    /// All simple paths between the two formats are enumerated first.  Any
+    /// path that is dominated (worse or equal cost **and** worse or equal
+    /// quality compared to another candidate, with at least one strict
+    /// difference) is discarded.  The surviving non-dominated paths are sorted
+    /// by `total_cost` ascending and capped at `cap` entries to prevent an
+    /// explosion for densely connected graphs.
+    ///
+    /// Returns an empty `Vec` when no path exists or when `from`/`to` are
+    /// unknown formats.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use renderflow::graph::{Format, TransformEdge, TransformGraph};
+    ///
+    /// let mut graph = TransformGraph::new();
+    /// // Direct path: cost=5.0, quality=0.99
+    /// graph.add_transform(TransformEdge::new(Format::Markdown, Format::Pdf, 5.0, 0.99));
+    /// // Indirect path via Html: total cost=1.3, quality=0.85
+    /// graph.add_transform(TransformEdge::new(Format::Markdown, Format::Html, 0.5, 1.0));
+    /// graph.add_transform(TransformEdge::new(Format::Html, Format::Pdf, 0.8, 0.85));
+    ///
+    /// // Neither path dominates the other (cheap+low-quality vs expensive+high-quality).
+    /// let frontier = graph.find_pareto_paths(Format::Markdown, Format::Pdf, 10);
+    /// assert_eq!(frontier.len(), 2);
+    /// ```
+    pub fn find_pareto_paths(
+        &self,
+        from: Format,
+        to: Format,
+        cap: usize,
+    ) -> Vec<TransformPath> {
+        use crate::optimization::pareto_frontier;
+
+        let candidates = self.find_all_paths(from, to);
+        pareto_frontier(&candidates, Some(cap))
+    }
 }
 
 impl Default for TransformGraph {
@@ -757,5 +797,79 @@ mod tests {
             .unwrap();
         assert_eq!(path_default.steps.len(), path_speed.steps.len());
         assert!((path_default.total_cost - path_speed.total_cost).abs() < 1e-5);
+    }
+
+    // ── find_pareto_paths ─────────────────────────────────────────────────────
+
+    #[test]
+    fn test_find_pareto_paths_both_non_dominated() {
+        let mut graph = TransformGraph::new();
+        // Direct path: cost=5.0, quality=0.99 — high quality, high cost
+        graph.add_transform(TransformEdge::new(Format::Markdown, Format::Pdf, 5.0, 0.99));
+        // Indirect path via Html: total cost=1.3, quality=0.85 — cheaper, lower quality
+        graph.add_transform(markdown_to_html());
+        graph.add_transform(html_to_pdf());
+
+        // Neither path dominates the other.
+        let frontier = graph.find_pareto_paths(Format::Markdown, Format::Pdf, 10);
+        assert_eq!(frontier.len(), 2, "both paths should be on the frontier");
+    }
+
+    #[test]
+    fn test_find_pareto_paths_dominated_path_excluded() {
+        let mut graph = TransformGraph::new();
+        // Path A: cost=1.3, quality=0.85 (indirect via Html)
+        graph.add_transform(markdown_to_html());
+        graph.add_transform(html_to_pdf());
+        // Path B: cost=5.0, quality=0.3 — dominated by A (worse cost AND worse quality)
+        graph.add_transform(TransformEdge::new(Format::Markdown, Format::Pdf, 5.0, 0.3));
+
+        let frontier = graph.find_pareto_paths(Format::Markdown, Format::Pdf, 10);
+        assert_eq!(frontier.len(), 1, "dominated path should be filtered out");
+        assert!((frontier[0].total_cost - 1.3).abs() < 1e-5);
+    }
+
+    #[test]
+    fn test_find_pareto_paths_cap_limits_results() {
+        let mut graph = TransformGraph::new();
+        // Direct path: cost=5.0, quality=0.99
+        graph.add_transform(TransformEdge::new(Format::Markdown, Format::Pdf, 5.0, 0.99));
+        // Indirect path via Html: cost=1.3, quality=0.85
+        graph.add_transform(markdown_to_html());
+        graph.add_transform(html_to_pdf());
+
+        // Cap at 1 — only cheapest non-dominated path returned.
+        let frontier = graph.find_pareto_paths(Format::Markdown, Format::Pdf, 1);
+        assert_eq!(frontier.len(), 1);
+        assert!((frontier[0].total_cost - 1.3).abs() < 1e-5);
+    }
+
+    #[test]
+    fn test_find_pareto_paths_empty_when_no_path() {
+        let mut graph = TransformGraph::new();
+        graph.add_transform(markdown_to_html());
+        // No Html → Pdf edge; no path exists.
+        let frontier = graph.find_pareto_paths(Format::Markdown, Format::Pdf, 10);
+        assert!(frontier.is_empty());
+    }
+
+    #[test]
+    fn test_find_pareto_paths_empty_for_unknown_format() {
+        let graph = TransformGraph::new();
+        assert!(graph
+            .find_pareto_paths(Format::Markdown, Format::Pdf, 10)
+            .is_empty());
+    }
+
+    #[test]
+    fn test_find_pareto_paths_sorted_by_cost_ascending() {
+        let mut graph = TransformGraph::new();
+        graph.add_transform(TransformEdge::new(Format::Markdown, Format::Pdf, 5.0, 0.99));
+        graph.add_transform(markdown_to_html());
+        graph.add_transform(html_to_pdf());
+
+        let frontier = graph.find_pareto_paths(Format::Markdown, Format::Pdf, 10);
+        assert_eq!(frontier.len(), 2);
+        assert!(frontier[0].total_cost <= frontier[1].total_cost);
     }
 }
