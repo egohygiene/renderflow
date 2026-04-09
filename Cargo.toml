@@ -51,6 +51,8 @@ itertools = "0.14"
 
 petgraph = "0.8"
 
+tempfile = "3"
+
 [package.metadata.generate-rpm]
 assets = [
     { source = "target/release/renderflow", dest = "/usr/bin/renderflow", mode = "0755" },
@@ -70,8 +72,6 @@ assets = [
 ]
 
 [dev-dependencies]
-
-tempfile = "3"
 
 [profile.release]
 opt-level     = 3
