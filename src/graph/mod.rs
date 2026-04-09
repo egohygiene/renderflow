@@ -1,8 +1,12 @@
+mod definition;
+mod definition_registry;
 mod format;
 mod multi_target;
 mod pathfinding;
 mod transform_edge;
 
+pub use definition::TransformDefinition;
+pub use definition_registry::TransformDefinitionRegistry;
 pub use format::Format;
 pub use multi_target::MultiTargetDag;
 pub use pathfinding::TransformPath;
