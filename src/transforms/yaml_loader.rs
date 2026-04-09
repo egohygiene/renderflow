@@ -119,27 +119,26 @@ impl YamlTransformDef {
 
     /// Build a [`CommandTransform`] from this definition.
     ///
-    /// # Panics
-    ///
-    /// Panics when `program` is `None`.  Always call [`validate`](Self::validate)
-    /// first, or check that `program` is `Some` before calling this method.
-    pub fn to_command_transform(&self) -> CommandTransform {
+    /// Returns an error when `program` is `None`.  Call [`validate`](Self::validate)
+    /// first to ensure the definition is well-formed before calling this method.
+    pub fn to_command_transform(&self) -> Result<CommandTransform> {
         let program = self
             .program
             .as_deref()
-            .expect("to_command_transform called without a program field");
-        CommandTransform::new(self.name.clone(), program, self.args.clone())
+            .ok_or_else(|| anyhow::anyhow!("transform '{}': 'program' is required for a command transform", self.name))?;
+        Ok(CommandTransform::new(self.name.clone(), program, self.args.clone()))
     }
 
     /// Build a [`PluginTransform`] from this definition by looking up the
     /// named plugin in `registry`.
     ///
-    /// Returns an error when the plugin name is not registered.
+    /// Returns an error when the plugin field is not set or the plugin name is
+    /// not registered in `registry`.
     pub fn to_plugin_transform(&self, registry: &PluginRegistry) -> Result<PluginTransform> {
         let plugin_name = self
             .plugin
             .as_deref()
-            .expect("to_plugin_transform called without a plugin field");
+            .ok_or_else(|| anyhow::anyhow!("transform '{}': 'plugin' field is required for a plugin transform", self.name))?;
         let executor = registry
             .get(plugin_name)
             .ok_or_else(|| anyhow::anyhow!("transform '{}': plugin '{}' not found in registry", self.name, plugin_name))?;
@@ -211,7 +210,7 @@ pub fn parse_transforms_from_str_with_plugins(yaml: &str, plugins: &PluginRegist
         let transform: Box<dyn Transform> = if def.plugin.is_some() {
             Box::new(def.to_plugin_transform(plugins)?)
         } else {
-            Box::new(def.to_command_transform())
+            Box::new(def.to_command_transform()?)
         };
         registry.register(transform);
     }
