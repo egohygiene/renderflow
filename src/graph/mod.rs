@@ -1,3 +1,4 @@
+mod dag_executor;
 mod definition;
 mod definition_registry;
 mod format;
@@ -6,6 +7,7 @@ mod multi_target;
 mod pathfinding;
 mod transform_edge;
 
+pub use dag_executor::DagExecutor;
 pub use definition::TransformDefinition;
 pub use definition_registry::TransformDefinitionRegistry;
 pub use format::Format;
