@@ -1,9 +1,12 @@
 use std::fmt;
 use std::io::Write;
+use std::path::Path;
 
 use anyhow::{Context, Result};
 use serde_json::json;
+use tracing::{debug, warn};
 
+use crate::cache::{compute_ai_input_hash, current_unix_timestamp, load_ai_cache, save_ai_cache, AiCacheEntry};
 use super::Transform;
 
 /// The AI backend to use for an [`AiTransform`].
@@ -88,6 +91,11 @@ pub struct AiTransform {
     endpoint: String,
     api_key: Option<String>,
     artifact_path: Option<String>,
+    /// Optional path to the AI result cache file.
+    ///
+    /// When set, [`AiTransform::apply`] checks the cache before calling the
+    /// AI backend and stores the result with metadata after a successful call.
+    cache_path: Option<String>,
 }
 
 // ── Builder ───────────────────────────────────────────────────────────────────
@@ -103,6 +111,7 @@ pub struct AiTransformBuilder {
     endpoint: Option<String>,
     api_key: Option<String>,
     artifact_path: Option<String>,
+    cache_path: Option<String>,
 }
 
 impl AiTransformBuilder {
@@ -115,6 +124,7 @@ impl AiTransformBuilder {
             endpoint: None,
             api_key: None,
             artifact_path: None,
+            cache_path: None,
         }
     }
 
@@ -163,6 +173,17 @@ impl AiTransformBuilder {
         self
     }
 
+    /// Optional path to the AI result cache file.
+    ///
+    /// When set, [`AiTransform::apply`] will:
+    /// 1. Compute a hash of the rendered prompt and model.
+    /// 2. Return a cached output immediately on a cache hit (skipping the AI call).
+    /// 3. Store the result with metadata (model, timestamp, input hash) on a miss.
+    pub fn cache_path(mut self, path: impl Into<String>) -> Self {
+        self.cache_path = Some(path.into());
+        self
+    }
+
     /// Consume the builder and return an [`AiTransform`].
     ///
     /// Uses sensible defaults for any unset fields:
@@ -180,6 +201,7 @@ impl AiTransformBuilder {
             endpoint: self.endpoint.unwrap_or_else(|| "http://localhost:11434".to_string()),
             api_key: self.api_key,
             artifact_path: self.artifact_path,
+            cache_path: self.cache_path,
         }
     }
 }
@@ -302,8 +324,38 @@ impl Transform for AiTransform {
     /// The `{input}` placeholder in `prompt_template` is replaced with
     /// `input` before the request is made.  When `artifact_path` is set the
     /// response is also written to that file.
+    ///
+    /// When `cache_path` is set, the rendered prompt and model name are hashed
+    /// and the result cache is consulted first.  A cache hit returns the stored
+    /// output immediately, skipping the AI call.  On a miss the backend is
+    /// called, and the result is stored in the cache together with metadata
+    /// (model, Unix timestamp, input hash) before being returned.
     fn apply(&self, input: String) -> Result<String> {
         let prompt = self.render_prompt(&input);
+        let input_hash = compute_ai_input_hash(&prompt, &self.model);
+
+        // ── Cache lookup ──────────────────────────────────────────────────────
+        if let Some(ref cache_path) = self.cache_path {
+            let path = Path::new(cache_path);
+            let cache = load_ai_cache(path);
+            if let Some(entry) = cache.get(&input_hash) {
+                debug!(
+                    transform = %self.name,
+                    model = %self.model,
+                    input_hash = %input_hash,
+                    "AI cache hit — returning cached output"
+                );
+                return Ok(entry.output.clone());
+            }
+            debug!(
+                transform = %self.name,
+                model = %self.model,
+                input_hash = %input_hash,
+                "AI cache miss — calling backend"
+            );
+        }
+
+        // ── Backend call ──────────────────────────────────────────────────────
         let output = match self.backend {
             AiBackend::Ollama => self.call_ollama(&prompt),
             AiBackend::OpenAi => self.call_openai(&prompt),
@@ -314,6 +366,28 @@ impl Transform for AiTransform {
                 self.name, self.backend, self.model
             )
         })?;
+
+        // ── Cache store ───────────────────────────────────────────────────────
+        if let Some(ref cache_path) = self.cache_path {
+            let path = Path::new(cache_path);
+            let mut cache = load_ai_cache(path);
+            cache.insert(
+                input_hash.clone(),
+                AiCacheEntry {
+                    input_hash,
+                    model: self.model.clone(),
+                    timestamp: current_unix_timestamp(),
+                    output: output.clone(),
+                },
+            );
+            if let Err(e) = save_ai_cache(&cache, path) {
+                warn!(
+                    transform = %self.name,
+                    error = %e,
+                    "Failed to save AI cache; result will not be cached"
+                );
+            }
+        }
 
         self.write_artifact(&output)?;
         Ok(output)
@@ -336,6 +410,7 @@ mod tests {
         assert_eq!(t.endpoint, "http://localhost:11434");
         assert!(t.api_key.is_none());
         assert!(t.artifact_path.is_none());
+        assert!(t.cache_path.is_none());
     }
 
     #[test]
@@ -348,6 +423,7 @@ mod tests {
             .endpoint("https://api.openai.com")
             .api_key("sk-test")
             .artifact_path("/tmp/output.txt")
+            .cache_path("/tmp/ai-cache.json")
             .build();
 
         assert_eq!(t.name(), "test-ai");
@@ -357,6 +433,7 @@ mod tests {
         assert_eq!(t.endpoint, "https://api.openai.com");
         assert_eq!(t.api_key.as_deref(), Some("sk-test"));
         assert_eq!(t.artifact_path.as_deref(), Some("/tmp/output.txt"));
+        assert_eq!(t.cache_path.as_deref(), Some("/tmp/ai-cache.json"));
     }
 
     // ── prompt rendering ──────────────────────────────────────────────────────
@@ -455,5 +532,91 @@ mod tests {
             "unexpected error: {}",
             err
         );
+    }
+
+    // ── caching ───────────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_cache_path_builder_sets_field() {
+        let t = AiTransform::builder()
+            .cache_path("/tmp/test-ai-cache.json")
+            .build();
+        assert_eq!(t.cache_path.as_deref(), Some("/tmp/test-ai-cache.json"));
+    }
+
+    #[test]
+    fn test_apply_returns_cached_output_on_cache_hit() {
+        use crate::cache::{compute_ai_input_hash, save_ai_cache, AiCache, AiCacheEntry};
+
+        let dir = tempfile::tempdir().unwrap();
+        let cache_file = dir.path().join(".renderflow-ai-cache.json");
+
+        // Build the transform (without a real endpoint — the cache will short-circuit).
+        let t = AiTransform::builder()
+            .name("cached-ai")
+            .model("mistral")
+            .prompt_template("Summarise: {input}")
+            .cache_path(cache_file.to_str().unwrap())
+            .build();
+
+        // Pre-populate the cache with the expected hash.
+        let rendered_prompt = "Summarise: hello world";
+        let hash = compute_ai_input_hash(rendered_prompt, "mistral");
+        let mut cache = AiCache::default();
+        cache.insert(
+            hash,
+            AiCacheEntry {
+                input_hash: compute_ai_input_hash(rendered_prompt, "mistral"),
+                model: "mistral".to_string(),
+                timestamp: 1_700_000_000,
+                output: "cached AI output".to_string(),
+            },
+        );
+        save_ai_cache(&cache, &cache_file).unwrap();
+
+        // apply() must return the cached output without contacting any backend.
+        let result = t.apply("hello world".to_string()).unwrap();
+        assert_eq!(result, "cached AI output");
+    }
+
+    #[test]
+    fn test_apply_without_cache_path_skips_cache() {
+        // A transform with no cache_path – the cache is never consulted.
+        // We cannot call apply() without a live backend, so we just verify the
+        // field is absent and that the transform is constructed correctly.
+        let t = AiTransform::builder()
+            .model("mistral")
+            .build();
+        assert!(t.cache_path.is_none());
+    }
+
+    #[test]
+    fn test_apply_cache_miss_attempts_backend_call() {
+        use crate::cache::{load_ai_cache, AiCache};
+
+        let dir = tempfile::tempdir().unwrap();
+        let cache_file = dir.path().join(".renderflow-ai-cache.json");
+
+        // Start with an empty cache – guaranteed miss.
+        let empty_cache = AiCache::default();
+        crate::cache::save_ai_cache(&empty_cache, &cache_file).unwrap();
+
+        let t = AiTransform::builder()
+            .name("miss-ai")
+            .model("mistral")
+            // Point at a non-listening address so the backend call fails fast.
+            .endpoint("http://127.0.0.1:1")
+            .cache_path(cache_file.to_str().unwrap())
+            .build();
+
+        // The backend call will fail (nothing listening on port 1).
+        // That is expected; what matters is that the cache was checked first.
+        let result = t.apply("test input".to_string());
+        assert!(result.is_err(), "expected backend error on cache miss");
+        // The cache file should still be empty (no successful result to store).
+        // Use the rendered prompt (as apply() does) to compute the expected hash.
+        let rendered = t.render_prompt("test input");
+        let reloaded = load_ai_cache(&cache_file);
+        assert!(reloaded.get(&crate::cache::compute_ai_input_hash(&rendered, "mistral")).is_none());
     }
 }
