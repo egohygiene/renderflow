@@ -150,9 +150,8 @@ fn run_impl(
             path.display()
         );
         for target in &targets {
-            let output_path =
-                format!("{}/{}.{}", path.display(), input_stem, target);
-            info!("[DRY RUN] Would write '{}' output to: {}", target, output_path);
+            let output_path = path.join(format!("{}.{}", input_stem, target));
+            info!("[DRY RUN] Would write '{}' output to: {}", target, output_path.display());
         }
         return Ok(());
     } else {
@@ -173,10 +172,10 @@ fn run_impl(
         if *format == source_format {
             continue;
         }
-        let output_path = format!("{}/{}.{}", output_dir.display(), input_stem, format);
+        let output_path = output_dir.join(format!("{}.{}", input_stem, format));
         fs::write(&output_path, output_content)
-            .with_context(|| format!("Failed to write output to '{}'", output_path))?;
-        info!("✔ Output written to: {}", output_path);
+            .with_context(|| format!("Failed to write output to '{}'", output_path.display()))?;
+        info!("✔ Output written to: {}", output_path.display());
     }
 
     Ok(())

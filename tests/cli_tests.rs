@@ -408,29 +408,7 @@ fn test_all_without_transforms_exits_with_error() {
 
 #[test]
 fn test_target_dry_run_exits_successfully() {
-    use std::io::Write as _;
-
-    // Build a minimal config with a transforms file so graph mode can run.
-    let dir = tempfile::tempdir().expect("failed to create temp dir");
-    let input_path = dir.path().join("doc.md");
-    std::fs::write(&input_path, "# Hello\n").expect("failed to write input");
-
-    // A transforms YAML with a single markdown→html edge (program: cat).
-    let transforms_path = dir.path().join("transforms.yaml");
-    let transforms_yaml = "transforms:\n  - name: md-to-html\n    program: cat\n    from: markdown\n    to: html\n    cost: 1.0\n    quality: 0.9\n";
-    std::fs::write(&transforms_path, transforms_yaml).expect("failed to write transforms");
-
-    let output_dir = dir.path().join("dist");
-    let config_content = format!(
-        "input: \"{}\"\noutput_dir: \"{}\"\ntransforms: \"{}\"\n",
-        input_path.display(),
-        output_dir.display(),
-        transforms_path.display(),
-    );
-    let mut config_file = tempfile::NamedTempFile::new().expect("failed to create temp config");
-    config_file
-        .write_all(config_content.as_bytes())
-        .expect("failed to write config");
+    let (config_file, _dir) = common::graph_config_file();
 
     let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
         .arg("build")
@@ -456,27 +434,7 @@ fn test_target_dry_run_exits_successfully() {
 
 #[test]
 fn test_all_dry_run_exits_successfully() {
-    use std::io::Write as _;
-
-    let dir = tempfile::tempdir().expect("failed to create temp dir");
-    let input_path = dir.path().join("doc.md");
-    std::fs::write(&input_path, "# Hello\n").expect("failed to write input");
-
-    let transforms_path = dir.path().join("transforms.yaml");
-    let transforms_yaml = "transforms:\n  - name: md-to-html\n    program: cat\n    from: markdown\n    to: html\n    cost: 1.0\n    quality: 0.9\n";
-    std::fs::write(&transforms_path, transforms_yaml).expect("failed to write transforms");
-
-    let output_dir = dir.path().join("dist");
-    let config_content = format!(
-        "input: \"{}\"\noutput_dir: \"{}\"\ntransforms: \"{}\"\n",
-        input_path.display(),
-        output_dir.display(),
-        transforms_path.display(),
-    );
-    let mut config_file = tempfile::NamedTempFile::new().expect("failed to create temp config");
-    config_file
-        .write_all(config_content.as_bytes())
-        .expect("failed to write config");
+    let (config_file, _dir) = common::graph_config_file();
 
     let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
         .arg("build")
