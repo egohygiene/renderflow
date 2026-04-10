@@ -1,5 +1,6 @@
 mod command;
 mod emoji;
+pub mod plugin;
 mod registry;
 mod syntax_highlight;
 mod transform;
