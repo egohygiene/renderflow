@@ -18,6 +18,8 @@ pub enum Format {
     Epub,
     Rst,
     Latex,
+    /// Fountain screenplay plain-text format.
+    Fountain,
 }
 
 impl fmt::Display for Format {
@@ -30,6 +32,7 @@ impl fmt::Display for Format {
             Format::Epub => "epub",
             Format::Rst => "rst",
             Format::Latex => "latex",
+            Format::Fountain => "fountain",
         };
         write!(f, "{}", s)
     }
@@ -54,9 +57,10 @@ impl FromStr for Format {
             "epub" => Ok(Format::Epub),
             "rst" => Ok(Format::Rst),
             "latex" | "tex" => Ok(Format::Latex),
+            "fountain" => Ok(Format::Fountain),
             _ => anyhow::bail!(
                 "'{}' is not a known format. Supported formats are: \
-                 markdown, html, pdf, docx, epub, rst, latex",
+                 markdown, html, pdf, docx, epub, rst, latex, fountain",
                 s
             ),
         }

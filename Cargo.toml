@@ -53,6 +53,8 @@ petgraph = "0.8"
 
 tempfile = "3"
 
+ureq = { version = "2", features = ["json"] }
+
 [package.metadata.generate-rpm]
 assets = [
     { source = "target/release/renderflow", dest = "/usr/bin/renderflow", mode = "0755" },
