@@ -48,6 +48,16 @@ fn main() -> Result<()> {
         }
         Some(Commands::Watch { config, debounce }) => commands::watch::run(&config, debounce)?,
         Some(Commands::Audit) => commands::audit::run()?,
+        Some(Commands::Inspect { config, output_format, target, all, export }) => {
+            commands::inspect::run(
+                &config,
+                &output_format,
+                target.as_deref(),
+                all,
+                export.as_deref(),
+                None,
+            )?
+        }
         None => {
             info!("No subcommand provided, defaulting to build");
             match cli.input {

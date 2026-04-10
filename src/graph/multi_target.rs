@@ -143,6 +143,210 @@ impl MultiTargetDag {
             .filter(|e| e.input_kind.is_collection())
             .collect()
     }
+
+    /// Render a human-readable tree view of the DAG for CLI display.
+    ///
+    /// `source` is the originating [`Format`] (highlighted as the root node).
+    /// The output lists nodes, edges, and the full execution order with costs
+    /// and quality scores, making it easy to understand the planned
+    /// transformation pipeline at a glance.
+    ///
+    /// # Example output
+    ///
+    /// ```text
+    /// DAG Execution Plan
+    /// ==================
+    /// Source: markdown
+    ///
+    /// Nodes (3):
+    ///   • markdown
+    ///   • html
+    ///   • pdf
+    ///
+    /// Edges (2):
+    ///   markdown ──► html  [cost: 0.50, quality: 1.00]
+    ///   html     ──► pdf   [cost: 0.80, quality: 0.85]
+    ///
+    /// Execution Order:
+    ///   [1]  markdown  →  html  (cost: 0.50, quality: 1.00)
+    ///   [2]  html      →  pdf   (cost: 0.80, quality: 0.85)
+    /// ```
+    pub fn to_tree(&self, source: Format) -> String {
+        use petgraph::algo::toposort;
+        use std::fmt::Write;
+
+        let mut out = String::new();
+
+        // ── header ────────────────────────────────────────────────────────────
+        let _ = writeln!(out, "DAG Execution Plan");
+        let _ = writeln!(out, "==================");
+        let _ = writeln!(out, "Source: {}", source);
+
+        // ── nodes ─────────────────────────────────────────────────────────────
+        let _ = writeln!(out);
+        let _ = writeln!(out, "Nodes ({}):", self.node_count());
+
+        // Sort node labels for deterministic output.
+        let mut node_labels: Vec<String> = self
+            .graph
+            .node_weights()
+            .map(|f| f.to_string())
+            .collect();
+        node_labels.sort();
+        for label in &node_labels {
+            let _ = writeln!(out, "  • {}", label);
+        }
+
+        // ── edges ─────────────────────────────────────────────────────────────
+        let _ = writeln!(out);
+        let _ = writeln!(out, "Edges ({}):", self.edge_count());
+
+        // Compute column width for aligned arrows.
+        let max_from = self
+            .graph
+            .edge_weights()
+            .map(|e| e.from.to_string().len())
+            .max()
+            .unwrap_or(0);
+
+        let mut edge_lines: Vec<String> = self
+            .graph
+            .edge_weights()
+            .map(|e| {
+                format!(
+                    "  {:<width$} ──► {}  [cost: {:.2}, quality: {:.2}]",
+                    e.from.to_string(),
+                    e.to,
+                    e.cost,
+                    e.quality,
+                    width = max_from
+                )
+            })
+            .collect();
+        edge_lines.sort();
+        for line in &edge_lines {
+            let _ = writeln!(out, "{}", line);
+        }
+
+        // ── execution order ───────────────────────────────────────────────────
+        let _ = writeln!(out);
+        let _ = writeln!(out, "Execution Order:");
+
+        let sorted_nodes = match toposort(&self.graph, None) {
+            Ok(nodes) => nodes,
+            Err(_) => {
+                let _ = writeln!(out, "  (cycle detected – execution order unavailable)");
+                return out;
+            }
+        };
+
+        let mut step = 1usize;
+        let max_from_exec = self
+            .graph
+            .edge_weights()
+            .map(|e| e.from.to_string().len())
+            .max()
+            .unwrap_or(0);
+        let max_to_exec = self
+            .graph
+            .edge_weights()
+            .map(|e| e.to.to_string().len())
+            .max()
+            .unwrap_or(0);
+
+        for node in &sorted_nodes {
+            for edge_ref in self.graph.edges(*node) {
+                let e = edge_ref.weight();
+                let _ = writeln!(
+                    out,
+                    "  [{step}]  {:<fw$}  →  {:<tw$}  (cost: {:.2}, quality: {:.2})",
+                    e.from.to_string(),
+                    e.to.to_string(),
+                    e.cost,
+                    e.quality,
+                    fw = max_from_exec,
+                    tw = max_to_exec,
+                );
+                step += 1;
+            }
+        }
+
+        out
+    }
+
+    /// Render the DAG as a [DOT language](https://graphviz.org/doc/info/lang.html)
+    /// string suitable for use with Graphviz tools (e.g. `dot`, `neato`).
+    ///
+    /// `source` is the originating [`Format`]; it receives a distinct visual
+    /// style (filled blue) in the output graph.  Target (leaf) nodes are
+    /// highlighted green.  All other intermediate nodes use the default style.
+    ///
+    /// The generated string can be saved to a `.dot` file and rendered with:
+    ///
+    /// ```sh
+    /// dot -Tsvg pipeline.dot -o pipeline.svg
+    /// ```
+    pub fn to_dot(&self, source: Format) -> String {
+        use std::fmt::Write;
+
+        let mut out = String::new();
+
+        let _ = writeln!(out, "digraph renderflow {{");
+        let _ = writeln!(out, "    rankdir=LR;");
+        let _ = writeln!(out, "    node [shape=box fontname=\"monospace\"];");
+        let _ = writeln!(out);
+
+        // Identify leaf nodes (nodes with no outgoing edges in the DAG).
+        let leaf_nodes: std::collections::HashSet<Format> = self
+            .nodes
+            .keys()
+            .filter(|&&f| {
+                let idx = self.nodes[&f];
+                self.graph.edges(idx).next().is_none()
+            })
+            .copied()
+            .collect();
+
+        // Emit node declarations with styles.
+        let mut node_labels: Vec<String> = self
+            .graph
+            .node_weights()
+            .map(|f| f.to_string())
+            .collect();
+        node_labels.sort();
+        for label in &node_labels {
+            let format: Format = label.parse().expect("node label is always a valid Format");
+            let style = if format == source {
+                " style=filled fillcolor=lightblue".to_string()
+            } else if leaf_nodes.contains(&format) {
+                " style=filled fillcolor=lightgreen".to_string()
+            } else {
+                String::new()
+            };
+            let _ = writeln!(out, "    \"{label}\" [label=\"{label}\"{style}];");
+        }
+
+        let _ = writeln!(out);
+
+        // Emit edges.
+        let mut edge_lines: Vec<String> = self
+            .graph
+            .edge_weights()
+            .map(|e| {
+                format!(
+                    "    \"{}\" -> \"{}\" [label=\"cost={:.2}\\nquality={:.2}\"];",
+                    e.from, e.to, e.cost, e.quality
+                )
+            })
+            .collect();
+        edge_lines.sort();
+        for line in &edge_lines {
+            let _ = writeln!(out, "{}", line);
+        }
+
+        let _ = writeln!(out, "}}");
+        out
+    }
 }
 
 #[cfg(test)]
@@ -387,5 +591,137 @@ mod tests {
 
         let collection = dag.collection_edges();
         assert_eq!(collection.len(), 2);
+    }
+
+    // ── to_tree ───────────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_to_tree_contains_header() {
+        let g = build_graph();
+        let dag = g
+            .build_multi_target_dag(Format::Markdown, &[Format::Pdf, Format::Docx])
+            .unwrap();
+
+        let tree = dag.to_tree(Format::Markdown);
+        assert!(tree.contains("DAG Execution Plan"), "header missing: {tree}");
+        assert!(tree.contains("Source: markdown"), "source line missing: {tree}");
+    }
+
+    #[test]
+    fn test_to_tree_lists_nodes() {
+        let g = build_graph();
+        let dag = g
+            .build_multi_target_dag(Format::Markdown, &[Format::Pdf, Format::Docx])
+            .unwrap();
+
+        let tree = dag.to_tree(Format::Markdown);
+        assert!(tree.contains("markdown"), "markdown node missing");
+        assert!(tree.contains("html"), "html node missing");
+        assert!(tree.contains("pdf"), "pdf node missing");
+        assert!(tree.contains("docx"), "docx node missing");
+    }
+
+    #[test]
+    fn test_to_tree_lists_edges() {
+        let g = build_graph();
+        let dag = g
+            .build_multi_target_dag(Format::Markdown, &[Format::Pdf, Format::Docx])
+            .unwrap();
+
+        let tree = dag.to_tree(Format::Markdown);
+        assert!(tree.contains("──►"), "edge arrow missing");
+        // All three transforms should appear.
+        assert!(tree.contains("Edges (3)"), "edge count missing: {tree}");
+    }
+
+    #[test]
+    fn test_to_tree_lists_execution_order() {
+        let g = build_graph();
+        let dag = g
+            .build_multi_target_dag(Format::Markdown, &[Format::Pdf, Format::Docx])
+            .unwrap();
+
+        let tree = dag.to_tree(Format::Markdown);
+        assert!(tree.contains("Execution Order:"), "execution order section missing");
+        assert!(tree.contains("[1]"), "first step missing");
+    }
+
+    #[test]
+    fn test_to_tree_empty_dag() {
+        let g = build_graph();
+        let dag = g
+            .build_multi_target_dag(Format::Markdown, &[])
+            .unwrap();
+
+        let tree = dag.to_tree(Format::Markdown);
+        assert!(tree.contains("Nodes (0)"), "empty node count wrong: {tree}");
+        assert!(tree.contains("Edges (0)"), "empty edge count wrong: {tree}");
+    }
+
+    // ── to_dot ────────────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_to_dot_contains_digraph() {
+        let g = build_graph();
+        let dag = g
+            .build_multi_target_dag(Format::Markdown, &[Format::Pdf, Format::Docx])
+            .unwrap();
+
+        let dot = dag.to_dot(Format::Markdown);
+        assert!(dot.starts_with("digraph renderflow {"), "missing digraph header: {dot}");
+        assert!(dot.trim_end().ends_with('}'), "missing closing brace: {dot}");
+    }
+
+    #[test]
+    fn test_to_dot_source_node_highlighted() {
+        let g = build_graph();
+        let dag = g
+            .build_multi_target_dag(Format::Markdown, &[Format::Pdf])
+            .unwrap();
+
+        let dot = dag.to_dot(Format::Markdown);
+        assert!(
+            dot.contains("lightblue"),
+            "source node should have lightblue fill: {dot}"
+        );
+    }
+
+    #[test]
+    fn test_to_dot_leaf_nodes_highlighted() {
+        let g = build_graph();
+        let dag = g
+            .build_multi_target_dag(Format::Markdown, &[Format::Pdf])
+            .unwrap();
+
+        let dot = dag.to_dot(Format::Markdown);
+        assert!(
+            dot.contains("lightgreen"),
+            "leaf node (pdf) should have lightgreen fill: {dot}"
+        );
+    }
+
+    #[test]
+    fn test_to_dot_contains_edges() {
+        let g = build_graph();
+        let dag = g
+            .build_multi_target_dag(Format::Markdown, &[Format::Pdf, Format::Docx])
+            .unwrap();
+
+        let dot = dag.to_dot(Format::Markdown);
+        assert!(dot.contains("\"markdown\" -> \"html\""), "markdown→html edge missing: {dot}");
+        assert!(dot.contains("\"html\" -> \"pdf\""), "html→pdf edge missing: {dot}");
+        assert!(dot.contains("\"html\" -> \"docx\""), "html→docx edge missing: {dot}");
+    }
+
+    #[test]
+    fn test_to_dot_edge_labels_include_cost_and_quality() {
+        let g = build_graph();
+        let dag = g
+            .build_multi_target_dag(Format::Markdown, &[Format::Pdf])
+            .unwrap();
+
+        let dot = dag.to_dot(Format::Markdown);
+        assert!(dot.contains("cost="), "cost label missing: {dot}");
+        assert!(dot.contains("quality="), "quality label missing: {dot}");
     }
 }

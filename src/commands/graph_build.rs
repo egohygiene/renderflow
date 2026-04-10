@@ -2,7 +2,7 @@ use std::fs;
 use std::path::Path;
 
 use anyhow::{Context, Result};
-use tracing::info;
+use tracing::{debug, info};
 
 use crate::config::load_config_for_graph;
 use crate::files::ensure_output_dir;
@@ -137,6 +137,9 @@ fn run_impl(
                 source_format
             )
         })?;
+
+    // Emit the execution plan when debug logging is enabled.
+    debug!("Execution plan (DAG tree):\n{}", dag.to_tree(source_format));
 
     let input_stem = Path::new(&config.input)
         .file_stem()
