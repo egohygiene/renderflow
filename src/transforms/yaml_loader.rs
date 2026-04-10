@@ -429,6 +429,88 @@ pub fn load_aggregation_transforms_from_yaml(path: &str) -> Result<AggregationRe
         .with_context(|| format!("Failed to load aggregation transforms from: {}", path))
 }
 
+/// Build a [`TransformGraph`] and a [`DagExecutor`] from a YAML transform
+/// configuration file.
+///
+/// Each entry in the file is validated and then:
+///
+/// * Registered as a directed edge in the [`TransformGraph`] for path-finding.
+/// * Registered in the [`DagExecutor`] so that it can be executed at runtime
+///   (single-input entries via [`DagExecutor::register_single`]; collection
+///   entries via [`DagExecutor::register_aggregation`]).
+///
+/// This function is the primary integration point between the YAML transform
+/// configuration and the graph-based CLI execution modes (`--target`, `--all`).
+///
+/// # Errors
+///
+/// Returns an error when:
+/// * the file cannot be read,
+/// * the YAML is malformed,
+/// * any transform definition fails validation.
+pub fn build_graph_and_executor_from_yaml(
+    path: &str,
+) -> Result<(crate::graph::TransformGraph, crate::graph::DagExecutor)> {
+    let content = fs::read_to_string(path)
+        .with_context(|| format!("Failed to read transform config: {}", path))?;
+    build_graph_and_executor_from_str(&content)
+        .with_context(|| format!("Failed to build graph and executor from: {}", path))
+}
+
+/// Build a [`TransformGraph`] and a [`DagExecutor`] from a YAML string.
+///
+/// See [`build_graph_and_executor_from_yaml`] for details.
+pub fn build_graph_and_executor_from_str(
+    yaml: &str,
+) -> Result<(crate::graph::TransformGraph, crate::graph::DagExecutor)> {
+    use std::sync::Arc;
+
+    use crate::graph::{DagExecutor, Format, InputKind, TransformEdge, TransformGraph};
+
+    let config: YamlTransformConfig =
+        serde_yaml_ng::from_str(yaml).context("Failed to parse YAML transform config")?;
+
+    let mut graph = TransformGraph::new();
+    let mut executor = DagExecutor::new();
+
+    for def in &config.transforms {
+        def.validate()?;
+
+        let from: Format = def
+            .from
+            .parse()
+            .with_context(|| format!("transform '{}': invalid 'from' format", def.name))?;
+        let to: Format = def
+            .to
+            .parse()
+            .with_context(|| format!("transform '{}': invalid 'to' format", def.name))?;
+
+        let input_kind = if def.is_collection() {
+            InputKind::Collection
+        } else {
+            InputKind::Single
+        };
+
+        graph.add_transform(TransformEdge::with_input_kind(
+            from, to, def.cost, def.quality, input_kind,
+        ));
+
+        if def.is_collection() {
+            let agg = Arc::new(def.to_aggregation_transform()?);
+            executor.register_aggregation(from, to, agg);
+        } else {
+            let transform: Arc<dyn Transform + Send + Sync> = if def.ai.is_some() {
+                Arc::new(def.to_ai_transform()?)
+            } else {
+                Arc::new(def.to_command_transform()?)
+            };
+            executor.register_single(from, to, transform);
+        }
+    }
+
+    Ok((graph, executor))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1324,5 +1406,97 @@ transforms:
         let registry = load_aggregation_transforms_from_yaml(f.path().to_str().unwrap())
             .expect("should load aggregation transforms");
         assert!(registry.get("images-to-pdf").is_some());
+    }
+
+    // ── build_graph_and_executor_from_str ─────────────────────────────────────
+
+    #[test]
+    fn test_build_graph_and_executor_single_edge() {
+        let yaml = r#"
+transforms:
+  - name: md-to-html
+    program: cat
+    from: markdown
+    to: html
+    cost: 0.5
+    quality: 1.0
+"#;
+        let (graph, _executor) =
+            build_graph_and_executor_from_str(yaml).expect("should build graph");
+
+        use crate::graph::Format;
+        assert!(graph.has_transform(Format::Markdown, Format::Html));
+    }
+
+    #[test]
+    fn test_build_graph_and_executor_two_edges() {
+        let yaml = r#"
+transforms:
+  - name: md-to-html
+    program: cat
+    from: markdown
+    to: html
+    cost: 0.5
+    quality: 1.0
+  - name: html-to-pdf
+    program: cat
+    from: html
+    to: pdf
+    cost: 0.8
+    quality: 0.85
+"#;
+        let (graph, _executor) =
+            build_graph_and_executor_from_str(yaml).expect("should build graph");
+
+        use crate::graph::Format;
+        assert!(graph.has_transform(Format::Markdown, Format::Html));
+        assert!(graph.has_transform(Format::Html, Format::Pdf));
+    }
+
+    #[test]
+    fn test_build_graph_and_executor_invalid_format_returns_error() {
+        let yaml = r#"
+transforms:
+  - name: bad-transform
+    program: cat
+    from: not-a-format
+    to: html
+    cost: 0.5
+    quality: 1.0
+"#;
+        let result = build_graph_and_executor_from_str(yaml);
+        assert!(result.is_err(), "invalid 'from' format should return an error");
+    }
+
+    #[test]
+    fn test_build_graph_and_executor_from_file_missing_returns_error() {
+        let result = build_graph_and_executor_from_yaml("/nonexistent/transforms.yaml");
+        assert!(result.is_err(), "missing file should return an error");
+    }
+
+    #[test]
+    fn test_build_graph_reachable_from_matches_edges() {
+        let yaml = r#"
+transforms:
+  - name: md-to-html
+    program: cat
+    from: markdown
+    to: html
+    cost: 0.5
+    quality: 1.0
+  - name: html-to-pdf
+    program: cat
+    from: html
+    to: pdf
+    cost: 0.8
+    quality: 0.85
+"#;
+        let (graph, _executor) =
+            build_graph_and_executor_from_str(yaml).expect("should build graph");
+
+        use crate::graph::Format;
+        let reachable = graph.reachable_from(Format::Markdown);
+        assert!(reachable.contains(&Format::Html));
+        assert!(reachable.contains(&Format::Pdf));
     }
 }

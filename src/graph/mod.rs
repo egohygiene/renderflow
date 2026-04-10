@@ -315,6 +315,47 @@ impl TransformGraph {
         Some(dag)
     }
 
+    /// Return all [`Format`] variants reachable from `from` via any sequence
+    /// of directed edges.
+    ///
+    /// The source format itself is excluded from the result.  An empty `Vec`
+    /// is returned when `from` is not a node in the graph or when no outgoing
+    /// edges exist.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use renderflow::graph::{Format, TransformEdge, TransformGraph};
+    ///
+    /// let mut graph = TransformGraph::new();
+    /// graph.add_transform(TransformEdge::new(Format::Markdown, Format::Html, 0.5, 1.0));
+    /// graph.add_transform(TransformEdge::new(Format::Html, Format::Pdf, 0.8, 0.85));
+    ///
+    /// let reachable = graph.reachable_from(Format::Markdown);
+    /// assert!(reachable.contains(&Format::Html));
+    /// assert!(reachable.contains(&Format::Pdf));
+    /// assert!(!reachable.contains(&Format::Markdown));
+    /// ```
+    pub fn reachable_from(&self, from: Format) -> Vec<Format> {
+        use petgraph::visit::Bfs;
+
+        let Some(&start_idx) = self.nodes.get(&from) else {
+            return Vec::new();
+        };
+
+        let mut bfs = Bfs::new(&self.graph, start_idx);
+        let mut reachable = Vec::new();
+
+        // The first call to `next` returns `start_idx` itself; skip it.
+        bfs.next(&self.graph);
+
+        while let Some(nx) = bfs.next(&self.graph) {
+            reachable.push(self.graph[nx]);
+        }
+
+        reachable
+    }
+
     /// Return the Pareto-optimal frontier of paths from `from` to `to`.
     ///
     /// All simple paths between the two formats are enumerated first.  Any
@@ -890,5 +931,66 @@ mod tests {
         let frontier = graph.find_pareto_paths(Format::Markdown, Format::Pdf, 10);
         assert_eq!(frontier.len(), 2);
         assert!(frontier[0].total_cost <= frontier[1].total_cost);
+    }
+
+    // ── reachable_from ────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_reachable_from_empty_graph_returns_empty() {
+        let graph = TransformGraph::new();
+        assert!(graph.reachable_from(Format::Markdown).is_empty());
+    }
+
+    #[test]
+    fn test_reachable_from_excludes_source() {
+        let mut graph = TransformGraph::new();
+        graph.add_transform(markdown_to_html());
+
+        let reachable = graph.reachable_from(Format::Markdown);
+        assert!(!reachable.contains(&Format::Markdown));
+    }
+
+    #[test]
+    fn test_reachable_from_direct_neighbour() {
+        let mut graph = TransformGraph::new();
+        graph.add_transform(markdown_to_html());
+
+        let reachable = graph.reachable_from(Format::Markdown);
+        assert!(reachable.contains(&Format::Html));
+        assert_eq!(reachable.len(), 1);
+    }
+
+    #[test]
+    fn test_reachable_from_transitive_neighbours() {
+        let mut graph = TransformGraph::new();
+        graph.add_transform(markdown_to_html());
+        graph.add_transform(html_to_pdf());
+
+        let reachable = graph.reachable_from(Format::Markdown);
+        assert!(reachable.contains(&Format::Html));
+        assert!(reachable.contains(&Format::Pdf));
+        assert_eq!(reachable.len(), 2);
+    }
+
+    #[test]
+    fn test_reachable_from_unknown_format_returns_empty() {
+        let mut graph = TransformGraph::new();
+        graph.add_transform(markdown_to_html());
+
+        // Epub is not a node in the graph.
+        assert!(graph.reachable_from(Format::Epub).is_empty());
+    }
+
+    #[test]
+    fn test_reachable_from_disconnected_component_not_included() {
+        let mut graph = TransformGraph::new();
+        graph.add_transform(markdown_to_html());
+        // A disconnected edge: Rst → Latex (not reachable from Markdown).
+        graph.add_transform(TransformEdge::new(Format::Rst, Format::Latex, 1.0, 1.0));
+
+        let reachable = graph.reachable_from(Format::Markdown);
+        assert!(reachable.contains(&Format::Html));
+        assert!(!reachable.contains(&Format::Rst));
+        assert!(!reachable.contains(&Format::Latex));
     }
 }

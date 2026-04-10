@@ -45,7 +45,9 @@ pub enum Commands {
             renderflow build --config custom.yaml   Build with a custom config file\n  \
             renderflow build --dry-run              Preview what would be built\n  \
             renderflow build --optimization speed   Build using speed optimization mode\n  \
-            renderflow build --optimization pareto  Build with Pareto-optimal path selection"
+            renderflow build --optimization pareto  Build with Pareto-optimal path selection\n  \
+            renderflow build --target pdf           Build only the PDF output via graph resolution\n  \
+            renderflow build --all                  Build all reachable outputs via graph resolution"
     )]
     Build {
         /// Path to the renderflow configuration file
@@ -62,6 +64,19 @@ pub enum Commands {
         /// pareto (return Pareto-optimal frontier of non-dominated paths).
         #[arg(long, value_name = "MODE")]
         optimization: Option<OptimizationMode>,
+
+        /// Build only the specified output format using graph-based path resolution.
+        /// The format must be reachable from the input format via the configured transforms.
+        /// Requires a 'transforms' key in the config file.
+        /// Cannot be combined with --all.
+        #[arg(long, value_name = "FORMAT", conflicts_with = "all")]
+        target: Option<String>,
+
+        /// Build all reachable output formats using graph-based path resolution.
+        /// Requires a 'transforms' key in the config file.
+        /// Cannot be combined with --target.
+        #[arg(long, conflicts_with = "target")]
+        all: bool,
     },
 
     /// Watch for file changes and automatically rebuild

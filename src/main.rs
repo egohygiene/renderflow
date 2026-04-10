@@ -37,8 +37,14 @@ fn main() -> Result<()> {
         .init();
 
     match cli.command {
-        Some(Commands::Build { config, dry_run, optimization }) => {
-            commands::build::run(&config, dry_run, optimization)?
+        Some(Commands::Build { config, dry_run, optimization, target, all }) => {
+            if let Some(ref target_format) = target {
+                commands::graph_build::run_target(&config, target_format, dry_run, optimization)?
+            } else if all {
+                commands::graph_build::run_all(&config, dry_run, optimization)?
+            } else {
+                commands::build::run(&config, dry_run, optimization)?
+            }
         }
         Some(Commands::Watch { config, debounce }) => commands::watch::run(&config, debounce)?,
         Some(Commands::Audit) => commands::audit::run()?,

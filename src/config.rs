@@ -71,6 +71,7 @@ pub struct OutputConfig {
 
 #[derive(Debug, Deserialize)]
 pub struct Config {
+    #[serde(default)]
     pub outputs: Vec<OutputConfig>,
     pub input: String,
     #[serde(default = "default_output_dir")]
@@ -153,6 +154,19 @@ pub fn load_config(path: &str) -> Result<Config> {
         .with_context(|| format!("Failed to parse YAML config: {}", path))?;
     config.validate()?;
     Ok(config)
+}
+
+/// Load a config file without requiring the `outputs` key to be present.
+///
+/// Unlike [`load_config`], this function skips the full
+/// [`Config::validate`] call.  It is intended for graph-based execution
+/// modes (`--target`, `--all`) where output formats are resolved from the
+/// transform graph rather than from a static `outputs` list.
+pub fn load_config_for_graph(path: &str) -> Result<Config> {
+    let content = fs::read_to_string(path)
+        .with_context(|| format!("Failed to read config file: {}", path))?;
+    serde_yaml_ng::from_str(&content)
+        .with_context(|| format!("Failed to parse YAML config: {}", path))
 }
 
 #[cfg(test)]
