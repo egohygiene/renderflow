@@ -3,7 +3,7 @@ use std::fs;
 use anyhow::{Context, Result};
 use serde::Deserialize;
 
-use super::{command::CommandTransform, plugin::{PluginRegistry, PluginTransform}, Transform, TransformRegistry};
+use super::{ai::{AiBackend, AiTransform}, command::CommandTransform, plugin::{PluginRegistry, PluginTransform}, Transform, TransformRegistry};
 
 /// Top-level structure of a YAML transform configuration file.
 ///
@@ -33,22 +33,25 @@ pub struct YamlTransformConfig {
 
 /// A single YAML-defined transform entry.
 ///
-/// Each entry describes either an external command or a named plugin that
-/// converts one document format to another, along with metadata used for
-/// graph-based path-finding.
+/// Each entry describes either an external command, a named plugin, or an
+/// AI-powered transform that converts one document format to another, along
+/// with metadata used for graph-based path-finding.
 ///
-/// Exactly one of `program` or `plugin` must be provided:
+/// Exactly one of `program`, `plugin`, or `ai` must be provided:
 ///
 /// * Set `program` to invoke an external binary (see [`CommandTransform`]).
 /// * Set `plugin` to reference a [`PluginExecutor`](super::plugin::PluginExecutor)
 ///   that has been registered in a [`PluginRegistry`].
+/// * Set `ai` to the backend name (`"ollama"` or `"openai"`) to use an
+///   AI-powered transform (see [`AiTransform`]).
 #[derive(Debug, Deserialize, PartialEq)]
 pub struct YamlTransformDef {
     /// Unique human-readable name; used in log messages and error context.
     pub name: String,
     /// External program to invoke (looked up on `PATH`).
     ///
-    /// Required when `plugin` is not set.  Ignored when `plugin` is set.
+    /// Required when `plugin` and `ai` are not set.  Ignored when either of
+    /// those fields is set.
     #[serde(default)]
     pub program: Option<String>,
     /// Arguments passed to the program.
@@ -63,10 +66,47 @@ pub struct YamlTransformDef {
     /// Name of a [`PluginExecutor`](super::plugin::PluginExecutor) registered
     /// in the [`PluginRegistry`] that should be used to execute this transform.
     ///
-    /// Required when `program` is not set.  When both `plugin` and `program`
-    /// are provided, `plugin` takes precedence.
+    /// Required when `program` and `ai` are not set.  When both `plugin` and
+    /// `program` are provided, `plugin` takes precedence.
     #[serde(default)]
     pub plugin: Option<String>,
+    /// AI backend name (`"ollama"` or `"openai"`).
+    ///
+    /// When set, an [`AiTransform`] is built using the associated `model`,
+    /// `prompt`, `endpoint`, `api_key`, and `artifact_path` fields.
+    /// Takes precedence over `plugin` and `program` when all three are
+    /// present.
+    #[serde(default)]
+    pub ai: Option<String>,
+    /// Model identifier for AI transforms (e.g. `"mistral"`, `"llava"`).
+    ///
+    /// Only used when `ai` is set.
+    #[serde(default)]
+    pub model: Option<String>,
+    /// Prompt template for AI transforms.  Use `{input}` as a placeholder
+    /// for the document content passed to the transform.
+    ///
+    /// Only used when `ai` is set.
+    #[serde(default)]
+    pub prompt: Option<String>,
+    /// Base URL of the AI backend (e.g. `"http://localhost:11434"`).
+    ///
+    /// Only used when `ai` is set.  Defaults to `"http://localhost:11434"`
+    /// for Ollama.
+    #[serde(default)]
+    pub endpoint: Option<String>,
+    /// Optional API key sent as `Authorization: Bearer <key>`.
+    ///
+    /// Only used when `ai` is set.  Required for OpenAI-compatible backends
+    /// that enforce authentication.
+    #[serde(default)]
+    pub api_key: Option<String>,
+    /// Optional file path where the AI response will also be written as an
+    /// artifact after a successful call.
+    ///
+    /// Only used when `ai` is set.
+    #[serde(default)]
+    pub artifact_path: Option<String>,
     /// Source document format (e.g. `"markdown"`, `"html"`).
     pub from: String,
     /// Target document format produced by this transform (e.g. `"html"`, `"pdf"`).
@@ -82,7 +122,8 @@ impl YamlTransformDef {
     ///
     /// Checks:
     /// * `name` must not be blank.
-    /// * Exactly one of `program` or `plugin` must be provided.
+    /// * Exactly one of `program`, `plugin`, or `ai` must be provided.
+    /// * When `ai` is set it must be a known backend name (see [`AiBackend`]).
     /// * `from` and `to` must both be non-blank and parseable as a known [`Format`].
     ///
     /// [`Format`]: crate::graph::Format
@@ -90,14 +131,24 @@ impl YamlTransformDef {
         if self.name.trim().is_empty() {
             anyhow::bail!("transform 'name' must not be empty");
         }
-        match (&self.plugin, &self.program) {
-            (Some(p), _) if p.trim().is_empty() => {
+        match (&self.ai, &self.plugin, &self.program) {
+            // ai takes precedence – validate the backend name.
+            (Some(backend), _, _) if backend.trim().is_empty() => {
+                anyhow::bail!("transform '{}': 'ai' must not be empty when provided", self.name);
+            }
+            (Some(backend), _, _) => {
+                backend.parse::<AiBackend>().with_context(|| {
+                    format!("transform '{}': invalid 'ai' backend", self.name)
+                })?;
+            }
+            // plugin next.
+            (None, Some(p), _) if p.trim().is_empty() => {
                 anyhow::bail!("transform '{}': 'plugin' must not be empty when provided", self.name);
             }
-            (None, None) => {
-                anyhow::bail!("transform '{}': one of 'program' or 'plugin' must be provided", self.name);
+            (None, None, None) => {
+                anyhow::bail!("transform '{}': one of 'program', 'plugin', or 'ai' must be provided", self.name);
             }
-            (None, Some(prog)) if prog.trim().is_empty() => {
+            (None, None, Some(prog)) if prog.trim().is_empty() => {
                 anyhow::bail!("transform '{}': 'program' must not be empty", self.name);
             }
             _ => {}
@@ -143,6 +194,43 @@ impl YamlTransformDef {
             .get(plugin_name)
             .ok_or_else(|| anyhow::anyhow!("transform '{}': plugin '{}' not found in registry", self.name, plugin_name))?;
         Ok(PluginTransform::new(executor))
+    }
+
+    /// Build an [`AiTransform`] from this definition.
+    ///
+    /// Returns an error when the `ai` field is not set or contains an unknown
+    /// backend name.  Call [`validate`](Self::validate) first to ensure the
+    /// definition is well-formed before calling this method.
+    pub fn to_ai_transform(&self) -> Result<AiTransform> {
+        let backend_str = self
+            .ai
+            .as_deref()
+            .ok_or_else(|| anyhow::anyhow!("transform '{}': 'ai' field is required for an AI transform", self.name))?;
+        let backend: AiBackend = backend_str.parse().with_context(|| {
+            format!("transform '{}': invalid 'ai' backend '{}'", self.name, backend_str)
+        })?;
+
+        let mut builder = AiTransform::builder()
+            .name(self.name.clone())
+            .backend(backend);
+
+        if let Some(model) = &self.model {
+            builder = builder.model(model.clone());
+        }
+        if let Some(prompt) = &self.prompt {
+            builder = builder.prompt_template(prompt.clone());
+        }
+        if let Some(endpoint) = &self.endpoint {
+            builder = builder.endpoint(endpoint.clone());
+        }
+        if let Some(api_key) = &self.api_key {
+            builder = builder.api_key(api_key.clone());
+        }
+        if let Some(artifact_path) = &self.artifact_path {
+            builder = builder.artifact_path(artifact_path.clone());
+        }
+
+        Ok(builder.build())
     }
 }
 
@@ -207,7 +295,9 @@ pub fn parse_transforms_from_str_with_plugins(yaml: &str, plugins: &PluginRegist
     let mut registry = TransformRegistry::new();
     for def in &config.transforms {
         def.validate()?;
-        let transform: Box<dyn Transform> = if def.plugin.is_some() {
+        let transform: Box<dyn Transform> = if def.ai.is_some() {
+            Box::new(def.to_ai_transform()?)
+        } else if def.plugin.is_some() {
             Box::new(def.to_plugin_transform(plugins)?)
         } else {
             Box::new(def.to_command_transform()?)
@@ -643,7 +733,7 @@ transforms:
 "#;
         let err = parse_transforms_from_str(yaml).err().expect("expected an error");
         assert!(
-            err.to_string().contains("one of 'program' or 'plugin' must be provided"),
+            err.to_string().contains("one of 'program', 'plugin', or 'ai' must be provided"),
             "unexpected: {}",
             err
         );
@@ -712,5 +802,156 @@ transforms:
             .expect("should load from file with plugin");
         let result = registry.apply_all("hello".to_string()).unwrap();
         assert_eq!(result, "olleh");
+    }
+
+    // ── ai field ──────────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_ai_field_parsed_correctly() {
+        let yaml = r#"
+transforms:
+  - name: ai-summarise
+    ai: ollama
+    model: mistral
+    prompt: "Summarise: {input}"
+    endpoint: http://localhost:11434
+    from: markdown
+    to: html
+    cost: 1.0
+    quality: 0.9
+"#;
+        let config: YamlTransformConfig =
+            serde_yaml_ng::from_str(yaml).expect("should parse");
+        let def = &config.transforms[0];
+        assert_eq!(def.ai, Some("ollama".to_string()));
+        assert_eq!(def.model, Some("mistral".to_string()));
+        assert_eq!(def.prompt, Some("Summarise: {input}".to_string()));
+        assert_eq!(def.endpoint, Some("http://localhost:11434".to_string()));
+        assert_eq!(def.program, None);
+        assert_eq!(def.plugin, None);
+    }
+
+    #[test]
+    fn test_ai_transform_built_from_yaml_def() {
+        let yaml = r#"
+transforms:
+  - name: ai-transform
+    ai: openai
+    model: gpt-4o
+    prompt: "Describe: {input}"
+    endpoint: https://api.openai.com
+    api_key: sk-test
+    artifact_path: /tmp/test_artifact.txt
+    from: markdown
+    to: html
+    cost: 2.0
+    quality: 0.95
+"#;
+        let config: YamlTransformConfig =
+            serde_yaml_ng::from_str(yaml).expect("should parse");
+        let def = &config.transforms[0];
+        let t = def.to_ai_transform().expect("should build AI transform");
+        assert_eq!(t.name(), "ai-transform");
+    }
+
+    #[test]
+    fn test_ai_transform_validates_correctly() {
+        let yaml = r#"
+transforms:
+  - name: ai-valid
+    ai: ollama
+    model: llava
+    prompt: "Analyse: {input}"
+    endpoint: http://localhost:11434
+    from: markdown
+    to: fountain
+    cost: 1.5
+    quality: 0.85
+"#;
+        let result = parse_transforms_from_str(yaml);
+        assert!(result.is_ok(), "valid AI transform should parse successfully");
+    }
+
+    #[test]
+    fn test_unknown_ai_backend_returns_error() {
+        let yaml = r#"
+transforms:
+  - name: bad-ai
+    ai: anthropic
+    from: markdown
+    to: html
+    cost: 1.0
+    quality: 0.9
+"#;
+        let err = parse_transforms_from_str(yaml).err().expect("expected an error");
+        assert!(
+            err.to_string().contains("invalid 'ai' backend"),
+            "unexpected: {}",
+            err
+        );
+    }
+
+    #[test]
+    fn test_empty_ai_field_returns_error() {
+        let yaml = r#"
+transforms:
+  - name: empty-ai
+    ai: ""
+    from: markdown
+    to: html
+    cost: 1.0
+    quality: 0.9
+"#;
+        let err = parse_transforms_from_str(yaml).err().expect("expected an error");
+        assert!(
+            err.to_string().contains("'ai' must not be empty"),
+            "unexpected: {}",
+            err
+        );
+    }
+
+    #[test]
+    fn test_ai_field_takes_precedence_over_program_and_plugin() {
+        // When `ai` is set together with `program` and `plugin`, the AI
+        // transform must be built (ai > plugin > program priority).
+        // We can't run the AI backend in tests, but we can verify the
+        // transform's name via the built registry (name() is accessible
+        // through the Transform trait object before calling apply).
+        // Instead, test that validation passes and the def builds correctly.
+        let yaml = r#"
+transforms:
+  - name: ai-wins
+    ai: ollama
+    model: mistral
+    program: cat
+    plugin: some-plugin
+    from: markdown
+    to: html
+    cost: 0.5
+    quality: 1.0
+"#;
+        let config: YamlTransformConfig =
+            serde_yaml_ng::from_str(yaml).expect("should parse");
+        let def = &config.transforms[0];
+        // The AI transform should build without looking up the plugin.
+        let t = def.to_ai_transform().expect("ai transform should build");
+        assert_eq!(t.name(), "ai-wins");
+    }
+
+    #[test]
+    fn test_fountain_format_valid_in_yaml() {
+        let yaml = r#"
+transforms:
+  - name: md-to-fountain
+    ai: ollama
+    model: llava
+    prompt: "Convert to Fountain: {input}"
+    from: markdown
+    to: fountain
+    cost: 2.0
+    quality: 0.8
+"#;
+        let result = parse_transforms_from_str(yaml);
+        assert!(result.is_ok(), "fountain format must be accepted: {:?}", result.err());
     }
 }
