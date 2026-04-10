@@ -1,6 +1,7 @@
 mod definition;
 mod definition_registry;
 mod format;
+mod input_kind;
 mod multi_target;
 mod pathfinding;
 mod transform_edge;
@@ -8,6 +9,7 @@ mod transform_edge;
 pub use definition::TransformDefinition;
 pub use definition_registry::TransformDefinitionRegistry;
 pub use format::Format;
+pub use input_kind::InputKind;
 pub use multi_target::MultiTargetDag;
 pub use pathfinding::TransformPath;
 pub use transform_edge::TransformEdge;
@@ -71,6 +73,17 @@ impl TransformGraph {
         let from_idx = self.get_or_insert_node(edge.from);
         let to_idx = self.get_or_insert_node(edge.to);
         self.graph.add_edge(from_idx, to_idx, edge);
+    }
+
+    /// Add a collection-based transformation to the graph.
+    ///
+    /// Equivalent to calling [`add_transform`](Self::add_transform) with a
+    /// [`TransformEdge`] whose [`input_kind`](TransformEdge::input_kind) is
+    /// [`InputKind::Collection`].  Use this for aggregation-style transforms
+    /// where multiple source documents are combined into a single output
+    /// (e.g. pages → book).
+    pub fn add_collection_transform(&mut self, from: Format, to: Format, cost: f32, quality: f32) {
+        self.add_transform(TransformEdge::with_input_kind(from, to, cost, quality, InputKind::Collection));
     }
 
     /// Return all [`TransformEdge`]s whose source is `from`.
