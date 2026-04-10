@@ -132,12 +132,23 @@ impl MultiTargetDag {
     pub fn node_count(&self) -> usize {
         self.graph.node_count()
     }
+
+    /// Return all edges in the DAG whose [`InputKind`] is [`Collection`](InputKind::Collection).
+    ///
+    /// Collection edges represent aggregation-style transformations that consume
+    /// multiple source documents simultaneously (e.g. pages → book).
+    pub fn collection_edges(&self) -> Vec<&TransformEdge> {
+        self.graph
+            .edge_weights()
+            .filter(|e| e.input_kind.is_collection())
+            .collect()
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::graph::TransformGraph;
+    use crate::graph::{InputKind, TransformGraph};
 
     fn build_graph() -> TransformGraph {
         let mut g = TransformGraph::new();
@@ -323,5 +334,58 @@ mod tests {
             .unwrap();
 
         assert_eq!(dag.all_edges().len(), dag.edge_count());
+    }
+
+    // ── collection_edges ──────────────────────────────────────────────────────
+
+    #[test]
+    fn test_collection_edges_empty_when_no_collection_edges() {
+        let g = build_graph();
+        let dag = g
+            .build_multi_target_dag(Format::Markdown, &[Format::Pdf, Format::Docx])
+            .unwrap();
+
+        assert!(dag.collection_edges().is_empty());
+    }
+
+    #[test]
+    fn test_collection_edges_returns_only_collection_edges() {
+        let mut dag = MultiTargetDag::new();
+        dag.merge_edge(TransformEdge::new(Format::Markdown, Format::Html, 0.5, 1.0));
+        dag.merge_edge(TransformEdge::with_input_kind(
+            Format::Markdown, Format::Epub, 1.0, 0.85, InputKind::Collection,
+        ));
+
+        let collection = dag.collection_edges();
+        assert_eq!(collection.len(), 1);
+        assert_eq!(collection[0].to, Format::Epub);
+        assert_eq!(collection[0].input_kind, InputKind::Collection);
+    }
+
+    #[test]
+    fn test_collection_edges_does_not_include_single_edges() {
+        let mut dag = MultiTargetDag::new();
+        dag.merge_edge(TransformEdge::new(Format::Markdown, Format::Html, 0.5, 1.0));
+        dag.merge_edge(TransformEdge::with_input_kind(
+            Format::Markdown, Format::Epub, 1.0, 0.85, InputKind::Collection,
+        ));
+
+        let collection = dag.collection_edges();
+        assert!(collection.iter().all(|e| e.input_kind.is_collection()));
+    }
+
+    #[test]
+    fn test_collection_edges_multiple() {
+        let mut dag = MultiTargetDag::new();
+        dag.merge_edge(TransformEdge::with_input_kind(
+            Format::Markdown, Format::Epub, 1.0, 0.85, InputKind::Collection,
+        ));
+        dag.merge_edge(TransformEdge::with_input_kind(
+            Format::Html, Format::Pdf, 0.8, 0.85, InputKind::Collection,
+        ));
+        dag.merge_edge(TransformEdge::new(Format::Markdown, Format::Html, 0.5, 1.0));
+
+        let collection = dag.collection_edges();
+        assert_eq!(collection.len(), 2);
     }
 }

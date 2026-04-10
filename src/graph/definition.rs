@@ -1,4 +1,4 @@
-use super::{Format, TransformEdge};
+use super::{Format, InputKind, TransformEdge};
 
 /// A pluggable definition of a format-to-format transformation.
 ///
@@ -12,15 +12,19 @@ use super::{Format, TransformEdge};
 /// `"pandoc"` or `"wkhtmltopdf"`), which helps with diagnostics and lets
 /// callers register multiple competing definitions for the same format pair.
 ///
+/// The `input_kind` field controls whether the definition expects a single
+/// source document or a collection of source documents as input.
+///
 /// # Example
 ///
 /// ```rust
-/// use renderflow::graph::{Format, TransformDefinition};
+/// use renderflow::graph::{Format, InputKind, TransformDefinition};
 ///
 /// let def = TransformDefinition::new(Format::Markdown, Format::Html, 0.5, 1.0, "pandoc");
 /// assert_eq!(def.from, Format::Markdown);
 /// assert_eq!(def.to, Format::Html);
 /// assert_eq!(def.label, "pandoc");
+/// assert_eq!(def.input_kind, InputKind::Single);
 /// ```
 #[derive(Debug, Clone, PartialEq)]
 pub struct TransformDefinition {
@@ -34,10 +38,12 @@ pub struct TransformDefinition {
     pub quality: f32,
     /// Human-readable label identifying the tool or method (e.g. `"pandoc"`).
     pub label: String,
+    /// Whether this definition consumes a single input or a collection.
+    pub input_kind: InputKind,
 }
 
 impl TransformDefinition {
-    /// Create a new `TransformDefinition`.
+    /// Create a new `TransformDefinition` with [`InputKind::Single`].
     ///
     /// # Parameters
     ///
@@ -54,13 +60,44 @@ impl TransformDefinition {
             cost,
             quality: quality.clamp(0.0, 1.0),
             label: label.into(),
+            input_kind: InputKind::Single,
+        }
+    }
+
+    /// Create a new `TransformDefinition` with an explicit [`InputKind`].
+    ///
+    /// Use this when registering a collection-based transform (e.g. pages → book).
+    ///
+    /// # Parameters
+    ///
+    /// * `from`       – source [`Format`]
+    /// * `to`         – target [`Format`]
+    /// * `cost`       – relative execution cost (lower is cheaper)
+    /// * `quality`    – expected output quality in the range `[0.0, 1.0]`
+    /// * `label`      – human-readable name identifying the conversion tool or method
+    /// * `input_kind` – whether this definition consumes a single input or a collection
+    pub fn with_input_kind(
+        from: Format,
+        to: Format,
+        cost: f32,
+        quality: f32,
+        label: impl Into<String>,
+        input_kind: InputKind,
+    ) -> Self {
+        Self {
+            from,
+            to,
+            cost,
+            quality: quality.clamp(0.0, 1.0),
+            label: label.into(),
+            input_kind,
         }
     }
 
     /// Convert this definition into a [`TransformEdge`] for use in a
     /// [`TransformGraph`](super::TransformGraph).
     pub fn to_edge(&self) -> TransformEdge {
-        TransformEdge::new(self.from, self.to, self.cost, self.quality)
+        TransformEdge::with_input_kind(self.from, self.to, self.cost, self.quality, self.input_kind)
     }
 }
 
@@ -78,6 +115,7 @@ mod tests {
         assert_eq!(def.cost, 0.5);
         assert!((def.quality - 1.0).abs() < 1e-5);
         assert_eq!(def.label, "pandoc");
+        assert_eq!(def.input_kind, InputKind::Single);
     }
 
     #[test]
@@ -134,6 +172,32 @@ mod tests {
         assert_ne!(a, b);
     }
 
+    // ── with_input_kind ───────────────────────────────────────────────────────
+
+    #[test]
+    fn test_with_input_kind_collection() {
+        let def = TransformDefinition::with_input_kind(
+            Format::Markdown, Format::Epub, 1.0, 0.85, "book-assembler", InputKind::Collection,
+        );
+        assert_eq!(def.input_kind, InputKind::Collection);
+        assert_eq!(def.label, "book-assembler");
+    }
+
+    #[test]
+    fn test_new_defaults_to_single_input_kind() {
+        let def = TransformDefinition::new(Format::Markdown, Format::Html, 0.5, 1.0, "pandoc");
+        assert_eq!(def.input_kind, InputKind::Single);
+    }
+
+    #[test]
+    fn test_definition_inequality_by_input_kind() {
+        let a = TransformDefinition::new(Format::Markdown, Format::Epub, 1.0, 0.85, "tool");
+        let b = TransformDefinition::with_input_kind(
+            Format::Markdown, Format::Epub, 1.0, 0.85, "tool", InputKind::Collection,
+        );
+        assert_ne!(a, b);
+    }
+
     // ── to_edge ───────────────────────────────────────────────────────────────
 
     #[test]
@@ -152,5 +216,21 @@ mod tests {
         let def = TransformDefinition::new(Format::Markdown, Format::Html, 0.5, 1.5, "tool");
         let edge = def.to_edge();
         assert!((edge.quality - 1.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn test_to_edge_propagates_input_kind_single() {
+        let def = TransformDefinition::new(Format::Markdown, Format::Html, 0.5, 1.0, "pandoc");
+        let edge = def.to_edge();
+        assert_eq!(edge.input_kind, InputKind::Single);
+    }
+
+    #[test]
+    fn test_to_edge_propagates_input_kind_collection() {
+        let def = TransformDefinition::with_input_kind(
+            Format::Markdown, Format::Epub, 1.0, 0.85, "book-assembler", InputKind::Collection,
+        );
+        let edge = def.to_edge();
+        assert_eq!(edge.input_kind, InputKind::Collection);
     }
 }
