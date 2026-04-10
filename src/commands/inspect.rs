@@ -16,11 +16,15 @@ use crate::transforms::yaml_loader::build_graph_and_executor_from_yaml;
 ///
 /// When `export` is `Some(path)` the output is written to that file;
 /// otherwise it is printed to stdout.
+///
+/// The `all` parameter is accepted for consistency with the `build` subcommand
+/// but does not change behaviour: when no explicit `target` is given all
+/// reachable formats are shown regardless.
 pub fn run(
     config_path: &str,
     output_format: &str,
     target: Option<&str>,
-    all: bool,
+    _all: bool,
     export: Option<&str>,
     optimization: Option<OptimizationMode>,
 ) -> Result<()> {
@@ -55,17 +59,8 @@ pub fn run(
         vec![t
             .parse::<Format>()
             .with_context(|| format!("'{}' is not a valid target format", t))?]
-    } else if all {
-        let reachable = graph.reachable_from(source_format);
-        if reachable.is_empty() {
-            anyhow::bail!(
-                "No output formats are reachable from '{}' in the transform graph",
-                source_format
-            );
-        }
-        reachable
     } else {
-        // Default: discover all reachable formats.
+        // --all (or default): discover every format reachable from the source.
         let reachable = graph.reachable_from(source_format);
         if reachable.is_empty() {
             anyhow::bail!(

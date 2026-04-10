@@ -55,7 +55,7 @@ fn main() -> Result<()> {
                 target.as_deref(),
                 all,
                 export.as_deref(),
-                None,
+                None, // optimization: use the mode from the config file
             )?
         }
         None => {

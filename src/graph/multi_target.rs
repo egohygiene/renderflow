@@ -315,7 +315,9 @@ impl MultiTargetDag {
             .collect();
         node_labels.sort();
         for label in &node_labels {
-            let format: Format = label.parse().expect("node label is always a valid Format");
+            let format: Format = label
+                .parse()
+                .unwrap_or_else(|_| panic!("node label '{label}' is not a valid Format"));
             let style = if format == source {
                 " style=filled fillcolor=lightblue".to_string()
             } else if leaf_nodes.contains(&format) {
