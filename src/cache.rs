@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
@@ -174,6 +175,114 @@ pub fn load_cache(cache_path: &Path) -> TransformCache {
 /// The cache is written as compact JSON to minimize file size and serialization
 /// overhead.  Errors are propagated to the caller.
 pub fn save_cache(cache: &TransformCache, cache_path: &Path) -> Result<()> {
+    let json = serde_json::to_string(cache)?;
+    fs::write(cache_path, json)?;
+    Ok(())
+}
+
+// ── AiCache ──────────────────────────────────────────────────────────────────
+
+/// Metadata and output for a single cached AI-transform result.
+///
+/// Each entry records the AI model used, a Unix-epoch timestamp (seconds) of
+/// when the result was generated, the hex-encoded SHA-256 hash of the inputs
+/// that produced it, and the generated output text.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AiCacheEntry {
+    /// Hex-encoded SHA-256 hash of the AI transform inputs (rendered prompt + model).
+    pub input_hash: String,
+    /// AI model identifier used to generate this output (e.g. `"mistral"`, `"gpt-4o"`).
+    pub model: String,
+    /// Unix epoch timestamp (seconds) of when this entry was generated.
+    pub timestamp: u64,
+    /// The AI-generated output text.
+    pub output: String,
+}
+
+/// On-disk cache for AI-transform results.
+///
+/// Keys are hex-encoded SHA-256 hashes produced by [`compute_ai_input_hash`].
+/// Each value is an [`AiCacheEntry`] that carries the cached output along with
+/// generation metadata (model, timestamp, input hash).  A cache hit means the
+/// AI backend can be skipped entirely for that input.
+#[derive(Debug, Default, Serialize, Deserialize)]
+pub struct AiCache(HashMap<String, AiCacheEntry>);
+
+impl AiCache {
+    /// Look up a previously-cached AI result by its input hash.
+    pub fn get(&self, hash: &str) -> Option<&AiCacheEntry> {
+        self.0.get(hash)
+    }
+
+    /// Store an AI result keyed by the input hash embedded in `entry`.
+    pub fn insert(&mut self, hash: String, entry: AiCacheEntry) {
+        self.0.insert(hash, entry);
+    }
+}
+
+/// Compute a stable SHA-256 hash of the AI transform inputs.
+///
+/// The hash covers:
+/// * the fully-rendered prompt (prompt template with `{input}` substituted)
+/// * the model identifier
+///
+/// A change to either field produces a different hash, causing a cache miss
+/// and triggering a fresh AI call.
+pub fn compute_ai_input_hash(prompt: &str, model: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(prompt.as_bytes());
+    hasher.update(b"\x00model\x00");
+    hasher.update(model.as_bytes());
+    format!("{:x}", hasher.finalize())
+}
+
+/// Return the current time as a Unix epoch timestamp in seconds.
+///
+/// Falls back to `0` if the system clock is before the Unix epoch.
+pub fn current_unix_timestamp() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
+}
+
+/// Load the AI cache from disk.
+///
+/// Returns an empty cache if the file does not exist or cannot be parsed.
+/// Non-fatal errors are logged at `WARN` level so a corrupt or missing cache
+/// never aborts the build.
+pub fn load_ai_cache(cache_path: &Path) -> AiCache {
+    if !cache_path.exists() {
+        return AiCache::default();
+    }
+
+    match fs::read_to_string(cache_path) {
+        Err(e) => {
+            warn!(
+                path = %cache_path.display(),
+                error = %e,
+                "Failed to read AI cache file; starting with empty cache"
+            );
+            AiCache::default()
+        }
+        Ok(content) => match serde_json::from_str(&content) {
+            Ok(cache) => cache,
+            Err(e) => {
+                warn!(
+                    path = %cache_path.display(),
+                    error = %e,
+                    "Failed to parse AI cache file; starting with empty cache"
+                );
+                AiCache::default()
+            }
+        },
+    }
+}
+
+/// Persist the AI cache to disk as compact JSON.
+///
+/// Errors are propagated to the caller.
+pub fn save_ai_cache(cache: &AiCache, cache_path: &Path) -> Result<()> {
     let json = serde_json::to_string(cache)?;
     fs::write(cache_path, json)?;
     Ok(())
@@ -418,5 +527,145 @@ mod tests {
         let raw = fs::read_to_string(&cache_path).expect("read failed");
         let parsed: serde_json::Value = serde_json::from_str(&raw).expect("must be valid JSON");
         assert_eq!(parsed["/out/doc.html"], "testhash");
+    }
+
+    // ── compute_ai_input_hash ────────────────────────────────────────────────
+
+    #[test]
+    fn test_ai_hash_same_inputs_produce_same_hash() {
+        let h1 = compute_ai_input_hash("Summarise: hello", "mistral");
+        let h2 = compute_ai_input_hash("Summarise: hello", "mistral");
+        assert_eq!(h1, h2);
+    }
+
+    #[test]
+    fn test_ai_hash_different_prompt_produces_different_hash() {
+        let h1 = compute_ai_input_hash("prompt A", "mistral");
+        let h2 = compute_ai_input_hash("prompt B", "mistral");
+        assert_ne!(h1, h2);
+    }
+
+    #[test]
+    fn test_ai_hash_different_model_produces_different_hash() {
+        let h1 = compute_ai_input_hash("same prompt", "mistral");
+        let h2 = compute_ai_input_hash("same prompt", "gpt-4o");
+        assert_ne!(h1, h2);
+    }
+
+    #[test]
+    fn test_ai_hash_is_hex_string() {
+        let h = compute_ai_input_hash("prompt", "model");
+        assert!(h.chars().all(|c| c.is_ascii_hexdigit()), "hash must be hex: {h}");
+        assert_eq!(h.len(), 64, "SHA-256 hex must be 64 chars");
+    }
+
+    // ── AiCache ──────────────────────────────────────────────────────────────
+
+    fn make_entry(hash: &str, model: &str, output: &str) -> AiCacheEntry {
+        AiCacheEntry {
+            input_hash: hash.to_string(),
+            model: model.to_string(),
+            timestamp: 1_700_000_000,
+            output: output.to_string(),
+        }
+    }
+
+    #[test]
+    fn test_ai_cache_miss_returns_none() {
+        let cache = AiCache::default();
+        assert!(cache.get("nonexistent").is_none());
+    }
+
+    #[test]
+    fn test_ai_cache_hit_returns_stored_entry() {
+        let mut cache = AiCache::default();
+        let entry = make_entry("abc123", "mistral", "AI output");
+        cache.insert("abc123".to_string(), entry);
+        let retrieved = cache.get("abc123").expect("entry should be present");
+        assert_eq!(retrieved.output, "AI output");
+        assert_eq!(retrieved.model, "mistral");
+        assert_eq!(retrieved.input_hash, "abc123");
+    }
+
+    #[test]
+    fn test_ai_cache_insert_overwrites_existing() {
+        let mut cache = AiCache::default();
+        cache.insert("key".to_string(), make_entry("key", "mistral", "first"));
+        cache.insert("key".to_string(), make_entry("key", "mistral", "second"));
+        assert_eq!(cache.get("key").unwrap().output, "second");
+    }
+
+    // ── load_ai_cache / save_ai_cache ────────────────────────────────────────
+
+    #[test]
+    fn test_load_ai_cache_missing_file_returns_empty() {
+        let path = Path::new("/nonexistent/.renderflow-ai-cache.json");
+        let cache = load_ai_cache(path);
+        assert!(cache.get("anything").is_none());
+    }
+
+    #[test]
+    fn test_save_and_reload_ai_cache_round_trips() {
+        let dir = tempfile::tempdir().expect("failed to create temp dir");
+        let cache_path = dir.path().join(".renderflow-ai-cache.json");
+
+        let mut cache = AiCache::default();
+        cache.insert("hash1".to_string(), make_entry("hash1", "mistral", "output1"));
+        cache.insert("hash2".to_string(), make_entry("hash2", "gpt-4o", "output2"));
+
+        save_ai_cache(&cache, &cache_path).expect("save should succeed");
+
+        let reloaded = load_ai_cache(&cache_path);
+        let e1 = reloaded.get("hash1").expect("entry 1 should be present");
+        assert_eq!(e1.output, "output1");
+        assert_eq!(e1.model, "mistral");
+        let e2 = reloaded.get("hash2").expect("entry 2 should be present");
+        assert_eq!(e2.output, "output2");
+        assert_eq!(e2.model, "gpt-4o");
+    }
+
+    #[test]
+    fn test_load_ai_cache_invalid_json_returns_empty() {
+        let mut f = NamedTempFile::new().expect("failed to create temp file");
+        f.write_all(b"not valid json {{").expect("write failed");
+        let cache = load_ai_cache(f.path());
+        assert!(cache.get("anything").is_none());
+    }
+
+    #[test]
+    fn test_save_ai_cache_writes_valid_json() {
+        let dir = tempfile::tempdir().expect("failed to create temp dir");
+        let cache_path = dir.path().join(".renderflow-ai-cache.json");
+
+        let mut cache = AiCache::default();
+        cache.insert("testhash".to_string(), make_entry("testhash", "mistral", "testoutput"));
+        save_ai_cache(&cache, &cache_path).expect("save should succeed");
+
+        let raw = fs::read_to_string(&cache_path).expect("read failed");
+        let parsed: serde_json::Value = serde_json::from_str(&raw).expect("must be valid JSON");
+        assert_eq!(parsed["testhash"]["model"], "mistral");
+        assert_eq!(parsed["testhash"]["output"], "testoutput");
+        assert_eq!(parsed["testhash"]["input_hash"], "testhash");
+    }
+
+    #[test]
+    fn test_ai_cache_entry_stores_metadata() {
+        let entry = AiCacheEntry {
+            input_hash: "deadbeef".to_string(),
+            model: "llava".to_string(),
+            timestamp: 1_234_567_890,
+            output: "generated text".to_string(),
+        };
+        assert_eq!(entry.input_hash, "deadbeef");
+        assert_eq!(entry.model, "llava");
+        assert_eq!(entry.timestamp, 1_234_567_890);
+        assert_eq!(entry.output, "generated text");
+    }
+
+    #[test]
+    fn test_current_unix_timestamp_is_reasonable() {
+        // The timestamp should be after 2020-01-01 (Unix epoch 1577836800).
+        let ts = current_unix_timestamp();
+        assert!(ts > 1_577_836_800, "timestamp {ts} is before 2020");
     }
 }

@@ -107,6 +107,14 @@ pub struct YamlTransformDef {
     /// Only used when `ai` is set.
     #[serde(default)]
     pub artifact_path: Option<String>,
+    /// Optional path to the AI result cache file.
+    ///
+    /// When set, the AI transform will check this file for a cached result
+    /// before calling the backend, and will store the result with metadata
+    /// (model, timestamp, input hash) on a cache miss.  Ignored when `ai` is
+    /// not set.
+    #[serde(default)]
+    pub cache_path: Option<String>,
     /// Source document format (e.g. `"markdown"`, `"html"`).
     pub from: String,
     /// Target document format produced by this transform (e.g. `"html"`, `"pdf"`).
@@ -228,6 +236,9 @@ impl YamlTransformDef {
         }
         if let Some(artifact_path) = &self.artifact_path {
             builder = builder.artifact_path(artifact_path.clone());
+        }
+        if let Some(cache_path) = &self.cache_path {
+            builder = builder.cache_path(cache_path.clone());
         }
 
         Ok(builder.build())
@@ -953,5 +964,91 @@ transforms:
 "#;
         let result = parse_transforms_from_str(yaml);
         assert!(result.is_ok(), "fountain format must be accepted: {:?}", result.err());
+    }
+
+    #[test]
+    fn test_ai_cache_path_parsed_from_yaml() {
+        let yaml = r#"
+transforms:
+  - name: cached-ai
+    ai: ollama
+    model: mistral
+    prompt: "Summarise: {input}"
+    cache_path: /tmp/.renderflow-ai-cache.json
+    from: markdown
+    to: html
+    cost: 1.0
+    quality: 0.9
+"#;
+        let config: YamlTransformConfig =
+            serde_yaml_ng::from_str(yaml).expect("should parse");
+        let def = &config.transforms[0];
+        assert_eq!(def.cache_path, Some("/tmp/.renderflow-ai-cache.json".to_string()));
+    }
+
+    #[test]
+    fn test_ai_cache_path_wired_through_to_ai_transform() {
+        use crate::cache::{compute_ai_input_hash, save_ai_cache, AiCache, AiCacheEntry};
+
+        let dir = tempfile::tempdir().unwrap();
+        let cache_file = dir.path().join(".renderflow-ai-cache.json");
+
+        // Pre-populate the cache for the prompt "Summarise: hello" + model "mistral".
+        let rendered_prompt = "Summarise: hello";
+        let hash = compute_ai_input_hash(rendered_prompt, "mistral");
+        let mut cache = AiCache::default();
+        cache.insert(
+            hash.clone(),
+            AiCacheEntry {
+                input_hash: hash,
+                model: "mistral".to_string(),
+                timestamp: 1_700_000_000,
+                output: "cached from yaml cache_path".to_string(),
+            },
+        );
+        save_ai_cache(&cache, &cache_file).unwrap();
+
+        // Build the AiTransform via the YAML def with the cache_path set.
+        let yaml = format!(
+            r#"
+transforms:
+  - name: cached-ai
+    ai: ollama
+    model: mistral
+    prompt: "Summarise: {{input}}"
+    cache_path: {}
+    from: markdown
+    to: html
+    cost: 1.0
+    quality: 0.9
+"#,
+            cache_file.to_str().unwrap()
+        );
+        let config: YamlTransformConfig =
+            serde_yaml_ng::from_str(&yaml).expect("should parse");
+        let def = &config.transforms[0];
+        let t = def.to_ai_transform().expect("should build AI transform");
+
+        // apply() must return the cached output without contacting any backend.
+        let result = t.apply("hello".to_string()).unwrap();
+        assert_eq!(result, "cached from yaml cache_path");
+    }
+
+    #[test]
+    fn test_ai_cache_path_defaults_to_none() {
+        let yaml = r#"
+transforms:
+  - name: no-cache-ai
+    ai: ollama
+    model: mistral
+    from: markdown
+    to: html
+    cost: 1.0
+    quality: 0.9
+"#;
+        let config: YamlTransformConfig =
+            serde_yaml_ng::from_str(yaml).expect("should parse");
+        let def = &config.transforms[0];
+        assert!(def.cache_path.is_none());
     }
 }
