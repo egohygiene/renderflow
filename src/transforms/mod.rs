@@ -7,6 +7,7 @@ mod transform;
 mod variable;
 pub mod yaml_loader;
 pub mod ai;
+pub mod aggregation;
 
 pub use emoji::EmojiTransform;
 pub use registry::{register_transforms, FailureMode, TransformRegistry};

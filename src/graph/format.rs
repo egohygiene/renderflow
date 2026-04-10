@@ -20,6 +20,14 @@ pub enum Format {
     Latex,
     /// Fountain screenplay plain-text format.
     Fountain,
+    /// JPEG raster image format.
+    Jpeg,
+    /// PNG raster image format.
+    Png,
+    /// TIFF raster image format, commonly used in print/press workflows.
+    Tiff,
+    /// Comic Book ZIP archive (`.cbz`).
+    Cbz,
 }
 
 impl fmt::Display for Format {
@@ -33,6 +41,10 @@ impl fmt::Display for Format {
             Format::Rst => "rst",
             Format::Latex => "latex",
             Format::Fountain => "fountain",
+            Format::Jpeg => "jpeg",
+            Format::Png => "png",
+            Format::Tiff => "tiff",
+            Format::Cbz => "cbz",
         };
         write!(f, "{}", s)
     }
@@ -44,7 +56,8 @@ impl FromStr for Format {
     /// Parse a [`Format`] from a case-insensitive string.
     ///
     /// Accepted values: `markdown` / `md`, `html`, `pdf`, `docx`, `epub`,
-    /// `rst`, `latex` / `tex`.
+    /// `rst`, `latex` / `tex`, `fountain`, `jpeg` / `jpg`, `png`, `tiff`,
+    /// `cbz`.
     ///
     /// Returns an error that lists all supported formats when the string is
     /// unrecognised.
@@ -58,9 +71,14 @@ impl FromStr for Format {
             "rst" => Ok(Format::Rst),
             "latex" | "tex" => Ok(Format::Latex),
             "fountain" => Ok(Format::Fountain),
+            "jpeg" | "jpg" => Ok(Format::Jpeg),
+            "png" => Ok(Format::Png),
+            "tiff" | "tif" => Ok(Format::Tiff),
+            "cbz" => Ok(Format::Cbz),
             _ => anyhow::bail!(
                 "'{}' is not a known format. Supported formats are: \
-                 markdown, html, pdf, docx, epub, rst, latex, fountain",
+                 markdown, html, pdf, docx, epub, rst, latex, fountain, \
+                 jpeg, png, tiff, cbz",
                 s
             ),
         }
@@ -152,9 +170,57 @@ mod tests {
 
     #[test]
     fn test_from_str_unknown_returns_error() {
-        let err = "jpeg".parse::<Format>().unwrap_err();
+        let err = "xyz-unknown".parse::<Format>().unwrap_err();
         let msg = err.to_string();
-        assert!(msg.contains("'jpeg' is not a known format"), "unexpected: {msg}");
+        assert!(msg.contains("'xyz-unknown' is not a known format"), "unexpected: {msg}");
         assert!(msg.contains("markdown"), "expected format list: {msg}");
+    }
+
+    // ── image / CBZ format tests ──────────────────────────────────────────────
+
+    #[test]
+    fn test_from_str_jpeg() {
+        assert_eq!("jpeg".parse::<Format>().unwrap(), Format::Jpeg);
+        assert_eq!("jpg".parse::<Format>().unwrap(), Format::Jpeg);
+        assert_eq!("JPEG".parse::<Format>().unwrap(), Format::Jpeg);
+    }
+
+    #[test]
+    fn test_from_str_png() {
+        assert_eq!("png".parse::<Format>().unwrap(), Format::Png);
+        assert_eq!("PNG".parse::<Format>().unwrap(), Format::Png);
+    }
+
+    #[test]
+    fn test_from_str_tiff() {
+        assert_eq!("tiff".parse::<Format>().unwrap(), Format::Tiff);
+        assert_eq!("tif".parse::<Format>().unwrap(), Format::Tiff);
+        assert_eq!("TIFF".parse::<Format>().unwrap(), Format::Tiff);
+    }
+
+    #[test]
+    fn test_from_str_cbz() {
+        assert_eq!("cbz".parse::<Format>().unwrap(), Format::Cbz);
+        assert_eq!("CBZ".parse::<Format>().unwrap(), Format::Cbz);
+    }
+
+    #[test]
+    fn test_display_jpeg() {
+        assert_eq!(Format::Jpeg.to_string(), "jpeg");
+    }
+
+    #[test]
+    fn test_display_png() {
+        assert_eq!(Format::Png.to_string(), "png");
+    }
+
+    #[test]
+    fn test_display_tiff() {
+        assert_eq!(Format::Tiff.to_string(), "tiff");
+    }
+
+    #[test]
+    fn test_display_cbz() {
+        assert_eq!(Format::Cbz.to_string(), "cbz");
     }
 }

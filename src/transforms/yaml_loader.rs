@@ -3,7 +3,13 @@ use std::fs;
 use anyhow::{Context, Result};
 use serde::Deserialize;
 
-use super::{ai::{AiBackend, AiTransform}, command::CommandTransform, plugin::{PluginRegistry, PluginTransform}, Transform, TransformRegistry};
+use super::{
+    aggregation::{AggregationRegistry, CommandAggregationTransform},
+    ai::{AiBackend, AiTransform},
+    command::CommandTransform,
+    plugin::{PluginRegistry, PluginTransform},
+    Transform, TransformRegistry,
+};
 
 /// Top-level structure of a YAML transform configuration file.
 ///
@@ -115,6 +121,19 @@ pub struct YamlTransformDef {
     /// not set.
     #[serde(default)]
     pub cache_path: Option<String>,
+    /// Whether this transform consumes a single input or a collection.
+    ///
+    /// Accepted values: `"single"` (default) and `"collection"`.
+    ///
+    /// Set to `"collection"` for aggregation-style transforms that combine
+    /// multiple source documents into a single output artifact (e.g. a set
+    /// of page images into a CBZ archive or PDF document).  Collection
+    /// transforms are loaded into an [`AggregationRegistry`] rather than the
+    /// standard [`TransformRegistry`].
+    ///
+    /// [`AggregationRegistry`]: super::aggregation::AggregationRegistry
+    #[serde(default)]
+    pub input_kind: Option<String>,
     /// Source document format (e.g. `"markdown"`, `"html"`).
     pub from: String,
     /// Target document format produced by this transform (e.g. `"html"`, `"pdf"`).
@@ -243,6 +262,40 @@ impl YamlTransformDef {
 
         Ok(builder.build())
     }
+
+    /// Return `true` when `input_kind` is set to `"collection"`.
+    ///
+    /// Collection transforms aggregate multiple inputs into a single output
+    /// and are registered in an [`AggregationRegistry`] rather than the
+    /// standard [`TransformRegistry`].
+    ///
+    /// [`AggregationRegistry`]: super::aggregation::AggregationRegistry
+    pub fn is_collection(&self) -> bool {
+        self.input_kind
+            .as_deref()
+            .map(|s| s.trim().eq_ignore_ascii_case("collection"))
+            .unwrap_or(false)
+    }
+
+    /// Build a [`CommandAggregationTransform`] from this definition.
+    ///
+    /// Only valid when `program` is set; call [`validate`](Self::validate)
+    /// first.  `plugin` and `ai` fields are not supported for aggregation
+    /// transforms.
+    #[allow(dead_code)]
+    pub fn to_aggregation_transform(&self) -> Result<CommandAggregationTransform> {
+        let program = self.program.as_deref().ok_or_else(|| {
+            anyhow::anyhow!(
+                "transform '{}': 'program' is required for a collection transform",
+                self.name
+            )
+        })?;
+        Ok(CommandAggregationTransform::new(
+            self.name.clone(),
+            program,
+            self.args.clone(),
+        ))
+    }
 }
 
 /// Load YAML transform definitions from a file and return a populated [`TransformRegistry`].
@@ -298,6 +351,9 @@ pub fn parse_transforms_from_str(yaml: &str) -> Result<TransformRegistry> {
 /// [`PluginRegistry`] so that transforms with a `plugin` field can be
 /// resolved.  Use [`parse_transforms_from_str`] when no plugins are needed.
 ///
+/// Collection transforms (those with `input_kind: collection`) are silently
+/// skipped; use [`parse_aggregation_transforms_from_str`] to load those.
+///
 /// See [`load_transforms_from_yaml_with_plugins`] for the expected schema and error behaviour.
 pub fn parse_transforms_from_str_with_plugins(yaml: &str, plugins: &PluginRegistry) -> Result<TransformRegistry> {
     let config: YamlTransformConfig =
@@ -305,6 +361,10 @@ pub fn parse_transforms_from_str_with_plugins(yaml: &str, plugins: &PluginRegist
 
     let mut registry = TransformRegistry::new();
     for def in &config.transforms {
+        // Collection transforms belong in an AggregationRegistry; skip them here.
+        if def.is_collection() {
+            continue;
+        }
         def.validate()?;
         let transform: Box<dyn Transform> = if def.ai.is_some() {
             Box::new(def.to_ai_transform()?)
@@ -316,6 +376,57 @@ pub fn parse_transforms_from_str_with_plugins(yaml: &str, plugins: &PluginRegist
         registry.register(transform);
     }
     Ok(registry)
+}
+
+/// Parse YAML transform definitions from a string and return a populated
+/// [`AggregationRegistry`].
+///
+/// Only entries with `input_kind: collection` are loaded; all other entries
+/// are silently skipped.  Every collection entry is validated before being
+/// registered; the function returns an error on the first invalid entry.
+///
+/// # Errors
+///
+/// Returns an error when:
+/// * the YAML is malformed,
+/// * any collection transform definition fails validation,
+/// * a collection entry has no `program` field.
+#[allow(dead_code)]
+pub fn parse_aggregation_transforms_from_str(yaml: &str) -> Result<AggregationRegistry> {
+    let config: YamlTransformConfig =
+        serde_yaml_ng::from_str(yaml).context("Failed to parse YAML transform config")?;
+
+    let mut registry = AggregationRegistry::new();
+    for def in &config.transforms {
+        if !def.is_collection() {
+            continue;
+        }
+        def.validate()?;
+        let transform = def.to_aggregation_transform()?;
+        registry.register(Box::new(transform));
+    }
+    Ok(registry)
+}
+
+/// Load YAML transform definitions from a file and return a populated
+/// [`AggregationRegistry`].
+///
+/// The file must conform to the [`YamlTransformConfig`] schema.  Only entries
+/// with `input_kind: collection` are registered; all others are ignored.
+///
+/// # Errors
+///
+/// Returns an error when:
+/// * the file cannot be read,
+/// * the YAML is malformed,
+/// * any collection transform definition fails validation (see
+///   [`YamlTransformDef::validate`]).
+#[allow(dead_code)]
+pub fn load_aggregation_transforms_from_yaml(path: &str) -> Result<AggregationRegistry> {
+    let content = fs::read_to_string(path)
+        .with_context(|| format!("Failed to read transform config: {}", path))?;
+    parse_aggregation_transforms_from_str(&content)
+        .with_context(|| format!("Failed to load aggregation transforms from: {}", path))
 }
 
 #[cfg(test)]
@@ -523,7 +634,7 @@ transforms:
 transforms:
   - name: my-transform
     program: cat
-    from: jpeg
+    from: avif
     to: html
     cost: 1.0
     quality: 0.9
@@ -1050,5 +1161,168 @@ transforms:
             serde_yaml_ng::from_str(yaml).expect("should parse");
         let def = &config.transforms[0];
         assert!(def.cache_path.is_none());
+    }
+
+    // ── input_kind / aggregation transform tests ──────────────────────────────
+
+    #[test]
+    fn test_input_kind_defaults_to_none() {
+        let yaml = r#"
+transforms:
+  - name: no-kind
+    program: cat
+    from: markdown
+    to: html
+    cost: 1.0
+    quality: 0.9
+"#;
+        let config: YamlTransformConfig =
+            serde_yaml_ng::from_str(yaml).expect("should parse");
+        assert!(config.transforms[0].input_kind.is_none());
+        assert!(!config.transforms[0].is_collection());
+    }
+
+    #[test]
+    fn test_input_kind_collection_detected() {
+        let yaml = r#"
+transforms:
+  - name: agg
+    program: zip
+    args: ["-j", "{output}", "{inputs}"]
+    input_kind: collection
+    from: jpeg
+    to: cbz
+    cost: 1.0
+    quality: 0.9
+"#;
+        let config: YamlTransformConfig =
+            serde_yaml_ng::from_str(yaml).expect("should parse");
+        assert!(config.transforms[0].is_collection());
+    }
+
+    #[test]
+    fn test_input_kind_single_is_not_collection() {
+        let yaml = r#"
+transforms:
+  - name: single
+    program: cat
+    input_kind: single
+    from: markdown
+    to: html
+    cost: 1.0
+    quality: 0.9
+"#;
+        let config: YamlTransformConfig =
+            serde_yaml_ng::from_str(yaml).expect("should parse");
+        assert!(!config.transforms[0].is_collection());
+    }
+
+    #[test]
+    fn test_parse_aggregation_transforms_loads_collection_entries() {
+        let yaml = r#"
+transforms:
+  - name: pages-to-cbz
+    program: zip
+    args: ["-j", "{output}", "{inputs}"]
+    input_kind: collection
+    from: jpeg
+    to: cbz
+    cost: 1.0
+    quality: 0.9
+"#;
+        let registry =
+            parse_aggregation_transforms_from_str(yaml).expect("should parse aggregation");
+        assert!(
+            registry.get("pages-to-cbz").is_some(),
+            "aggregation registry must contain 'pages-to-cbz'"
+        );
+    }
+
+    #[test]
+    fn test_parse_aggregation_transforms_skips_non_collection_entries() {
+        let yaml = r#"
+transforms:
+  - name: regular
+    program: cat
+    from: markdown
+    to: html
+    cost: 1.0
+    quality: 0.9
+  - name: aggregated
+    program: zip
+    args: ["-j", "{output}", "{inputs}"]
+    input_kind: collection
+    from: jpeg
+    to: cbz
+    cost: 1.0
+    quality: 0.9
+"#;
+        let registry =
+            parse_aggregation_transforms_from_str(yaml).expect("should parse");
+        assert!(registry.get("aggregated").is_some(), "collection entry must be loaded");
+        assert!(registry.get("regular").is_none(), "non-collection entry must be skipped");
+    }
+
+    #[test]
+    fn test_parse_transforms_skips_collection_entries() {
+        let yaml = r#"
+transforms:
+  - name: regular
+    program: cat
+    from: markdown
+    to: html
+    cost: 1.0
+    quality: 0.9
+  - name: aggregated
+    program: zip
+    args: ["-j", "{output}", "{inputs}"]
+    input_kind: collection
+    from: jpeg
+    to: cbz
+    cost: 1.0
+    quality: 0.9
+"#;
+        // The standard registry must not contain the collection transform.
+        let registry = parse_transforms_from_str(yaml).expect("should parse");
+        let result = registry.apply_all("hello".to_string()).unwrap();
+        // Only `cat` (regular) is registered; it echoes input unchanged.
+        assert_eq!(result, "hello");
+    }
+
+    #[test]
+    fn test_to_aggregation_transform_requires_program() {
+        let yaml = r#"
+transforms:
+  - name: no-program-agg
+    input_kind: collection
+    from: jpeg
+    to: cbz
+    cost: 1.0
+    quality: 0.9
+"#;
+        let config: YamlTransformConfig =
+            serde_yaml_ng::from_str(yaml).expect("should parse yaml");
+        let def = &config.transforms[0];
+        // to_aggregation_transform must fail when program is absent.
+        assert!(def.to_aggregation_transform().is_err());
+    }
+
+    #[test]
+    fn test_load_aggregation_transforms_from_yaml_file() {
+        let yaml = r#"
+transforms:
+  - name: images-to-pdf
+    program: img2pdf
+    args: ["--output", "{output}", "{inputs}"]
+    input_kind: collection
+    from: jpeg
+    to: pdf
+    cost: 1.0
+    quality: 0.95
+"#;
+        let f = write_temp_yaml(yaml);
+        let registry = load_aggregation_transforms_from_yaml(f.path().to_str().unwrap())
+            .expect("should load aggregation transforms");
+        assert!(registry.get("images-to-pdf").is_some());
     }
 }
