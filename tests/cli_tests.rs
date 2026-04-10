@@ -282,3 +282,220 @@ fn test_no_input_provided_exits_with_error() {
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("No input provided"), "expected helpful error message, got: {stderr}");
 }
+
+// ── --target flag ────────────────────────────────────────────────────────────
+
+#[test]
+fn test_build_help_documents_target_option() {
+    let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
+        .args(["build", "--help"])
+        .output()
+        .expect("failed to execute renderflow");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("--target"),
+        "build --help should document --target, got: {stdout}"
+    );
+}
+
+#[test]
+fn test_build_help_documents_all_option() {
+    let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
+        .args(["build", "--help"])
+        .output()
+        .expect("failed to execute renderflow");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("--all"),
+        "build --help should document --all, got: {stdout}"
+    );
+}
+
+#[test]
+fn test_target_and_all_are_mutually_exclusive() {
+    let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
+        .args(["build", "--target", "pdf", "--all"])
+        .output()
+        .expect("failed to execute renderflow");
+
+    assert!(
+        !output.status.success(),
+        "--target and --all together should fail with non-zero exit"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("cannot be used with") || stderr.contains("conflicts"),
+        "--target and --all should conflict, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_target_with_missing_config_exits_with_error() {
+    let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
+        .args(["build", "--config", "/nonexistent/renderflow.yaml", "--target", "pdf"])
+        .output()
+        .expect("failed to execute renderflow");
+
+    assert!(
+        !output.status.success(),
+        "--target with a missing config should exit with non-zero status"
+    );
+}
+
+#[test]
+fn test_all_with_missing_config_exits_with_error() {
+    let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
+        .args(["build", "--config", "/nonexistent/renderflow.yaml", "--all"])
+        .output()
+        .expect("failed to execute renderflow");
+
+    assert!(
+        !output.status.success(),
+        "--all with a missing config should exit with non-zero status"
+    );
+}
+
+#[test]
+fn test_target_without_transforms_exits_with_error() {
+    // A valid config with no 'transforms' key should cause graph-based execution to fail
+    // with a descriptive error when --target is used.
+    let (f, _dir) = common::valid_config_file();
+    let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
+        .arg("build")
+        .arg("--config")
+        .arg(f.path())
+        .arg("--target")
+        .arg("pdf")
+        .output()
+        .expect("failed to execute renderflow");
+
+    assert!(
+        !output.status.success(),
+        "--target without a 'transforms' key in config should fail"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("transforms"),
+        "error should mention 'transforms', got: {stderr}"
+    );
+}
+
+#[test]
+fn test_all_without_transforms_exits_with_error() {
+    // A valid config with no 'transforms' key should cause graph-based execution to fail
+    // with a descriptive error when --all is used.
+    let (f, _dir) = common::valid_config_file();
+    let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
+        .arg("build")
+        .arg("--config")
+        .arg(f.path())
+        .arg("--all")
+        .output()
+        .expect("failed to execute renderflow");
+
+    assert!(
+        !output.status.success(),
+        "--all without a 'transforms' key in config should fail"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("transforms"),
+        "error should mention 'transforms', got: {stderr}"
+    );
+}
+
+#[test]
+fn test_target_dry_run_exits_successfully() {
+    use std::io::Write as _;
+
+    // Build a minimal config with a transforms file so graph mode can run.
+    let dir = tempfile::tempdir().expect("failed to create temp dir");
+    let input_path = dir.path().join("doc.md");
+    std::fs::write(&input_path, "# Hello\n").expect("failed to write input");
+
+    // A transforms YAML with a single markdown→html edge (program: cat).
+    let transforms_path = dir.path().join("transforms.yaml");
+    let transforms_yaml = "transforms:\n  - name: md-to-html\n    program: cat\n    from: markdown\n    to: html\n    cost: 1.0\n    quality: 0.9\n";
+    std::fs::write(&transforms_path, transforms_yaml).expect("failed to write transforms");
+
+    let output_dir = dir.path().join("dist");
+    let config_content = format!(
+        "input: \"{}\"\noutput_dir: \"{}\"\ntransforms: \"{}\"\n",
+        input_path.display(),
+        output_dir.display(),
+        transforms_path.display(),
+    );
+    let mut config_file = tempfile::NamedTempFile::new().expect("failed to create temp config");
+    config_file
+        .write_all(config_content.as_bytes())
+        .expect("failed to write config");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
+        .arg("build")
+        .arg("--config")
+        .arg(config_file.path())
+        .arg("--target")
+        .arg("html")
+        .arg("--dry-run")
+        .output()
+        .expect("failed to execute renderflow");
+
+    assert!(
+        output.status.success(),
+        "--target html --dry-run should succeed, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("[DRY RUN]"),
+        "--target dry-run should print [DRY RUN] lines, got: {stdout}"
+    );
+}
+
+#[test]
+fn test_all_dry_run_exits_successfully() {
+    use std::io::Write as _;
+
+    let dir = tempfile::tempdir().expect("failed to create temp dir");
+    let input_path = dir.path().join("doc.md");
+    std::fs::write(&input_path, "# Hello\n").expect("failed to write input");
+
+    let transforms_path = dir.path().join("transforms.yaml");
+    let transforms_yaml = "transforms:\n  - name: md-to-html\n    program: cat\n    from: markdown\n    to: html\n    cost: 1.0\n    quality: 0.9\n";
+    std::fs::write(&transforms_path, transforms_yaml).expect("failed to write transforms");
+
+    let output_dir = dir.path().join("dist");
+    let config_content = format!(
+        "input: \"{}\"\noutput_dir: \"{}\"\ntransforms: \"{}\"\n",
+        input_path.display(),
+        output_dir.display(),
+        transforms_path.display(),
+    );
+    let mut config_file = tempfile::NamedTempFile::new().expect("failed to create temp config");
+    config_file
+        .write_all(config_content.as_bytes())
+        .expect("failed to write config");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
+        .arg("build")
+        .arg("--config")
+        .arg(config_file.path())
+        .arg("--all")
+        .arg("--dry-run")
+        .output()
+        .expect("failed to execute renderflow");
+
+    assert!(
+        output.status.success(),
+        "--all --dry-run should succeed, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("[DRY RUN]"),
+        "--all dry-run should print [DRY RUN] lines, got: {stdout}"
+    );
+}
+
