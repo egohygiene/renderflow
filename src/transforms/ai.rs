@@ -190,7 +190,13 @@ impl AiTransform {
         AiTransformBuilder::new()
     }
 
-    /// Render the prompt by replacing `{input}` with `input`.
+    /// Render the prompt by replacing every `{input}` occurrence with `input`.
+    ///
+    /// This is a simple string replacement; `{input}` in the AI-generated
+    /// output is never affected because only the _template_ is processed here,
+    /// not the model's response.  If the document content itself contains the
+    /// literal text `{input}` it will be substituted too, which is a known
+    /// limitation of this approach.
     fn render_prompt(&self, input: &str) -> String {
         self.prompt_template.replace("{input}", input)
     }
@@ -224,14 +230,24 @@ impl AiTransform {
             .send_json(body)
             .with_context(|| format!("Failed to POST to Ollama endpoint '{}'", url))?;
 
-        let json: serde_json::Value = response
-            .into_json()
-            .context("Failed to parse Ollama JSON response")?;
+        let body_str = response
+            .into_string()
+            .context("Failed to read Ollama response body")?;
+
+        let json: serde_json::Value =
+            serde_json::from_str(&body_str).with_context(|| {
+                format!("Failed to parse Ollama JSON response; body was: {}", body_str)
+            })?;
 
         json["response"]
             .as_str()
             .map(|s| s.to_string())
-            .ok_or_else(|| anyhow::anyhow!("Ollama response missing 'response' field"))
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Ollama response missing 'response' field; received: {}",
+                    body_str
+                )
+            })
     }
 
     /// Call an OpenAI-compatible `/v1/chat/completions` endpoint.
@@ -251,15 +267,26 @@ impl AiTransform {
             .send_json(body)
             .with_context(|| format!("Failed to POST to OpenAI-compatible endpoint '{}'", url))?;
 
-        let json: serde_json::Value = response
-            .into_json()
-            .context("Failed to parse OpenAI JSON response")?;
+        let body_str = response
+            .into_string()
+            .context("Failed to read OpenAI response body")?;
+
+        let json: serde_json::Value =
+            serde_json::from_str(&body_str).with_context(|| {
+                format!(
+                    "Failed to parse OpenAI JSON response; body was: {}",
+                    body_str
+                )
+            })?;
 
         json["choices"][0]["message"]["content"]
             .as_str()
             .map(|s| s.to_string())
             .ok_or_else(|| {
-                anyhow::anyhow!("OpenAI response missing 'choices[0].message.content' field")
+                anyhow::anyhow!(
+                    "OpenAI response missing 'choices[0].message.content' field; received: {}",
+                    body_str
+                )
             })
     }
 }
