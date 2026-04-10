@@ -137,6 +137,25 @@ pub fn compute_input_hash(content: &str, variables: &HashMap<String, String>) ->
     format!("{:x}", hasher.finalize())
 }
 
+/// Compute a stable SHA-256 hash for a single DAG node execution.
+///
+/// The hash covers:
+/// * the input content being transformed
+/// * the source format identifier (e.g. `"markdown"`)
+/// * the target format identifier (e.g. `"html"`)
+///
+/// Including both format strings ensures that the same input content
+/// transformed to two different target formats receives distinct cache keys.
+pub fn compute_dag_node_hash(input: &str, from: &str, to: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(input.as_bytes());
+    hasher.update(b"\x00from\x00");
+    hasher.update(from.as_bytes());
+    hasher.update(b"\x00to\x00");
+    hasher.update(to.as_bytes());
+    format!("{:x}", hasher.finalize())
+}
+
 /// Load the transform cache from disk.
 ///
 /// Returns an empty cache if the file does not exist or cannot be parsed.
@@ -667,5 +686,42 @@ mod tests {
         // The timestamp should be after 2020-01-01 (Unix epoch 1577836800).
         let ts = current_unix_timestamp();
         assert!(ts > 1_577_836_800, "timestamp {ts} is before 2020");
+    }
+
+    // ── compute_dag_node_hash ────────────────────────────────────────────────
+
+    #[test]
+    fn test_dag_node_hash_same_inputs_stable() {
+        let h1 = compute_dag_node_hash("content", "markdown", "html");
+        let h2 = compute_dag_node_hash("content", "markdown", "html");
+        assert_eq!(h1, h2);
+    }
+
+    #[test]
+    fn test_dag_node_hash_different_content_differs() {
+        let h1 = compute_dag_node_hash("content A", "markdown", "html");
+        let h2 = compute_dag_node_hash("content B", "markdown", "html");
+        assert_ne!(h1, h2);
+    }
+
+    #[test]
+    fn test_dag_node_hash_different_from_format_differs() {
+        let h1 = compute_dag_node_hash("content", "markdown", "html");
+        let h2 = compute_dag_node_hash("content", "rst", "html");
+        assert_ne!(h1, h2);
+    }
+
+    #[test]
+    fn test_dag_node_hash_different_to_format_differs() {
+        let h1 = compute_dag_node_hash("content", "markdown", "html");
+        let h2 = compute_dag_node_hash("content", "markdown", "pdf");
+        assert_ne!(h1, h2);
+    }
+
+    #[test]
+    fn test_dag_node_hash_is_hex_string() {
+        let h = compute_dag_node_hash("test", "markdown", "html");
+        assert!(h.chars().all(|c| c.is_ascii_hexdigit()), "hash must be hex: {h}");
+        assert_eq!(h.len(), 64, "SHA-256 hex must be 64 chars");
     }
 }

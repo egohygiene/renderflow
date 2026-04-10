@@ -1,12 +1,14 @@
 use std::collections::HashMap;
 use std::io::Write;
-use std::sync::Arc;
+use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 
 use anyhow::{Context, Result};
 use rayon::prelude::*;
 use tracing::{debug, warn};
 
 use super::{Format, MultiTargetDag, TransformEdge};
+use crate::cache::{compute_dag_node_hash, load_cache, save_cache, TransformCache};
 use crate::transforms::aggregation::AggregationTransform;
 use crate::transforms::Transform;
 
@@ -87,6 +89,8 @@ pub struct DagExecutor {
     single_transforms: HashMap<(Format, Format), Arc<dyn Transform + Send + Sync>>,
     /// Collection-input transforms keyed by `(from, to)` format pair.
     aggregation_transforms: HashMap<(Format, Format), Arc<dyn AggregationTransform>>,
+    /// Optional path for on-disk caching of single-transform outputs.
+    cache_path: Option<PathBuf>,
 }
 
 impl DagExecutor {
@@ -95,7 +99,23 @@ impl DagExecutor {
         Self {
             single_transforms: HashMap::new(),
             aggregation_transforms: HashMap::new(),
+            cache_path: None,
         }
+    }
+
+    /// Configure an on-disk cache for single-transform outputs.
+    ///
+    /// When set, [`execute`](DagExecutor::execute) loads the cache from `path`
+    /// before processing, skips any single-input edge whose output is already
+    /// cached, and saves the updated cache back to `path` after all waves
+    /// complete.
+    ///
+    /// If the file does not exist the executor starts with an empty cache.
+    /// Errors loading or saving the cache are logged at `WARN` level and never
+    /// abort the build.
+    pub fn with_cache(mut self, path: impl Into<PathBuf>) -> Self {
+        self.cache_path = Some(path.into());
+        self
     }
 
     /// Register a single-input transform for the `from → to` edge.
@@ -146,6 +166,12 @@ impl DagExecutor {
         source_format: Format,
         initial_content: String,
     ) -> Result<HashMap<Format, String>> {
+        // Load an on-disk cache when a cache path is configured.
+        let cache: Option<Mutex<TransformCache>> = self
+            .cache_path
+            .as_deref()
+            .map(|p| Mutex::new(load_cache(p)));
+
         // Track the content produced for every format encountered so far.
         let mut available: HashMap<Format, String> = HashMap::new();
         available.insert(source_format, initial_content);
@@ -173,7 +199,7 @@ impl DagExecutor {
             // Execute all edges in the current wave in parallel.
             let wave_results: Result<Vec<(Format, String)>> = wave
                 .into_par_iter()
-                .map(|edge| self.execute_edge(edge, &available))
+                .map(|edge| self.execute_edge(edge, &available, cache.as_ref()))
                 .collect();
 
             // Propagate the first error; otherwise record the new outputs.
@@ -182,6 +208,22 @@ impl DagExecutor {
             }
 
             remaining = next_remaining;
+        }
+
+        // Persist the updated cache to disk when configured.
+        if let Some(path) = &self.cache_path {
+            if let Some(cache_mutex) = cache {
+                match cache_mutex.into_inner() {
+                    Ok(cache) => {
+                        if let Err(e) = save_cache(&cache, path) {
+                            warn!(error = %e, path = %path.display(), "Failed to save DAG cache");
+                        }
+                    }
+                    Err(e) => {
+                        warn!(error = %e, "DAG cache mutex was poisoned; cache not saved");
+                    }
+                }
+            }
         }
 
         Ok(available)
@@ -194,6 +236,7 @@ impl DagExecutor {
         &self,
         edge: &TransformEdge,
         available: &HashMap<Format, String>,
+        cache: Option<&Mutex<TransformCache>>,
     ) -> Result<(Format, String)> {
         let input = available
             .get(&edge.from)
@@ -201,7 +244,7 @@ impl DagExecutor {
             .clone();
 
         if edge.input_kind.is_single() {
-            self.execute_single_edge(edge, input)
+            self.execute_single_edge(edge, input, cache)
         } else {
             self.execute_collection_edge(edge, &[input])
         }
@@ -212,7 +255,39 @@ impl DagExecutor {
         &self,
         edge: &TransformEdge,
         input: String,
+        cache: Option<&Mutex<TransformCache>>,
     ) -> Result<(Format, String)> {
+        let from_str = edge.from.to_string();
+        let to_str = edge.to.to_string();
+
+        // Check the cache before running the transform.
+        if let Some(cache_mutex) = cache {
+            let hash = compute_dag_node_hash(&input, &from_str, &to_str);
+
+            if let Ok(guard) = cache_mutex.lock() {
+                if let Some(cached_output) = guard.get(&hash) {
+                    debug!(from = ?edge.from, to = ?edge.to, "Cache hit; skipping transform");
+                    return Ok((edge.to, cached_output.to_string()));
+                }
+            }
+
+            // Cache miss: run the transform and store the result.
+            let output = self.run_single_transform(edge, input)?;
+
+            if let Ok(mut guard) = cache_mutex.lock() {
+                guard.insert(hash, output.clone());
+            }
+
+            return Ok((edge.to, output));
+        }
+
+        // No cache configured: run the transform directly.
+        let output = self.run_single_transform(edge, input)?;
+        Ok((edge.to, output))
+    }
+
+    /// Look up and apply the registered single-input transform for `edge`.
+    fn run_single_transform(&self, edge: &TransformEdge, input: String) -> Result<String> {
         let transform = self
             .single_transforms
             .get(&(edge.from, edge.to))
@@ -231,7 +306,7 @@ impl DagExecutor {
         })?;
 
         debug!(from = ?edge.from, to = ?edge.to, "Single transform completed");
-        Ok((edge.to, output))
+        Ok(output)
     }
 
     /// Execute a collection-input edge.
@@ -739,5 +814,155 @@ mod tests {
 
         // Default executor, empty DAG: just the source.
         assert_eq!(results.len(), 1);
+    }
+
+    // ── caching ───────────────────────────────────────────────────────────────
+
+    /// A [`Transform`] that counts how many times it has been called.
+    struct CountingTransform(std::sync::atomic::AtomicUsize);
+
+    impl CountingTransform {
+        fn new() -> Self {
+            Self(std::sync::atomic::AtomicUsize::new(0))
+        }
+
+        fn call_count(&self) -> usize {
+            self.0.load(std::sync::atomic::Ordering::SeqCst)
+        }
+    }
+
+    impl Transform for CountingTransform {
+        fn name(&self) -> &str {
+            "CountingTransform"
+        }
+
+        fn apply(&self, input: String) -> Result<String> {
+            self.0.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            Ok(format!("{input}→counted"))
+        }
+    }
+
+    #[test]
+    fn test_with_cache_produces_correct_output() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache_file = dir.path().join("dag-cache.json");
+
+        let dag = build_graph()
+            .build_multi_target_dag(Format::Markdown, &[Format::Html])
+            .unwrap();
+
+        let mut executor = DagExecutor::new().with_cache(&cache_file);
+        executor.register_single(
+            Format::Markdown,
+            Format::Html,
+            arc_single(AppendTransform("→html".to_string())),
+        );
+
+        let results = executor
+            .execute(&dag, Format::Markdown, "content".to_string())
+            .unwrap();
+
+        assert_eq!(results[&Format::Html], "content→html");
+    }
+
+    #[test]
+    fn test_cached_node_is_skipped_on_second_run() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache_file = dir.path().join("dag-cache.json");
+
+        let dag = build_graph()
+            .build_multi_target_dag(Format::Markdown, &[Format::Html])
+            .unwrap();
+
+        // First run: populate the cache.
+        {
+            let mut executor = DagExecutor::new().with_cache(&cache_file);
+            executor.register_single(
+                Format::Markdown,
+                Format::Html,
+                arc_single(AppendTransform("→html".to_string())),
+            );
+            executor
+                .execute(&dag, Format::Markdown, "content".to_string())
+                .unwrap();
+        }
+
+        assert!(cache_file.exists(), "cache file must be written after first run");
+
+        // Second run: transform should be served from cache.
+        let counter = Arc::new(CountingTransform::new());
+        let mut executor = DagExecutor::new().with_cache(&cache_file);
+        executor.register_single(
+            Format::Markdown,
+            Format::Html,
+            Arc::clone(&counter) as Arc<dyn Transform + Send + Sync>,
+        );
+
+        let results = executor
+            .execute(&dag, Format::Markdown, "content".to_string())
+            .unwrap();
+
+        assert_eq!(results[&Format::Html], "content→html", "output must match cached value");
+        assert_eq!(counter.call_count(), 0, "transform must not be called on cache hit");
+    }
+
+    #[test]
+    fn test_different_input_causes_cache_miss() {
+        let dir = tempfile::tempdir().unwrap();
+        let cache_file = dir.path().join("dag-cache.json");
+
+        let dag = build_graph()
+            .build_multi_target_dag(Format::Markdown, &[Format::Html])
+            .unwrap();
+
+        // Populate cache with "content A".
+        {
+            let mut executor = DagExecutor::new().with_cache(&cache_file);
+            executor.register_single(
+                Format::Markdown,
+                Format::Html,
+                arc_single(AppendTransform("→html".to_string())),
+            );
+            executor
+                .execute(&dag, Format::Markdown, "content A".to_string())
+                .unwrap();
+        }
+
+        // Run with different input "content B" — must not hit the cache.
+        let counter = Arc::new(CountingTransform::new());
+        let mut executor = DagExecutor::new().with_cache(&cache_file);
+        executor.register_single(
+            Format::Markdown,
+            Format::Html,
+            Arc::clone(&counter) as Arc<dyn Transform + Send + Sync>,
+        );
+
+        let results = executor
+            .execute(&dag, Format::Markdown, "content B".to_string())
+            .unwrap();
+
+        assert_eq!(results[&Format::Html], "content B→counted");
+        assert_eq!(counter.call_count(), 1, "transform must run on cache miss");
+    }
+
+    #[test]
+    fn test_no_cache_path_executes_normally() {
+        let dag = build_graph()
+            .build_multi_target_dag(Format::Markdown, &[Format::Html])
+            .unwrap();
+
+        // Executor without a cache path — existing behaviour must be unchanged.
+        let mut executor = DagExecutor::new(); // no with_cache()
+        executor.register_single(
+            Format::Markdown,
+            Format::Html,
+            arc_single(AppendTransform("→html".to_string())),
+        );
+
+        let results = executor
+            .execute(&dag, Format::Markdown, "content".to_string())
+            .unwrap();
+
+        assert_eq!(results[&Format::Html], "content→html");
     }
 }
