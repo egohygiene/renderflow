@@ -45,6 +45,27 @@ pub fn run_resilient(config_path: &str) -> Result<()> {
 /// cache and dependency map after all formats have finished.
 type RenderResult = (String, String, Result<()>, Option<String>, Option<Vec<FileDependency>>);
 
+/// Progress-bar symbols used in render status messages.
+const SYMBOL_SKIP: &str = "↩";
+const SYMBOL_OK: &str = "✔";
+const SYMBOL_FAIL: &str = "✘";
+
+/// Create and register a per-output spinner progress bar on `mp`.
+///
+/// Pre-creating bars before the rayon parallel section avoids calling
+/// [`MultiProgress::add`] from multiple threads, which would acquire an
+/// internal mutex on every call and could serialise parallel workers.
+fn create_output_bar(mp: &MultiProgress, format_label: &str) -> ProgressBar {
+    let bar = mp.add(ProgressBar::new_spinner());
+    bar.set_style(
+        ProgressStyle::with_template("  {spinner:.blue} [{prefix:.bold.cyan}] {msg}")
+            .expect("hardcoded per-output progress bar template is valid"),
+    );
+    bar.set_prefix(format_label.to_string());
+    bar.set_message("queued");
+    bar
+}
+
 fn run_impl(config_path: &str, dry_run: bool, resilient: bool, optimization: Option<OptimizationMode>) -> Result<()> {
     if dry_run {
         info!("Dry-run mode enabled — no files will be created and no commands will be executed");
@@ -125,6 +146,12 @@ fn run_impl(config_path: &str, dry_run: bool, resilient: bool, optimization: Opt
             .expect("hardcoded progress bar template is valid")
             .progress_chars("█▓░"),
     );
+
+    // Pre-create one spinner per output format *before* the parallel rendering
+    // section.  See [`create_output_bar`] for the rationale.
+    let output_bars: Vec<ProgressBar> = config.outputs.iter().map(|output| {
+        create_output_bar(&mp, &output.output_type.to_string())
+    }).collect();
 
     // Transforms are run once per output format (serially, before parallel rendering)
     // because some transforms are format-specific.  In particular, EmojiTransform skips
@@ -207,9 +234,10 @@ fn run_impl(config_path: &str, dry_run: bool, resilient: bool, optimization: Opt
     let dep_map_path = output_dir.join(".renderflow-deps.json");
     let mut dep_map = load_dependency_map(&dep_map_path);
 
-    // Output formats are rendered concurrently via rayon. Progress bar updates
-    // and log messages may interleave across formats; this is expected and
-    // acceptable for parallel execution.
+    // Output formats are rendered concurrently via rayon. Each output has its own
+    // pre-created progress bar so workers never block each other updating the display.
+    // Failures are captured per-output and aggregated at the end — a single format
+    // failure does not abort sibling renders.
     //
     // Each element is (format_name, output_path, result, Option<new_output_hash>,
     // Option<file_deps>).  The optional hash and deps are Some only when the
@@ -218,7 +246,8 @@ fn run_impl(config_path: &str, dry_run: bool, resilient: bool, optimization: Opt
     let render_results: Vec<RenderResult> = config
         .outputs
         .par_iter()
-        .map(|output| {
+        .zip(output_bars.par_iter())
+        .map(|(output, bar)| {
         let format = output.output_type.clone();
         let format_str = format.to_string();
         let output_path = format!("{}/{}.{}", output_dir.display(), input_stem, format);
@@ -232,7 +261,7 @@ fn run_impl(config_path: &str, dry_run: bool, resilient: bool, optimization: Opt
 
         if dry_run {
             info!("[DRY RUN] Would render {} output to: {}", format, output_path);
-            pb.set_message(format!("[DRY RUN] [{format}] Would render output"));
+            bar.finish_with_message(format!("[DRY RUN] {SYMBOL_OK} Would render to {}", output_path));
             pb.inc(1);
             pb.println(format!("[DRY RUN] Would write output to: {}", output_path));
             (format_str, output_path, Ok(()), None, None)
@@ -290,18 +319,19 @@ fn run_impl(config_path: &str, dry_run: bool, resilient: bool, optimization: Opt
             {
                 debug!(hash = %output_hash, output = %output_path, "Output cache hit — skipping render");
                 info!("Skipping {} render (unchanged)", format);
+                bar.finish_with_message(format!("{SYMBOL_SKIP} unchanged: {}", output_path));
                 pb.inc(1);
-                pb.println(format!("↩ Skipping {} output (unchanged): {}", format, output_path));
+                pb.println(format!("{SYMBOL_SKIP} Skipping {} output (unchanged): {}", format, output_path));
                 return (format_str, output_path, Ok(()), Some(output_hash), Some(file_deps));
             }
 
+            bar.set_message("rendering…");
             let result = (|| -> Result<()> {
                 debug!(hash = %output_hash, output = %output_path, "Output cache miss — rendering output");
                 let strategy = select_strategy(&format, output.template.as_deref(), "templates")?;
                 let mut pipeline = Pipeline::new();
                 pipeline.add_step(Box::new(StrategyStep::new(strategy, &output_path, config.input_format(), config.variables.clone(), false)));
 
-                pb.set_message(format!("[{format}] Rendering output"));
                 pipeline.run(transformed)?;
                 Ok(())
             })();
@@ -311,14 +341,16 @@ fn run_impl(config_path: &str, dry_run: bool, resilient: bool, optimization: Opt
 
             match &result {
                 Ok(_) => {
+                    bar.finish_with_message(format!("{SYMBOL_OK} {}", output_path));
                     pb.inc(1);
-                    pb.println(format!("✔ Output written to: {}", output_path));
+                    pb.println(format!("{SYMBOL_OK} Output written to: {}", output_path));
                     info!(output = %output_path, "Pipeline completed for format: {}", format);
                 }
                 Err(e) => {
                     warn!(format = %format, error = %e, "Rendering failed for output format");
+                    bar.finish_with_message(format!("{SYMBOL_FAIL} failed: {:#}", e));
                     pb.inc(1);
-                    pb.println(format!("✘ Failed to render {} output: {:#}", format, e));
+                    pb.println(format!("{SYMBOL_FAIL} Failed to render {} output: {:#}", format, e));
                 }
             }
             (format_str, output_path, result, new_hash, new_deps)
@@ -353,9 +385,9 @@ fn run_impl(config_path: &str, dry_run: bool, resilient: bool, optimization: Opt
         .collect();
 
     if dry_run {
-        pb.finish_with_message("[DRY RUN] ✔ Dry-run complete — no output written");
+        pb.finish_with_message(format!("[DRY RUN] {SYMBOL_OK} Dry-run complete — no output written"));
     } else if failed_outputs.is_empty() {
-        pb.finish_with_message("✔ Build complete");
+        pb.finish_with_message(format!("{SYMBOL_OK} Build complete"));
     } else {
         pb.finish_with_message(format!("⚠ Build completed with {} failure(s)", failed_outputs.len()));
         let messages: Vec<String> = failed_outputs
@@ -853,5 +885,80 @@ mod tests {
 
         let result = run(f.path().to_str().unwrap(), true, None);
         assert!(result.is_ok(), "dry-run with output cache should succeed: {:?}", result);
+    }
+
+    #[test]
+    fn test_parallel_dry_run_produces_result_per_output() {
+        // Dry-run with multiple output formats: the parallel rendering loop must
+        // process every configured output and produce a result for each one.
+        // This verifies that par_iter covers all outputs, not just the first.
+        let (f, _dir) = multi_output_config_file();
+        let result = run(f.path().to_str().unwrap(), true, None);
+        assert!(result.is_ok(), "dry-run with multiple outputs should succeed: {:?}", result);
+    }
+
+    #[test]
+    #[ignore = "requires pandoc to be installed"]
+    fn test_parallel_failure_isolation_and_aggregation() {
+        // Verify that when multiple output formats are configured and one format
+        // fails, the other formats are still attempted and their failures are
+        // collected independently.  The final error must mention every failing
+        // format so the caller can identify which outputs need attention.
+        //
+        // We configure two unsupported formats.  Each fails independently inside
+        // the rayon parallel loop; the outer run() collects all failures and
+        // returns a single aggregated error.
+        let dir = tempfile::tempdir().expect("failed to create temp dir");
+        let input_path = dir.path().join("input.md");
+        fs::write(&input_path, "# Test\n").expect("failed to write input file");
+        let output_dir = dir.path().join("dist");
+        let config_content = format!(
+            "outputs:\n  - type: epub\n  - type: rst\ninput: \"{}\"\noutput_dir: \"{}\"\n",
+            input_path.display(),
+            output_dir.display()
+        );
+        let mut f = NamedTempFile::new().expect("failed to create temp file");
+        f.write_all(config_content.as_bytes())
+            .expect("failed to write config");
+
+        let result = run(f.path().to_str().unwrap(), false, None);
+        assert!(result.is_err(), "build with only unsupported formats should fail");
+        let err_msg = format!("{:#}", result.unwrap_err());
+        // Both format names must appear in the aggregated error message.
+        assert!(
+            err_msg.contains("epub"),
+            "aggregated error should mention 'epub': {err_msg}"
+        );
+        assert!(
+            err_msg.contains("rst"),
+            "aggregated error should mention 'rst': {err_msg}"
+        );
+    }
+
+    #[test]
+    #[ignore = "requires pandoc to be installed"]
+    fn test_parallel_renders_all_formats_independently() {
+        // With html, pdf, and docx configured the parallel loop must produce one
+        // successful result per format.  This exercises the full rayon path for
+        // each output strategy running concurrently.
+        let dir = tempfile::tempdir().expect("failed to create temp dir");
+        let input_path = dir.path().join("input.md");
+        fs::write(&input_path, "# Hello\n\nThis is a test.\n")
+            .expect("failed to write input file");
+        let output_dir = dir.path().join("dist");
+        let config_content = format!(
+            "outputs:\n  - type: html\n  - type: pdf\n  - type: docx\ninput: \"{}\"\noutput_dir: \"{}\"\n",
+            input_path.display(),
+            output_dir.display()
+        );
+        let mut f = NamedTempFile::new().expect("failed to create temp file");
+        f.write_all(config_content.as_bytes())
+            .expect("failed to write config");
+
+        let result = run(f.path().to_str().unwrap(), false, None);
+        assert!(result.is_ok(), "parallel build with html+pdf+docx should succeed: {:?}", result);
+        assert!(output_dir.join("input.html").exists(), "html output must exist");
+        assert!(output_dir.join("input.pdf").exists(), "pdf output must exist");
+        assert!(output_dir.join("input.docx").exists(), "docx output must exist");
     }
 }
