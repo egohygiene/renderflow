@@ -45,6 +45,12 @@ fn run_impl(config_path: &str, dry_run: bool, resilient: bool, optimization: Opt
     let config = load_config(config_path)?;
     info!("Loaded config successfully");
 
+    // Read the raw config file content so it can be included in the transform
+    // cache hash.  Any change to the config file (not only to `variables`) will
+    // then invalidate the cached transform results and force a fresh pipeline run.
+    let config_content = fs::read_to_string(config_path)
+        .with_context(|| format!("Failed to re-read config file for hashing: {}", config_path))?;
+
     // CLI flag takes precedence over config file; fall back to config value.
     let opt_mode = optimization.unwrap_or(config.optimization);
     info!(optimization = %opt_mode, "Using optimization mode");
@@ -115,7 +121,7 @@ fn run_impl(config_path: &str, dry_run: bool, resilient: bool, optimization: Opt
     // because some transforms are format-specific.  In particular, EmojiTransform skips
     // replacement for HTML (which renders emoji natively) but applies it for PDF, DOCX,
     // and other formats.  A format-keyed cache avoids redundant work across builds.
-    let base_input_hash = compute_input_hash(&normalized_content, &config.variables);
+    let base_input_hash = compute_input_hash(&normalized_content, &config_content, &config.variables);
     let cache_path = output_dir.join(".renderflow-cache.json");
     // Always attempt to read the cache; load_cache handles missing/corrupt files
     // gracefully.  Only write back to disk in non-dry-run mode.
@@ -217,8 +223,18 @@ fn run_impl(config_path: &str, dry_run: bool, resilient: bool, optimization: Opt
         } else {
             // Compute a hash of all inputs that determine this output's content.
             // If the stored hash matches and the output file already exists, pandoc
-            // can be skipped entirely.
-            let output_hash = compute_output_hash(&transformed, &format_str, output.template.as_deref());
+            // can be skipped entirely.  The template file content (not just its
+            // name) is included so that edits to a template file invalidate the
+            // output cache even when the template path is unchanged.
+            let template_content = output.template.as_deref().and_then(|name| {
+                fs::read_to_string(Path::new("templates").join(name)).ok()
+            });
+            let output_hash = compute_output_hash(
+                &transformed,
+                &format_str,
+                output.template.as_deref(),
+                template_content.as_deref(),
+            );
 
             if Path::new(&output_path).exists()
                 && output_cache.get(&output_path) == Some(output_hash.as_str())
@@ -503,26 +519,29 @@ mod tests {
     #[test]
     fn test_cache_hit_uses_pre_populated_cache() {
         // Pre-populate the cache with the exact hash that the build would
-        // compute for the input file + format, then run a dry-run.  The build
-        // should detect the cache hit and skip the transform phase for that format.
+        // compute for the input file + config + format, then run a dry-run.
+        // The build should detect the cache hit and skip the transform phase
+        // for that format.
         let dir = tempfile::tempdir().expect("failed to create temp dir");
         let input_content = "# Test\n";
         let input_path = dir.path().join("input.md");
         fs::write(&input_path, input_content).expect("failed to write input file");
         let output_dir = dir.path().join("dist");
 
-        // Compute the hash the same way the build command will: base hash + "-html".
-        let variables = std::collections::HashMap::new();
-        let base_hash = crate::cache::compute_input_hash(input_content, &variables);
-        let hash_key = format!("{base_hash}-html");
-        let cached_transform = "# Test (from cache)\n";
-        write_cache_file(&output_dir, &hash_key, cached_transform);
-
         let config_content = format!(
             "outputs:\n  - type: html\ninput: \"{}\"\noutput_dir: \"{}\"\n",
             input_path.display(),
             output_dir.display()
         );
+
+        // Compute the hash the same way the build command will: base hash + "-html".
+        // The hash now also incorporates the config file content.
+        let variables = std::collections::HashMap::new();
+        let base_hash = crate::cache::compute_input_hash(input_content, &config_content, &variables);
+        let hash_key = format!("{base_hash}-html");
+        let cached_transform = "# Test (from cache)\n";
+        write_cache_file(&output_dir, &hash_key, cached_transform);
+
         let mut f = NamedTempFile::new().expect("failed to create temp file");
         f.write_all(config_content.as_bytes()).expect("failed to write config");
 
@@ -541,9 +560,15 @@ mod tests {
         fs::write(&input_path, original_content).expect("failed to write input file");
         let output_dir = dir.path().join("dist");
 
-        // Cache is keyed on the *original* content + format.
+        let config_content = format!(
+            "outputs:\n  - type: html\ninput: \"{}\"\noutput_dir: \"{}\"\n",
+            input_path.display(),
+            output_dir.display()
+        );
+
+        // Cache is keyed on the *original* content + config + format.
         let variables = std::collections::HashMap::new();
-        let old_base_hash = crate::cache::compute_input_hash(original_content, &variables);
+        let old_base_hash = crate::cache::compute_input_hash(original_content, &config_content, &variables);
         let old_hash_key = format!("{old_base_hash}-html");
         write_cache_file(&output_dir, &old_hash_key, "cached result");
 
@@ -551,17 +576,47 @@ mod tests {
         let new_content = "# Changed\n";
         fs::write(&input_path, new_content).expect("failed to write updated input");
 
-        let config_content = format!(
-            "outputs:\n  - type: html\ninput: \"{}\"\noutput_dir: \"{}\"\n",
-            input_path.display(),
-            output_dir.display()
-        );
         let mut f = NamedTempFile::new().expect("failed to create temp file");
         f.write_all(config_content.as_bytes()).expect("failed to write config");
 
         // Dry-run still succeeds; it runs transforms because the hash misses.
         let result = run(f.path().to_str().unwrap(), true, None);
         assert!(result.is_ok(), "dry-run with cache miss should still succeed: {:?}", result);
+    }
+
+    #[test]
+    fn test_cache_miss_when_config_changed() {
+        // After changing the config content the hash changes, so the previously
+        // cached entry should not match and transforms must run again.
+        let dir = tempfile::tempdir().expect("failed to create temp dir");
+        let input_content = "# Hello\n";
+        let input_path = dir.path().join("input.md");
+        fs::write(&input_path, input_content).expect("failed to write input file");
+        let output_dir = dir.path().join("dist");
+
+        // Original config — used to seed the cache.
+        let original_config = format!(
+            "outputs:\n  - type: html\ninput: \"{}\"\noutput_dir: \"{}\"\n",
+            input_path.display(),
+            output_dir.display()
+        );
+        let variables = std::collections::HashMap::new();
+        let old_base_hash = crate::cache::compute_input_hash(input_content, &original_config, &variables);
+        let old_hash_key = format!("{old_base_hash}-html");
+        write_cache_file(&output_dir, &old_hash_key, "cached result");
+
+        // Updated config (adds a variable) — the hash must differ from the original.
+        let updated_config = format!(
+            "outputs:\n  - type: html\ninput: \"{}\"\noutput_dir: \"{}\"\nvariables:\n  title: changed\n",
+            input_path.display(),
+            output_dir.display()
+        );
+        let mut f = NamedTempFile::new().expect("failed to create temp file");
+        f.write_all(updated_config.as_bytes()).expect("failed to write config");
+
+        // Dry-run succeeds; transforms run because the config hash misses.
+        let result = run(f.path().to_str().unwrap(), true, None);
+        assert!(result.is_ok(), "dry-run with changed config should succeed: {:?}", result);
     }
 
     #[test]

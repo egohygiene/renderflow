@@ -38,16 +38,26 @@ impl OutputCache {
 /// * transformed document content (post-transform pipeline)
 /// * output type string (e.g. `"html"`, `"pdf"`, `"docx"`)
 /// * optional template name (empty string when absent)
+/// * optional template file content (empty string when absent or unreadable)
 ///
 /// A change to any of these fields produces a different hash, causing a cache
-/// miss and triggering a fresh pandoc run.
-pub fn compute_output_hash(transformed_content: &str, output_type: &str, template: Option<&str>) -> String {
+/// miss and triggering a fresh pandoc run.  Including the template file content
+/// (not just its name) means that editing a template file invalidates cached
+/// render outputs even when the template path has not changed.
+pub fn compute_output_hash(
+    transformed_content: &str,
+    output_type: &str,
+    template: Option<&str>,
+    template_content: Option<&str>,
+) -> String {
     let mut hasher = Sha256::new();
     hasher.update(transformed_content.as_bytes());
     hasher.update(b"\x00output-type\x00");
     hasher.update(output_type.as_bytes());
     hasher.update(b"\x00template\x00");
     hasher.update(template.unwrap_or("").as_bytes());
+    hasher.update(b"\x00template-content\x00");
+    hasher.update(template_content.unwrap_or("").as_bytes());
     format!("{:x}", hasher.finalize())
 }
 
@@ -116,13 +126,22 @@ impl TransformCache {
 ///
 /// The hash covers:
 /// * normalized input file content
+/// * config file content (raw YAML bytes)
 /// * variables (sorted for determinism, regardless of map insertion order)
 ///
 /// This hash uniquely identifies a combination of inputs so that a cache hit
-/// guarantees the transform pipeline would produce the same output.
-pub fn compute_input_hash(content: &str, variables: &HashMap<String, String>) -> String {
+/// guarantees the transform pipeline would produce the same output.  Including
+/// the raw config file content means that any change to the config (not only
+/// to `variables`) invalidates the transform cache.
+pub fn compute_input_hash(
+    content: &str,
+    config_content: &str,
+    variables: &HashMap<String, String>,
+) -> String {
     let mut hasher = Sha256::new();
     hasher.update(content.as_bytes());
+    hasher.update(b"\x00config\x00");
+    hasher.update(config_content.as_bytes());
 
     // Sort entries so the hash is stable regardless of HashMap iteration order.
     let mut sorted: Vec<(&String, &String)> = variables.iter().collect();
@@ -324,44 +343,58 @@ mod tests {
 
     #[test]
     fn test_same_inputs_produce_same_hash() {
-        let h1 = compute_input_hash("hello world", &vars(&[("key", "val")]));
-        let h2 = compute_input_hash("hello world", &vars(&[("key", "val")]));
+        let h1 = compute_input_hash("hello world", "", &vars(&[("key", "val")]));
+        let h2 = compute_input_hash("hello world", "", &vars(&[("key", "val")]));
         assert_eq!(h1, h2);
     }
 
     #[test]
     fn test_different_content_produces_different_hash() {
-        let h1 = compute_input_hash("content A", &vars(&[]));
-        let h2 = compute_input_hash("content B", &vars(&[]));
+        let h1 = compute_input_hash("content A", "", &vars(&[]));
+        let h2 = compute_input_hash("content B", "", &vars(&[]));
         assert_ne!(h1, h2);
     }
 
     #[test]
     fn test_different_variables_produce_different_hash() {
-        let h1 = compute_input_hash("same content", &vars(&[("k", "v1")]));
-        let h2 = compute_input_hash("same content", &vars(&[("k", "v2")]));
+        let h1 = compute_input_hash("same content", "", &vars(&[("k", "v1")]));
+        let h2 = compute_input_hash("same content", "", &vars(&[("k", "v2")]));
         assert_ne!(h1, h2);
     }
 
     #[test]
     fn test_variable_order_does_not_affect_hash() {
-        let h1 = compute_input_hash("content", &vars(&[("a", "1"), ("b", "2")]));
-        let h2 = compute_input_hash("content", &vars(&[("b", "2"), ("a", "1")]));
+        let h1 = compute_input_hash("content", "", &vars(&[("a", "1"), ("b", "2")]));
+        let h2 = compute_input_hash("content", "", &vars(&[("b", "2"), ("a", "1")]));
         assert_eq!(h1, h2);
     }
 
     #[test]
     fn test_empty_variables_produces_stable_hash() {
-        let h1 = compute_input_hash("content", &vars(&[]));
-        let h2 = compute_input_hash("content", &vars(&[]));
+        let h1 = compute_input_hash("content", "", &vars(&[]));
+        let h2 = compute_input_hash("content", "", &vars(&[]));
         assert_eq!(h1, h2);
     }
 
     #[test]
     fn test_hash_is_hex_string() {
-        let h = compute_input_hash("test", &vars(&[]));
+        let h = compute_input_hash("test", "", &vars(&[]));
         assert!(h.chars().all(|c| c.is_ascii_hexdigit()), "hash must be hex: {h}");
         assert_eq!(h.len(), 64, "SHA-256 hex must be 64 chars");
+    }
+
+    #[test]
+    fn test_different_config_content_produces_different_hash() {
+        let h1 = compute_input_hash("same content", "config: a", &vars(&[]));
+        let h2 = compute_input_hash("same content", "config: b", &vars(&[]));
+        assert_ne!(h1, h2);
+    }
+
+    #[test]
+    fn test_empty_config_content_differs_from_nonempty() {
+        let h1 = compute_input_hash("content", "", &vars(&[]));
+        let h2 = compute_input_hash("content", "outputs:\n  - type: html\n", &vars(&[]));
+        assert_ne!(h1, h2);
     }
 
     // ── TransformCache ───────────────────────────────────────────────────────
@@ -438,44 +471,58 @@ mod tests {
 
     #[test]
     fn test_output_hash_same_inputs_stable() {
-        let h1 = compute_output_hash("content", "html", None);
-        let h2 = compute_output_hash("content", "html", None);
+        let h1 = compute_output_hash("content", "html", None, None);
+        let h2 = compute_output_hash("content", "html", None, None);
         assert_eq!(h1, h2);
     }
 
     #[test]
     fn test_output_hash_different_output_type_differs() {
-        let h1 = compute_output_hash("content", "html", None);
-        let h2 = compute_output_hash("content", "pdf", None);
+        let h1 = compute_output_hash("content", "html", None, None);
+        let h2 = compute_output_hash("content", "pdf", None, None);
         assert_ne!(h1, h2);
     }
 
     #[test]
     fn test_output_hash_different_template_differs() {
-        let h1 = compute_output_hash("content", "html", Some("a.html"));
-        let h2 = compute_output_hash("content", "html", Some("b.html"));
+        let h1 = compute_output_hash("content", "html", Some("a.html"), None);
+        let h2 = compute_output_hash("content", "html", Some("b.html"), None);
         assert_ne!(h1, h2);
     }
 
     #[test]
     fn test_output_hash_no_template_differs_from_with_template() {
-        let h1 = compute_output_hash("content", "html", None);
-        let h2 = compute_output_hash("content", "html", Some("tmpl.html"));
+        let h1 = compute_output_hash("content", "html", None, None);
+        let h2 = compute_output_hash("content", "html", Some("tmpl.html"), None);
         assert_ne!(h1, h2);
     }
 
     #[test]
     fn test_output_hash_different_content_differs() {
-        let h1 = compute_output_hash("content A", "html", None);
-        let h2 = compute_output_hash("content B", "html", None);
+        let h1 = compute_output_hash("content A", "html", None, None);
+        let h2 = compute_output_hash("content B", "html", None, None);
         assert_ne!(h1, h2);
     }
 
     #[test]
     fn test_output_hash_is_hex_string() {
-        let h = compute_output_hash("content", "html", None);
+        let h = compute_output_hash("content", "html", None, None);
         assert!(h.chars().all(|c| c.is_ascii_hexdigit()), "hash must be hex: {h}");
         assert_eq!(h.len(), 64, "SHA-256 hex must be 64 chars");
+    }
+
+    #[test]
+    fn test_output_hash_different_template_content_differs() {
+        let h1 = compute_output_hash("content", "html", Some("t.html"), Some("<html>v1</html>"));
+        let h2 = compute_output_hash("content", "html", Some("t.html"), Some("<html>v2</html>"));
+        assert_ne!(h1, h2);
+    }
+
+    #[test]
+    fn test_output_hash_no_template_content_differs_from_some() {
+        let h1 = compute_output_hash("content", "html", Some("t.html"), None);
+        let h2 = compute_output_hash("content", "html", Some("t.html"), Some("<html></html>"));
+        assert_ne!(h1, h2);
     }
 
     // ── OutputCache ──────────────────────────────────────────────────────────
