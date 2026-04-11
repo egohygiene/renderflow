@@ -457,3 +457,208 @@ fn test_all_dry_run_exits_successfully() {
     );
 }
 
+// ── inspect subcommand ────────────────────────────────────────────────────────
+
+#[test]
+fn test_inspect_help_exits_successfully() {
+    let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
+        .args(["inspect", "--help"])
+        .output()
+        .expect("failed to execute renderflow");
+
+    assert!(output.status.success(), "inspect --help should exit with code 0");
+}
+
+#[test]
+fn test_inspect_help_documents_config_option() {
+    let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
+        .args(["inspect", "--help"])
+        .output()
+        .expect("failed to execute renderflow");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("--config"),
+        "inspect --help should document --config, got: {stdout}"
+    );
+}
+
+#[test]
+fn test_inspect_help_documents_output_format_option() {
+    let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
+        .args(["inspect", "--help"])
+        .output()
+        .expect("failed to execute renderflow");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("--output-format"),
+        "inspect --help should document --output-format, got: {stdout}"
+    );
+}
+
+#[test]
+fn test_inspect_help_documents_export_option() {
+    let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
+        .args(["inspect", "--help"])
+        .output()
+        .expect("failed to execute renderflow");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("--export"),
+        "inspect --help should document --export, got: {stdout}"
+    );
+}
+
+#[test]
+fn test_inspect_help_contains_examples() {
+    let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
+        .args(["inspect", "--help"])
+        .output()
+        .expect("failed to execute renderflow");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("Examples"),
+        "inspect --help should contain an examples section, got: {stdout}"
+    );
+}
+
+#[test]
+fn test_inspect_missing_config_exits_with_error() {
+    let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
+        .args(["inspect", "--config", "/nonexistent/renderflow.yaml"])
+        .output()
+        .expect("failed to execute renderflow");
+
+    assert!(
+        !output.status.success(),
+        "inspect with a missing config should exit with non-zero status"
+    );
+}
+
+#[test]
+fn test_inspect_without_transforms_exits_with_error() {
+    let (f, _dir) = common::valid_config_file();
+    let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
+        .args(["inspect", "--config"])
+        .arg(f.path())
+        .output()
+        .expect("failed to execute renderflow");
+
+    assert!(
+        !output.status.success(),
+        "inspect without a 'transforms' key in config should fail"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("transforms"),
+        "error should mention 'transforms', got: {stderr}"
+    );
+}
+
+#[test]
+fn test_inspect_tree_output_contains_dag_header() {
+    let (config_file, _dir) = common::graph_config_file();
+    let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
+        .args(["inspect", "--config"])
+        .arg(config_file.path())
+        .output()
+        .expect("failed to execute renderflow");
+
+    assert!(
+        output.status.success(),
+        "inspect should succeed with a valid config, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("DAG Execution Plan"),
+        "inspect tree output should contain 'DAG Execution Plan', got: {stdout}"
+    );
+}
+
+#[test]
+fn test_inspect_dot_output_contains_digraph() {
+    let (config_file, _dir) = common::graph_config_file();
+    let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
+        .args(["inspect", "--config"])
+        .arg(config_file.path())
+        .args(["--output-format", "dot"])
+        .output()
+        .expect("failed to execute renderflow");
+
+    assert!(
+        output.status.success(),
+        "inspect --output-format dot should succeed, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("digraph renderflow"),
+        "DOT output should contain 'digraph renderflow', got: {stdout}"
+    );
+}
+
+#[test]
+fn test_inspect_target_and_all_are_mutually_exclusive() {
+    let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
+        .args(["inspect", "--target", "pdf", "--all"])
+        .output()
+        .expect("failed to execute renderflow");
+
+    assert!(
+        !output.status.success(),
+        "--target and --all together should fail"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("cannot be used with") || stderr.contains("conflicts"),
+        "--target and --all should conflict, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_inspect_export_writes_file() {
+    let (config_file, dir) = common::graph_config_file();
+    let export_path = dir.path().join("dag.dot");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
+        .args(["inspect", "--config"])
+        .arg(config_file.path())
+        .args(["--output-format", "dot", "--export"])
+        .arg(&export_path)
+        .output()
+        .expect("failed to execute renderflow");
+
+    assert!(
+        output.status.success(),
+        "inspect --export should succeed, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        export_path.exists(),
+        "exported file should exist at {}",
+        export_path.display()
+    );
+    let content = std::fs::read_to_string(&export_path).expect("failed to read export file");
+    assert!(
+        content.contains("digraph renderflow"),
+        "exported file should contain DOT graph, got: {content}"
+    );
+}
+
+#[test]
+fn test_help_output_lists_inspect_command() {
+    let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
+        .arg("--help")
+        .output()
+        .expect("failed to execute renderflow");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("inspect"),
+        "--help should list the inspect subcommand, got: {stdout}"
+    );
+}

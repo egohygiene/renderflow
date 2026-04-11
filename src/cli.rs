@@ -18,6 +18,8 @@ use crate::optimization::OptimizationMode;
         renderflow watch                        Watch using renderflow.yaml\n  \
         renderflow watch --config custom.yaml   Watch with a custom config file\n  \
         renderflow audit                        Generate an optimization audit report\n  \
+        renderflow inspect                      Visualize the transformation DAG\n  \
+        renderflow inspect --output-format dot  Export DAG as Graphviz DOT\n  \
         renderflow my-project.yaml              Shorthand: run build on the given config"
 )]
 pub struct Cli {
@@ -102,4 +104,38 @@ pub enum Commands {
             renderflow audit   Generate an audit report in the audits/ directory"
     )]
     Audit,
+
+    /// Visualize the transformation DAG and execution plan
+    #[command(
+        after_help = "Examples:\n  \
+            renderflow inspect                          Show DAG tree for renderflow.yaml\n  \
+            renderflow inspect --config custom.yaml    Show DAG tree for a custom config\n  \
+            renderflow inspect --output-format dot     Emit Graphviz DOT output to stdout\n  \
+            renderflow inspect --target pdf            Show execution plan for a single target\n  \
+            renderflow inspect --all --export dag.dot  Export full DAG to a DOT file"
+    )]
+    Inspect {
+        /// Path to the renderflow configuration file
+        #[arg(long, default_value = "renderflow.yaml", value_name = "FILE")]
+        config: String,
+
+        /// Output format for the DAG visualization: 'tree' (default) or 'dot' (Graphviz)
+        #[arg(long, default_value = "tree", value_name = "FORMAT")]
+        output_format: String,
+
+        /// Visualize only the execution plan targeting this output format.
+        /// Cannot be combined with --all.
+        #[arg(long, value_name = "FORMAT", conflicts_with = "all")]
+        target: Option<String>,
+
+        /// Visualize the execution plan for all reachable output formats.
+        /// Cannot be combined with --target.
+        #[arg(long, conflicts_with = "target")]
+        all: bool,
+
+        /// Write the visualization output to a file instead of stdout.
+        /// Useful for saving DOT files for later rendering with Graphviz.
+        #[arg(long, value_name = "FILE")]
+        export: Option<String>,
+    },
 }
