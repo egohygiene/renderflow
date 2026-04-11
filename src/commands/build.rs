@@ -227,7 +227,19 @@ fn run_impl(config_path: &str, dry_run: bool, resilient: bool, optimization: Opt
             // name) is included so that edits to a template file invalidate the
             // output cache even when the template path is unchanged.
             let template_content = output.template.as_deref().and_then(|name| {
-                fs::read_to_string(Path::new("templates").join(name)).ok()
+                let path = Path::new("templates").join(name);
+                match fs::read_to_string(&path) {
+                    Ok(content) => Some(content),
+                    Err(e) => {
+                        warn!(
+                            template = %name,
+                            path = %path.display(),
+                            error = %e,
+                            "Failed to read template file for cache hash; template changes may not invalidate cache"
+                        );
+                        None
+                    }
+                }
             });
             let output_hash = compute_output_hash(
                 &transformed,
