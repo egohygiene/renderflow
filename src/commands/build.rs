@@ -12,6 +12,7 @@ use crate::cache::{compute_input_hash, compute_output_hash, load_cache, load_out
 use crate::config::{load_config, OutputType};
 use crate::deps::validate_dependencies;
 use crate::files::{ensure_output_dir, validate_input};
+use crate::incremental::{build_output_dependencies, load_dependency_map, save_dependency_map, FileDependency};
 use crate::optimization::OptimizationMode;
 use crate::pipeline::{Pipeline, StrategyStep};
 use crate::strategies::select_strategy;
@@ -35,6 +36,14 @@ pub fn run(config_path: &str, dry_run: bool, optimization: Option<OptimizationMo
 pub fn run_resilient(config_path: &str) -> Result<()> {
     run_impl(config_path, false, true, None)
 }
+
+/// Each element produced by the parallel render loop:
+/// (format_name, output_path, render_result, optional_output_hash, optional_file_deps).
+///
+/// The optional hash and deps are `Some` only for successful renders (including
+/// outputs that were skipped as up-to-date) and are used to update the output
+/// cache and dependency map after all formats have finished.
+type RenderResult = (String, String, Result<()>, Option<String>, Option<Vec<FileDependency>>);
 
 fn run_impl(config_path: &str, dry_run: bool, resilient: bool, optimization: Option<OptimizationMode>) -> Result<()> {
     if dry_run {
@@ -192,14 +201,21 @@ fn run_impl(config_path: &str, dry_run: bool, resilient: bool, optimization: Opt
     let output_cache_path = output_dir.join(".renderflow-output-cache.json");
     let mut output_cache = load_output_cache(&output_cache_path);
 
+    // Load the dependency map so that file-level dependencies are tracked across
+    // builds.  This records which specific input files (source document, config,
+    // templates) produced each output, enabling precise change attribution.
+    let dep_map_path = output_dir.join(".renderflow-deps.json");
+    let mut dep_map = load_dependency_map(&dep_map_path);
+
     // Output formats are rendered concurrently via rayon. Progress bar updates
     // and log messages may interleave across formats; this is expected and
     // acceptable for parallel execution.
     //
-    // Each element is (format_name, output_path, result, Option<new_output_hash>).
-    // The optional hash is Some only when the render succeeded (or was skipped as
-    // up-to-date), and is used to update the output cache after all formats finish.
-    let render_results: Vec<(String, String, Result<()>, Option<String>)> = config
+    // Each element is (format_name, output_path, result, Option<new_output_hash>,
+    // Option<file_deps>).  The optional hash and deps are Some only when the
+    // render succeeded (or was skipped as up-to-date), and are used to update
+    // the output cache and dependency map after all formats finish.
+    let render_results: Vec<RenderResult> = config
         .outputs
         .par_iter()
         .map(|output| {
@@ -219,13 +235,34 @@ fn run_impl(config_path: &str, dry_run: bool, resilient: bool, optimization: Opt
             pb.set_message(format!("[DRY RUN] [{format}] Would render output"));
             pb.inc(1);
             pb.println(format!("[DRY RUN] Would write output to: {}", output_path));
-            (format_str, output_path, Ok(()), None)
+            (format_str, output_path, Ok(()), None, None)
         } else {
+            // Build the list of file dependencies for this output.  This is
+            // used to populate the dependency map after the render completes.
+            let template_path = output.template.as_deref().map(|name| {
+                Path::new("templates").join(name)
+            });
+            let file_deps = build_output_dependencies(
+                &canonical_input,
+                Path::new(config_path),
+                template_path.as_deref(),
+            );
+
             // Compute a hash of all inputs that determine this output's content.
             // If the stored hash matches and the output file already exists, pandoc
             // can be skipped entirely.  The template file content (not just its
             // name) is included so that edits to a template file invalidate the
             // output cache even when the template path is unchanged.
+            //
+            // Additionally, log the file-level dependency status (from the
+            // dependency map) at DEBUG level so that the precise reason a rebuild
+            // was or was not triggered is visible in verbose output.
+            debug!(
+                output = %output_path,
+                dep_map_up_to_date = dep_map.is_output_up_to_date(&output_path, &file_deps),
+                recorded_deps = ?dep_map.dependencies_for(&output_path),
+                "Incremental dependency check"
+            );
             let template_content = output.template.as_deref().and_then(|name| {
                 let path = Path::new("templates").join(name);
                 match fs::read_to_string(&path) {
@@ -255,7 +292,7 @@ fn run_impl(config_path: &str, dry_run: bool, resilient: bool, optimization: Opt
                 info!("Skipping {} render (unchanged)", format);
                 pb.inc(1);
                 pb.println(format!("↩ Skipping {} output (unchanged): {}", format, output_path));
-                return (format_str, output_path, Ok(()), Some(output_hash));
+                return (format_str, output_path, Ok(()), Some(output_hash), Some(file_deps));
             }
 
             let result = (|| -> Result<()> {
@@ -270,6 +307,7 @@ fn run_impl(config_path: &str, dry_run: bool, resilient: bool, optimization: Opt
             })();
 
             let new_hash = if result.is_ok() { Some(output_hash) } else { None };
+            let new_deps = if result.is_ok() { Some(file_deps) } else { None };
 
             match &result {
                 Ok(_) => {
@@ -283,28 +321,35 @@ fn run_impl(config_path: &str, dry_run: bool, resilient: bool, optimization: Opt
                     pb.println(format!("✘ Failed to render {} output: {:#}", format, e));
                 }
             }
-            (format_str, output_path, result, new_hash)
+            (format_str, output_path, result, new_hash, new_deps)
         }
     })
     .collect();
 
-    // Persist updated output cache for all successful renders (including skipped ones).
+    // Persist updated output cache and dependency map for all successful renders
+    // (including skipped ones).
     if !dry_run {
-        for (_, output_path, result, new_hash) in &render_results {
+        for (_, output_path, result, new_hash, new_deps) in &render_results {
             if result.is_ok() {
                 if let Some(hash) = new_hash {
                     output_cache.insert(output_path.clone(), hash.clone());
+                }
+                if let Some(deps) = new_deps {
+                    dep_map.record(output_path.clone(), deps.clone());
                 }
             }
         }
         if let Err(e) = save_output_cache(&output_cache, &output_cache_path) {
             warn!(error = %e, "Failed to save output cache");
         }
+        if let Err(e) = save_dependency_map(&dep_map, &dep_map_path) {
+            warn!(error = %e, "Failed to save dependency map");
+        }
     }
 
     let failed_outputs: Vec<(String, anyhow::Error)> = render_results
         .into_iter()
-        .filter_map(|(fmt, _, r, _)| r.err().map(|e| (fmt, e)))
+        .filter_map(|(fmt, _, r, _, _)| r.err().map(|e| (fmt, e)))
         .collect();
 
     if dry_run {

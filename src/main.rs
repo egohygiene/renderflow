@@ -9,6 +9,7 @@ mod deps;
 pub mod error;
 mod files;
 pub mod graph;
+mod incremental;
 mod input_format;
 mod optimization;
 mod pipeline;
