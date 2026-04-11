@@ -83,6 +83,10 @@ impl StrategyStep {
 }
 
 impl PipelineStep for StrategyStep {
+    fn name(&self) -> &str {
+        "StrategyStep"
+    }
+
     fn execute(&self, input: String) -> Result<String> {
         info!(output = %self.output_path, "Executing strategy step");
         let temp_file = TempFile::with_content(input.as_bytes())?;
@@ -275,5 +279,11 @@ mod tests {
         let result = captured.lock().unwrap().clone();
         assert_eq!(result, "Hello [emoji] World");
         assert!(!result.contains('😀'), "emoji should have been replaced by the transform");
+    }
+
+    #[test]
+    fn test_strategy_step_name() {
+        let step = make_step(Box::new(AlwaysOkStrategy), "/tmp/out.html");
+        assert_eq!(step.name(), "StrategyStep");
     }
 }

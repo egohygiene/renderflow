@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use anyhow::Result;
+use tracing::debug;
 
 use super::step::PipelineStep;
 use crate::config::OutputType;
@@ -118,7 +119,12 @@ impl Pipeline {
     pub fn run_steps(&self, input: String) -> Result<String> {
         let mut current = input;
         for step in &self.steps {
+            let name = step.name();
+            debug!(step = %name, "Starting pipeline step");
+            let start = std::time::Instant::now();
             current = step.execute(current)?;
+            let elapsed = start.elapsed();
+            debug!(step = %name, duration_ms = elapsed.as_millis(), "Pipeline step completed");
         }
         Ok(current)
     }
@@ -129,8 +135,22 @@ impl Pipeline {
     /// `input → transforms → steps`.  It is equivalent to calling
     /// [`Pipeline::run_transforms`] followed by [`Pipeline::run_steps`].
     pub fn run(&self, input: String) -> Result<String> {
+        let pipeline_start = std::time::Instant::now();
+
+        let transform_start = std::time::Instant::now();
         let transformed = self.run_transforms(input)?;
-        self.run_steps(transformed)
+        let transform_elapsed = transform_start.elapsed();
+        debug!(duration_ms = transform_elapsed.as_millis(), "Transform phase completed");
+
+        let steps_start = std::time::Instant::now();
+        let result = self.run_steps(transformed)?;
+        let steps_elapsed = steps_start.elapsed();
+        debug!(duration_ms = steps_elapsed.as_millis(), "Step phase completed");
+
+        let total_elapsed = pipeline_start.elapsed();
+        debug!(duration_ms = total_elapsed.as_millis(), "Pipeline execution completed");
+
+        Ok(result)
     }
 }
 
@@ -420,5 +440,50 @@ mod tests {
         // The standard transforms (emoji, variable substitution, syntax) still run;
         // AlwaysFails is skipped and its input is passed through unchanged.
         assert_eq!(result.unwrap(), "plain text");
+    }
+
+    // ── Timing and performance tracing tests ─────────────────────────────────
+
+    #[test]
+    fn test_step_default_name_is_pipeline_step() {
+        let step = AppendStep(" x".to_string());
+        assert_eq!(step.name(), "PipelineStep");
+    }
+
+    #[test]
+    fn test_step_custom_name() {
+        struct NamedStep;
+        impl PipelineStep for NamedStep {
+            fn name(&self) -> &str {
+                "NamedStep"
+            }
+            fn execute(&self, input: String) -> Result<String> {
+                Ok(input)
+            }
+        }
+        let step = NamedStep;
+        assert_eq!(step.name(), "NamedStep");
+    }
+
+    #[test]
+    fn test_run_steps_completes_and_returns_correct_output() {
+        // Verifies that adding timing instrumentation didn't break run_steps correctness.
+        let mut pipeline = Pipeline::new();
+        pipeline
+            .add_step(Box::new(AppendStep(" a".to_string())))
+            .add_step(Box::new(AppendStep(" b".to_string())));
+        let result = pipeline.run_steps("start".to_string()).unwrap();
+        assert_eq!(result, "start a b");
+    }
+
+    #[test]
+    fn test_run_pipeline_timing_does_not_affect_output() {
+        // Verifies that the timing wrappers in run() don't alter correctness.
+        let mut pipeline = Pipeline::new();
+        pipeline
+            .add_transform(Box::new(AppendTransform(" t".to_string())))
+            .add_step(Box::new(AppendStep(" s".to_string())));
+        let result = pipeline.run("input".to_string()).unwrap();
+        assert_eq!(result, "input t s");
     }
 }
