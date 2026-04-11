@@ -135,8 +135,6 @@ impl Pipeline {
     /// `input → transforms → steps`.  It is equivalent to calling
     /// [`Pipeline::run_transforms`] followed by [`Pipeline::run_steps`].
     pub fn run(&self, input: String) -> Result<String> {
-        let pipeline_start = std::time::Instant::now();
-
         let transform_start = std::time::Instant::now();
         let transformed = self.run_transforms(input)?;
         let transform_elapsed = transform_start.elapsed();
@@ -147,7 +145,7 @@ impl Pipeline {
         let steps_elapsed = steps_start.elapsed();
         debug!(duration_ms = steps_elapsed.as_millis(), "Step phase completed");
 
-        let total_elapsed = pipeline_start.elapsed();
+        let total_elapsed = transform_start.elapsed();
         debug!(duration_ms = total_elapsed.as_millis(), "Pipeline execution completed");
 
         Ok(result)
