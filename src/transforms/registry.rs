@@ -80,6 +80,7 @@ impl TransformRegistry {
             let name = transform.name();
             debug!(transform = %name, "Starting transform");
 
+            let start = std::time::Instant::now();
             if self.failure_mode == FailureMode::FailFast {
                 current = transform
                     .apply(current)
@@ -109,8 +110,8 @@ impl TransformRegistry {
                     }
                 }
             }
-
-            debug!(transform = %name, "Transform completed");
+            let elapsed = start.elapsed();
+            debug!(transform = %name, duration_ms = elapsed.as_millis(), "Transform completed");
         }
         Ok(current)
     }
