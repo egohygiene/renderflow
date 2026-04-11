@@ -45,6 +45,27 @@ pub fn run_resilient(config_path: &str) -> Result<()> {
 /// cache and dependency map after all formats have finished.
 type RenderResult = (String, String, Result<()>, Option<String>, Option<Vec<FileDependency>>);
 
+/// Progress-bar symbols used in render status messages.
+const SYMBOL_SKIP: &str = "↩";
+const SYMBOL_OK: &str = "✔";
+const SYMBOL_FAIL: &str = "✘";
+
+/// Create and register a per-output spinner progress bar on `mp`.
+///
+/// Pre-creating bars before the rayon parallel section avoids calling
+/// [`MultiProgress::add`] from multiple threads, which would acquire an
+/// internal mutex on every call and could serialise parallel workers.
+fn create_output_bar(mp: &MultiProgress, format_label: &str) -> ProgressBar {
+    let bar = mp.add(ProgressBar::new_spinner());
+    bar.set_style(
+        ProgressStyle::with_template("  {spinner:.blue} [{prefix:.bold.cyan}] {msg}")
+            .expect("hardcoded per-output progress bar template is valid"),
+    );
+    bar.set_prefix(format_label.to_string());
+    bar.set_message("queued");
+    bar
+}
+
 fn run_impl(config_path: &str, dry_run: bool, resilient: bool, optimization: Option<OptimizationMode>) -> Result<()> {
     if dry_run {
         info!("Dry-run mode enabled — no files will be created and no commands will be executed");
@@ -127,18 +148,9 @@ fn run_impl(config_path: &str, dry_run: bool, resilient: bool, optimization: Opt
     );
 
     // Pre-create one spinner per output format *before* the parallel rendering
-    // section.  Calling mp.add() inside a rayon parallel closure acquires an
-    // internal mutex on every call and can serialise the workers.  By creating
-    // all bars up-front each worker can update its own bar without contention.
+    // section.  See [`create_output_bar`] for the rationale.
     let output_bars: Vec<ProgressBar> = config.outputs.iter().map(|output| {
-        let bar = mp.add(ProgressBar::new_spinner());
-        bar.set_style(
-            ProgressStyle::with_template("  {spinner:.blue} [{prefix:.bold.cyan}] {msg}")
-                .expect("hardcoded per-output progress bar template is valid"),
-        );
-        bar.set_prefix(output.output_type.to_string());
-        bar.set_message("queued");
-        bar
+        create_output_bar(&mp, &output.output_type.to_string())
     }).collect();
 
     // Transforms are run once per output format (serially, before parallel rendering)
@@ -249,7 +261,7 @@ fn run_impl(config_path: &str, dry_run: bool, resilient: bool, optimization: Opt
 
         if dry_run {
             info!("[DRY RUN] Would render {} output to: {}", format, output_path);
-            bar.finish_with_message(format!("[DRY RUN] Would render to {}", output_path));
+            bar.finish_with_message(format!("[DRY RUN] {SYMBOL_OK} Would render to {}", output_path));
             pb.inc(1);
             pb.println(format!("[DRY RUN] Would write output to: {}", output_path));
             (format_str, output_path, Ok(()), None, None)
@@ -307,9 +319,9 @@ fn run_impl(config_path: &str, dry_run: bool, resilient: bool, optimization: Opt
             {
                 debug!(hash = %output_hash, output = %output_path, "Output cache hit — skipping render");
                 info!("Skipping {} render (unchanged)", format);
-                bar.finish_with_message(format!("↩ unchanged: {}", output_path));
+                bar.finish_with_message(format!("{SYMBOL_SKIP} unchanged: {}", output_path));
                 pb.inc(1);
-                pb.println(format!("↩ Skipping {} output (unchanged): {}", format, output_path));
+                pb.println(format!("{SYMBOL_SKIP} Skipping {} output (unchanged): {}", format, output_path));
                 return (format_str, output_path, Ok(()), Some(output_hash), Some(file_deps));
             }
 
@@ -329,16 +341,16 @@ fn run_impl(config_path: &str, dry_run: bool, resilient: bool, optimization: Opt
 
             match &result {
                 Ok(_) => {
-                    bar.finish_with_message(format!("✔ {}", output_path));
+                    bar.finish_with_message(format!("{SYMBOL_OK} {}", output_path));
                     pb.inc(1);
-                    pb.println(format!("✔ Output written to: {}", output_path));
+                    pb.println(format!("{SYMBOL_OK} Output written to: {}", output_path));
                     info!(output = %output_path, "Pipeline completed for format: {}", format);
                 }
                 Err(e) => {
                     warn!(format = %format, error = %e, "Rendering failed for output format");
-                    bar.finish_with_message(format!("✘ failed: {:#}", e));
+                    bar.finish_with_message(format!("{SYMBOL_FAIL} failed: {:#}", e));
                     pb.inc(1);
-                    pb.println(format!("✘ Failed to render {} output: {:#}", format, e));
+                    pb.println(format!("{SYMBOL_FAIL} Failed to render {} output: {:#}", format, e));
                 }
             }
             (format_str, output_path, result, new_hash, new_deps)
@@ -373,9 +385,9 @@ fn run_impl(config_path: &str, dry_run: bool, resilient: bool, optimization: Opt
         .collect();
 
     if dry_run {
-        pb.finish_with_message("[DRY RUN] ✔ Dry-run complete — no output written");
+        pb.finish_with_message(format!("[DRY RUN] {SYMBOL_OK} Dry-run complete — no output written"));
     } else if failed_outputs.is_empty() {
-        pb.finish_with_message("✔ Build complete");
+        pb.finish_with_message(format!("{SYMBOL_OK} Build complete"));
     } else {
         pb.finish_with_message(format!("⚠ Build completed with {} failure(s)", failed_outputs.len()));
         let messages: Vec<String> = failed_outputs
