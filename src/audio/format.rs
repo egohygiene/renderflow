@@ -89,7 +89,8 @@ pub enum AudioFormat {
 
 impl AudioFormat {
     /// Return the canonical file extension for this format (without leading dot).
-    pub fn file_extension(self) -> &'static str {        match self {
+    pub fn file_extension(self) -> &'static str {
+        match self {
             AudioFormat::Wav => "wav",
             AudioFormat::Aif => "aif",
             AudioFormat::Aiff => "aiff",
@@ -362,7 +363,8 @@ impl FromStr for AudioFormat {
             "thd" => Ok(AudioFormat::Thd),
             "dts" => Ok(AudioFormat::Dts),
             "dtshd" => Ok(AudioFormat::DtsHd),
-            "mid" | "midi" => Ok(AudioFormat::Mid),
+            "mid" => Ok(AudioFormat::Mid),
+            "midi" => Ok(AudioFormat::Midi),
             "mod" => Ok(AudioFormat::Mod),
             _ => anyhow::bail!(
                 "'{}' is not a known audio format. \

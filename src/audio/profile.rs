@@ -206,9 +206,11 @@ impl ProfileOptions {
             args.extend(["-compression_level".to_string(), level.to_string()]);
         }
 
-        // Extra codec-specific options.
+        // Extra codec-specific options.  Each (key, value) pair becomes two
+        // separate arguments so that FFmpeg receives them as `-key value`.
         for (k, v) in &self.extra_args {
-            args.push(format!("-{}:{}", k, v));
+            args.push(format!("-{}", k));
+            args.push(v.clone());
         }
 
         args
@@ -223,7 +225,6 @@ impl AudioProfile {
     pub fn from_config_str(s: &str) -> Option<Self> {
         match s.to_lowercase().replace('-', "_").as_str() {
             // MP3
-            "mp3_64k" | "64k" if false => None, // guard: only mp3 in context
             "mp3_64k" => Some(AudioProfile::Mp3_64k),
             "mp3_96k" => Some(AudioProfile::Mp3_96k),
             "128k" | "mp3_128k" | "streaming" | "streaming_128k" => Some(AudioProfile::Mp3_128k),
