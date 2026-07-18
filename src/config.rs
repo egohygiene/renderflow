@@ -6,6 +6,7 @@ use std::fs;
 
 use crate::audio::AudioFormat;
 use crate::compat::{is_supported, unsupported_combination_message};
+use crate::image::ImageFormat;
 use crate::input_format::InputFormat;
 use crate::optimization::OptimizationMode;
 
@@ -20,6 +21,8 @@ pub enum OutputType {
     Docx,
     /// Any audio format, handled by FFmpeg via [`crate::audio::AudioStrategy`].
     Audio(AudioFormat),
+    /// Any image format, handled by FFmpeg via [`crate::image::ImageStrategy`].
+    Image(ImageFormat),
     /// An output type that was recognised in the YAML but is not yet implemented
     /// or is entirely unknown.  Storing the raw string allows us to produce a
     /// targeted, user-friendly error message later (in validation / strategy
@@ -38,9 +41,11 @@ impl<'de> Deserialize<'de> for OutputType {
             "pdf" => Ok(OutputType::Pdf),
             "docx" => Ok(OutputType::Docx),
             other => {
-                // Try to parse as an audio format before falling back to Unsupported.
+                // Try audio format first, then image format, then fall back to Unsupported.
                 if let Ok(audio_fmt) = other.parse::<AudioFormat>() {
                     Ok(OutputType::Audio(audio_fmt))
+                } else if let Ok(image_fmt) = other.parse::<ImageFormat>() {
+                    Ok(OutputType::Image(image_fmt))
                 } else {
                     Ok(OutputType::Unsupported(other.to_string()))
                 }
@@ -56,6 +61,7 @@ impl fmt::Display for OutputType {
             OutputType::Pdf => write!(f, "pdf"),
             OutputType::Docx => write!(f, "docx"),
             OutputType::Audio(fmt) => write!(f, "{}", fmt),
+            OutputType::Image(fmt) => write!(f, "{}", fmt),
             OutputType::Unsupported(s) => write!(f, "{}", s),
         }
     }
@@ -70,7 +76,10 @@ pub fn unsupported_type_message(type_str: &str) -> String {
         "'{}' is not a valid output type. \
          Supported document types are: html, pdf, docx. \
          Supported audio types are: wav, aif, aiff, bwf, pcm, flac, m4a, m4a_alac, \
-         wv, ape, tta, mp3, aac, ogg, opus, wma, amr, mp2, ac3, ec3, dts, mid, midi.",
+         wv, ape, tta, mp3, aac, ogg, opus, wma, amr, mp2, ac3, ec3, dts, mid, midi. \
+         Supported image types are: jpeg, jpg, png, webp, avif, gif, bmp, tiff, tif, \
+         exr, hdr, dpx, tga, sgi, pbm, pgm, ppm, pam, jp2, j2k, jxl, apng, dds, ico, \
+         and many others.",
         type_str
     )
 }
@@ -174,6 +183,27 @@ impl Config {
             return Ok(());
         }
 
+        // When the input file is an image, validate that all outputs are also images.
+        // Skip the pandoc-based compatibility check for image pipelines entirely.
+        if crate::image::is_image_path(&self.input) {
+            let non_image: Vec<String> = self
+                .outputs
+                .iter()
+                .filter(|o| !matches!(o.output_type, OutputType::Image(_)))
+                .map(|o| {
+                    format!(
+                        "Output type '{}' is not an image format. \
+                         Image input files can only produce image outputs.",
+                        o.output_type
+                    )
+                })
+                .collect();
+            if !non_image.is_empty() {
+                anyhow::bail!("{}", non_image.join("\n"));
+            }
+            return Ok(());
+        }
+
         // Document pipeline: check that no audio output types are mixed in.
         let audio_in_doc_build: Vec<String> = self
             .outputs
@@ -189,6 +219,23 @@ impl Config {
             .collect();
         if !audio_in_doc_build.is_empty() {
             anyhow::bail!("{}", audio_in_doc_build.join("\n"));
+        }
+
+        // Document pipeline: check that no image output types are mixed in.
+        let image_in_doc_build: Vec<String> = self
+            .outputs
+            .iter()
+            .filter(|o| matches!(o.output_type, OutputType::Image(_)))
+            .map(|o| {
+                format!(
+                    "Output type '{}' is an image format. \
+                     Image outputs require an image input file (e.g. .jpg, .png, .tiff).",
+                    o.output_type
+                )
+            })
+            .collect();
+        if !image_in_doc_build.is_empty() {
+            anyhow::bail!("{}", image_in_doc_build.join("\n"));
         }
 
         // Check that each output type is compatible with the resolved input format.
@@ -376,7 +423,7 @@ output_dir: "dist"
         // message without crashing the YAML parser.
         let yaml = r#"
 outputs:
-  - type: jpeg
+  - type: unknown_format
 input: "input.md"
 output_dir: "dist"
 "#;
@@ -402,8 +449,8 @@ output_dir: "dist"
         // reported in a single error rather than stopping after the first one.
         let yaml = r#"
 outputs:
-  - type: jpeg
-  - type: epub
+  - type: invalid_type_a
+  - type: invalid_type_b
 input: "input.md"
 output_dir: "dist"
 "#;
@@ -412,13 +459,13 @@ output_dir: "dist"
         assert!(result.is_err());
         let msg = format!("{}", result.unwrap_err());
         assert!(
-            msg.contains("'jpeg' is not a valid output type"),
-            "expected jpeg error in: {}",
+            msg.contains("'invalid_type_a' is not a valid output type"),
+            "expected invalid_type_a error in: {}",
             msg
         );
         assert!(
-            msg.contains("'epub' is not a valid output type"),
-            "expected epub error in: {}",
+            msg.contains("'invalid_type_b' is not a valid output type"),
+            "expected invalid_type_b error in: {}",
             msg
         );
     }
