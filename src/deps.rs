@@ -65,6 +65,13 @@ pub fn validate_audio_dependencies() -> Result<()> {
     check_ffmpeg()
 }
 
+/// Validate dependencies required for an image-only build.
+///
+/// Only `ffmpeg` is checked; pandoc and tectonic are not required.
+pub fn validate_image_dependencies() -> Result<()> {
+    check_ffmpeg()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

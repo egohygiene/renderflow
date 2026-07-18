@@ -2,6 +2,7 @@ use anyhow::Result;
 
 use crate::audio::AudioStrategy;
 use crate::config::{unsupported_type_message, OutputType};
+use crate::image::ImageStrategy;
 use crate::strategies::{DocxStrategy, HtmlStrategy, OutputStrategy, PdfStrategy};
 
 /// Select an output strategy based on the given output type.
@@ -23,6 +24,7 @@ pub fn select_strategy(
         OutputType::Pdf => Ok(Box::new(PdfStrategy::new(template.map(str::to_owned), template_dir.to_owned()))),
         OutputType::Docx => Ok(Box::new(DocxStrategy::new(template.map(str::to_owned), template_dir.to_owned()))),
         OutputType::Audio(fmt) => Ok(Box::new(AudioStrategy::new(*fmt, profile.map(str::to_owned)))),
+        OutputType::Image(fmt) => Ok(Box::new(ImageStrategy::new(*fmt, profile.map(str::to_owned)))),
         OutputType::Unsupported(t) => {
             anyhow::bail!("{}", unsupported_type_message(t.as_str()))
         }
@@ -34,6 +36,7 @@ mod tests {
     use super::*;
     use std::collections::HashMap;
     use crate::audio::AudioFormat;
+    use crate::image::ImageFormat;
     use crate::input_format::InputFormat;
     use crate::strategies::RenderContext;
 
@@ -214,6 +217,63 @@ mod tests {
             input_path: "/input/test.wav",
             input_format: InputFormat::Markdown,
             output_path: "/tmp/output.ra",
+            variables: &vars,
+            dry_run: false,
+        };
+        let result = strategy.render(&ctx);
+        assert!(result.is_err());
+        let msg = result.unwrap_err().to_string();
+        assert!(msg.contains("does not support encoding"), "{msg}");
+    }
+
+    #[test]
+    fn test_select_strategy_image_png() {
+        let result = select_strategy(&OutputType::Image(ImageFormat::Png), None, "templates", None);
+        assert!(result.is_ok(), "expected image strategy for png");
+    }
+
+    #[test]
+    fn test_select_strategy_image_jpeg() {
+        let result = select_strategy(&OutputType::Image(ImageFormat::Jpeg), None, "templates", None);
+        assert!(result.is_ok(), "expected image strategy for jpeg");
+    }
+
+    #[test]
+    fn test_select_strategy_image_dry_run_succeeds() {
+        let vars = HashMap::new();
+        let strategy = select_strategy(
+            &OutputType::Image(ImageFormat::Png),
+            None,
+            "templates",
+            Some("png_max"),
+        )
+        .unwrap();
+        let ctx = RenderContext {
+            input_path: "/nonexistent/input.jpg",
+            input_format: InputFormat::Markdown, // ignored for image
+            output_path: "/tmp/output.png",
+            variables: &vars,
+            dry_run: true,
+        };
+        let result = strategy.render(&ctx);
+        assert!(result.is_ok(), "image dry-run must succeed: {:?}", result);
+    }
+
+    #[test]
+    fn test_select_strategy_image_unsupported_encoding_returns_error() {
+        let vars = HashMap::new();
+        // SVG does not support encoding via FFmpeg.
+        let strategy = select_strategy(
+            &OutputType::Image(ImageFormat::Svg),
+            None,
+            "templates",
+            None,
+        )
+        .unwrap();
+        let ctx = RenderContext {
+            input_path: "/input/test.png",
+            input_format: InputFormat::Markdown,
+            output_path: "/tmp/output.svg",
             variables: &vars,
             dry_run: false,
         };

@@ -2,6 +2,7 @@ mod adapters;
 mod assets;
 mod audio;
 mod cache;
+mod image;
 mod cli;
 mod commands;
 mod compat;
