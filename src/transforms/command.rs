@@ -111,9 +111,13 @@ impl Transform for CommandTransform {
         // Pipe input via stdin when the {input} placeholder is not used.
         if !has_input_placeholder {
             if let Some(mut stdin_handle) = child.stdin.take() {
-                stdin_handle
-                    .write_all(input.as_bytes())
-                    .context("Failed to write to command stdin")?;
+                // Ignore broken-pipe errors: the command may have already exited
+                // (e.g. `echo -n hello`) without consuming stdin, which is fine.
+                match stdin_handle.write_all(input.as_bytes()) {
+                    Ok(()) => {}
+                    Err(e) if e.kind() == std::io::ErrorKind::BrokenPipe => {}
+                    Err(e) => return Err(e).context("Failed to write to command stdin"),
+                }
                 // Drop `stdin_handle` here to close stdin before `wait_with_output`.
             }
         }
