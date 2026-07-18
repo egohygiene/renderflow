@@ -1287,4 +1287,130 @@ mod tests {
         assert!(output_dir.join("input.pdf").exists(), "pdf output must exist");
         assert!(output_dir.join("input.docx").exists(), "docx output must exist");
     }
+
+    // ── Image build tests ─────────────────────────────────────────────────────
+
+    fn valid_image_config_file(ext: &str, output_type: &str) -> (NamedTempFile, tempfile::TempDir) {
+        let dir = tempfile::tempdir().expect("failed to create temp dir");
+        let input_path = dir.path().join(format!("input.{}", ext));
+        // Write a minimal placeholder binary (real conversion requires ffmpeg).
+        fs::write(&input_path, b"\xff\xd8\xff").expect("failed to write input image");
+        let output_dir = dir.path().join("dist");
+        let config_content = format!(
+            "outputs:\n  - type: {}\ninput: \"{}\"\noutput_dir: \"{}\"\n",
+            output_type,
+            input_path.display(),
+            output_dir.display()
+        );
+        let mut f = NamedTempFile::new().expect("failed to create temp file");
+        f.write_all(config_content.as_bytes())
+            .expect("failed to write temp file");
+        (f, dir)
+    }
+
+    #[test]
+    fn test_image_build_dry_run_succeeds() {
+        // A dry-run image build must succeed without requiring ffmpeg or writing
+        // any output files.
+        let (f, _dir) = valid_image_config_file("jpg", "png");
+        let result = run(f.path().to_str().unwrap(), true, None);
+        assert!(
+            result.is_ok(),
+            "image dry-run must succeed without ffmpeg: {:?}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_image_build_missing_config_returns_error() {
+        let result = run("/nonexistent/renderflow.yaml", false, None);
+        assert!(result.is_err(), "missing config must return error");
+    }
+
+    #[test]
+    fn test_image_build_missing_input_returns_error() {
+        let dir = tempfile::tempdir().expect("failed to create temp dir");
+        let output_dir = dir.path().join("dist");
+        let config_content = format!(
+            "outputs:\n  - type: png\ninput: \"/nonexistent/photo.jpg\"\noutput_dir: \"{}\"\n",
+            output_dir.display()
+        );
+        let mut f = NamedTempFile::new().expect("failed to create temp file");
+        f.write_all(config_content.as_bytes())
+            .expect("failed to write config");
+        let result = run(f.path().to_str().unwrap(), false, None);
+        assert!(result.is_err(), "missing input file must return error");
+        let msg = format!("{}", result.unwrap_err());
+        assert!(
+            msg.contains("Input file not found"),
+            "unexpected error: {}",
+            msg
+        );
+    }
+
+    #[test]
+    fn test_image_build_unsupported_encoding_dry_run_still_enqueues() {
+        // Even a format that does not support encoding (e.g. SVG output)
+        // should pass the dry-run path (no actual conversion is attempted).
+        let (f, _dir) = valid_image_config_file("jpg", "svg");
+        let result = run(f.path().to_str().unwrap(), true, None);
+        assert!(
+            result.is_ok(),
+            "image dry-run for unsupported encoding format must succeed: {:?}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_image_build_non_image_output_type_returns_error() {
+        // When the input is an image but the output is a document type, the config
+        // validation must reject the combination.
+        let dir = tempfile::tempdir().expect("failed to create temp dir");
+        let input_path = dir.path().join("photo.jpg");
+        fs::write(&input_path, b"\xff\xd8\xff").expect("failed to write input image");
+        let output_dir = dir.path().join("dist");
+        let config_content = format!(
+            "outputs:\n  - type: html\ninput: \"{}\"\noutput_dir: \"{}\"\n",
+            input_path.display(),
+            output_dir.display()
+        );
+        let mut f = NamedTempFile::new().expect("failed to create temp file");
+        f.write_all(config_content.as_bytes())
+            .expect("failed to write config");
+        let result = run(f.path().to_str().unwrap(), false, None);
+        assert!(
+            result.is_err(),
+            "image input with document output type must fail validation"
+        );
+        let msg = format!("{}", result.unwrap_err());
+        assert!(
+            msg.contains("not an image format"),
+            "unexpected error: {}",
+            msg
+        );
+    }
+
+    #[test]
+    fn test_image_build_with_profile_dry_run_succeeds() {
+        // A dry-run with a named profile must succeed; the profile is parsed
+        // in FfmpegImageArgs but no conversion is actually run.
+        let dir = tempfile::tempdir().expect("failed to create temp dir");
+        let input_path = dir.path().join("photo.jpg");
+        fs::write(&input_path, b"\xff\xd8\xff").expect("failed to write input image");
+        let output_dir = dir.path().join("dist");
+        let config_content = format!(
+            "outputs:\n  - type: png\n    profile: png_max\ninput: \"{}\"\noutput_dir: \"{}\"\n",
+            input_path.display(),
+            output_dir.display()
+        );
+        let mut f = NamedTempFile::new().expect("failed to create temp file");
+        f.write_all(config_content.as_bytes())
+            .expect("failed to write config");
+        let result = run(f.path().to_str().unwrap(), true, None);
+        assert!(
+            result.is_ok(),
+            "image dry-run with profile must succeed: {:?}",
+            result
+        );
+    }
 }

@@ -423,7 +423,7 @@ output_dir: "dist"
         // message without crashing the YAML parser.
         let yaml = r#"
 outputs:
-  - type: xyz_unknown_format_123
+  - type: unknown_format
 input: "input.md"
 output_dir: "dist"
 "#;
@@ -449,8 +449,8 @@ output_dir: "dist"
         // reported in a single error rather than stopping after the first one.
         let yaml = r#"
 outputs:
-  - type: xyz_format_a
-  - type: xyz_format_b
+  - type: invalid_type_a
+  - type: invalid_type_b
 input: "input.md"
 output_dir: "dist"
 "#;
@@ -459,13 +459,13 @@ output_dir: "dist"
         assert!(result.is_err());
         let msg = format!("{}", result.unwrap_err());
         assert!(
-            msg.contains("'xyz_format_a' is not a valid output type"),
-            "expected xyz_format_a error in: {}",
+            msg.contains("'invalid_type_a' is not a valid output type"),
+            "expected invalid_type_a error in: {}",
             msg
         );
         assert!(
-            msg.contains("'xyz_format_b' is not a valid output type"),
-            "expected xyz_format_b error in: {}",
+            msg.contains("'invalid_type_b' is not a valid output type"),
+            "expected invalid_type_b error in: {}",
             msg
         );
     }
