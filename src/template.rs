@@ -100,9 +100,9 @@ mod tests {
         // Outputs without a template field must always pass, even when the
         // template directory does not exist.
         let outputs = vec![
-            OutputConfig { output_type: OutputType::Html, template: None },
-            OutputConfig { output_type: OutputType::Pdf, template: None },
-            OutputConfig { output_type: OutputType::Docx, template: None },
+            OutputConfig { output_type: OutputType::Html, template: None, profile: None },
+            OutputConfig { output_type: OutputType::Pdf, template: None, profile: None },
+            OutputConfig { output_type: OutputType::Docx, template: None, profile: None },
         ];
         assert!(
             validate_templates(&outputs, "/nonexistent/dir").is_ok(),
@@ -118,9 +118,9 @@ mod tests {
         fs::write(dir.path().join("reference.docx"), "").unwrap();
 
         let outputs = vec![
-            OutputConfig { output_type: OutputType::Html, template: Some("custom.html".to_string()) },
-            OutputConfig { output_type: OutputType::Pdf, template: Some("template.tex".to_string()) },
-            OutputConfig { output_type: OutputType::Docx, template: Some("reference.docx".to_string()) },
+            OutputConfig { output_type: OutputType::Html, template: Some("custom.html".to_string()), profile: None },
+            OutputConfig { output_type: OutputType::Pdf, template: Some("template.tex".to_string()), profile: None },
+            OutputConfig { output_type: OutputType::Docx, template: Some("reference.docx".to_string()), profile: None },
         ];
         assert!(
             validate_templates(&outputs, dir.path().to_str().unwrap()).is_ok(),
@@ -132,7 +132,7 @@ mod tests {
     fn test_validate_templates_fails_on_missing_pdf_template() {
         let dir = TempDir::new().unwrap();
         let outputs = vec![
-            OutputConfig { output_type: OutputType::Pdf, template: Some("missing.tex".to_string()) },
+            OutputConfig { output_type: OutputType::Pdf, template: Some("missing.tex".to_string()), profile: None },
         ];
         let result = validate_templates(&outputs, dir.path().to_str().unwrap());
         assert!(result.is_err(), "expected error for missing PDF template");
@@ -148,7 +148,7 @@ mod tests {
     fn test_validate_templates_fails_on_missing_docx_template() {
         let dir = TempDir::new().unwrap();
         let outputs = vec![
-            OutputConfig { output_type: OutputType::Docx, template: Some("missing.docx".to_string()) },
+            OutputConfig { output_type: OutputType::Docx, template: Some("missing.docx".to_string()), profile: None },
         ];
         let result = validate_templates(&outputs, dir.path().to_str().unwrap());
         assert!(result.is_err(), "expected error for missing DOCX template");
@@ -164,7 +164,7 @@ mod tests {
     fn test_validate_templates_fails_on_missing_html_template() {
         let dir = TempDir::new().unwrap();
         let outputs = vec![
-            OutputConfig { output_type: OutputType::Html, template: Some("missing.html".to_string()) },
+            OutputConfig { output_type: OutputType::Html, template: Some("missing.html".to_string()), profile: None },
         ];
         let result = validate_templates(&outputs, dir.path().to_str().unwrap());
         assert!(result.is_err(), "expected error for missing HTML template");
@@ -182,8 +182,8 @@ mod tests {
         // can fix all problems at once without repeated build-fail cycles.
         let dir = TempDir::new().unwrap();
         let outputs = vec![
-            OutputConfig { output_type: OutputType::Pdf, template: Some("missing.tex".to_string()) },
-            OutputConfig { output_type: OutputType::Docx, template: Some("missing.docx".to_string()) },
+            OutputConfig { output_type: OutputType::Pdf, template: Some("missing.tex".to_string()), profile: None },
+            OutputConfig { output_type: OutputType::Docx, template: Some("missing.docx".to_string()), profile: None },
         ];
         let result = validate_templates(&outputs, dir.path().to_str().unwrap());
         assert!(result.is_err(), "expected error when multiple templates are missing");
@@ -196,7 +196,7 @@ mod tests {
     fn test_validate_templates_error_message_includes_output_type() {
         let dir = TempDir::new().unwrap();
         let outputs = vec![
-            OutputConfig { output_type: OutputType::Pdf, template: Some("my.tex".to_string()) },
+            OutputConfig { output_type: OutputType::Pdf, template: Some("my.tex".to_string()), profile: None },
         ];
         let result = validate_templates(&outputs, dir.path().to_str().unwrap());
         assert!(result.is_err());
@@ -258,6 +258,7 @@ mod tests {
             OutputConfig {
                 output_type: OutputType::Pdf,
                 template: Some("research/research.tex".to_string()),
+                profile: None,
             },
         ];
         // The template_dir is the workspace-relative "templates" folder.
@@ -275,6 +276,7 @@ mod tests {
             OutputConfig {
                 output_type: OutputType::Html,
                 template: Some("research/research.html".to_string()),
+                profile: None,
             },
         ];
         let result = validate_templates(&outputs, "templates");

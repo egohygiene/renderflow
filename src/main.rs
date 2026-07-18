@@ -1,5 +1,6 @@
 mod adapters;
 mod assets;
+mod audio;
 mod cache;
 mod cli;
 mod commands;
