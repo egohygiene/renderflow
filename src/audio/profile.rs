@@ -574,7 +574,8 @@ impl AudioProfile {
                 sample_rate: Some(44100),
                 ..Default::default()
             },
-            // AIFF default: 16-bit 44.1 kHz.
+            // AIFF default: 16-bit 44.1 kHz. Both Aif (.aif) and Aiff (.aiff) are
+            // the same format — variants exist to preserve the original file extension.
             AudioFormat::Aif | AudioFormat::Aiff => ProfileOptions {
                 codec: Some("pcm_s16le".to_string()),
                 sample_rate: Some(44100),

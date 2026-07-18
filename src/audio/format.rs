@@ -19,7 +19,8 @@ pub enum AudioFormat {
     Wav,
     /// Audio Interchange File Format (.aif) — Mac/Apple PCM container.
     Aif,
-    /// Audio Interchange File Format (.aiff) — standard extension variant.
+    /// Audio Interchange File Format (.aiff) — identical format to `Aif`; kept as a
+    /// separate variant so that round-tripping preserves the original file extension.
     Aiff,
     /// Broadcast Wave Format (.bwf) — WAV with embedded metadata for broadcast.
     Bwf,
