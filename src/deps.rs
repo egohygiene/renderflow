@@ -34,16 +34,35 @@ pub fn check_tectonic() -> Result<()> {
     Ok(())
 }
 
+/// Verify that `ffmpeg` is installed and available in PATH.
+///
+/// Returns a [`RenderError::FfmpegNotFound`] error with clear install
+/// instructions if it is not found.
+pub fn check_ffmpeg() -> Result<()> {
+    if !tool_available("ffmpeg") {
+        return Err(RenderError::FfmpegNotFound.into());
+    }
+    Ok(())
+}
+
 /// Validate all required system dependencies before the pipeline runs.
 ///
-/// * `pandoc` is always required.
+/// * `pandoc` is always required for document builds.
 /// * `tectonic` is required only when PDF output is requested.
+/// * `ffmpeg` is required when any audio output is requested.
 pub fn validate_dependencies(pdf_requested: bool) -> Result<()> {
     check_pandoc()?;
     if pdf_requested {
         check_tectonic()?;
     }
     Ok(())
+}
+
+/// Validate dependencies required for an audio-only build.
+///
+/// Only `ffmpeg` is checked; pandoc and tectonic are not required.
+pub fn validate_audio_dependencies() -> Result<()> {
+    check_ffmpeg()
 }
 
 #[cfg(test)]

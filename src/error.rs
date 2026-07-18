@@ -9,6 +9,17 @@ pub enum RenderError {
     #[error("Tectonic not found. Please install tectonic to continue.\nSee: https://tectonic-typesetting.github.io/en-US/")]
     TectonicNotFound,
 
+    /// The `ffmpeg` executable was not found in `PATH`.
+    #[error(
+        "FFmpeg is not installed.\n\n\
+         Install:\n  \
+           sudo apt install ffmpeg          # Debian / Ubuntu\n  \
+           brew install ffmpeg              # macOS (Homebrew)\n  \
+           choco install ffmpeg             # Windows (Chocolatey)\n\
+         or see: https://ffmpeg.org/download.html"
+    )]
+    FfmpegNotFound,
+
     /// A required template file was not found on disk.
     #[error("Template not found: {path}")]
     TemplateNotFound { path: String },

@@ -28,6 +28,66 @@ pub enum Format {
     Tiff,
     /// Comic Book ZIP archive (`.cbz`).
     Cbz,
+
+    // ── Audio formats ─────────────────────────────────────────────────────────
+    /// Waveform Audio File Format (`.wav`).
+    Wav,
+    /// Audio Interchange File Format (`.aiff`).
+    Aiff,
+    /// Broadcast Wave Format (`.bwf`).
+    Bwf,
+    /// Raw PCM audio (`.pcm`).
+    Pcm,
+    /// Free Lossless Audio Codec (`.flac`).
+    Flac,
+    /// Apple Lossless in MPEG-4 container (`.m4a` / ALAC).
+    M4aAlac,
+    /// WavPack (`.wv`).
+    Wv,
+    /// Monkey's Audio (`.ape`).
+    Ape,
+    /// True Audio (`.tta`).
+    Tta,
+    /// DSD Storage Facility (`.dsf`).
+    Dsf,
+    /// DSD Interchange File Format (`.dff`).
+    Dff,
+    /// Shorten legacy lossless (`.shn`).
+    Shn,
+    /// MPEG-1 Audio Layer III (`.mp3`).
+    Mp3,
+    /// Advanced Audio Coding in MPEG-4 (`.m4a` / AAC).
+    M4aAac,
+    /// Advanced Audio Coding raw stream (`.aac`).
+    Aac,
+    /// Ogg Vorbis (`.ogg`).
+    Ogg,
+    /// Opus audio codec (`.opus`).
+    Opus,
+    /// Windows Media Audio (`.wma`).
+    Wma,
+    /// Adaptive Multi-Rate voice codec (`.amr`).
+    Amr,
+    /// MPEG-1 Audio Layer II (`.mp2`).
+    Mp2,
+    /// RealAudio (`.ra`).
+    Ra,
+    /// Sony ATRAC (`.oma`).
+    Oma,
+    /// Dolby Digital AC-3 (`.ac3`).
+    Ac3,
+    /// Dolby Digital Plus E-AC-3 (`.ec3`).
+    Ec3,
+    /// Dolby TrueHD (`.thd`).
+    Thd,
+    /// DTS Digital Theater Systems (`.dts`).
+    Dts,
+    /// DTS-HD Master Audio (`.dtshd`).
+    DtsHd,
+    /// MIDI (`.mid` / `.midi`).
+    Midi,
+    /// Amiga Module tracker format (`.mod`).
+    Mod,
 }
 
 impl fmt::Display for Format {
@@ -45,6 +105,36 @@ impl fmt::Display for Format {
             Format::Png => "png",
             Format::Tiff => "tiff",
             Format::Cbz => "cbz",
+            // Audio
+            Format::Wav => "wav",
+            Format::Aiff => "aiff",
+            Format::Bwf => "bwf",
+            Format::Pcm => "pcm",
+            Format::Flac => "flac",
+            Format::M4aAlac => "m4a_alac",
+            Format::Wv => "wv",
+            Format::Ape => "ape",
+            Format::Tta => "tta",
+            Format::Dsf => "dsf",
+            Format::Dff => "dff",
+            Format::Shn => "shn",
+            Format::Mp3 => "mp3",
+            Format::M4aAac => "m4a",
+            Format::Aac => "aac",
+            Format::Ogg => "ogg",
+            Format::Opus => "opus",
+            Format::Wma => "wma",
+            Format::Amr => "amr",
+            Format::Mp2 => "mp2",
+            Format::Ra => "ra",
+            Format::Oma => "oma",
+            Format::Ac3 => "ac3",
+            Format::Ec3 => "ec3",
+            Format::Thd => "thd",
+            Format::Dts => "dts",
+            Format::DtsHd => "dtshd",
+            Format::Midi => "midi",
+            Format::Mod => "mod",
         };
         write!(f, "{}", s)
     }
@@ -57,7 +147,7 @@ impl FromStr for Format {
     ///
     /// Accepted values: `markdown` / `md`, `html`, `pdf`, `docx`, `epub`,
     /// `rst`, `latex` / `tex`, `fountain`, `jpeg` / `jpg`, `png`, `tiff`,
-    /// `cbz`.
+    /// `cbz`, and all audio format names.
     ///
     /// Returns an error that lists all supported formats when the string is
     /// unrecognised.
@@ -75,10 +165,43 @@ impl FromStr for Format {
             "png" => Ok(Format::Png),
             "tiff" | "tif" => Ok(Format::Tiff),
             "cbz" => Ok(Format::Cbz),
+            // Audio
+            "wav" => Ok(Format::Wav),
+            "aif" | "aiff" => Ok(Format::Aiff),
+            "bwf" => Ok(Format::Bwf),
+            "pcm" => Ok(Format::Pcm),
+            "flac" => Ok(Format::Flac),
+            "m4a_alac" | "alac" => Ok(Format::M4aAlac),
+            "wv" | "wavpack" => Ok(Format::Wv),
+            "ape" => Ok(Format::Ape),
+            "tta" => Ok(Format::Tta),
+            "dsf" => Ok(Format::Dsf),
+            "dff" => Ok(Format::Dff),
+            "shn" => Ok(Format::Shn),
+            "mp3" => Ok(Format::Mp3),
+            "m4a" | "m4a_aac" => Ok(Format::M4aAac),
+            "aac" => Ok(Format::Aac),
+            "ogg" => Ok(Format::Ogg),
+            "opus" => Ok(Format::Opus),
+            "wma" => Ok(Format::Wma),
+            "amr" => Ok(Format::Amr),
+            "mp2" => Ok(Format::Mp2),
+            "ra" => Ok(Format::Ra),
+            "oma" => Ok(Format::Oma),
+            "ac3" => Ok(Format::Ac3),
+            "ec3" | "eac3" => Ok(Format::Ec3),
+            "thd" => Ok(Format::Thd),
+            "dts" => Ok(Format::Dts),
+            "dtshd" => Ok(Format::DtsHd),
+            "mid" | "midi" => Ok(Format::Midi),
+            "mod" => Ok(Format::Mod),
             _ => anyhow::bail!(
                 "'{}' is not a known format. Supported formats are: \
                  markdown, html, pdf, docx, epub, rst, latex, fountain, \
-                 jpeg, png, tiff, cbz",
+                 jpeg, png, tiff, cbz, \
+                 wav, aiff, bwf, pcm, flac, m4a_alac, wv, ape, tta, dsf, dff, shn, \
+                 mp3, m4a, aac, ogg, opus, wma, amr, mp2, ra, oma, \
+                 ac3, ec3, thd, dts, dtshd, midi, mod",
                 s
             ),
         }
@@ -222,5 +345,54 @@ mod tests {
     #[test]
     fn test_display_cbz() {
         assert_eq!(Format::Cbz.to_string(), "cbz");
+    }
+
+    // ── Audio format tests ────────────────────────────────────────────────────
+
+    #[test]
+    fn test_from_str_wav() {
+        assert_eq!("wav".parse::<Format>().unwrap(), Format::Wav);
+    }
+
+    #[test]
+    fn test_from_str_mp3() {
+        assert_eq!("mp3".parse::<Format>().unwrap(), Format::Mp3);
+        assert_eq!("MP3".parse::<Format>().unwrap(), Format::Mp3);
+    }
+
+    #[test]
+    fn test_from_str_flac() {
+        assert_eq!("flac".parse::<Format>().unwrap(), Format::Flac);
+    }
+
+    #[test]
+    fn test_from_str_opus() {
+        assert_eq!("opus".parse::<Format>().unwrap(), Format::Opus);
+    }
+
+    #[test]
+    fn test_from_str_m4a_is_aac() {
+        assert_eq!("m4a".parse::<Format>().unwrap(), Format::M4aAac);
+    }
+
+    #[test]
+    fn test_from_str_m4a_alac() {
+        assert_eq!("m4a_alac".parse::<Format>().unwrap(), Format::M4aAlac);
+        assert_eq!("alac".parse::<Format>().unwrap(), Format::M4aAlac);
+    }
+
+    #[test]
+    fn test_display_audio_mp3() {
+        assert_eq!(Format::Mp3.to_string(), "mp3");
+    }
+
+    #[test]
+    fn test_display_audio_flac() {
+        assert_eq!(Format::Flac.to_string(), "flac");
+    }
+
+    #[test]
+    fn test_display_audio_wav() {
+        assert_eq!(Format::Wav.to_string(), "wav");
     }
 }

@@ -8,14 +8,15 @@ use std::path::Path;
 use tracing::{debug, info, warn};
 
 use crate::assets::normalize_asset_paths;
+use crate::audio::is_audio_path;
 use crate::cache::{compute_input_hash, compute_output_hash, load_cache, load_output_cache, save_cache, save_output_cache};
 use crate::config::{load_config, OutputType};
-use crate::deps::validate_dependencies;
+use crate::deps::{validate_audio_dependencies, validate_dependencies};
 use crate::files::{ensure_output_dir, validate_input};
 use crate::incremental::{build_output_dependencies, load_dependency_map, save_dependency_map, FileDependency};
 use crate::optimization::OptimizationMode;
 use crate::pipeline::{Pipeline, StrategyStep};
-use crate::strategies::select_strategy;
+use crate::strategies::{select_strategy, RenderContext};
 use crate::template::{init_tera, validate_templates};
 use crate::transforms::{load_transforms_from_yaml, FailureMode, TransformRegistry};
 
@@ -75,6 +76,13 @@ fn run_impl(config_path: &str, dry_run: bool, resilient: bool, optimization: Opt
     let config = load_config(config_path)?;
     info!("Loaded config successfully");
 
+    let canonical_input = validate_input(&config.input)?;
+
+    // Dispatch to the audio pipeline when the input is an audio file.
+    if is_audio_path(&config.input) {
+        return run_audio_build(config_path, &config, &canonical_input, dry_run);
+    }
+
     // Read the raw config file content so it can be included in the transform
     // cache hash.  Any change to the config file (not only to `variables`) will
     // then invalidate the cached transform results and force a fresh pipeline run.
@@ -84,8 +92,6 @@ fn run_impl(config_path: &str, dry_run: bool, resilient: bool, optimization: Opt
     // CLI flag takes precedence over config file; fall back to config value.
     let opt_mode = optimization.unwrap_or(config.optimization);
     info!(optimization = %opt_mode, "Using optimization mode");
-
-    let canonical_input = validate_input(&config.input)?;
 
     // Validate required system dependencies after confirming the config and input
     // are accessible. Skip in dry-run mode because no external tools are invoked.
@@ -328,7 +334,7 @@ fn run_impl(config_path: &str, dry_run: bool, resilient: bool, optimization: Opt
             bar.set_message("rendering…");
             let result = (|| -> Result<()> {
                 debug!(hash = %output_hash, output = %output_path, "Output cache miss — rendering output");
-                let strategy = select_strategy(&format, output.template.as_deref(), "templates")?;
+                let strategy = select_strategy(&format, output.template.as_deref(), "templates", output.profile.as_deref())?;
                 let mut pipeline = Pipeline::new();
                 pipeline.add_step(Box::new(StrategyStep::new(strategy, &output_path, config.input_format(), config.variables.clone(), false)));
 
@@ -396,6 +402,164 @@ fn run_impl(config_path: &str, dry_run: bool, resilient: bool, optimization: Opt
             .collect();
         anyhow::bail!(
             "One or more output formats failed to render:\n{}",
+            messages.join("\n")
+        );
+    }
+
+    Ok(())
+}
+
+/// Audio-specific build path.
+///
+/// Audio input files are binary; they skip the text transform pipeline
+/// entirely and are converted directly via FFmpeg.
+fn run_audio_build(
+    config_path: &str,
+    config: &crate::config::Config,
+    canonical_input: &std::path::Path,
+    dry_run: bool,
+) -> Result<()> {
+    info!("Audio input detected — using audio conversion pipeline");
+
+    if !dry_run {
+        validate_audio_dependencies()?;
+    }
+
+    let output_dir = if dry_run {
+        let path = std::path::PathBuf::from(&config.output_dir);
+        info!("[DRY RUN] Would create output directory: {}", path.display());
+        path
+    } else {
+        ensure_output_dir(&config.output_dir)?
+    };
+
+    let input_stem = canonical_input
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("audio");
+
+    let input_path_str = canonical_input.to_str().ok_or_else(|| {
+        anyhow::anyhow!("Input path contains invalid UTF-8: {}", canonical_input.display())
+    })?;
+
+    let total_outputs = config.outputs.len() as u64;
+    let mp = MultiProgress::new();
+    let pb = mp.add(ProgressBar::new(total_outputs));
+    pb.set_style(
+        ProgressStyle::with_template("{spinner:.cyan} [{bar:40.cyan/blue}] {pos}/{len} {msg}")
+            .expect("hardcoded progress bar template is valid")
+            .progress_chars("█▓░"),
+    );
+
+    let output_bars: Vec<ProgressBar> = config
+        .outputs
+        .iter()
+        .map(|output| create_output_bar(&mp, &output.output_type.to_string()))
+        .collect();
+
+    let render_results: Vec<(String, String, Result<()>)> = config
+        .outputs
+        .iter()
+        .zip(output_bars.iter())
+        .map(|(output, bar)| {
+            let format_str = output.output_type.to_string();
+
+            // Build the output path. When a profile is given, embed it in the
+            // stem so that multiple profiles of the same format don't collide.
+            let output_path = if let Some(ref profile) = output.profile {
+                format!(
+                    "{}/{}_{}.{}",
+                    output_dir.display(),
+                    input_stem,
+                    profile,
+                    format_str
+                )
+            } else {
+                format!("{}/{}.{}", output_dir.display(), input_stem, format_str)
+            };
+
+            if dry_run {
+                info!(
+                    "[DRY RUN] Would convert {} → {} (profile: {:?})",
+                    input_path_str,
+                    output_path,
+                    output.profile,
+                );
+                bar.finish_with_message(format!(
+                    "[DRY RUN] {SYMBOL_OK} Would write to {}",
+                    output_path
+                ));
+                pb.inc(1);
+                pb.println(format!("[DRY RUN] Would write output to: {}", output_path));
+                return (format_str, output_path, Ok(()));
+            }
+
+            bar.set_message("converting…");
+            let vars = HashMap::new();
+            let ctx = RenderContext {
+                input_path: input_path_str,
+                input_format: crate::input_format::InputFormat::default(),
+                output_path: &output_path,
+                variables: &vars,
+                dry_run: false,
+            };
+
+            let result = select_strategy(
+                &output.output_type,
+                output.template.as_deref(),
+                "templates",
+                output.profile.as_deref(),
+            )
+            .and_then(|strategy| strategy.render(&ctx))
+            .with_context(|| {
+                format!(
+                    "Audio conversion failed: {} → {} (format: {}, profile: {:?}, config: {})",
+                    input_path_str,
+                    output_path,
+                    format_str,
+                    output.profile,
+                    config_path,
+                )
+            });
+
+            match &result {
+                Ok(_) => {
+                    bar.finish_with_message(format!("{SYMBOL_OK} {}", output_path));
+                    pb.inc(1);
+                    pb.println(format!("{SYMBOL_OK} Output written to: {}", output_path));
+                    info!(output = %output_path, "Audio conversion completed for format: {}", format_str);
+                }
+                Err(e) => {
+                    warn!(format = %format_str, error = %e, "Audio conversion failed");
+                    bar.finish_with_message(format!("{SYMBOL_FAIL} failed: {:#}", e));
+                    pb.inc(1);
+                    pb.println(format!("{SYMBOL_FAIL} Failed to convert to {}: {:#}", format_str, e));
+                }
+            }
+
+            (format_str, output_path, result)
+        })
+        .collect();
+
+    let failed: Vec<(String, anyhow::Error)> = render_results
+        .into_iter()
+        .filter_map(|(fmt, _, r)| r.err().map(|e| (fmt, e)))
+        .collect();
+
+    if dry_run {
+        pb.finish_with_message(format!(
+            "[DRY RUN] {SYMBOL_OK} Dry-run complete — no output written"
+        ));
+    } else if failed.is_empty() {
+        pb.finish_with_message(format!("{SYMBOL_OK} Audio build complete"));
+    } else {
+        pb.finish_with_message(format!("⚠ Build completed with {} failure(s)", failed.len()));
+        let messages: Vec<String> = failed
+            .iter()
+            .map(|(fmt, err)| format!("  - {}: {:#}", fmt, err))
+            .collect();
+        anyhow::bail!(
+            "One or more audio conversions failed:\n{}",
             messages.join("\n")
         );
     }

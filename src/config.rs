@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fs;
 
+use crate::audio::AudioFormat;
 use crate::compat::{is_supported, unsupported_combination_message};
 use crate::input_format::InputFormat;
 use crate::optimization::OptimizationMode;
@@ -17,6 +18,8 @@ pub enum OutputType {
     Html,
     Pdf,
     Docx,
+    /// Any audio format, handled by FFmpeg via [`crate::audio::AudioStrategy`].
+    Audio(AudioFormat),
     /// An output type that was recognised in the YAML but is not yet implemented
     /// or is entirely unknown.  Storing the raw string allows us to produce a
     /// targeted, user-friendly error message later (in validation / strategy
@@ -34,7 +37,14 @@ impl<'de> Deserialize<'de> for OutputType {
             "html" => Ok(OutputType::Html),
             "pdf" => Ok(OutputType::Pdf),
             "docx" => Ok(OutputType::Docx),
-            other => Ok(OutputType::Unsupported(other.to_string())),
+            other => {
+                // Try to parse as an audio format before falling back to Unsupported.
+                if let Ok(audio_fmt) = other.parse::<AudioFormat>() {
+                    Ok(OutputType::Audio(audio_fmt))
+                } else {
+                    Ok(OutputType::Unsupported(other.to_string()))
+                }
+            }
         }
     }
 }
@@ -45,6 +55,7 @@ impl fmt::Display for OutputType {
             OutputType::Html => write!(f, "html"),
             OutputType::Pdf => write!(f, "pdf"),
             OutputType::Docx => write!(f, "docx"),
+            OutputType::Audio(fmt) => write!(f, "{}", fmt),
             OutputType::Unsupported(s) => write!(f, "{}", s),
         }
     }
@@ -56,7 +67,10 @@ impl fmt::Display for OutputType {
 /// message; truly unknown strings get a generic "invalid type" message.
 pub fn unsupported_type_message(type_str: &str) -> String {
     format!(
-        "'{}' is not a valid output type. Supported types are: html, pdf, docx",
+        "'{}' is not a valid output type. \
+         Supported document types are: html, pdf, docx. \
+         Supported audio types are: wav, aif, aiff, bwf, pcm, flac, m4a, m4a_alac, \
+         wv, ape, tta, mp3, aac, ogg, opus, wma, amr, mp2, ac3, ec3, dts, mid, midi.",
         type_str
     )
 }
@@ -67,6 +81,14 @@ pub struct OutputConfig {
     pub output_type: OutputType,
     #[serde(default)]
     pub template: Option<String>,
+    /// Optional audio quality profile (e.g. `"320k"`, `"broadcast"`, `"cd_quality"`).
+    ///
+    /// Ignored for non-audio output types.  When specified for an audio output,
+    /// the named profile controls codec parameters such as bitrate, sample rate,
+    /// and bit depth.  See [`crate::audio::AudioProfile`] for the full list of
+    /// recognised profile names.
+    #[serde(default)]
+    pub profile: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -129,6 +151,44 @@ impl Config {
             .collect();
         if !bad.is_empty() {
             anyhow::bail!("{}", bad.join("\n"));
+        }
+
+        // When the input file is audio, validate that all outputs are also audio.
+        // Skip the pandoc-based compatibility check for audio pipelines entirely.
+        if crate::audio::is_audio_path(&self.input) {
+            let non_audio: Vec<String> = self
+                .outputs
+                .iter()
+                .filter(|o| !matches!(o.output_type, OutputType::Audio(_)))
+                .map(|o| {
+                    format!(
+                        "Output type '{}' is not an audio format. \
+                         Audio input files can only produce audio outputs.",
+                        o.output_type
+                    )
+                })
+                .collect();
+            if !non_audio.is_empty() {
+                anyhow::bail!("{}", non_audio.join("\n"));
+            }
+            return Ok(());
+        }
+
+        // Document pipeline: check that no audio output types are mixed in.
+        let audio_in_doc_build: Vec<String> = self
+            .outputs
+            .iter()
+            .filter(|o| matches!(o.output_type, OutputType::Audio(_)))
+            .map(|o| {
+                format!(
+                    "Output type '{}' is an audio format. \
+                     Audio outputs require an audio input file (e.g. .wav, .mp3, .flac).",
+                    o.output_type
+                )
+            })
+            .collect();
+        if !audio_in_doc_build.is_empty() {
+            anyhow::bail!("{}", audio_in_doc_build.join("\n"));
         }
 
         // Check that each output type is compatible with the resolved input format.
@@ -196,8 +256,8 @@ output_dir: "dist"
         assert_eq!(
             config.outputs,
             vec![
-                OutputConfig { output_type: OutputType::Pdf, template: None },
-                OutputConfig { output_type: OutputType::Html, template: None },
+                OutputConfig { output_type: OutputType::Pdf, template: None, profile: None },
+                OutputConfig { output_type: OutputType::Html, template: None, profile: None },
             ]
         );
         assert_eq!(config.input, "input.md");
@@ -220,6 +280,7 @@ output_dir: "dist"
             vec![OutputConfig {
                 output_type: OutputType::Html,
                 template: Some("default".to_string()),
+                profile: None,
             }]
         );
     }
@@ -305,7 +366,7 @@ output_dir: "dist"
         let config = load_config(f.path().to_str().unwrap()).expect("should parse docx output type");
         assert_eq!(
             config.outputs,
-            vec![OutputConfig { output_type: OutputType::Docx, template: None }]
+            vec![OutputConfig { output_type: OutputType::Docx, template: None, profile: None }]
         );
     }
 
