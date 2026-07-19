@@ -29,7 +29,7 @@ jobs:
 
       - name: Warn on plaintext AI API keys
         run: |
-          matches="$(find . -path ./target -prune -o -path ./.git -prune -o \( -name '*.yml' -o -name '*.yaml' \) -type f -print0 | xargs -0 grep -nH '^[[:space:]]*api_key[[:space:]]*:' || true)"
+          matches="$(git ls-files '*.yml' '*.yaml' | xargs grep -nH '^[[:space:]]*api_key[[:space:]]*:' || true)"
           if [ -n "$matches" ]; then
             echo "$matches"
             while IFS= read -r line; do

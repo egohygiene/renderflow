@@ -1292,17 +1292,9 @@ mod tests {
 
     // ── Image build tests ─────────────────────────────────────────────────────
 
-    fn ffmpeg_available() -> bool {
-        Command::new("ffmpeg")
-            .arg("-version")
-            .output()
-            .map(|output| output.status.success())
-            .unwrap_or(false)
-    }
-
     #[test]
     fn test_audio_build_end_to_end_with_ffmpeg_when_available() {
-        if !ffmpeg_available() {
+        if crate::deps::check_ffmpeg().is_err() {
             return;
         }
 
@@ -1468,7 +1460,7 @@ mod tests {
 
     #[test]
     fn test_image_build_end_to_end_with_ffmpeg_when_available() {
-        if !ffmpeg_available() {
+        if crate::deps::check_ffmpeg().is_err() {
             return;
         }
 
