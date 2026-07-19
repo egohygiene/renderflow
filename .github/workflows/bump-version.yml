@@ -113,7 +113,7 @@ jobs:
               f"https://github.com/egohygiene/renderflow/releases/download/{tag}"
               f"/renderflow-x86_64-pc-windows-msvc.exe#/renderflow.exe"
           )
-          scoop["architecture"]["64bit"]["hash"] = "PLACEHOLDER"
+          scoop["architecture"]["64bit"]["hash"] = "PLACEHOLDER_SHA256"
           with open("pkg/scoop/renderflow.json", "w") as f:
               json.dump(scoop, f, indent=4)
               f.write("\n")
@@ -137,7 +137,7 @@ jobs:
               pkgbuild = f.read()
           pkgbuild = re.sub(r'^pkgver=.*', f'pkgver={version}', pkgbuild, flags=re.MULTILINE)
           pkgbuild = re.sub(r'^pkgrel=.*', 'pkgrel=1',          pkgbuild, flags=re.MULTILINE)
-          pkgbuild = re.sub(r"^sha256sums=.*", "sha256sums=('PLACEHOLDER')", pkgbuild, flags=re.MULTILINE)
+          pkgbuild = re.sub(r"^sha256sums=.*", "sha256sums=('PLACEHOLDER_SHA256')", pkgbuild, flags=re.MULTILINE)
           with open("pkg/aur/renderflow/PKGBUILD", "w") as f:
               f.write(pkgbuild)
 
