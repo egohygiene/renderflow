@@ -121,8 +121,8 @@ mod tests {
     #[test]
     fn test_multiple_code_blocks_normalised() {
         let transform = SyntaxHighlightTransform::new();
-        let input = "```JavaScript\nconsole.log('hi');\n```\n\n```TOML\nkey = \"value\"\n```\n"
-            .to_string();
+        let input =
+            "```JavaScript\nconsole.log('hi');\n```\n\n```TOML\nkey = \"value\"\n```\n".to_string();
         let result = transform.apply(input).unwrap();
         assert_eq!(
             result,
@@ -181,20 +181,14 @@ mod tests {
         // content after the backticks should be treated as code, not a closing fence.
         let input = "```markdown\n```rust\nfn main() {}\n```\n```\n".to_string();
         let result = transform.apply(input).unwrap();
-        assert_eq!(
-            result,
-            "```markdown\n```rust\nfn main() {}\n```\n```\n"
-        );
+        assert_eq!(result, "```markdown\n```rust\nfn main() {}\n```\n```\n");
     }
 
     #[test]
     fn test_default_impl_matches_new() {
         let t1 = SyntaxHighlightTransform::new();
-        let t2 = SyntaxHighlightTransform::default();
+        let t2 = SyntaxHighlightTransform;
         let input = "```Rust\nfn foo() {}\n```\n".to_string();
-        assert_eq!(
-            t1.apply(input.clone()).unwrap(),
-            t2.apply(input).unwrap()
-        );
+        assert_eq!(t1.apply(input.clone()).unwrap(), t2.apply(input).unwrap());
     }
 }

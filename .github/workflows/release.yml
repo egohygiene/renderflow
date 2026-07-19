@@ -68,12 +68,31 @@ jobs:
         with:
           body_path: RELEASE_NOTES.md
 
+  lint-release:
+    name: Lint before release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.94"
+          components: clippy
+
+      - name: Lint (clippy)
+        run: cargo clippy -- -D warnings
+
   # ── 2a. Release binaries (all platforms) ─────────────────────────────────
 
   build-binaries:
     name: Build binary (${{ matrix.target }})
     runs-on: ${{ matrix.runner }}
-    needs: generate-changelog
+    needs: [generate-changelog, lint-release]
     permissions:
       contents: write
 
@@ -195,7 +214,7 @@ jobs:
   package-deb-x86_64:
     name: Package .deb (x86_64)
     runs-on: ubuntu-latest
-    needs: generate-changelog
+    needs: [generate-changelog, lint-release]
     permissions:
       contents: write
 
@@ -233,7 +252,7 @@ jobs:
   package-deb-aarch64:
     name: Package .deb (aarch64)
     runs-on: ubuntu-latest
-    needs: generate-changelog
+    needs: [generate-changelog, lint-release]
     permissions:
       contents: write
 
@@ -279,7 +298,7 @@ jobs:
   package-rpm-x86_64:
     name: Package .rpm (x86_64)
     runs-on: ubuntu-latest
-    needs: generate-changelog
+    needs: [generate-changelog, lint-release]
     permissions:
       contents: write
 
@@ -317,7 +336,7 @@ jobs:
   package-rpm-aarch64:
     name: Package .rpm (aarch64)
     runs-on: ubuntu-latest
-    needs: generate-changelog
+    needs: [generate-changelog, lint-release]
     permissions:
       contents: write
 
@@ -365,7 +384,7 @@ jobs:
   snap-package:
     name: Build Snap package
     runs-on: ubuntu-latest
-    needs: generate-changelog
+    needs: [generate-changelog, lint-release]
     permissions:
       contents: write
 
@@ -462,7 +481,7 @@ jobs:
   update-homebrew-formula:
     name: Update Homebrew formula
     runs-on: ubuntu-latest
-    needs: generate-changelog
+    needs: [generate-changelog, lint-release]
     permissions:
       contents: write
 

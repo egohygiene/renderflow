@@ -2,6 +2,7 @@ use std::fs;
 use std::io::Write;
 use tempfile::NamedTempFile;
 
+#[allow(dead_code)]
 pub fn valid_config_file() -> (NamedTempFile, tempfile::TempDir) {
     let dir = tempfile::tempdir().expect("failed to create temp dir");
     let input_path = dir.path().join("input.md");
@@ -23,6 +24,7 @@ pub fn valid_config_file() -> (NamedTempFile, tempfile::TempDir) {
 ///
 /// Returns `(config_file, _dir)` where `_dir` must be kept alive for the
 /// duration of the test.
+#[allow(dead_code)]
 pub fn graph_config_file() -> (NamedTempFile, tempfile::TempDir) {
     let dir = tempfile::tempdir().expect("failed to create temp dir");
     let input_path = dir.path().join("doc.md");

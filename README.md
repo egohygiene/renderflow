@@ -459,9 +459,23 @@ Applies an LLM prompt to document content before rendering.
 | Backend   | Endpoint                           | Notes |
 |-----------|------------------------------------|-------|
 | `ollama`  | `http://localhost:11434` (default) | Local model via Ollama |
-| `openai`  | OpenAI-compatible API              | Set `api_key` on the transform |
+| `openai`  | OpenAI-compatible API              | Prefer `api_key_env`; `api_key` remains supported for compatibility |
 
 **Caching:** Responses are cached locally using a SHA-256 hash of the prompt + input content. Unchanged content is never re-sent to the model.
+
+**Secure API keys:** Prefer `api_key_env` so secrets stay out of YAML:
+
+```yaml
+transforms:
+  - name: ai-transform
+    ai: openai
+    model: gpt-4o-mini
+    api_key_env: OPENAI_API_KEY
+    from: markdown
+    to: html
+    cost: 1.0
+    quality: 0.9
+```
 
 ### CommandTransform
 
