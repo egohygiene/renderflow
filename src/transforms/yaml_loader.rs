@@ -2,6 +2,7 @@ use std::fs;
 
 use anyhow::{Context, Result};
 use serde::Deserialize;
+use tracing::warn;
 
 use super::{
     aggregation::{AggregationRegistry, CommandAggregationTransform},
@@ -107,6 +108,13 @@ pub struct YamlTransformDef {
     /// that enforce authentication.
     #[serde(default)]
     pub api_key: Option<String>,
+    /// Optional environment variable name used to resolve the API key at runtime.
+    ///
+    /// When both `api_key_env` and `api_key` are set, the environment variable
+    /// is preferred and the plaintext key is retained only as a compatibility
+    /// fallback.
+    #[serde(default)]
+    pub api_key_env: Option<String>,
     /// Optional file path where the AI response will also be written as an
     /// artifact after a successful call.
     ///
@@ -251,7 +259,14 @@ impl YamlTransformDef {
             builder = builder.endpoint(endpoint.clone());
         }
         if let Some(api_key) = &self.api_key {
+            warn!(
+                transform = %self.name,
+                "AI transform uses plaintext api_key; prefer api_key_env for production use"
+            );
             builder = builder.api_key(api_key.clone());
+        }
+        if let Some(api_key_env) = &self.api_key_env {
+            builder = builder.api_key_env(api_key_env.clone());
         }
         if let Some(artifact_path) = &self.artifact_path {
             builder = builder.artifact_path(artifact_path.clone());
@@ -1056,6 +1071,45 @@ transforms:
         let def = &config.transforms[0];
         let t = def.to_ai_transform().expect("should build AI transform");
         assert_eq!(t.name(), "ai-transform");
+    }
+
+    #[test]
+    fn test_ai_api_key_env_parsed_from_yaml() {
+        let yaml = r#"
+transforms:
+  - name: ai-env
+    ai: openai
+    model: gpt-4o-mini
+    api_key_env: OPENAI_API_KEY
+    from: markdown
+    to: html
+    cost: 1.0
+    quality: 0.9
+"#;
+        let config: YamlTransformConfig =
+            serde_yaml_ng::from_str(yaml).expect("should parse");
+        let def = &config.transforms[0];
+        assert_eq!(def.api_key_env.as_deref(), Some("OPENAI_API_KEY"));
+    }
+
+    #[test]
+    fn test_ai_api_key_env_wired_through_to_ai_transform() {
+        let yaml = r#"
+transforms:
+  - name: ai-env
+    ai: openai
+    model: gpt-4o-mini
+    api_key_env: OPENAI_API_KEY
+    from: markdown
+    to: html
+    cost: 1.0
+    quality: 0.9
+"#;
+        let config: YamlTransformConfig =
+            serde_yaml_ng::from_str(yaml).expect("should parse");
+        let def = &config.transforms[0];
+        let t = def.to_ai_transform().expect("should build AI transform");
+        assert_eq!(t.api_key_env.as_deref(), Some("OPENAI_API_KEY"));
     }
 
     #[test]

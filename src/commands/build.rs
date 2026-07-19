@@ -735,6 +735,7 @@ mod tests {
     use super::*;
     use std::fs;
     use std::io::Write;
+    use std::process::Command;
     use tempfile::NamedTempFile;
 
     fn valid_config_file() -> (NamedTempFile, tempfile::TempDir) {
@@ -1291,6 +1292,56 @@ mod tests {
 
     // ── Image build tests ─────────────────────────────────────────────────────
 
+    fn ffmpeg_available() -> bool {
+        Command::new("ffmpeg")
+            .arg("-version")
+            .output()
+            .map(|output| output.status.success())
+            .unwrap_or(false)
+    }
+
+    #[test]
+    fn test_audio_build_end_to_end_with_ffmpeg_when_available() {
+        if !ffmpeg_available() {
+            return;
+        }
+
+        let dir = tempfile::tempdir().expect("failed to create temp dir");
+        let input_path = dir.path().join("input.wav");
+        let output_dir = dir.path().join("dist");
+        let status = Command::new("ffmpeg")
+            .args([
+                "-y",
+                "-f",
+                "lavfi",
+                "-i",
+                "sine=frequency=880:duration=0.2",
+            ])
+            .arg(&input_path)
+            .status()
+            .expect("failed to generate wav fixture");
+        assert!(status.success(), "ffmpeg should generate wav fixture");
+
+        let config_content = format!(
+            "outputs:\n  - type: mp3\ninput: \"{}\"\noutput_dir: \"{}\"\n",
+            input_path.display(),
+            output_dir.display()
+        );
+        let mut f = NamedTempFile::new().expect("failed to create temp file");
+        f.write_all(config_content.as_bytes())
+            .expect("failed to write config");
+
+        let result = run(f.path().to_str().unwrap(), false, None);
+        assert!(result.is_ok(), "audio build should succeed with ffmpeg: {:?}", result);
+
+        let output_path = output_dir.join("input.mp3");
+        assert!(output_path.exists(), "audio output must exist");
+        assert!(
+            fs::metadata(output_path).expect("missing audio output metadata").len() > 0,
+            "audio output must be non-empty"
+        );
+    }
+
     fn valid_image_config_file(ext: &str, output_type: &str) -> (NamedTempFile, tempfile::TempDir) {
         let dir = tempfile::tempdir().expect("failed to create temp dir");
         let input_path = dir.path().join(format!("input.{}", ext));
@@ -1412,6 +1463,50 @@ mod tests {
             result.is_ok(),
             "image dry-run with profile must succeed: {:?}",
             result
+        );
+    }
+
+    #[test]
+    fn test_image_build_end_to_end_with_ffmpeg_when_available() {
+        if !ffmpeg_available() {
+            return;
+        }
+
+        let dir = tempfile::tempdir().expect("failed to create temp dir");
+        let input_path = dir.path().join("input.png");
+        let output_dir = dir.path().join("dist");
+        let status = Command::new("ffmpeg")
+            .args([
+                "-y",
+                "-f",
+                "lavfi",
+                "-i",
+                "color=c=red:s=4x4:d=0.1",
+                "-frames:v",
+                "1",
+            ])
+            .arg(&input_path)
+            .status()
+            .expect("failed to generate png fixture");
+        assert!(status.success(), "ffmpeg should generate png fixture");
+
+        let config_content = format!(
+            "outputs:\n  - type: webp\ninput: \"{}\"\noutput_dir: \"{}\"\n",
+            input_path.display(),
+            output_dir.display()
+        );
+        let mut f = NamedTempFile::new().expect("failed to create temp file");
+        f.write_all(config_content.as_bytes())
+            .expect("failed to write config");
+
+        let result = run(f.path().to_str().unwrap(), false, None);
+        assert!(result.is_ok(), "image build should succeed with ffmpeg: {:?}", result);
+
+        let output_path = output_dir.join("input.webp");
+        assert!(output_path.exists(), "image output must exist");
+        assert!(
+            fs::metadata(output_path).expect("missing image output metadata").len() > 0,
+            "image output must be non-empty"
         );
     }
 }

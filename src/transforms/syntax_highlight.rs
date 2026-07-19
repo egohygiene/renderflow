@@ -190,7 +190,7 @@ mod tests {
     #[test]
     fn test_default_impl_matches_new() {
         let t1 = SyntaxHighlightTransform::new();
-        let t2 = SyntaxHighlightTransform::default();
+        let t2 = SyntaxHighlightTransform;
         let input = "```Rust\nfn foo() {}\n```\n".to_string();
         assert_eq!(
             t1.apply(input.clone()).unwrap(),

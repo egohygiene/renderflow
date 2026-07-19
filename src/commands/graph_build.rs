@@ -161,6 +161,8 @@ fn run_impl(
         ensure_output_dir(&config.output_dir)?
     };
 
+    let executor = executor.with_cache(output_dir.join(".renderflow-dag-cache.json"));
+
     // Read and execute.
     let content = fs::read_to_string(&config.input)
         .with_context(|| format!("Failed to read input file: {}", config.input))?;
