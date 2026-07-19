@@ -75,68 +75,79 @@ dist/
 
 ## Installation
 
-### Download from GitHub Releases (recommended)
-
-Pre-built binaries are available for Linux, macOS, and Windows on the [Releases page](https://github.com/egohygiene/renderflow/releases).
-
-**Linux (x86_64):**
-```bash
-curl -L https://github.com/egohygiene/renderflow/releases/latest/download/renderflow-linux-x86_64 -o renderflow
-chmod +x renderflow
-sudo mv renderflow /usr/local/bin/
-```
-
-**Linux (ARM64):**
-```bash
-curl -L https://github.com/egohygiene/renderflow/releases/latest/download/renderflow-linux-aarch64 -o renderflow
-chmod +x renderflow
-sudo mv renderflow /usr/local/bin/
-```
-
-**macOS (Intel):**
-```bash
-curl -L https://github.com/egohygiene/renderflow/releases/latest/download/renderflow-macos-x86_64 -o renderflow
-chmod +x renderflow
-sudo mv renderflow /usr/local/bin/
-```
-
-**macOS (Apple Silicon):**
-```bash
-curl -L https://github.com/egohygiene/renderflow/releases/latest/download/renderflow-macos-aarch64 -o renderflow
-chmod +x renderflow
-sudo mv renderflow /usr/local/bin/
-```
-
-**Windows:**
-
-Download `renderflow-windows-x86_64.exe` from the [Releases page](https://github.com/egohygiene/renderflow/releases/latest) and place it somewhere on your `PATH`.
-
-### Homebrew (macOS)
-
-Install via [Homebrew](https://brew.sh) using the renderflow tap:
+### Via Homebrew (macOS and Linux)
 
 ```bash
 brew tap egohygiene/renderflow https://github.com/egohygiene/renderflow
 brew install renderflow
 ```
 
-Requires [Pandoc](https://pandoc.org/installing.html) as a runtime dependency (installed automatically by Homebrew).
+Pandoc is installed automatically as a dependency.
 
-### Arch Linux (AUR)
+### Via Scoop (Windows)
 
-Install via the AUR using an AUR helper like `yay` or `paru`:
+```powershell
+scoop bucket add egohygiene https://github.com/egohygiene/renderflow
+scoop install renderflow
+```
+
+### Via Chocolatey (Windows)
+
+```powershell
+choco install renderflow
+```
+
+### Via Snap (Linux)
+
+```bash
+snap install renderflow --classic
+```
+
+### Via AUR (Arch Linux)
+
+Stable release:
+
+```bash
+yay -S renderflow
+```
+
+Latest git build:
 
 ```bash
 yay -S renderflow-git
 ```
 
-Or manually with `makepkg`:
+### Via Debian / Ubuntu (.deb)
+
+Download the `.deb` for your architecture from the [Releases page](https://github.com/egohygiene/renderflow/releases/latest) and install:
 
 ```bash
-git clone https://aur.archlinux.org/renderflow-git.git
-cd renderflow-git
-makepkg -si
+sudo dpkg -i renderflow_*.deb
 ```
+
+### Via RHEL / Fedora / openSUSE (.rpm)
+
+Download the `.rpm` for your architecture from the [Releases page](https://github.com/egohygiene/renderflow/releases/latest) and install:
+
+```bash
+sudo rpm -i renderflow-*.rpm
+```
+
+### Download pre-built binary (all platforms)
+
+Pre-built binaries are available for Linux (x86_64, aarch64, ARMv7, i686), macOS (Intel, Apple Silicon), and Windows (x86_64) on the [Releases page](https://github.com/egohygiene/renderflow/releases/latest).
+
+| Platform | Binary |
+|---|---|
+| Linux x86_64 (musl) | `renderflow-x86_64-unknown-linux-musl` |
+| Linux x86_64 (glibc) | `renderflow-x86_64-unknown-linux-gnu` |
+| Linux aarch64 (musl) | `renderflow-aarch64-unknown-linux-musl` |
+| Linux aarch64 (glibc) | `renderflow-aarch64-unknown-linux-gnu` |
+| Linux ARMv7 | `renderflow-armv7-unknown-linux-musleabihf` |
+| Linux i686 | `renderflow-i686-unknown-linux-musl` |
+| macOS Intel | `renderflow-x86_64-apple-darwin` |
+| macOS Apple Silicon | `renderflow-aarch64-apple-darwin` |
+| Windows x86_64 | `renderflow-x86_64-pc-windows-msvc.exe` |
 
 ### Build from source
 
@@ -471,7 +482,7 @@ Output Files (PDF / HTML / DOCX)
 - [ ] Built-in stylesheet themes
 - [ ] SVG / emoji embedding in PDFs
 - [ ] Plugin system for custom transforms
-- [ ] Automated release workflow for pre-built binaries
+- [x] Automated release workflow for pre-built binaries
 
 ---
 

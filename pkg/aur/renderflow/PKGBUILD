@@ -1,0 +1,25 @@
+# Maintainer: Ego Hygiene <egohygiene@users.noreply.github.com>
+# pkgver and sha256sums are updated automatically by CI on each tagged release.
+pkgname=renderflow
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Spec-driven document rendering engine"
+arch=('x86_64' 'aarch64')
+url="https://github.com/egohygiene/renderflow"
+license=('MIT')
+depends=('pandoc')
+makedepends=('rust')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/egohygiene/renderflow/archive/refs/tags/v$pkgver.tar.gz")
+sha256sums=('PLACEHOLDER')
+
+build() {
+	cd "$pkgname-$pkgver"
+	export CARGO_TARGET_DIR="$srcdir/target"
+	cargo build --release --locked
+}
+
+package() {
+	cd "$pkgname-$pkgver"
+	install -Dm755 "$srcdir/target/release/renderflow" "$pkgdir/usr/bin/renderflow"
+	install -Dm644 "LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

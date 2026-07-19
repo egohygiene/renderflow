@@ -1,0 +1,27 @@
+{
+    "version": "0.1.0",
+    "description": "Spec-driven document rendering engine",
+    "homepage": "https://github.com/egohygiene/renderflow",
+    "license": "MIT",
+    "architecture": {
+        "64bit": {
+            "url": "https://github.com/egohygiene/renderflow/releases/download/v0.1.0/renderflow-x86_64-pc-windows-msvc.exe#/renderflow.exe",
+            "hash": "PLACEHOLDER"
+        }
+    },
+    "bin": "renderflow.exe",
+    "checkver": {
+        "github": "https://github.com/egohygiene/renderflow"
+    },
+    "autoupdate": {
+        "architecture": {
+            "64bit": {
+                "url": "https://github.com/egohygiene/renderflow/releases/download/v$version/renderflow-x86_64-pc-windows-msvc.exe#/renderflow.exe",
+                "hash": {
+                    "url": "https://github.com/egohygiene/renderflow/releases/download/v$version/renderflow-x86_64-pc-windows-msvc.exe.sha256",
+                    "regex": "([a-fA-F0-9]+)"
+                }
+            }
+        }
+    }
+}
