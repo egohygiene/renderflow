@@ -459,9 +459,13 @@ jobs:
             Set-Content "pkg\chocolatey\renderflow.nuspec"
 
           # install script URL + checksum
+          # Use double-quoted replacement for checksum so the capture group from
+          # `(-Checksum64\s+)` (`$1`, escaped as `` `$1 `` in the string) and
+          # `$sha256` are both interpolated.
           (Get-Content "pkg\chocolatey\tools\chocolateyinstall.ps1") `
             -replace 'https://github.com/egohygiene/renderflow/releases/download/v[^/]+/renderflow-x86_64-pc-windows-msvc.exe', $url `
-            -replace "(-Checksum64\\s+)'[^']*'", "`$1'$sha256'" |
+            -replace "(-Checksum64\s+)'[^']*'", "`$1'$sha256'" `
+            -replace '(-Checksum64\s+)"[^"]*"', "`$1'$sha256'" |
             Set-Content "pkg\chocolatey\tools\chocolateyinstall.ps1"
 
       - name: Pack Chocolatey package
@@ -514,7 +518,6 @@ jobs:
 
       - name: Commit and push updated formula
         run: |
-          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add Formula/renderflow.rb
@@ -534,7 +537,7 @@ jobs:
                 git rebase --abort || true
               fi
               echo "Push attempt ${attempt} failed; retrying..."
-              sleep $((attempt * 2))
+              sleep $((2 ** attempt < 10 ? 2 ** attempt : 10))
             done
             echo "::warning::Unable to push Homebrew update after retries; continuing release."
           fi
@@ -586,7 +589,6 @@ jobs:
 
       - name: Commit and push updated manifest
         run: |
-          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add pkg/scoop/renderflow.json
@@ -606,7 +608,7 @@ jobs:
                 git rebase --abort || true
               fi
               echo "Push attempt ${attempt} failed; retrying..."
-              sleep $((attempt * 2))
+              sleep $((2 ** attempt < 10 ? 2 ** attempt : 10))
             done
             echo "::warning::Unable to push Scoop update after retries; continuing release."
           fi
@@ -645,7 +647,6 @@ jobs:
 
       - name: Commit and push updated PKGBUILD
         run: |
-          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add pkg/aur/renderflow/PKGBUILD
@@ -665,7 +666,7 @@ jobs:
                 git rebase --abort || true
               fi
               echo "Push attempt ${attempt} failed; retrying..."
-              sleep $((attempt * 2))
+              sleep $((2 ** attempt < 10 ? 2 ** attempt : 10))
             done
             echo "::warning::Unable to push AUR update after retries; continuing release."
           fi
@@ -675,6 +676,8 @@ jobs:
   verify-release:
     name: Verify release assets
     runs-on: ubuntu-latest
+    # Manifest jobs are intentionally excluded so release artifact verification
+    # remains authoritative even when best-effort package manager sync jobs fail.
     needs:
       - build-binaries
       - package-deb-x86_64
@@ -728,10 +731,7 @@ jobs:
           )
 
           # Fetch the list of uploaded assets from the GitHub Release.
-          ASSET_LINES="$(
-            gh release view "${TAG}" --repo "${REPO}" --json assets --jq '.assets[].name' \
-              | sed 's/^"//; s/"$//'
-          )"
+          ASSET_LINES="$(gh release view "${TAG}" --repo "${REPO}" --json assets --jq '.assets[].name')"
 
           MISSING=()
           for ASSET in "${EXPECTED[@]}"; do
@@ -747,7 +747,15 @@ jobs:
           done
 
           SOURCE_TARBALL_URL="https://github.com/egohygiene/renderflow/archive/refs/tags/${TAG}.tar.gz"
-          if ! curl -fsSI "${SOURCE_TARBALL_URL}" >/dev/null; then
+          tarball_ok=false
+          for attempt in 1 2 3; do
+            if curl -fsSI "${SOURCE_TARBALL_URL}" >/dev/null; then
+              tarball_ok=true
+              break
+            fi
+            sleep "${attempt}"
+          done
+          if [ "${tarball_ok}" != "true" ]; then
             MISSING+=("source-tarball:${SOURCE_TARBALL_URL}")
           fi
 

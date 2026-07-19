@@ -134,7 +134,7 @@ jobs:
               f'https://github.com/egohygiene/renderflow/releases/download/{tag}/renderflow-x86_64-pc-windows-msvc.exe',
               ps1
           )
-          ps1 = re.sub(r"-Checksum64\s+'[^']*'", "-Checksum64   'PLACEHOLDER_SHA256'", ps1)
+          ps1 = re.sub(r"(-Checksum64\s+)['\"][^'\"]*['\"]", r"\1'PLACEHOLDER_SHA256'", ps1)
           with open("pkg/chocolatey/tools/chocolateyinstall.ps1", "w") as f:
               f.write(ps1)
 
@@ -152,23 +152,41 @@ jobs:
 
       - name: Update Cargo.lock package version only
         run: |
-          VERSION="${{ steps.ver.outputs.new }}"
           python3 - <<'EOF'
           import re
           import sys
 
           version = "${{ steps.ver.outputs.new }}"
           with open("Cargo.lock") as f:
-              lock = f.read()
+              lines = f.readlines()
 
-          pattern = r'(\[\[package\]\]\nname = "renderflow"\nversion = ")[^"]*(")'
-          updated, replacements = re.subn(pattern, rf'\g<1>{version}\2', lock, count=1)
-          if replacements != 1:
+          in_package = False
+          found_renderflow = False
+          updated = False
+
+          for i, line in enumerate(lines):
+              stripped = line.strip()
+              if stripped == "[[package]]":
+                  in_package = True
+                  found_renderflow = False
+                  continue
+              if in_package and stripped.startswith('name = "'):
+                  found_renderflow = re.match(r'^name\s*=\s*"renderflow"$', stripped) is not None
+                  continue
+              if in_package and found_renderflow and stripped.startswith('version = "'):
+                  line_lstrip = line.lstrip()
+                  prefix = line[: len(line) - len(line_lstrip)]
+                  newline = "\n" if line.endswith("\n") else ""
+                  lines[i] = f'{prefix}version = "{version}"{newline}'
+                  updated = True
+                  break
+
+          if not updated:
               print("Failed to update renderflow package version in Cargo.lock", file=sys.stderr)
               sys.exit(1)
 
           with open("Cargo.lock", "w") as f:
-              f.write(updated)
+              f.writelines(lines)
           print(f"Updated Cargo.lock renderflow package version to {version}")
           EOF
 
