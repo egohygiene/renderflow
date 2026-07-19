@@ -47,6 +47,33 @@ jobs:
       - name: Test
         run: cargo test --verbose
 
+  validate-examples:
+    name: Validate bundled examples
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.94"
+
+      - name: Build renderflow
+        run: cargo build --release
+
+      - name: Validate hello-world example (dry-run)
+        working-directory: examples/hello-world
+        run: ../../target/release/renderflow build --dry-run
+
+      - name: Validate transforms example (dry-run)
+        working-directory: examples/transforms
+        run: ../../target/release/renderflow build --dry-run
+
   validate-pkgbuild:
     name: Validate PKGBUILD git (Arch Linux)
     runs-on: ubuntu-latest

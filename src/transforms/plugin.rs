@@ -115,7 +115,7 @@ impl PluginRegistry {
     /// replaced.
     ///
     /// Returns `&mut self` to support method chaining.
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     pub fn register(&mut self, executor: Arc<dyn PluginExecutor>) -> &mut Self {
         self.plugins.insert(executor.name().to_string(), executor);
         self

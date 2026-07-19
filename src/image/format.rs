@@ -464,7 +464,7 @@ impl ImageFormat {
     ///
     /// Most image formats use the `image2` muxer for single-frame output;
     /// a few need a specific muxer name.
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     pub fn ffmpeg_format(self) -> Option<&'static str> {
         match self {
             ImageFormat::Jpeg | ImageFormat::Jpg => Some("image2"),
@@ -499,7 +499,7 @@ impl ImageFormat {
     }
 
     /// Return `true` when this format stores pixel data without perceptual loss.
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     pub fn is_lossless(self) -> bool {
         matches!(
             self,
@@ -778,7 +778,7 @@ impl ImageFormat {
     }
 
     /// All image formats that can be encoded by FFmpeg (encode-capable subset).
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     pub fn encodable_formats() -> &'static [ImageFormat] {
         &[
             ImageFormat::Jpeg,
