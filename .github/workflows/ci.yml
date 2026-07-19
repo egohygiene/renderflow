@@ -22,6 +22,22 @@ jobs:
           toolchain: "1.94"
           components: clippy
 
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Warn on plaintext AI API keys
+        run: |
+          matches="$(git ls-files '*.yml' '*.yaml' | xargs grep -nH '^[[:space:]]*api_key[[:space:]]*:' || true)"
+          if [ -n "$matches" ]; then
+            echo "$matches"
+            while IFS= read -r line; do
+              [ -n "$line" ] || continue
+              echo "::warning title=Plaintext AI API key configuration detected::$line uses api_key; prefer api_key_env"
+            done <<< "$matches"
+          fi
+
       - name: Lint (clippy)
         run: cargo clippy -- -D warnings
 
@@ -65,3 +81,15 @@ jobs:
       - name: Validate PKGBUILD with namcap
         run: namcap pkg/aur/renderflow/PKGBUILD
 
+  validate-snap:
+    name: Validate Snap package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build Snap
+        uses: snapcore/action-build@v1

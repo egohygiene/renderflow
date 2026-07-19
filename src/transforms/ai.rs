@@ -6,8 +6,10 @@ use anyhow::{Context, Result};
 use serde_json::json;
 use tracing::{debug, warn};
 
-use crate::cache::{compute_ai_input_hash, current_unix_timestamp, load_ai_cache, save_ai_cache, AiCacheEntry};
 use super::Transform;
+use crate::cache::{
+    compute_ai_input_hash, current_unix_timestamp, load_ai_cache, save_ai_cache, AiCacheEntry,
+};
 
 /// The AI backend to use for an [`AiTransform`].
 ///
@@ -83,6 +85,7 @@ impl std::str::FromStr for AiBackend {
 /// // show the builder API.
 /// let _ = t; // avoid unused-variable warning in doc test
 /// ```
+#[derive(Debug)]
 pub struct AiTransform {
     name: String,
     backend: AiBackend,
@@ -90,6 +93,7 @@ pub struct AiTransform {
     prompt_template: String,
     endpoint: String,
     api_key: Option<String>,
+    api_key_env: Option<String>,
     artifact_path: Option<String>,
     /// Optional path to the AI result cache file.
     ///
@@ -110,6 +114,7 @@ pub struct AiTransformBuilder {
     prompt_template: Option<String>,
     endpoint: Option<String>,
     api_key: Option<String>,
+    api_key_env: Option<String>,
     artifact_path: Option<String>,
     cache_path: Option<String>,
 }
@@ -123,6 +128,7 @@ impl AiTransformBuilder {
             prompt_template: None,
             endpoint: None,
             api_key: None,
+            api_key_env: None,
             artifact_path: None,
             cache_path: None,
         }
@@ -166,6 +172,16 @@ impl AiTransformBuilder {
         self
     }
 
+    /// Optional environment variable name used to resolve the API key at runtime.
+    ///
+    /// When both `api_key_env` and `api_key` are set, the environment variable
+    /// is preferred and the plaintext key is retained only as a compatibility
+    /// fallback.
+    pub fn api_key_env(mut self, var_name: impl Into<String>) -> Self {
+        self.api_key_env = Some(var_name.into());
+        self
+    }
+
     /// Optional file path where the AI response will also be written as an
     /// artifact.
     pub fn artifact_path(mut self, path: impl Into<String>) -> Self {
@@ -197,9 +213,14 @@ impl AiTransformBuilder {
             name: self.name.unwrap_or_else(|| "AiTransform".to_string()),
             backend: self.backend.unwrap_or(AiBackend::Ollama),
             model: self.model.unwrap_or_else(|| "mistral".to_string()),
-            prompt_template: self.prompt_template.unwrap_or_else(|| "{input}".to_string()),
-            endpoint: self.endpoint.unwrap_or_else(|| "http://localhost:11434".to_string()),
+            prompt_template: self
+                .prompt_template
+                .unwrap_or_else(|| "{input}".to_string()),
+            endpoint: self
+                .endpoint
+                .unwrap_or_else(|| "http://localhost:11434".to_string()),
             api_key: self.api_key,
+            api_key_env: self.api_key_env,
             artifact_path: self.artifact_path,
             cache_path: self.cache_path,
         }
@@ -234,6 +255,47 @@ impl AiTransform {
         Ok(())
     }
 
+    fn resolve_api_key(&self) -> Result<Option<String>> {
+        let Some(var_name) = self.api_key_env.as_deref() else {
+            return Ok(self.api_key.clone());
+        };
+
+        match std::env::var(var_name) {
+            Ok(value) if !value.is_empty() => Ok(Some(value)),
+            Ok(_) => {
+                if let Some(api_key) = &self.api_key {
+                    warn!(
+                        transform = %self.name,
+                        env_var = %var_name,
+                        "AI API key environment variable is empty; falling back to plaintext api_key"
+                    );
+                    Ok(Some(api_key.clone()))
+                } else {
+                    anyhow::bail!(
+                        "AI API key environment variable '{}' is set but empty",
+                        var_name
+                    );
+                }
+            }
+            Err(std::env::VarError::NotPresent) => {
+                if let Some(api_key) = &self.api_key {
+                    warn!(
+                        transform = %self.name,
+                        env_var = %var_name,
+                        "AI API key environment variable is not set; falling back to plaintext api_key"
+                    );
+                    Ok(Some(api_key.clone()))
+                } else {
+                    anyhow::bail!("AI API key environment variable '{}' is not set", var_name);
+                }
+            }
+            Err(std::env::VarError::NotUnicode(_)) => anyhow::bail!(
+                "AI API key environment variable '{}' is not valid UTF-8",
+                var_name
+            ),
+        }
+    }
+
     /// Call the Ollama `/api/generate` endpoint.
     fn call_ollama(&self, prompt: &str) -> Result<String> {
         let url = format!("{}/api/generate", self.endpoint.trim_end_matches('/'));
@@ -244,7 +306,7 @@ impl AiTransform {
         });
 
         let mut req = ureq::post(&url).set("Content-Type", "application/json");
-        if let Some(key) = &self.api_key {
+        if let Some(key) = self.resolve_api_key()? {
             req = req.set("Authorization", &format!("Bearer {}", key));
         }
 
@@ -256,10 +318,12 @@ impl AiTransform {
             .into_string()
             .context("Failed to read Ollama response body")?;
 
-        let json: serde_json::Value =
-            serde_json::from_str(&body_str).with_context(|| {
-                format!("Failed to parse Ollama JSON response; body was: {}", body_str)
-            })?;
+        let json: serde_json::Value = serde_json::from_str(&body_str).with_context(|| {
+            format!(
+                "Failed to parse Ollama JSON response; body was: {}",
+                body_str
+            )
+        })?;
 
         json["response"]
             .as_str()
@@ -274,14 +338,17 @@ impl AiTransform {
 
     /// Call an OpenAI-compatible `/v1/chat/completions` endpoint.
     fn call_openai(&self, prompt: &str) -> Result<String> {
-        let url = format!("{}/v1/chat/completions", self.endpoint.trim_end_matches('/'));
+        let url = format!(
+            "{}/v1/chat/completions",
+            self.endpoint.trim_end_matches('/')
+        );
         let body = json!({
             "model": self.model,
             "messages": [{"role": "user", "content": prompt}],
         });
 
         let mut req = ureq::post(&url).set("Content-Type", "application/json");
-        if let Some(key) = &self.api_key {
+        if let Some(key) = self.resolve_api_key()? {
             req = req.set("Authorization", &format!("Bearer {}", key));
         }
 
@@ -293,13 +360,12 @@ impl AiTransform {
             .into_string()
             .context("Failed to read OpenAI response body")?;
 
-        let json: serde_json::Value =
-            serde_json::from_str(&body_str).with_context(|| {
-                format!(
-                    "Failed to parse OpenAI JSON response; body was: {}",
-                    body_str
-                )
-            })?;
+        let json: serde_json::Value = serde_json::from_str(&body_str).with_context(|| {
+            format!(
+                "Failed to parse OpenAI JSON response; body was: {}",
+                body_str
+            )
+        })?;
 
         json["choices"][0]["message"]["content"]
             .as_str()
@@ -409,6 +475,7 @@ mod tests {
         assert_eq!(t.prompt_template, "{input}");
         assert_eq!(t.endpoint, "http://localhost:11434");
         assert!(t.api_key.is_none());
+        assert!(t.api_key_env.is_none());
         assert!(t.artifact_path.is_none());
         assert!(t.cache_path.is_none());
     }
@@ -422,6 +489,7 @@ mod tests {
             .prompt_template("Summarise: {input}")
             .endpoint("https://api.openai.com")
             .api_key("sk-test")
+            .api_key_env("OPENAI_API_KEY")
             .artifact_path("/tmp/output.txt")
             .cache_path("/tmp/ai-cache.json")
             .build();
@@ -432,8 +500,45 @@ mod tests {
         assert_eq!(t.prompt_template, "Summarise: {input}");
         assert_eq!(t.endpoint, "https://api.openai.com");
         assert_eq!(t.api_key.as_deref(), Some("sk-test"));
+        assert_eq!(t.api_key_env.as_deref(), Some("OPENAI_API_KEY"));
         assert_eq!(t.artifact_path.as_deref(), Some("/tmp/output.txt"));
         assert_eq!(t.cache_path.as_deref(), Some("/tmp/ai-cache.json"));
+    }
+
+    #[test]
+    fn test_resolve_api_key_prefers_environment_variable() {
+        let expected = std::env::var("PATH").expect("PATH should be set in test environment");
+        let t = AiTransform::builder()
+            .api_key("fallback-key")
+            .api_key_env("PATH")
+            .build();
+
+        let resolved = t.resolve_api_key().unwrap();
+        assert_eq!(resolved.as_deref(), Some(expected.as_str()));
+    }
+
+    #[test]
+    fn test_resolve_api_key_falls_back_to_plaintext_when_env_missing() {
+        let t = AiTransform::builder()
+            .api_key("fallback-key")
+            .api_key_env("RENDERFLOW_TEST_MISSING_API_KEY")
+            .build();
+
+        let resolved = t.resolve_api_key().unwrap();
+        assert_eq!(resolved.as_deref(), Some("fallback-key"));
+    }
+
+    #[test]
+    fn test_resolve_api_key_errors_when_env_missing_without_fallback() {
+        let t = AiTransform::builder()
+            .api_key_env("RENDERFLOW_TEST_MISSING_API_KEY")
+            .build();
+
+        let err = t.resolve_api_key().unwrap_err();
+        assert!(
+            err.to_string().contains("RENDERFLOW_TEST_MISSING_API_KEY"),
+            "unexpected error: {err}"
+        );
     }
 
     // ── prompt rendering ──────────────────────────────────────────────────────
@@ -488,7 +593,8 @@ mod tests {
     fn test_backend_from_str_unknown_returns_error() {
         let err = "anthropic".parse::<AiBackend>().unwrap_err();
         assert!(
-            err.to_string().contains("'anthropic' is not a known AI backend"),
+            err.to_string()
+                .contains("'anthropic' is not a known AI backend"),
             "unexpected error: {}",
             err
         );
@@ -617,6 +723,8 @@ mod tests {
         // Use the rendered prompt (as apply() does) to compute the expected hash.
         let rendered = t.render_prompt("test input");
         let reloaded = load_ai_cache(&cache_file);
-        assert!(reloaded.get(&crate::cache::compute_ai_input_hash(&rendered, "mistral")).is_none());
+        assert!(reloaded
+            .get(&crate::cache::compute_ai_input_hash(&rendered, "mistral"))
+            .is_none());
     }
 }
