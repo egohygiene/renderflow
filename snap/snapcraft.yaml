@@ -1,0 +1,22 @@
+name: renderflow
+base: core22
+version: git
+summary: Spec-driven document rendering engine
+description: |
+  Spec-driven document rendering engine for transforming Markdown into
+  PDF, HTML, and DOCX output.
+
+  Define your output spec in YAML. Point it at your Markdown. Run one command.
+
+  Requires pandoc to be installed on the host system.
+grade: stable
+confinement: classic
+
+apps:
+  renderflow:
+    command: bin/renderflow
+
+parts:
+  renderflow:
+    plugin: rust
+    source: .

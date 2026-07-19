@@ -1,0 +1,115 @@
+name: Bump Version
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: >
+          Explicit version to set (e.g. 0.2.0).
+          Takes precedence over the bump level below.
+        required: false
+        type: string
+      bump:
+        description: >
+          Semver bump level — used only when no explicit version is provided above.
+        required: false
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+        default: patch
+
+jobs:
+  bump-version:
+    name: Bump version and push tag
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.94"
+
+      - name: Resolve new version
+        id: ver
+        run: |
+          EXPLICIT="${{ github.event.inputs.version }}"
+          BUMP="${{ github.event.inputs.bump }}"
+
+          # Read current version from Cargo.toml
+          CURRENT=$(grep -m1 '^version = ' Cargo.toml | sed 's/version = "\(.*\)"/\1/')
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
+
+          if [ -n "$EXPLICIT" ]; then
+            NEW="$EXPLICIT"
+          else
+            case "$BUMP" in
+              major) NEW="$((MAJOR + 1)).0.0" ;;
+              minor) NEW="${MAJOR}.$((MINOR + 1)).0" ;;
+              patch) NEW="${MAJOR}.${MINOR}.$((PATCH + 1))" ;;
+              *) echo "Unknown bump level: $BUMP" && exit 1 ;;
+            esac
+          fi
+
+          echo "current=${CURRENT}" >> "$GITHUB_OUTPUT"
+          echo "new=${NEW}"         >> "$GITHUB_OUTPUT"
+          echo "tag=v${NEW}"        >> "$GITHUB_OUTPUT"
+          echo "Bumping ${CURRENT} → ${NEW}"
+
+      - name: Update version in Cargo.toml
+        run: |
+          VERSION="${{ steps.ver.outputs.new }}"
+          # Replace the first occurrence of version = "..." (the [package] version)
+          python3 - <<'EOF'
+          import re, sys
+
+          version = "${{ steps.ver.outputs.new }}"
+          with open("Cargo.toml") as f:
+              content = f.read()
+          content = re.sub(
+              r'^version = "[^"]*"',
+              f'version = "{version}"',
+              content,
+              count=1,
+              flags=re.MULTILINE,
+          )
+          with open("Cargo.toml", "w") as f:
+              f.write(content)
+          print(f"Updated Cargo.toml to {version}")
+          EOF
+
+      - name: Update Cargo.lock
+        run: cargo update --workspace
+
+      - name: Configure git
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Commit version bump
+        run: |
+          git add Cargo.toml Cargo.lock
+          if git diff --staged --quiet; then
+            echo "Nothing changed — version may already be ${{ steps.ver.outputs.new }}"
+            exit 0
+          fi
+          git commit -m "chore(release): bump version to ${{ steps.ver.outputs.tag }}"
+
+      - name: Create annotated tag
+        run: |
+          git tag -a "${{ steps.ver.outputs.tag }}" \
+              -m "chore(release): release ${{ steps.ver.outputs.tag }}"
+
+      - name: Push commit and tag
+        run: |
+          git push origin ${{ github.event.repository.default_branch }}
+          git push origin "${{ steps.ver.outputs.tag }}"
