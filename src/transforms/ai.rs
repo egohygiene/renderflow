@@ -690,7 +690,9 @@ mod tests {
         // A transform with no cache_path – the cache is never consulted.
         // We cannot call apply() without a live backend, so we just verify the
         // field is absent and that the transform is constructed correctly.
-        let t = AiTransform::builder().model("mistral").build();
+        let t = AiTransform::builder()
+            .model("mistral")
+            .build();
         assert!(t.cache_path.is_none());
     }
 
