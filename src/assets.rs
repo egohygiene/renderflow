@@ -270,7 +270,11 @@ mod tests {
         let result = normalize_asset_paths(content, dir.path()).unwrap();
         assert!(matches!(result, Cow::Owned(_)));
         let base = dir.path().to_string_lossy();
-        assert!(result.contains(&*base), "expected absolute paths: {}", result);
+        assert!(
+            result.contains(&*base),
+            "expected absolute paths: {}",
+            result
+        );
     }
 
     #[test]

@@ -69,8 +69,7 @@ fn test_full_pipeline_end_to_end() {
         output_file.display()
     );
 
-    let output_content = fs::read_to_string(&output_file)
-        .expect("failed to read output file");
+    let output_content = fs::read_to_string(&output_file).expect("failed to read output file");
     assert!(
         !output_content.is_empty(),
         "expected output file to be non-empty"

@@ -80,7 +80,9 @@ pub struct AggregationRegistry {
 impl AggregationRegistry {
     /// Create an empty registry.
     pub fn new() -> Self {
-        Self { transforms: HashMap::new() }
+        Self {
+            transforms: HashMap::new(),
+        }
     }
 
     /// Register a named aggregation transform.
@@ -174,7 +176,11 @@ impl CommandAggregationTransform {
     /// * `program` – executable to invoke (looked up on `PATH`).
     /// * `args`    – argument list; may include `{inputs}` and `{output}` placeholders.
     pub fn new(name: impl Into<String>, program: impl Into<String>, args: Vec<String>) -> Self {
-        Self { name: name.into(), program: program.into(), args }
+        Self {
+            name: name.into(),
+            program: program.into(),
+            args,
+        }
     }
 
     /// Build a **CBZ** aggregation transform.
@@ -188,7 +194,11 @@ impl CommandAggregationTransform {
         Self::new(
             name,
             "zip",
-            vec!["-j".to_string(), "{output}".to_string(), "{inputs}".to_string()],
+            vec![
+                "-j".to_string(),
+                "{output}".to_string(),
+                "{inputs}".to_string(),
+            ],
         )
     }
 
@@ -202,7 +212,11 @@ impl CommandAggregationTransform {
         Self::new(
             name,
             "img2pdf",
-            vec!["--output".to_string(), "{output}".to_string(), "{inputs}".to_string()],
+            vec![
+                "--output".to_string(),
+                "{output}".to_string(),
+                "{inputs}".to_string(),
+            ],
         )
     }
 
@@ -279,9 +293,7 @@ impl AggregationTransform for CommandAggregationTransform {
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
-            .with_context(|| {
-                format!("Failed to start aggregation command '{}'", self.program)
-            })?
+            .with_context(|| format!("Failed to start aggregation command '{}'", self.program))?
             .wait_with_output()
             .with_context(|| {
                 format!("Failed to wait for aggregation command '{}'", self.program)
@@ -411,7 +423,9 @@ mod tests {
         registry.register(Box::new(WriteB));
         let dir = tempfile::tempdir().unwrap();
         let out = dir.path().join("out.txt");
-        registry.apply("writer", &["ignored"], out.to_str().unwrap()).unwrap();
+        registry
+            .apply("writer", &["ignored"], out.to_str().unwrap())
+            .unwrap();
         assert_eq!(std::fs::read_to_string(&out).unwrap(), "b");
     }
 
@@ -447,7 +461,10 @@ mod tests {
         let out = dir.path().join("out.txt");
         let result = t.aggregate(&[], out.to_str().unwrap());
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("at least one input"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("at least one input"));
     }
 
     #[test]
@@ -506,7 +523,11 @@ mod tests {
             vec!["-c".to_string(), "cat {inputs} > {output}".to_string()],
         );
         t.aggregate(
-            &[in1.to_str().unwrap(), in2.to_str().unwrap(), in3.to_str().unwrap()],
+            &[
+                in1.to_str().unwrap(),
+                in2.to_str().unwrap(),
+                in3.to_str().unwrap(),
+            ],
             out.to_str().unwrap(),
         )
         .unwrap();
@@ -530,14 +551,23 @@ mod tests {
     #[test]
     fn test_cbz_factory_args_contain_output_and_inputs() {
         let t = CommandAggregationTransform::cbz("cbz");
-        assert!(t.args.iter().any(|a| a.contains("{output}")), "args must contain {{output}}");
-        assert!(t.args.iter().any(|a| a.contains("{inputs}")), "args must contain {{inputs}}");
+        assert!(
+            t.args.iter().any(|a| a.contains("{output}")),
+            "args must contain {{output}}"
+        );
+        assert!(
+            t.args.iter().any(|a| a.contains("{inputs}")),
+            "args must contain {{inputs}}"
+        );
     }
 
     #[test]
     fn test_cbz_factory_uses_dash_j_flag() {
         let t = CommandAggregationTransform::cbz("cbz");
-        assert!(t.args.contains(&"-j".to_string()), "CBZ args must include -j to strip paths");
+        assert!(
+            t.args.contains(&"-j".to_string()),
+            "CBZ args must include -j to strip paths"
+        );
     }
 
     #[test]
@@ -550,8 +580,14 @@ mod tests {
     #[test]
     fn test_images_to_pdf_factory_args_contain_output_and_inputs() {
         let t = CommandAggregationTransform::images_to_pdf("images-pdf");
-        assert!(t.args.iter().any(|a| a.contains("{output}")), "args must contain {{output}}");
-        assert!(t.args.iter().any(|a| a.contains("{inputs}")), "args must contain {{inputs}}");
+        assert!(
+            t.args.iter().any(|a| a.contains("{output}")),
+            "args must contain {{output}}"
+        );
+        assert!(
+            t.args.iter().any(|a| a.contains("{inputs}")),
+            "args must contain {{inputs}}"
+        );
     }
 
     #[test]
@@ -574,9 +610,14 @@ mod tests {
     fn test_tiff_to_press_pdf_factory_args_contain_output_and_inputs() {
         let t = CommandAggregationTransform::tiff_to_press_pdf("press-pdf");
         assert!(
-            t.args.iter().any(|a| a.contains("{output}") || a.contains("OutputFile")),
+            t.args
+                .iter()
+                .any(|a| a.contains("{output}") || a.contains("OutputFile")),
             "args must contain output placeholder"
         );
-        assert!(t.args.iter().any(|a| a.contains("{inputs}")), "args must contain {{inputs}}");
+        assert!(
+            t.args.iter().any(|a| a.contains("{inputs}")),
+            "args must contain {{inputs}}"
+        );
     }
 }

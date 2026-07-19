@@ -1,6 +1,7 @@
 use std::fmt;
 use std::io::Write;
 use std::path::Path;
+use std::sync::Arc;
 
 use anyhow::{Context, Result};
 use serde_json::json;
@@ -10,6 +11,37 @@ use super::Transform;
 use crate::cache::{
     compute_ai_input_hash, current_unix_timestamp, load_ai_cache, save_ai_cache, AiCacheEntry,
 };
+
+#[derive(Debug, Clone, PartialEq)]
+struct HttpRequest {
+    url: String,
+    body: serde_json::Value,
+    bearer_token: Option<String>,
+}
+
+trait AiHttpClient: fmt::Debug + Send + Sync {
+    fn post_json(&self, request: HttpRequest) -> Result<String>;
+}
+
+#[derive(Debug, Default)]
+struct UreqHttpClient;
+
+impl AiHttpClient for UreqHttpClient {
+    fn post_json(&self, request: HttpRequest) -> Result<String> {
+        let mut req = ureq::post(&request.url).set("Content-Type", "application/json");
+        if let Some(token) = request.bearer_token.as_deref() {
+            req = req.set("Authorization", &format!("Bearer {}", token));
+        }
+
+        let response = req
+            .send_json(request.body)
+            .with_context(|| format!("Failed to POST to '{}'", request.url))?;
+
+        response
+            .into_string()
+            .context("Failed to read HTTP response body")
+    }
+}
 
 /// The AI backend to use for an [`AiTransform`].
 ///
@@ -100,6 +132,7 @@ pub struct AiTransform {
     /// When set, [`AiTransform::apply`] checks the cache before calling the
     /// AI backend and stores the result with metadata after a successful call.
     cache_path: Option<String>,
+    http_client: Arc<dyn AiHttpClient>,
 }
 
 // ── Builder ───────────────────────────────────────────────────────────────────
@@ -223,6 +256,7 @@ impl AiTransformBuilder {
             api_key_env: self.api_key_env,
             artifact_path: self.artifact_path,
             cache_path: self.cache_path,
+            http_client: Arc::new(UreqHttpClient),
         }
     }
 }
@@ -296,86 +330,67 @@ impl AiTransform {
         }
     }
 
+    fn execute_json_request(&self, path: &str, body: serde_json::Value) -> Result<String> {
+        let request = HttpRequest {
+            url: format!(
+                "{}/{}",
+                self.endpoint.trim_end_matches('/'),
+                path.trim_start_matches('/')
+            ),
+            body,
+            bearer_token: self.resolve_api_key()?,
+        };
+        self.http_client.post_json(request)
+    }
+
+    fn parse_json_response(
+        &self,
+        body_str: &str,
+        missing_field: &str,
+        extractor: impl FnOnce(&serde_json::Value) -> Option<&str>,
+    ) -> Result<String> {
+        let json: serde_json::Value = serde_json::from_str(body_str).with_context(|| {
+            format!(
+                "Failed to parse {} JSON response; body was: {}",
+                self.backend, body_str
+            )
+        })?;
+
+        extractor(&json).map(str::to_string).ok_or_else(|| {
+            anyhow::anyhow!(
+                "{} response missing '{}' field; received: {}",
+                self.backend,
+                missing_field,
+                body_str
+            )
+        })
+    }
+
     /// Call the Ollama `/api/generate` endpoint.
     fn call_ollama(&self, prompt: &str) -> Result<String> {
-        let url = format!("{}/api/generate", self.endpoint.trim_end_matches('/'));
         let body = json!({
             "model": self.model,
             "prompt": prompt,
             "stream": false,
         });
 
-        let mut req = ureq::post(&url).set("Content-Type", "application/json");
-        if let Some(key) = self.resolve_api_key()? {
-            req = req.set("Authorization", &format!("Bearer {}", key));
-        }
+        let body_str = self.execute_json_request("/api/generate", body)?;
 
-        let response = req
-            .send_json(body)
-            .with_context(|| format!("Failed to POST to Ollama endpoint '{}'", url))?;
-
-        let body_str = response
-            .into_string()
-            .context("Failed to read Ollama response body")?;
-
-        let json: serde_json::Value = serde_json::from_str(&body_str).with_context(|| {
-            format!(
-                "Failed to parse Ollama JSON response; body was: {}",
-                body_str
-            )
-        })?;
-
-        json["response"]
-            .as_str()
-            .map(|s| s.to_string())
-            .ok_or_else(|| {
-                anyhow::anyhow!(
-                    "Ollama response missing 'response' field; received: {}",
-                    body_str
-                )
-            })
+        self.parse_json_response(&body_str, "response", |json| json["response"].as_str())
     }
 
     /// Call an OpenAI-compatible `/v1/chat/completions` endpoint.
     fn call_openai(&self, prompt: &str) -> Result<String> {
-        let url = format!(
-            "{}/v1/chat/completions",
-            self.endpoint.trim_end_matches('/')
-        );
         let body = json!({
             "model": self.model,
             "messages": [{"role": "user", "content": prompt}],
         });
 
-        let mut req = ureq::post(&url).set("Content-Type", "application/json");
-        if let Some(key) = self.resolve_api_key()? {
-            req = req.set("Authorization", &format!("Bearer {}", key));
-        }
+        let body_str = self.execute_json_request("/v1/chat/completions", body)?;
 
-        let response = req
-            .send_json(body)
-            .with_context(|| format!("Failed to POST to OpenAI-compatible endpoint '{}'", url))?;
-
-        let body_str = response
-            .into_string()
-            .context("Failed to read OpenAI response body")?;
-
-        let json: serde_json::Value = serde_json::from_str(&body_str).with_context(|| {
-            format!(
-                "Failed to parse OpenAI JSON response; body was: {}",
-                body_str
-            )
-        })?;
-
-        json["choices"][0]["message"]["content"]
-            .as_str()
-            .map(|s| s.to_string())
-            .ok_or_else(|| {
-                anyhow::anyhow!(
-                    "OpenAI response missing 'choices[0].message.content' field; received: {}",
-                    body_str
-                )
-            })
+        self.parse_json_response(&body_str, "choices[0].message.content", |json| {
+            json["choices"][0]["message"]["content"].as_str()
+        })
     }
 }
 
@@ -463,6 +478,33 @@ impl Transform for AiTransform {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Mutex;
+
+    #[derive(Debug)]
+    struct FakeHttpClient {
+        responses: Mutex<Vec<Result<String>>>,
+        requests: Mutex<Vec<HttpRequest>>,
+    }
+
+    impl FakeHttpClient {
+        fn new(responses: Vec<Result<String>>) -> Self {
+            Self {
+                responses: Mutex::new(responses),
+                requests: Mutex::new(Vec::new()),
+            }
+        }
+
+        fn requests(&self) -> Vec<HttpRequest> {
+            self.requests.lock().unwrap().clone()
+        }
+    }
+
+    impl AiHttpClient for FakeHttpClient {
+        fn post_json(&self, request: HttpRequest) -> Result<String> {
+            self.requests.lock().unwrap().push(request);
+            self.responses.lock().unwrap().remove(0)
+        }
+    }
 
     // ── builder / field access ────────────────────────────────────────────────
 
@@ -690,9 +732,7 @@ mod tests {
         // A transform with no cache_path – the cache is never consulted.
         // We cannot call apply() without a live backend, so we just verify the
         // field is absent and that the transform is constructed correctly.
-        let t = AiTransform::builder()
-            .model("mistral")
-            .build();
+        let t = AiTransform::builder().model("mistral").build();
         assert!(t.cache_path.is_none());
     }
 
@@ -726,5 +766,64 @@ mod tests {
         assert!(reloaded
             .get(&crate::cache::compute_ai_input_hash(&rendered, "mistral"))
             .is_none());
+    }
+
+    #[test]
+    fn test_apply_openai_uses_http_abstraction() {
+        let fake_http = Arc::new(FakeHttpClient::new(vec![Ok(
+            r#"{"choices":[{"message":{"content":"stubbed response"}}]}"#.to_string(),
+        )]));
+        let mut t = AiTransform::builder()
+            .backend(AiBackend::OpenAi)
+            .model("gpt-4o-mini")
+            .endpoint("https://example.test/")
+            .api_key("secret-token")
+            .prompt_template("Answer: {input}")
+            .build();
+        t.http_client = fake_http.clone();
+
+        let output = t.apply("hello".to_string()).unwrap();
+
+        assert_eq!(output, "stubbed response");
+        assert_eq!(
+            fake_http.requests(),
+            vec![HttpRequest {
+                url: "https://example.test/v1/chat/completions".to_string(),
+                body: json!({
+                    "model": "gpt-4o-mini",
+                    "messages": [{"role": "user", "content": "Answer: hello"}],
+                }),
+                bearer_token: Some("secret-token".to_string()),
+            }]
+        );
+    }
+
+    #[test]
+    fn test_apply_ollama_uses_http_abstraction() {
+        let fake_http = Arc::new(FakeHttpClient::new(vec![Ok(
+            r#"{"response":"ollama reply"}"#.to_string(),
+        )]));
+        let mut t = AiTransform::builder()
+            .backend(AiBackend::Ollama)
+            .model("mistral")
+            .endpoint("http://localhost:11434/")
+            .build();
+        t.http_client = fake_http.clone();
+
+        let output = t.apply("hello".to_string()).unwrap();
+
+        assert_eq!(output, "ollama reply");
+        assert_eq!(
+            fake_http.requests(),
+            vec![HttpRequest {
+                url: "http://localhost:11434/api/generate".to_string(),
+                body: json!({
+                    "model": "mistral",
+                    "prompt": "hello",
+                    "stream": false,
+                }),
+                bearer_token: None,
+            }]
+        );
     }
 }

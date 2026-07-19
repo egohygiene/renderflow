@@ -22,11 +22,7 @@ impl TempFile {
         static COUNTER: AtomicU64 = AtomicU64::new(0);
         let count = COUNTER.fetch_add(1, Ordering::Relaxed);
         let mut path = std::env::temp_dir();
-        path.push(format!(
-            "renderflow-{}-{}.tmp",
-            std::process::id(),
-            count
-        ));
+        path.push(format!("renderflow-{}-{}.tmp", std::process::id(), count));
         let mut file = std::fs::File::create_new(&path)
             .context("Failed to create temporary file for strategy input")?;
         file.write_all(content)
@@ -130,7 +126,13 @@ mod tests {
     }
 
     fn make_step(strategy: Box<dyn OutputStrategy>, output: &str) -> StrategyStep {
-        StrategyStep::new(strategy, output, InputFormat::Markdown, HashMap::new(), false)
+        StrategyStep::new(
+            strategy,
+            output,
+            InputFormat::Markdown,
+            HashMap::new(),
+            false,
+        )
     }
 
     #[test]
@@ -179,7 +181,9 @@ mod tests {
         let output_path = output_file.path().to_str().unwrap().to_string();
 
         let captured = Arc::new(Mutex::new(String::new()));
-        let strategy = CapturingStrategy { captured: captured.clone() };
+        let strategy = CapturingStrategy {
+            captured: captured.clone(),
+        };
         let step = make_step(Box::new(strategy), &output_path);
 
         let content = "# Hello World\n\nThis is rendered content.".to_string();
@@ -223,7 +227,9 @@ mod tests {
         vars.insert("key".to_string(), "value".to_string());
 
         let captured = Arc::new(Mutex::new(ContextCapture::default()));
-        let strategy = CapturingStrategy { captured: captured.clone() };
+        let strategy = CapturingStrategy {
+            captured: captured.clone(),
+        };
         let step = StrategyStep::new(
             Box::new(strategy),
             &output_path,
@@ -237,17 +243,25 @@ mod tests {
         let guard = captured.lock().unwrap();
         assert_eq!(guard.input_format, Some(InputFormat::Html));
         assert_eq!(guard.dry_run, Some(true));
-        assert_eq!(guard.variables.as_ref().unwrap().get("key").map(String::as_str), Some("value"));
+        assert_eq!(
+            guard
+                .variables
+                .as_ref()
+                .unwrap()
+                .get("key")
+                .map(String::as_str),
+            Some("value")
+        );
     }
 
     /// End-to-end test: verifies that transforms applied before `StrategyStep`
     /// affect the content received by the strategy.
     #[test]
     fn test_transforms_affect_strategy_input() {
-        use std::sync::{Arc, Mutex};
-        use tempfile::NamedTempFile;
         use crate::pipeline::Pipeline;
         use crate::transforms::EmojiTransform;
+        use std::sync::{Arc, Mutex};
+        use tempfile::NamedTempFile;
 
         struct CapturingStrategy {
             captured: Arc<Mutex<String>>,
@@ -266,19 +280,26 @@ mod tests {
         let output_path = output_file.path().to_str().unwrap().to_string();
 
         let captured = Arc::new(Mutex::new(String::new()));
-        let strategy = CapturingStrategy { captured: captured.clone() };
+        let strategy = CapturingStrategy {
+            captured: captured.clone(),
+        };
 
         let mut pipeline = Pipeline::new();
         pipeline.add_transform(Box::new(EmojiTransform::new()));
         pipeline.add_step(Box::new(make_step(Box::new(strategy), &output_path)));
 
         // Input has an emoji; after EmojiTransform it should become "[emoji]"
-        let transformed = pipeline.run_transforms("Hello 😀 World".to_string()).unwrap();
+        let transformed = pipeline
+            .run_transforms("Hello 😀 World".to_string())
+            .unwrap();
         pipeline.run_steps(transformed).unwrap();
 
         let result = captured.lock().unwrap().clone();
         assert_eq!(result, "Hello [emoji] World");
-        assert!(!result.contains('😀'), "emoji should have been replaced by the transform");
+        assert!(
+            !result.contains('😀'),
+            "emoji should have been replaced by the transform"
+        );
     }
 
     #[test]

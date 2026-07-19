@@ -65,7 +65,10 @@ impl Pipeline {
     /// pipeline.add_step(Box::new(my_step));
     /// let output = pipeline.run(input)?;
     /// ```
-    pub fn with_standard_transforms(variables: &HashMap<String, String>, output_type: &OutputType) -> Self {
+    pub fn with_standard_transforms(
+        variables: &HashMap<String, String>,
+        output_type: &OutputType,
+    ) -> Self {
         Self::with_registry(register_transforms(variables, output_type))
     }
 
@@ -81,12 +84,17 @@ impl Pipeline {
     /// pipeline.add_step(Box::new(my_step));
     /// let output = pipeline.run(input)?;
     /// ```
-    pub fn with_standard_transforms_resilient(variables: &HashMap<String, String>, output_type: &OutputType) -> Self {
+    pub fn with_standard_transforms_resilient(
+        variables: &HashMap<String, String>,
+        output_type: &OutputType,
+    ) -> Self {
         let registry = TransformRegistry::new().with_failure_mode(FailureMode::ContinueOnError);
         let mut pipeline = Self::with_registry(registry);
         pipeline
             .add_transform(Box::new(EmojiTransform::new_for_format(output_type)))
-            .add_transform(Box::new(VariableSubstitutionTransform::new(variables.clone())))
+            .add_transform(Box::new(VariableSubstitutionTransform::new(
+                variables.clone(),
+            )))
             .add_transform(Box::new(SyntaxHighlightTransform::new()));
         pipeline
     }
@@ -138,15 +146,24 @@ impl Pipeline {
         let transform_start = std::time::Instant::now();
         let transformed = self.run_transforms(input)?;
         let transform_elapsed = transform_start.elapsed();
-        debug!(duration_ms = transform_elapsed.as_millis(), "Transform phase completed");
+        debug!(
+            duration_ms = transform_elapsed.as_millis(),
+            "Transform phase completed"
+        );
 
         let steps_start = std::time::Instant::now();
         let result = self.run_steps(transformed)?;
         let steps_elapsed = steps_start.elapsed();
-        debug!(duration_ms = steps_elapsed.as_millis(), "Step phase completed");
+        debug!(
+            duration_ms = steps_elapsed.as_millis(),
+            "Step phase completed"
+        );
 
         let total_elapsed = transform_start.elapsed();
-        debug!(duration_ms = total_elapsed.as_millis(), "Pipeline execution completed");
+        debug!(
+            duration_ms = total_elapsed.as_millis(),
+            "Pipeline execution completed"
+        );
 
         Ok(result)
     }
@@ -161,9 +178,9 @@ impl Default for Pipeline {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use anyhow::bail;
     use crate::config::OutputType;
     use crate::transforms::Transform;
+    use anyhow::bail;
 
     struct AppendStep(String);
 
@@ -350,7 +367,10 @@ mod tests {
 
         let result = pipeline.run("input".to_string());
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("Transform failed: FailingTransform"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Transform failed: FailingTransform"));
     }
 
     #[test]
@@ -387,7 +407,9 @@ mod tests {
         let mut vars = HashMap::new();
         vars.insert("name".to_string(), "World".to_string());
         let pipeline = Pipeline::with_standard_transforms(&vars, &OutputType::Pdf);
-        let result = pipeline.run_transforms("Hello {{name}}".to_string()).unwrap();
+        let result = pipeline
+            .run_transforms("Hello {{name}}".to_string())
+            .unwrap();
         assert_eq!(result, "Hello World");
     }
 
@@ -409,7 +431,9 @@ mod tests {
         vars.insert("greeting".to_string(), "World".to_string());
         let pipeline = Pipeline::with_standard_transforms_resilient(&vars, &OutputType::Pdf);
         // Emoji should be replaced and variables substituted in resilient mode too.
-        let result = pipeline.run_transforms("Hello 😀 {{greeting}}".to_string()).unwrap();
+        let result = pipeline
+            .run_transforms("Hello 😀 {{greeting}}".to_string())
+            .unwrap();
         assert_eq!(result, "Hello [emoji] World");
     }
 
@@ -430,11 +454,16 @@ mod tests {
 
         // Build a resilient pipeline and add an always-failing transform.
         // ContinueOnError should skip the failure and let the pipeline succeed.
-        let mut pipeline = Pipeline::with_standard_transforms_resilient(&HashMap::new(), &OutputType::Pdf);
+        let mut pipeline =
+            Pipeline::with_standard_transforms_resilient(&HashMap::new(), &OutputType::Pdf);
         pipeline.add_transform(Box::new(AlwaysFails));
 
         let result = pipeline.run_transforms("plain text".to_string());
-        assert!(result.is_ok(), "resilient pipeline should skip failing transforms and succeed: {:?}", result);
+        assert!(
+            result.is_ok(),
+            "resilient pipeline should skip failing transforms and succeed: {:?}",
+            result
+        );
         // The standard transforms (emoji, variable substitution, syntax) still run;
         // AlwaysFails is skipped and its input is passed through unchanged.
         assert_eq!(result.unwrap(), "plain text");

@@ -168,14 +168,20 @@ mod tests {
     fn test_speed_score_is_negative_cost() {
         let path = make_path(2.0, 0.9);
         let score = OptimizationMode::Speed.score(&path);
-        assert!((score - (-2.0_f32)).abs() < 1e-5, "expected -2.0, got {score}");
+        assert!(
+            (score - (-2.0_f32)).abs() < 1e-5,
+            "expected -2.0, got {score}"
+        );
     }
 
     #[test]
     fn test_quality_score_equals_total_quality() {
         let path = make_path(1.0, 0.75);
         let score = OptimizationMode::Quality.score(&path);
-        assert!((score - 0.75_f32).abs() < 1e-5, "expected 0.75, got {score}");
+        assert!(
+            (score - 0.75_f32).abs() < 1e-5,
+            "expected 0.75, got {score}"
+        );
     }
 
     #[test]
@@ -183,7 +189,10 @@ mod tests {
         let path = make_path(2.0, 0.8);
         // -0.5 * 2.0 + 0.5 * 0.8 = -1.0 + 0.4 = -0.6
         let score = OptimizationMode::Balanced.score(&path);
-        assert!((score - (-0.6_f32)).abs() < 1e-5, "expected -0.6, got {score}");
+        assert!(
+            (score - (-0.6_f32)).abs() < 1e-5,
+            "expected -0.6, got {score}"
+        );
     }
 
     #[test]
@@ -259,9 +268,7 @@ mod tests {
     fn test_pareto_score_same_as_balanced() {
         let path = make_path(2.0, 0.8);
         assert!(
-            (OptimizationMode::Pareto.score(&path)
-                - OptimizationMode::Balanced.score(&path))
-            .abs()
+            (OptimizationMode::Pareto.score(&path) - OptimizationMode::Balanced.score(&path)).abs()
                 < 1e-5
         );
     }

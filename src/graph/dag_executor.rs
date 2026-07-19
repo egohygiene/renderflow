@@ -180,8 +180,9 @@ impl DagExecutor {
 
         loop {
             // Partition: edges ready to execute vs. those still waiting.
-            let (wave, next_remaining): (Vec<_>, Vec<_>) =
-                remaining.into_iter().partition(|e| available.contains_key(&e.from));
+            let (wave, next_remaining): (Vec<_>, Vec<_>) = remaining
+                .into_iter()
+                .partition(|e| available.contains_key(&e.from));
 
             if wave.is_empty() {
                 if !next_remaining.is_empty() {
@@ -301,9 +302,9 @@ impl DagExecutor {
 
         debug!(from = ?edge.from, to = ?edge.to, "Executing single transform");
 
-        let output = transform.apply(input).with_context(|| {
-            format!("Single transform {:?} → {:?} failed", edge.from, edge.to)
-        })?;
+        let output = transform
+            .apply(input)
+            .with_context(|| format!("Single transform {:?} → {:?} failed", edge.from, edge.to))?;
 
         debug!(from = ?edge.from, to = ?edge.to, "Single transform completed");
         Ok(output)
@@ -353,26 +354,27 @@ impl DagExecutor {
         let input_paths: Vec<&str> = temp_inputs
             .iter()
             .map(|f| {
-                f.path()
-                    .to_str()
-                    .ok_or_else(|| anyhow::anyhow!("Aggregation input temp file path is not valid UTF-8"))
+                f.path().to_str().ok_or_else(|| {
+                    anyhow::anyhow!("Aggregation input temp file path is not valid UTF-8")
+                })
             })
             .collect::<Result<Vec<_>>>()?;
 
         // Create a temp file to receive the aggregated output.
         let temp_output = tempfile::NamedTempFile::new()
             .context("Failed to create temp file for aggregation output")?;
-        let output_path = temp_output
-            .path()
-            .to_str()
-            .ok_or_else(|| anyhow::anyhow!("Aggregation output temp file path is not valid UTF-8"))?;
-
-        transform.aggregate(&input_paths, output_path).with_context(|| {
-            format!(
-                "Collection transform {:?} → {:?} failed",
-                edge.from, edge.to
-            )
+        let output_path = temp_output.path().to_str().ok_or_else(|| {
+            anyhow::anyhow!("Aggregation output temp file path is not valid UTF-8")
         })?;
+
+        transform
+            .aggregate(&input_paths, output_path)
+            .with_context(|| {
+                format!(
+                    "Collection transform {:?} → {:?} failed",
+                    edge.from, edge.to
+                )
+            })?;
 
         let output = std::fs::read_to_string(temp_output.path()).with_context(|| {
             format!(
@@ -633,7 +635,8 @@ mod tests {
             .unwrap_err();
 
         assert!(
-            err.to_string().contains("No aggregation transform registered"),
+            err.to_string()
+                .contains("No aggregation transform registered"),
             "error message: {}",
             err
         );
@@ -648,11 +651,7 @@ mod tests {
             .unwrap();
 
         let mut executor = DagExecutor::new();
-        executor.register_single(
-            Format::Markdown,
-            Format::Html,
-            arc_single(FailingTransform),
-        );
+        executor.register_single(Format::Markdown, Format::Html, arc_single(FailingTransform));
 
         let err = executor
             .execute(&dag, Format::Markdown, "content".to_string())
@@ -675,11 +674,7 @@ mod tests {
             .unwrap();
 
         let mut executor = DagExecutor::new();
-        executor.register_single(
-            Format::Markdown,
-            Format::Html,
-            arc_single(FailingTransform),
-        );
+        executor.register_single(Format::Markdown, Format::Html, arc_single(FailingTransform));
 
         let err = executor
             .execute(&dag, Format::Markdown, "content".to_string())
@@ -710,11 +705,7 @@ mod tests {
             .unwrap();
 
         let mut executor = DagExecutor::new();
-        executor.register_aggregation(
-            Format::Markdown,
-            Format::Epub,
-            arc_agg(JoinAggregation),
-        );
+        executor.register_aggregation(Format::Markdown, Format::Epub, arc_agg(JoinAggregation));
 
         let results = executor
             .execute(&dag, Format::Markdown, "page content".to_string())
@@ -749,7 +740,11 @@ mod tests {
             .execute(&dag, Format::Markdown, "x".to_string())
             .unwrap();
 
-        assert_eq!(results[&Format::Html], "x→new", "second registration must win");
+        assert_eq!(
+            results[&Format::Html],
+            "x→new",
+            "second registration must win"
+        );
     }
 
     // ── register_aggregation replaces existing ────────────────────────────────
@@ -796,7 +791,11 @@ mod tests {
             .execute(&dag, Format::Markdown, "input".to_string())
             .unwrap();
 
-        assert_eq!(results[&Format::Epub], "second", "second registration must win");
+        assert_eq!(
+            results[&Format::Epub],
+            "second",
+            "second registration must win"
+        );
     }
 
     // ── default ───────────────────────────────────────────────────────────────
@@ -887,7 +886,10 @@ mod tests {
                 .unwrap();
         }
 
-        assert!(cache_file.exists(), "cache file must be written after first run");
+        assert!(
+            cache_file.exists(),
+            "cache file must be written after first run"
+        );
 
         // Second run: transform should be served from cache.
         let counter = Arc::new(CountingTransform::new());
@@ -902,8 +904,16 @@ mod tests {
             .execute(&dag, Format::Markdown, "content".to_string())
             .unwrap();
 
-        assert_eq!(results[&Format::Html], "content→html", "output must match cached value");
-        assert_eq!(counter.call_count(), 0, "transform must not be called on cache hit");
+        assert_eq!(
+            results[&Format::Html],
+            "content→html",
+            "output must match cached value"
+        );
+        assert_eq!(
+            counter.call_count(),
+            0,
+            "transform must not be called on cache hit"
+        );
     }
 
     #[test]

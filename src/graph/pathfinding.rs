@@ -41,7 +41,11 @@ impl TransformPath {
     pub(super) fn from_steps(steps: Vec<TransformEdge>) -> Self {
         let total_cost = steps.iter().map(|e| e.cost).sum();
         let total_quality = steps.iter().map(|e| e.quality).product();
-        Self { steps, total_cost, total_quality }
+        Self {
+            steps,
+            total_cost,
+            total_quality,
+        }
     }
 }
 
@@ -60,8 +64,10 @@ mod tests {
     fn test_single_step_quality_preserved() {
         let steps = vec![edge(Format::Markdown, Format::Html, 1.0, 0.9)];
         let path = TransformPath::from_steps(steps);
-        assert!((path.total_quality - 0.9).abs() < 1e-5,
-            "single-step quality must equal the edge quality");
+        assert!(
+            (path.total_quality - 0.9).abs() < 1e-5,
+            "single-step quality must equal the edge quality"
+        );
     }
 
     #[test]
@@ -81,8 +87,10 @@ mod tests {
             edge(Format::Html, Format::Pdf, 1.0, 0.8),
         ];
         let path = TransformPath::from_steps(steps);
-        assert!((path.total_quality - 0.72).abs() < 1e-5,
-            "two-step quality must be the product of both edge qualities");
+        assert!(
+            (path.total_quality - 0.72).abs() < 1e-5,
+            "two-step quality must be the product of both edge qualities"
+        );
     }
 
     #[test]
@@ -104,8 +112,10 @@ mod tests {
             edge(Format::Rst, Format::Pdf, 1.0, 0.7),
         ];
         let path = TransformPath::from_steps(steps);
-        assert!((path.total_quality - 0.504_f32).abs() < 1e-5,
-            "three-step quality must be the product of all three edge qualities");
+        assert!(
+            (path.total_quality - 0.504_f32).abs() < 1e-5,
+            "three-step quality must be the product of all three edge qualities"
+        );
     }
 
     // ── perfect quality path ──────────────────────────────────────────────────
@@ -117,8 +127,10 @@ mod tests {
             edge(Format::Html, Format::Pdf, 1.0, 1.0),
         ];
         let path = TransformPath::from_steps(steps);
-        assert!((path.total_quality - 1.0).abs() < 1e-5,
-            "product of 1.0 values must equal 1.0");
+        assert!(
+            (path.total_quality - 1.0).abs() < 1e-5,
+            "product of 1.0 values must equal 1.0"
+        );
     }
 
     // ── zero quality collapses path quality ───────────────────────────────────
@@ -130,8 +142,10 @@ mod tests {
             edge(Format::Html, Format::Pdf, 1.0, 0.0),
         ];
         let path = TransformPath::from_steps(steps);
-        assert!((path.total_quality - 0.0).abs() < 1e-5,
-            "a zero-quality edge must bring total path quality to 0.0");
+        assert!(
+            (path.total_quality - 0.0).abs() < 1e-5,
+            "a zero-quality edge must bring total path quality to 0.0"
+        );
     }
 
     // ── step count ────────────────────────────────────────────────────────────

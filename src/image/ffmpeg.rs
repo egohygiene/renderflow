@@ -39,7 +39,12 @@ impl<'a> FfmpegImageArgs<'a> {
         format: ImageFormat,
         profile_str: Option<&'a str>,
     ) -> Self {
-        Self { input_path, output_path, format, profile_str }
+        Self {
+            input_path,
+            output_path,
+            format,
+            profile_str,
+        }
     }
 
     /// Assemble the complete FFmpeg argument list.

@@ -33,7 +33,9 @@ pub struct TransformDefinitionRegistry {
 impl TransformDefinitionRegistry {
     /// Create an empty registry with no registered definitions.
     pub fn new() -> Self {
-        Self { definitions: Vec::new() }
+        Self {
+            definitions: Vec::new(),
+        }
     }
 
     /// Append a [`TransformDefinition`] to the registry and return `&mut self`
@@ -101,14 +103,62 @@ impl TransformDefinitionRegistry {
     pub fn with_standard_definitions() -> Self {
         let mut registry = Self::new();
         registry
-            .register(TransformDefinition::new(Format::Markdown, Format::Html,  0.5, 1.00, "pandoc"))
-            .register(TransformDefinition::new(Format::Html,     Format::Pdf,   0.8, 0.85, "wkhtmltopdf"))
-            .register(TransformDefinition::new(Format::Html,     Format::Docx,  0.6, 0.90, "pandoc"))
-            .register(TransformDefinition::new(Format::Markdown, Format::Pdf,   1.5, 0.75, "pandoc"))
-            .register(TransformDefinition::new(Format::Markdown, Format::Docx,  1.2, 0.80, "pandoc"))
-            .register(TransformDefinition::new(Format::Markdown, Format::Epub,  1.0, 0.85, "pandoc"))
-            .register(TransformDefinition::new(Format::Markdown, Format::Rst,   1.0, 0.90, "pandoc"))
-            .register(TransformDefinition::new(Format::Markdown, Format::Latex, 1.0, 0.90, "pandoc"));
+            .register(TransformDefinition::new(
+                Format::Markdown,
+                Format::Html,
+                0.5,
+                1.00,
+                "pandoc",
+            ))
+            .register(TransformDefinition::new(
+                Format::Html,
+                Format::Pdf,
+                0.8,
+                0.85,
+                "wkhtmltopdf",
+            ))
+            .register(TransformDefinition::new(
+                Format::Html,
+                Format::Docx,
+                0.6,
+                0.90,
+                "pandoc",
+            ))
+            .register(TransformDefinition::new(
+                Format::Markdown,
+                Format::Pdf,
+                1.5,
+                0.75,
+                "pandoc",
+            ))
+            .register(TransformDefinition::new(
+                Format::Markdown,
+                Format::Docx,
+                1.2,
+                0.80,
+                "pandoc",
+            ))
+            .register(TransformDefinition::new(
+                Format::Markdown,
+                Format::Epub,
+                1.0,
+                0.85,
+                "pandoc",
+            ))
+            .register(TransformDefinition::new(
+                Format::Markdown,
+                Format::Rst,
+                1.0,
+                0.90,
+                "pandoc",
+            ))
+            .register(TransformDefinition::new(
+                Format::Markdown,
+                Format::Latex,
+                1.0,
+                0.90,
+                "pandoc",
+            ));
         registry
     }
 }
@@ -142,7 +192,13 @@ mod tests {
     #[test]
     fn test_register_single_definition() {
         let mut registry = TransformDefinitionRegistry::new();
-        registry.register(TransformDefinition::new(Format::Markdown, Format::Html, 0.5, 1.0, "pandoc"));
+        registry.register(TransformDefinition::new(
+            Format::Markdown,
+            Format::Html,
+            0.5,
+            1.0,
+            "pandoc",
+        ));
         assert_eq!(registry.all_definitions().len(), 1);
     }
 
@@ -150,9 +206,27 @@ mod tests {
     fn test_register_multiple_definitions() {
         let mut registry = TransformDefinitionRegistry::new();
         registry
-            .register(TransformDefinition::new(Format::Markdown, Format::Html, 0.5, 1.0, "pandoc"))
-            .register(TransformDefinition::new(Format::Html, Format::Pdf, 0.8, 0.85, "wkhtmltopdf"))
-            .register(TransformDefinition::new(Format::Html, Format::Docx, 0.6, 0.90, "pandoc"));
+            .register(TransformDefinition::new(
+                Format::Markdown,
+                Format::Html,
+                0.5,
+                1.0,
+                "pandoc",
+            ))
+            .register(TransformDefinition::new(
+                Format::Html,
+                Format::Pdf,
+                0.8,
+                0.85,
+                "wkhtmltopdf",
+            ))
+            .register(TransformDefinition::new(
+                Format::Html,
+                Format::Docx,
+                0.6,
+                0.90,
+                "pandoc",
+            ));
         assert_eq!(registry.all_definitions().len(), 3);
     }
 
@@ -161,8 +235,20 @@ mod tests {
         // Two competing definitions for the same format pair must both be stored.
         let mut registry = TransformDefinitionRegistry::new();
         registry
-            .register(TransformDefinition::new(Format::Markdown, Format::Pdf, 1.5, 0.75, "pandoc"))
-            .register(TransformDefinition::new(Format::Markdown, Format::Pdf, 2.0, 0.95, "latex"));
+            .register(TransformDefinition::new(
+                Format::Markdown,
+                Format::Pdf,
+                1.5,
+                0.75,
+                "pandoc",
+            ))
+            .register(TransformDefinition::new(
+                Format::Markdown,
+                Format::Pdf,
+                2.0,
+                0.95,
+                "latex",
+            ));
         assert_eq!(registry.all_definitions().len(), 2);
     }
 
@@ -170,8 +256,20 @@ mod tests {
     fn test_register_preserves_order() {
         let mut registry = TransformDefinitionRegistry::new();
         registry
-            .register(TransformDefinition::new(Format::Markdown, Format::Html, 0.5, 1.0, "first"))
-            .register(TransformDefinition::new(Format::Html, Format::Pdf, 0.8, 0.85, "second"));
+            .register(TransformDefinition::new(
+                Format::Markdown,
+                Format::Html,
+                0.5,
+                1.0,
+                "first",
+            ))
+            .register(TransformDefinition::new(
+                Format::Html,
+                Format::Pdf,
+                0.8,
+                0.85,
+                "second",
+            ));
         let defs = registry.all_definitions();
         assert_eq!(defs[0].label, "first");
         assert_eq!(defs[1].label, "second");
@@ -183,9 +281,27 @@ mod tests {
     fn test_definitions_from_returns_matching_source() {
         let mut registry = TransformDefinitionRegistry::new();
         registry
-            .register(TransformDefinition::new(Format::Markdown, Format::Html, 0.5, 1.0, "pandoc"))
-            .register(TransformDefinition::new(Format::Markdown, Format::Pdf, 1.5, 0.75, "pandoc"))
-            .register(TransformDefinition::new(Format::Html, Format::Pdf, 0.8, 0.85, "wkhtmltopdf"));
+            .register(TransformDefinition::new(
+                Format::Markdown,
+                Format::Html,
+                0.5,
+                1.0,
+                "pandoc",
+            ))
+            .register(TransformDefinition::new(
+                Format::Markdown,
+                Format::Pdf,
+                1.5,
+                0.75,
+                "pandoc",
+            ))
+            .register(TransformDefinition::new(
+                Format::Html,
+                Format::Pdf,
+                0.8,
+                0.85,
+                "wkhtmltopdf",
+            ));
 
         let from_md = registry.definitions_from(Format::Markdown);
         assert_eq!(from_md.len(), 2);
@@ -201,7 +317,13 @@ mod tests {
     #[test]
     fn test_definitions_from_does_not_include_wrong_source() {
         let mut registry = TransformDefinitionRegistry::new();
-        registry.register(TransformDefinition::new(Format::Html, Format::Pdf, 0.8, 0.85, "tool"));
+        registry.register(TransformDefinition::new(
+            Format::Html,
+            Format::Pdf,
+            0.8,
+            0.85,
+            "tool",
+        ));
         assert!(registry.definitions_from(Format::Markdown).is_empty());
     }
 
@@ -211,9 +333,27 @@ mod tests {
     fn test_definitions_to_returns_matching_target() {
         let mut registry = TransformDefinitionRegistry::new();
         registry
-            .register(TransformDefinition::new(Format::Markdown, Format::Html, 0.5, 1.0, "pandoc"))
-            .register(TransformDefinition::new(Format::Html, Format::Pdf, 0.8, 0.85, "wkhtmltopdf"))
-            .register(TransformDefinition::new(Format::Markdown, Format::Pdf, 1.5, 0.75, "pandoc"));
+            .register(TransformDefinition::new(
+                Format::Markdown,
+                Format::Html,
+                0.5,
+                1.0,
+                "pandoc",
+            ))
+            .register(TransformDefinition::new(
+                Format::Html,
+                Format::Pdf,
+                0.8,
+                0.85,
+                "wkhtmltopdf",
+            ))
+            .register(TransformDefinition::new(
+                Format::Markdown,
+                Format::Pdf,
+                1.5,
+                0.75,
+                "pandoc",
+            ));
 
         let to_pdf = registry.definitions_to(Format::Pdf);
         assert_eq!(to_pdf.len(), 2);
@@ -229,7 +369,13 @@ mod tests {
     #[test]
     fn test_definitions_to_does_not_include_wrong_target() {
         let mut registry = TransformDefinitionRegistry::new();
-        registry.register(TransformDefinition::new(Format::Markdown, Format::Html, 0.5, 1.0, "tool"));
+        registry.register(TransformDefinition::new(
+            Format::Markdown,
+            Format::Html,
+            0.5,
+            1.0,
+            "tool",
+        ));
         assert!(registry.definitions_to(Format::Pdf).is_empty());
     }
 
@@ -246,8 +392,20 @@ mod tests {
     fn test_build_graph_contains_registered_edges() {
         let mut registry = TransformDefinitionRegistry::new();
         registry
-            .register(TransformDefinition::new(Format::Markdown, Format::Html, 0.5, 1.0, "pandoc"))
-            .register(TransformDefinition::new(Format::Html, Format::Pdf, 0.8, 0.85, "wkhtmltopdf"));
+            .register(TransformDefinition::new(
+                Format::Markdown,
+                Format::Html,
+                0.5,
+                1.0,
+                "pandoc",
+            ))
+            .register(TransformDefinition::new(
+                Format::Html,
+                Format::Pdf,
+                0.8,
+                0.85,
+                "wkhtmltopdf",
+            ));
 
         let graph = registry.build_graph();
         assert!(graph.has_transform(Format::Markdown, Format::Html));
@@ -258,9 +416,27 @@ mod tests {
     fn test_build_graph_edge_count_matches_definitions() {
         let mut registry = TransformDefinitionRegistry::new();
         registry
-            .register(TransformDefinition::new(Format::Markdown, Format::Html, 0.5, 1.0, "pandoc"))
-            .register(TransformDefinition::new(Format::Html, Format::Pdf, 0.8, 0.85, "wkhtmltopdf"))
-            .register(TransformDefinition::new(Format::Html, Format::Docx, 0.6, 0.90, "pandoc"));
+            .register(TransformDefinition::new(
+                Format::Markdown,
+                Format::Html,
+                0.5,
+                1.0,
+                "pandoc",
+            ))
+            .register(TransformDefinition::new(
+                Format::Html,
+                Format::Pdf,
+                0.8,
+                0.85,
+                "wkhtmltopdf",
+            ))
+            .register(TransformDefinition::new(
+                Format::Html,
+                Format::Docx,
+                0.6,
+                0.90,
+                "pandoc",
+            ));
 
         let graph = registry.build_graph();
         // 3 definitions → 3 edges in the graph
@@ -272,8 +448,20 @@ mod tests {
     fn test_build_graph_pathfinding_works() {
         let mut registry = TransformDefinitionRegistry::new();
         registry
-            .register(TransformDefinition::new(Format::Markdown, Format::Html, 0.5, 1.0, "pandoc"))
-            .register(TransformDefinition::new(Format::Html, Format::Pdf, 0.8, 0.85, "wkhtmltopdf"));
+            .register(TransformDefinition::new(
+                Format::Markdown,
+                Format::Html,
+                0.5,
+                1.0,
+                "pandoc",
+            ))
+            .register(TransformDefinition::new(
+                Format::Html,
+                Format::Pdf,
+                0.8,
+                0.85,
+                "wkhtmltopdf",
+            ));
 
         let graph = registry.build_graph();
         let path = graph.find_path(Format::Markdown, Format::Pdf);
@@ -286,9 +474,27 @@ mod tests {
     fn test_build_graph_dag_construction_works() {
         let mut registry = TransformDefinitionRegistry::new();
         registry
-            .register(TransformDefinition::new(Format::Markdown, Format::Html, 0.5, 1.0, "pandoc"))
-            .register(TransformDefinition::new(Format::Html, Format::Pdf, 0.8, 0.85, "wkhtmltopdf"))
-            .register(TransformDefinition::new(Format::Html, Format::Docx, 0.6, 0.90, "pandoc"));
+            .register(TransformDefinition::new(
+                Format::Markdown,
+                Format::Html,
+                0.5,
+                1.0,
+                "pandoc",
+            ))
+            .register(TransformDefinition::new(
+                Format::Html,
+                Format::Pdf,
+                0.8,
+                0.85,
+                "wkhtmltopdf",
+            ))
+            .register(TransformDefinition::new(
+                Format::Html,
+                Format::Docx,
+                0.6,
+                0.90,
+                "pandoc",
+            ));
 
         let graph = registry.build_graph();
         let dag = graph
@@ -335,7 +541,10 @@ mod tests {
         let registry = TransformDefinitionRegistry::with_standard_definitions();
         let graph = registry.build_graph();
         let path = graph.find_path(Format::Markdown, Format::Pdf);
-        assert!(path.is_some(), "standard graph must connect Markdown to Pdf");
+        assert!(
+            path.is_some(),
+            "standard graph must connect Markdown to Pdf"
+        );
     }
 
     #[test]
@@ -343,7 +552,10 @@ mod tests {
         let registry = TransformDefinitionRegistry::with_standard_definitions();
         let graph = registry.build_graph();
         let path = graph.find_path(Format::Markdown, Format::Docx);
-        assert!(path.is_some(), "standard graph must connect Markdown to Docx");
+        assert!(
+            path.is_some(),
+            "standard graph must connect Markdown to Docx"
+        );
     }
 
     #[test]
@@ -351,7 +563,10 @@ mod tests {
         let registry = TransformDefinitionRegistry::with_standard_definitions();
         let graph = registry.build_graph();
         let path = graph.find_path(Format::Markdown, Format::Epub);
-        assert!(path.is_some(), "standard graph must connect Markdown to Epub");
+        assert!(
+            path.is_some(),
+            "standard graph must connect Markdown to Epub"
+        );
     }
 
     #[test]
@@ -359,7 +574,10 @@ mod tests {
         let registry = TransformDefinitionRegistry::with_standard_definitions();
         let graph = registry.build_graph();
         let path = graph.find_path(Format::Markdown, Format::Latex);
-        assert!(path.is_some(), "standard graph must connect Markdown to Latex");
+        assert!(
+            path.is_some(),
+            "standard graph must connect Markdown to Latex"
+        );
     }
 
     #[test]
@@ -367,7 +585,10 @@ mod tests {
         let registry = TransformDefinitionRegistry::with_standard_definitions();
         let graph = registry.build_graph();
         let path = graph.find_path(Format::Markdown, Format::Rst);
-        assert!(path.is_some(), "standard graph must connect Markdown to Rst");
+        assert!(
+            path.is_some(),
+            "standard graph must connect Markdown to Rst"
+        );
     }
 
     #[test]
@@ -401,12 +622,27 @@ mod tests {
         // Callers can build a fully custom graph without any standard definitions.
         let mut registry = TransformDefinitionRegistry::new();
         registry
-            .register(TransformDefinition::new(Format::Rst, Format::Html, 1.0, 0.9, "rst2html"))
-            .register(TransformDefinition::new(Format::Html, Format::Pdf, 0.8, 0.85, "wkhtmltopdf"));
+            .register(TransformDefinition::new(
+                Format::Rst,
+                Format::Html,
+                1.0,
+                0.9,
+                "rst2html",
+            ))
+            .register(TransformDefinition::new(
+                Format::Html,
+                Format::Pdf,
+                0.8,
+                0.85,
+                "wkhtmltopdf",
+            ));
 
         let graph = registry.build_graph();
         let path = graph.find_path(Format::Rst, Format::Pdf);
-        assert!(path.is_some(), "custom graph must connect Rst to Pdf via Html");
+        assert!(
+            path.is_some(),
+            "custom graph must connect Rst to Pdf via Html"
+        );
         assert_eq!(path.unwrap().steps.len(), 2);
     }
 }

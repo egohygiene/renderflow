@@ -85,7 +85,13 @@ impl TransformGraph {
     /// where multiple source documents are combined into a single output
     /// (e.g. pages → book).
     pub fn add_collection_transform(&mut self, from: Format, to: Format, cost: f32, quality: f32) {
-        self.add_transform(TransformEdge::with_input_kind(from, to, cost, quality, InputKind::Collection));
+        self.add_transform(TransformEdge::with_input_kind(
+            from,
+            to,
+            cost,
+            quality,
+            InputKind::Collection,
+        ));
     }
 
     /// Return all [`TransformEdge`]s whose source is `from`.
@@ -95,10 +101,7 @@ impl TransformGraph {
         let Some(&node_idx) = self.nodes.get(&from) else {
             return Vec::new();
         };
-        self.graph
-            .edges(node_idx)
-            .map(|e| e.weight())
-            .collect()
+        self.graph.edges(node_idx).map(|e| e.weight()).collect()
     }
 
     /// Return all [`TransformEdge`]s that produce the target format `to`.
@@ -118,9 +121,7 @@ impl TransformGraph {
     /// Return `true` when at least one direct transformation from `from` to
     /// `to` has been registered.
     pub fn has_transform(&self, from: Format, to: Format) -> bool {
-        let (Some(&from_idx), Some(&to_idx)) =
-            (self.nodes.get(&from), self.nodes.get(&to))
-        else {
+        let (Some(&from_idx), Some(&to_idx)) = (self.nodes.get(&from), self.nodes.get(&to)) else {
             return false;
         };
         self.graph.contains_edge(from_idx, to_idx)
@@ -208,11 +209,10 @@ impl TransformGraph {
     ) -> Option<TransformPath> {
         use petgraph::algo::astar;
 
-        let (&from_idx, &to_idx) =
-            match (self.nodes.get(&from), self.nodes.get(&to)) {
-                (Some(f), Some(t)) => (f, t),
-                _ => return None,
-            };
+        let (&from_idx, &to_idx) = match (self.nodes.get(&from), self.nodes.get(&to)) {
+            (Some(f), Some(t)) => (f, t),
+            _ => return None,
+        };
 
         let (_cost, node_path) = astar(
             &self.graph,
@@ -235,20 +235,20 @@ impl TransformGraph {
     pub fn find_all_paths(&self, from: Format, to: Format) -> Vec<TransformPath> {
         use petgraph::algo::all_simple_paths;
 
-        let (&from_idx, &to_idx) =
-            match (self.nodes.get(&from), self.nodes.get(&to)) {
-                (Some(f), Some(t)) => (f, t),
-                _ => return Vec::new(),
-            };
+        let (&from_idx, &to_idx) = match (self.nodes.get(&from), self.nodes.get(&to)) {
+            (Some(f), Some(t)) => (f, t),
+            _ => return Vec::new(),
+        };
 
-        let mut paths: Vec<TransformPath> =
-            all_simple_paths::<Vec<_>, _, std::collections::hash_map::RandomState>(
-                &self.graph, from_idx, to_idx, 0, None,
-            )
-            .map(|node_path: Vec<NodeIndex>| {
-                TransformPath::from_steps(self.edges_from_node_path(&node_path))
-            })
-            .collect();
+        let mut paths: Vec<TransformPath> = all_simple_paths::<
+            Vec<_>,
+            _,
+            std::collections::hash_map::RandomState,
+        >(&self.graph, from_idx, to_idx, 0, None)
+        .map(|node_path: Vec<NodeIndex>| {
+            TransformPath::from_steps(self.edges_from_node_path(&node_path))
+        })
+        .collect();
 
         paths.sort_by(|a, b| {
             a.total_cost
@@ -384,12 +384,7 @@ impl TransformGraph {
     /// let frontier = graph.find_pareto_paths(Format::Markdown, Format::Pdf, 10);
     /// assert_eq!(frontier.len(), 2);
     /// ```
-    pub fn find_pareto_paths(
-        &self,
-        from: Format,
-        to: Format,
-        cap: usize,
-    ) -> Vec<TransformPath> {
+    pub fn find_pareto_paths(&self, from: Format, to: Format, cap: usize) -> Vec<TransformPath> {
         use crate::optimization::pareto_frontier;
 
         let candidates = self.find_all_paths(from, to);
@@ -757,7 +752,9 @@ mod tests {
     #[test]
     fn test_find_all_paths_empty_for_unknown_format() {
         let graph = TransformGraph::new();
-        assert!(graph.find_all_paths(Format::Markdown, Format::Pdf).is_empty());
+        assert!(graph
+            .find_all_paths(Format::Markdown, Format::Pdf)
+            .is_empty());
     }
 
     #[test]
@@ -832,8 +829,7 @@ mod tests {
         // Balanced scores: A = -0.5*0.5 + 0.5*0.3 = -0.1, B = -0.5*5.0 + 0.5*1.0 = -2.0
         // So A has a higher balanced score than B in this extreme case.
         assert!(
-            OptimizationMode::Balanced.score(&path_a)
-                > OptimizationMode::Balanced.score(&path_b)
+            OptimizationMode::Balanced.score(&path_a) > OptimizationMode::Balanced.score(&path_b)
         );
     }
 

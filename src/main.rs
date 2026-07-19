@@ -2,7 +2,6 @@ mod adapters;
 mod assets;
 mod audio;
 mod cache;
-mod image;
 mod cli;
 mod commands;
 mod compat;
@@ -11,6 +10,7 @@ mod deps;
 pub mod error;
 mod files;
 pub mod graph;
+mod image;
 mod incremental;
 mod input_format;
 mod optimization;
@@ -35,12 +35,16 @@ fn main() -> Result<()> {
         tracing::Level::INFO
     };
 
-    tracing_subscriber::fmt()
-        .with_max_level(log_level)
-        .init();
+    tracing_subscriber::fmt().with_max_level(log_level).init();
 
     match cli.command {
-        Some(Commands::Build { config, dry_run, optimization, target, all }) => {
+        Some(Commands::Build {
+            config,
+            dry_run,
+            optimization,
+            target,
+            all,
+        }) => {
             if let Some(ref target_format) = target {
                 commands::graph_build::run_target(&config, target_format, dry_run, optimization)?
             } else if all {
@@ -51,7 +55,13 @@ fn main() -> Result<()> {
         }
         Some(Commands::Watch { config, debounce }) => commands::watch::run(&config, debounce)?,
         Some(Commands::Audit) => commands::audit::run()?,
-        Some(Commands::Inspect { config, output_format, target, all, export }) => {
+        Some(Commands::Inspect {
+            config,
+            output_format,
+            target,
+            all,
+            export,
+        }) => {
             commands::inspect::run(
                 &config,
                 &output_format,

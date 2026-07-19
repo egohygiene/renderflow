@@ -65,8 +65,10 @@ impl Transform for CommandTransform {
 
         // Write input to a temp file when the {input} placeholder is used.
         let input_file = if has_input_placeholder {
-            let mut f = tempfile::NamedTempFile::new().context("Failed to create input temp file")?;
-            f.write_all(input.as_bytes()).context("Failed to write to input temp file")?;
+            let mut f =
+                tempfile::NamedTempFile::new().context("Failed to create input temp file")?;
+            f.write_all(input.as_bytes())
+                .context("Failed to write to input temp file")?;
             Some(f)
         } else {
             None
@@ -96,9 +98,17 @@ impl Transform for CommandTransform {
             .collect();
 
         // When reading from a file the command doesn't need stdin.
-        let stdin_mode = if has_input_placeholder { Stdio::null() } else { Stdio::piped() };
+        let stdin_mode = if has_input_placeholder {
+            Stdio::null()
+        } else {
+            Stdio::piped()
+        };
         // When writing to a file the command's stdout is irrelevant.
-        let stdout_mode = if has_output_placeholder { Stdio::null() } else { Stdio::piped() };
+        let stdout_mode = if has_output_placeholder {
+            Stdio::null()
+        } else {
+            Stdio::piped()
+        };
 
         let mut child = std::process::Command::new(&self.program)
             .args(&processed_args)
@@ -226,11 +236,7 @@ mod tests {
 
     #[test]
     fn test_nonexistent_program_returns_error() {
-        let t = CommandTransform::new(
-            "bad-program",
-            "__nonexistent_program_renderflow__",
-            vec![],
-        );
+        let t = CommandTransform::new("bad-program", "__nonexistent_program_renderflow__", vec![]);
         let err = t.apply("input".to_string()).unwrap_err();
         let msg = err.to_string();
         assert!(

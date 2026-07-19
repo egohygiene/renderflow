@@ -37,7 +37,9 @@ fn git_branch() -> String {
         .ok()
         .filter(|o| o.status.success())
         .and_then(|o| String::from_utf8(o.stdout).ok());
-    output.map(|s| s.trim().to_string()).unwrap_or_else(|| "unknown".to_string())
+    output
+        .map(|s| s.trim().to_string())
+        .unwrap_or_else(|| "unknown".to_string())
 }
 
 /// Retrieve the current git commit SHA (short form).
@@ -48,7 +50,9 @@ fn git_commit() -> String {
         .ok()
         .filter(|o| o.status.success())
         .and_then(|o| String::from_utf8(o.stdout).ok());
-    output.map(|s| s.trim().to_string()).unwrap_or_else(|| "unknown".to_string())
+    output
+        .map(|s| s.trim().to_string())
+        .unwrap_or_else(|| "unknown".to_string())
 }
 
 /// Generate the full audit report as a UTF-8 string.
@@ -975,29 +979,74 @@ mod tests {
     fn test_generate_report_contains_required_sections() {
         let report = generate_report("2026-03-29T000000Z", "main", "abc1234");
 
-        assert!(report.contains("2026-03-29T000000Z"), "report should include timestamp");
+        assert!(
+            report.contains("2026-03-29T000000Z"),
+            "report should include timestamp"
+        );
         assert!(report.contains("main"), "report should include branch");
         assert!(report.contains("abc1234"), "report should include commit");
-        assert!(report.contains("ARCHITECTURE"), "report must have architecture section");
-        assert!(report.contains("PERFORMANCE"), "report must have performance section");
-        assert!(report.contains("CONCURRENCY"), "report must have concurrency section");
+        assert!(
+            report.contains("ARCHITECTURE"),
+            "report must have architecture section"
+        );
+        assert!(
+            report.contains("PERFORMANCE"),
+            "report must have performance section"
+        );
+        assert!(
+            report.contains("CONCURRENCY"),
+            "report must have concurrency section"
+        );
         assert!(report.contains("MEMORY"), "report must have memory section");
-        assert!(report.contains("ERROR HANDLING"), "report must have error handling section");
-        assert!(report.contains("DEPENDENCY"), "report must have dependency section");
-        assert!(report.contains("CLI & UX"), "report must have CLI & UX section");
-        assert!(report.contains("CONFIGURATION"), "report must have configuration section");
-        assert!(report.contains("LOGGING"), "report must have logging section");
-        assert!(report.contains("BUILD & DISTRIBUTION"), "report must have build & distribution section");
-        assert!(report.contains("DOCUMENTATION"), "report must have documentation section");
-        assert!(report.contains("CODE STRUCTURE"), "report must have code structure section");
-        assert!(report.contains("ACTIONABLE FIXES"), "report must have actionable fixes section");
-        assert!(report.contains("V1.0.0 READINESS"), "report must have v1.0.0 readiness verdict");
+        assert!(
+            report.contains("ERROR HANDLING"),
+            "report must have error handling section"
+        );
+        assert!(
+            report.contains("DEPENDENCY"),
+            "report must have dependency section"
+        );
+        assert!(
+            report.contains("CLI & UX"),
+            "report must have CLI & UX section"
+        );
+        assert!(
+            report.contains("CONFIGURATION"),
+            "report must have configuration section"
+        );
+        assert!(
+            report.contains("LOGGING"),
+            "report must have logging section"
+        );
+        assert!(
+            report.contains("BUILD & DISTRIBUTION"),
+            "report must have build & distribution section"
+        );
+        assert!(
+            report.contains("DOCUMENTATION"),
+            "report must have documentation section"
+        );
+        assert!(
+            report.contains("CODE STRUCTURE"),
+            "report must have code structure section"
+        );
+        assert!(
+            report.contains("ACTIONABLE FIXES"),
+            "report must have actionable fixes section"
+        );
+        assert!(
+            report.contains("V1.0.0 READINESS"),
+            "report must have v1.0.0 readiness verdict"
+        );
     }
 
     #[test]
     fn test_generate_report_contains_high_severity_findings() {
         let report = generate_report("2026-03-29T000000Z", "main", "abc1234");
-        assert!(report.contains("[HIGH]"), "report must contain HIGH severity findings");
+        assert!(
+            report.contains("[HIGH]"),
+            "report must contain HIGH severity findings"
+        );
     }
 
     #[test]
@@ -1034,7 +1083,10 @@ mod tests {
             .expect("failed to read audit dir")
             .filter_map(|e| e.ok())
             .collect();
-        assert!(!entries.is_empty(), "audits/ directory should contain at least one file");
+        assert!(
+            !entries.is_empty(),
+            "audits/ directory should contain at least one file"
+        );
 
         let log_path = &entries[0].path();
         assert!(
@@ -1043,7 +1095,13 @@ mod tests {
         );
 
         let content = fs::read_to_string(log_path).expect("failed to read audit file");
-        assert!(content.contains("PERFORMANCE"), "audit file must contain performance section");
-        assert!(content.contains("V1.0.0 READINESS"), "audit file must contain v1.0.0 readiness verdict");
+        assert!(
+            content.contains("PERFORMANCE"),
+            "audit file must contain performance section"
+        );
+        assert!(
+            content.contains("V1.0.0 READINESS"),
+            "audit file must contain v1.0.0 readiness verdict"
+        );
     }
 }

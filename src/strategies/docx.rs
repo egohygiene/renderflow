@@ -13,7 +13,10 @@ pub struct DocxStrategy {
 
 impl DocxStrategy {
     pub fn new(template: Option<String>, template_dir: String) -> Self {
-        Self { template, template_dir }
+        Self {
+            template,
+            template_dir,
+        }
     }
 }
 
@@ -40,17 +43,20 @@ impl OutputStrategy for DocxStrategy {
             info!("Using reference doc: {}", name);
             Some(
                 path.to_str()
-                    .ok_or_else(|| anyhow::anyhow!(
-                        "Template path '{}' contains invalid UTF-8",
-                        path.display()
-                    ))?
+                    .ok_or_else(|| {
+                        anyhow::anyhow!("Template path '{}' contains invalid UTF-8", path.display())
+                    })?
                     .to_owned(),
             )
         } else {
             None
         };
 
-        let builder = PandocArgs::new(ctx.input_format.as_pandoc_format(), ctx.input_path, ctx.output_path);
+        let builder = PandocArgs::new(
+            ctx.input_format.as_pandoc_format(),
+            ctx.input_path,
+            ctx.output_path,
+        );
         let args = match reference_doc {
             Some(ref path) => builder.with_reference_doc(path.as_str()),
             None => builder,
@@ -73,10 +79,14 @@ impl OutputStrategy for DocxStrategy {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::HashMap;
     use crate::input_format::InputFormat;
+    use std::collections::HashMap;
 
-    fn default_ctx<'a>(input: &'a str, output: &'a str, vars: &'a HashMap<String, String>) -> RenderContext<'a> {
+    fn default_ctx<'a>(
+        input: &'a str,
+        output: &'a str,
+        vars: &'a HashMap<String, String>,
+    ) -> RenderContext<'a> {
         RenderContext {
             input_path: input,
             input_format: InputFormat::Markdown,
@@ -103,7 +113,8 @@ mod tests {
 
     #[test]
     fn test_docx_strategy_stores_template() {
-        let strategy = DocxStrategy::new(Some("reference.docx".to_string()), "templates".to_string());
+        let strategy =
+            DocxStrategy::new(Some("reference.docx".to_string()), "templates".to_string());
         assert_eq!(strategy.template, Some("reference.docx".to_string()));
     }
 
@@ -162,7 +173,11 @@ mod tests {
             dry_run: true,
         };
         let result = strategy.render(&ctx);
-        assert!(result.is_ok(), "dry-run should succeed without invoking pandoc: {:?}", result);
+        assert!(
+            result.is_ok(),
+            "dry-run should succeed without invoking pandoc: {:?}",
+            result
+        );
     }
 
     /// Verifies that `dry_run = true` skips even template validation.
@@ -181,7 +196,11 @@ mod tests {
             dry_run: true,
         };
         let result = strategy.render(&ctx);
-        assert!(result.is_ok(), "dry-run should succeed even with a missing template: {:?}", result);
+        assert!(
+            result.is_ok(),
+            "dry-run should succeed even with a missing template: {:?}",
+            result
+        );
     }
 
     #[test]

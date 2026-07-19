@@ -140,7 +140,7 @@ impl AudioFormat {
             AudioFormat::Ape => Some("ape"),
             AudioFormat::Tta => Some("tta"),
             AudioFormat::Dsf | AudioFormat::Dff => None, // DSD encode not supported
-            AudioFormat::Shn => None,               // Shorten encode not supported
+            AudioFormat::Shn => None,                    // Shorten encode not supported
             AudioFormat::Mp3 => Some("mp3"),
             AudioFormat::Aac => Some("adts"),
             AudioFormat::Ogg => Some("ogg"),
@@ -148,16 +148,16 @@ impl AudioFormat {
             AudioFormat::Wma => Some("asf"),
             AudioFormat::Amr => Some("amr"),
             AudioFormat::Mp2 => Some("mp2"),
-            AudioFormat::Ra => None,   // RealAudio encode not supported
-            AudioFormat::Oma => None,  // ATRAC encode not supported
+            AudioFormat::Ra => None,  // RealAudio encode not supported
+            AudioFormat::Oma => None, // ATRAC encode not supported
             AudioFormat::Ac3 => Some("ac3"),
             AudioFormat::Ec3 => Some("eac3"),
-            AudioFormat::Thd => None,  // TrueHD encode requires special build
+            AudioFormat::Thd => None, // TrueHD encode requires special build
             AudioFormat::Dts => Some("dts"),
             AudioFormat::DtsHd => None, // DTS-HD encode not generally available
             AudioFormat::Mid => Some("midi"),
             AudioFormat::Midi => Some("midi"),
-            AudioFormat::Mod => None,  // MOD encode not supported
+            AudioFormat::Mod => None, // MOD encode not supported
         }
     }
 
@@ -416,7 +416,10 @@ mod tests {
 
     #[test]
     fn test_from_extension_m4a_defaults_to_aac() {
-        assert_eq!(AudioFormat::from_extension("m4a"), Some(AudioFormat::M4aAac));
+        assert_eq!(
+            AudioFormat::from_extension("m4a"),
+            Some(AudioFormat::M4aAac)
+        );
     }
 
     #[test]
@@ -557,7 +560,10 @@ mod tests {
 
     #[test]
     fn test_from_str_m4a_alac() {
-        assert_eq!("m4a_alac".parse::<AudioFormat>().unwrap(), AudioFormat::M4aAlac);
+        assert_eq!(
+            "m4a_alac".parse::<AudioFormat>().unwrap(),
+            AudioFormat::M4aAlac
+        );
         assert_eq!("alac".parse::<AudioFormat>().unwrap(), AudioFormat::M4aAlac);
     }
 
@@ -566,7 +572,10 @@ mod tests {
         let result = "xyz".parse::<AudioFormat>();
         assert!(result.is_err());
         let msg = result.unwrap_err().to_string();
-        assert!(msg.contains("not a known audio format"), "unexpected: {msg}");
+        assert!(
+            msg.contains("not a known audio format"),
+            "unexpected: {msg}"
+        );
     }
 
     // ── Display ───────────────────────────────────────────────────────────────

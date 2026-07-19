@@ -748,7 +748,10 @@ mod tests {
         };
         let args = opts.to_ffmpeg_args(AudioFormat::Mp3);
         let joined = args.join(" ");
-        assert!(joined.contains("-b:a 128k"), "expected -b:a 128k, got: {joined}");
+        assert!(
+            joined.contains("-b:a 128k"),
+            "expected -b:a 128k, got: {joined}"
+        );
     }
 
     #[test]
@@ -759,7 +762,10 @@ mod tests {
         };
         let args = opts.to_ffmpeg_args(AudioFormat::Flac);
         let joined = args.join(" ");
-        assert!(joined.contains("-ar 48000"), "expected -ar 48000, got: {joined}");
+        assert!(
+            joined.contains("-ar 48000"),
+            "expected -ar 48000, got: {joined}"
+        );
     }
 
     #[test]

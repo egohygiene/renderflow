@@ -295,7 +295,10 @@ mod tests {
     fn test_from_str_unknown_returns_error() {
         let err = "xyz-unknown".parse::<Format>().unwrap_err();
         let msg = err.to_string();
-        assert!(msg.contains("'xyz-unknown' is not a known format"), "unexpected: {msg}");
+        assert!(
+            msg.contains("'xyz-unknown' is not a known format"),
+            "unexpected: {msg}"
+        );
         assert!(msg.contains("markdown"), "expected format list: {msg}");
     }
 

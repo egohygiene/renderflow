@@ -92,7 +92,10 @@ impl VariableSubstitutionTransform {
                 self.substitute_text_segment(&remaining[..bt_pos], output);
 
                 // Count consecutive opening backticks to determine the delimiter.
-                let bt_count = remaining[bt_pos..].chars().take_while(|&c| c == '`').count();
+                let bt_count = remaining[bt_pos..]
+                    .chars()
+                    .take_while(|&c| c == '`')
+                    .count();
                 let delimiter = &remaining[bt_pos..bt_pos + bt_count];
                 let after_open = &remaining[bt_pos + bt_count..];
 
@@ -221,8 +224,7 @@ mod tests {
 
     #[test]
     fn test_placeholder_with_whitespace_trimmed() {
-        let transform =
-            VariableSubstitutionTransform::new(vars(&[("title", "My Document")]));
+        let transform = VariableSubstitutionTransform::new(vars(&[("title", "My Document")]));
         // Keys with surrounding whitespace inside `{{ }}` should still match.
         let result = transform.apply("{{ title }}".to_string()).unwrap();
         assert_eq!(result, "My Document");
@@ -237,8 +239,7 @@ mod tests {
 
     #[test]
     fn test_repeated_placeholder() {
-        let transform =
-            VariableSubstitutionTransform::new(vars(&[("name", "Renderflow")]));
+        let transform = VariableSubstitutionTransform::new(vars(&[("name", "Renderflow")]));
         let result = transform
             .apply("{{name}} and {{name}}".to_string())
             .unwrap();
@@ -247,10 +248,8 @@ mod tests {
 
     #[test]
     fn test_multiline_content() {
-        let transform = VariableSubstitutionTransform::new(vars(&[
-            ("title", "My Doc"),
-            ("author", "Alan"),
-        ]));
+        let transform =
+            VariableSubstitutionTransform::new(vars(&[("title", "My Doc"), ("author", "Alan")]));
         let input = "# {{title}}\n\nWritten by {{author}}.".to_string();
         let result = transform.apply(input).unwrap();
         assert_eq!(result, "# My Doc\n\nWritten by Alan.");
@@ -260,8 +259,7 @@ mod tests {
 
     #[test]
     fn test_fenced_code_block_not_substituted() {
-        let transform =
-            VariableSubstitutionTransform::new(vars(&[("key", "VALUE")]));
+        let transform = VariableSubstitutionTransform::new(vars(&[("key", "VALUE")]));
         let input = "```rust\nlet x = \"{{key}}\";\n```\n".to_string();
         let result = transform.apply(input.clone()).unwrap();
         // The placeholder inside the fenced block must be left untouched.
@@ -270,8 +268,7 @@ mod tests {
 
     #[test]
     fn test_inline_code_not_substituted() {
-        let transform =
-            VariableSubstitutionTransform::new(vars(&[("key", "VALUE")]));
+        let transform = VariableSubstitutionTransform::new(vars(&[("key", "VALUE")]));
         let input = "Use `{{key}}` as a placeholder.".to_string();
         let result = transform.apply(input).unwrap();
         assert_eq!(result, "Use `{{key}}` as a placeholder.");
@@ -279,10 +276,8 @@ mod tests {
 
     #[test]
     fn test_substitution_outside_fenced_block_applied() {
-        let transform = VariableSubstitutionTransform::new(vars(&[
-            ("title", "My Doc"),
-            ("key", "VALUE"),
-        ]));
+        let transform =
+            VariableSubstitutionTransform::new(vars(&[("title", "My Doc"), ("key", "VALUE")]));
         let input = "# {{title}}\n\n```rust\nlet x = \"{{key}}\";\n```\n\nEnd.\n".to_string();
         let result = transform.apply(input).unwrap();
         assert_eq!(
@@ -293,8 +288,7 @@ mod tests {
 
     #[test]
     fn test_substitution_skips_inline_code_applies_to_rest() {
-        let transform =
-            VariableSubstitutionTransform::new(vars(&[("author", "Alan")]));
+        let transform = VariableSubstitutionTransform::new(vars(&[("author", "Alan")]));
         let input = "Written by `{{author}}`, not {{author}}.".to_string();
         let result = transform.apply(input).unwrap();
         assert_eq!(result, "Written by `{{author}}`, not Alan.");
@@ -302,8 +296,7 @@ mod tests {
 
     #[test]
     fn test_fenced_block_without_trailing_newline_not_substituted() {
-        let transform =
-            VariableSubstitutionTransform::new(vars(&[("key", "VALUE")]));
+        let transform = VariableSubstitutionTransform::new(vars(&[("key", "VALUE")]));
         let input = "```\n{{key}}\n```".to_string();
         let result = transform.apply(input.clone()).unwrap();
         assert_eq!(result, input);
@@ -311,8 +304,7 @@ mod tests {
 
     #[test]
     fn test_double_backtick_inline_code_not_substituted() {
-        let transform =
-            VariableSubstitutionTransform::new(vars(&[("key", "VALUE")]));
+        let transform = VariableSubstitutionTransform::new(vars(&[("key", "VALUE")]));
         let input = "See ``{{key}}`` for details.".to_string();
         let result = transform.apply(input).unwrap();
         assert_eq!(result, "See ``{{key}}`` for details.");
@@ -322,8 +314,7 @@ mod tests {
     fn test_single_backtick_span_containing_double_backtick_not_substituted() {
         // A single-backtick inline span whose content includes a double-backtick
         // sequence must not be closed early at the double-backtick.
-        let transform =
-            VariableSubstitutionTransform::new(vars(&[("key", "VALUE")]));
+        let transform = VariableSubstitutionTransform::new(vars(&[("key", "VALUE")]));
         let input = "Use `code `` {{key}}` here.".to_string();
         let result = transform.apply(input).unwrap();
         assert_eq!(result, "Use `code `` {{key}}` here.");
