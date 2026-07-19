@@ -1,11 +1,15 @@
 name: Release
 
 # Triggered automatically when bump-version pushes a version tag.
-# Do not trigger this workflow manually — use the Bump Version workflow instead.
+# Because GITHUB_TOKEN pushes do not trigger other workflows, bump-version
+# explicitly dispatches this workflow via `gh workflow run` after pushing the
+# tag.  The workflow_dispatch trigger below enables that code path.
+# You can also run this workflow manually from the Actions tab for any tag.
 on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
 
 jobs:
   # ── 1. Changelog & GitHub Release ────────────────────────────────────────
