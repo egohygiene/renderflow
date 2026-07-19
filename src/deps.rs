@@ -88,9 +88,15 @@ mod tests {
     fn test_check_pandoc_result_matches_availability() {
         let result = check_pandoc();
         if pandoc_available() {
-            assert!(result.is_ok(), "check_pandoc should succeed when pandoc is installed");
+            assert!(
+                result.is_ok(),
+                "check_pandoc should succeed when pandoc is installed"
+            );
         } else {
-            assert!(result.is_err(), "check_pandoc should fail when pandoc is not installed");
+            assert!(
+                result.is_err(),
+                "check_pandoc should fail when pandoc is not installed"
+            );
             let msg = result.unwrap_err().to_string();
             assert!(
                 msg.contains("Pandoc is not installed"),
@@ -120,9 +126,15 @@ mod tests {
     fn test_check_tectonic_result_matches_availability() {
         let result = check_tectonic();
         if tectonic_is_available() {
-            assert!(result.is_ok(), "check_tectonic should succeed when tectonic is installed");
+            assert!(
+                result.is_ok(),
+                "check_tectonic should succeed when tectonic is installed"
+            );
         } else {
-            assert!(result.is_err(), "check_tectonic should fail when tectonic is not installed");
+            assert!(
+                result.is_err(),
+                "check_tectonic should fail when tectonic is not installed"
+            );
             let msg = result.unwrap_err().to_string();
             assert!(
                 msg.contains("Tectonic not found"),
@@ -150,11 +162,17 @@ mod tests {
         // We can only verify the outcome matches what pandoc availability predicts.
         let result = validate_dependencies(false);
         if pandoc_available() {
-            assert!(result.is_ok(), "validation without PDF should succeed when pandoc is present");
+            assert!(
+                result.is_ok(),
+                "validation without PDF should succeed when pandoc is present"
+            );
         } else {
             assert!(result.is_err());
             let msg = result.unwrap_err().to_string();
-            assert!(msg.contains("Pandoc is not installed"), "error should be about pandoc: {msg}");
+            assert!(
+                msg.contains("Pandoc is not installed"),
+                "error should be about pandoc: {msg}"
+            );
         }
     }
 
@@ -162,16 +180,25 @@ mod tests {
     fn test_validate_dependencies_with_pdf_checks_both() {
         let result = validate_dependencies(true);
         if pandoc_available() && tectonic_is_available() {
-            assert!(result.is_ok(), "validation with PDF should succeed when both tools are present");
+            assert!(
+                result.is_ok(),
+                "validation with PDF should succeed when both tools are present"
+            );
         } else {
-            assert!(result.is_err(), "validation with PDF should fail when a tool is missing");
+            assert!(
+                result.is_err(),
+                "validation with PDF should fail when a tool is missing"
+            );
         }
     }
 
     #[test]
     fn test_tool_available_with_known_tool() {
         // `cargo` is always available in a Rust build environment and supports `--version`.
-        assert!(tool_available("cargo"), "cargo should always be available in a Rust build environment");
+        assert!(
+            tool_available("cargo"),
+            "cargo should always be available in a Rust build environment"
+        );
     }
 
     #[test]

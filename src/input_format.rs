@@ -57,7 +57,6 @@ impl InputFormat {
     }
 }
 
-
 impl fmt::Display for InputFormat {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.as_pandoc_format())
@@ -94,42 +93,66 @@ mod tests {
 
     #[test]
     fn test_from_extension_md() {
-        assert_eq!(InputFormat::from_extension("doc.md"), Some(InputFormat::Markdown));
+        assert_eq!(
+            InputFormat::from_extension("doc.md"),
+            Some(InputFormat::Markdown)
+        );
     }
 
     #[test]
     fn test_from_extension_markdown() {
-        assert_eq!(InputFormat::from_extension("doc.markdown"), Some(InputFormat::Markdown));
+        assert_eq!(
+            InputFormat::from_extension("doc.markdown"),
+            Some(InputFormat::Markdown)
+        );
     }
 
     #[test]
     fn test_from_extension_docx() {
-        assert_eq!(InputFormat::from_extension("doc.docx"), Some(InputFormat::Docx));
+        assert_eq!(
+            InputFormat::from_extension("doc.docx"),
+            Some(InputFormat::Docx)
+        );
     }
 
     #[test]
     fn test_from_extension_html() {
-        assert_eq!(InputFormat::from_extension("doc.html"), Some(InputFormat::Html));
+        assert_eq!(
+            InputFormat::from_extension("doc.html"),
+            Some(InputFormat::Html)
+        );
     }
 
     #[test]
     fn test_from_extension_htm() {
-        assert_eq!(InputFormat::from_extension("doc.htm"), Some(InputFormat::Html));
+        assert_eq!(
+            InputFormat::from_extension("doc.htm"),
+            Some(InputFormat::Html)
+        );
     }
 
     #[test]
     fn test_from_extension_epub() {
-        assert_eq!(InputFormat::from_extension("doc.epub"), Some(InputFormat::Epub));
+        assert_eq!(
+            InputFormat::from_extension("doc.epub"),
+            Some(InputFormat::Epub)
+        );
     }
 
     #[test]
     fn test_from_extension_rst() {
-        assert_eq!(InputFormat::from_extension("doc.rst"), Some(InputFormat::Rst));
+        assert_eq!(
+            InputFormat::from_extension("doc.rst"),
+            Some(InputFormat::Rst)
+        );
     }
 
     #[test]
     fn test_from_extension_tex() {
-        assert_eq!(InputFormat::from_extension("doc.tex"), Some(InputFormat::Latex));
+        assert_eq!(
+            InputFormat::from_extension("doc.tex"),
+            Some(InputFormat::Latex)
+        );
     }
 
     #[test]
@@ -144,8 +167,14 @@ mod tests {
 
     #[test]
     fn test_from_extension_case_insensitive() {
-        assert_eq!(InputFormat::from_extension("doc.MD"), Some(InputFormat::Markdown));
-        assert_eq!(InputFormat::from_extension("doc.HTML"), Some(InputFormat::Html));
+        assert_eq!(
+            InputFormat::from_extension("doc.MD"),
+            Some(InputFormat::Markdown)
+        );
+        assert_eq!(
+            InputFormat::from_extension("doc.HTML"),
+            Some(InputFormat::Html)
+        );
     }
 
     // --- as_pandoc_format ---

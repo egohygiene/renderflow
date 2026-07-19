@@ -482,9 +482,11 @@ impl ImageFormat {
             ImageFormat::Tga => Some("image2"),
             ImageFormat::Sgi | ImageFormat::Rgb => Some("image2"),
             ImageFormat::Pcx => Some("image2"),
-            ImageFormat::Pbm | ImageFormat::Pgm | ImageFormat::Ppm | ImageFormat::Pam | ImageFormat::Pnm => {
-                Some("image2")
-            }
+            ImageFormat::Pbm
+            | ImageFormat::Pgm
+            | ImageFormat::Ppm
+            | ImageFormat::Pam
+            | ImageFormat::Pnm => Some("image2"),
             ImageFormat::Xbm => Some("image2"),
             ImageFormat::Xpm => Some("image2"),
             ImageFormat::Wbmp => Some("image2"),

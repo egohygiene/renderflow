@@ -9,12 +9,19 @@ use tracing::{debug, info, warn};
 
 use crate::assets::normalize_asset_paths;
 use crate::audio::is_audio_path;
-use crate::cache::{compute_input_hash, compute_output_hash, load_cache, load_output_cache, save_cache, save_output_cache};
+use crate::cache::{
+    compute_input_hash, compute_output_hash, load_cache, load_output_cache, save_cache,
+    save_output_cache,
+};
 use crate::config::{load_config, OutputType};
-use crate::deps::{validate_audio_dependencies, validate_dependencies, validate_image_dependencies};
+use crate::deps::{
+    validate_audio_dependencies, validate_dependencies, validate_image_dependencies,
+};
 use crate::files::{ensure_output_dir, validate_input};
 use crate::image::is_image_path;
-use crate::incremental::{build_output_dependencies, load_dependency_map, save_dependency_map, FileDependency};
+use crate::incremental::{
+    build_output_dependencies, load_dependency_map, save_dependency_map, FileDependency,
+};
 use crate::optimization::OptimizationMode;
 use crate::pipeline::{Pipeline, StrategyStep};
 use crate::strategies::{select_strategy, RenderContext};
@@ -45,7 +52,13 @@ pub fn run_resilient(config_path: &str) -> Result<()> {
 /// The optional hash and deps are `Some` only for successful renders (including
 /// outputs that were skipped as up-to-date) and are used to update the output
 /// cache and dependency map after all formats have finished.
-type RenderResult = (String, String, Result<()>, Option<String>, Option<Vec<FileDependency>>);
+type RenderResult = (
+    String,
+    String,
+    Result<()>,
+    Option<String>,
+    Option<Vec<FileDependency>>,
+);
 
 /// Progress-bar symbols used in render status messages.
 const SYMBOL_SKIP: &str = "↩";
@@ -68,7 +81,12 @@ fn create_output_bar(mp: &MultiProgress, format_label: &str) -> ProgressBar {
     bar
 }
 
-fn run_impl(config_path: &str, dry_run: bool, resilient: bool, optimization: Option<OptimizationMode>) -> Result<()> {
+fn run_impl(
+    config_path: &str,
+    dry_run: bool,
+    resilient: bool,
+    optimization: Option<OptimizationMode>,
+) -> Result<()> {
     if dry_run {
         info!("Dry-run mode enabled — no files will be created and no commands will be executed");
     }
@@ -102,17 +120,20 @@ fn run_impl(config_path: &str, dry_run: bool, resilient: bool, optimization: Opt
     // Validate required system dependencies after confirming the config and input
     // are accessible. Skip in dry-run mode because no external tools are invoked.
     if !dry_run {
-        let pdf_requested = config.outputs.iter().any(|o| o.output_type == OutputType::Pdf);
+        let pdf_requested = config
+            .outputs
+            .iter()
+            .any(|o| o.output_type == OutputType::Pdf);
         validate_dependencies(pdf_requested)?;
     }
 
-    let input_dir = canonical_input
-        .parent()
-        .ok_or_else(|| anyhow::anyhow!(
+    let input_dir = canonical_input.parent().ok_or_else(|| {
+        anyhow::anyhow!(
             "Could not determine the parent directory of input file '{}'. \
              Please ensure the input path is a valid file path.",
             canonical_input.display()
-        ))?;
+        )
+    })?;
     let content = fs::read_to_string(&canonical_input)
         .with_context(|| format!("Failed to read input file: {}", canonical_input.display()))?;
     // Resolve and validate all asset paths referenced in the document.
@@ -123,7 +144,10 @@ fn run_impl(config_path: &str, dry_run: bool, resilient: bool, optimization: Opt
 
     let output_dir = if dry_run {
         let path = std::path::PathBuf::from(&config.output_dir);
-        info!("[DRY RUN] Would create output directory: {}", path.display());
+        info!(
+            "[DRY RUN] Would create output directory: {}",
+            path.display()
+        );
         path
     } else {
         ensure_output_dir(&config.output_dir)?
@@ -136,7 +160,10 @@ fn run_impl(config_path: &str, dry_run: bool, resilient: bool, optimization: Opt
 
     let tera = init_tera("templates")?;
     let template_count = tera.get_template_names().count();
-    info!("Tera template engine initialised with {} template(s)", template_count);
+    info!(
+        "Tera template engine initialised with {} template(s)",
+        template_count
+    );
 
     // Validate all configured templates early, before any pipeline execution,
     // so that missing templates are detected immediately with a clear error
@@ -147,7 +174,14 @@ fn run_impl(config_path: &str, dry_run: bool, resilient: bool, optimization: Opt
         warn!("No output formats configured — nothing to build");
         return Ok(());
     }
-    info!("Selected outputs: {}", config.outputs.iter().map(|o| o.output_type.to_string()).join(", "));
+    info!(
+        "Selected outputs: {}",
+        config
+            .outputs
+            .iter()
+            .map(|o| o.output_type.to_string())
+            .join(", ")
+    );
 
     // One tick for the transform phase plus one tick per output format for rendering.
     let total_steps = 1 + config.outputs.len() as u64;
@@ -161,15 +195,18 @@ fn run_impl(config_path: &str, dry_run: bool, resilient: bool, optimization: Opt
 
     // Pre-create one spinner per output format *before* the parallel rendering
     // section.  See [`create_output_bar`] for the rationale.
-    let output_bars: Vec<ProgressBar> = config.outputs.iter().map(|output| {
-        create_output_bar(&mp, &output.output_type.to_string())
-    }).collect();
+    let output_bars: Vec<ProgressBar> = config
+        .outputs
+        .iter()
+        .map(|output| create_output_bar(&mp, &output.output_type.to_string()))
+        .collect();
 
     // Transforms are run once per output format (serially, before parallel rendering)
     // because some transforms are format-specific.  In particular, EmojiTransform skips
     // replacement for HTML (which renders emoji natively) but applies it for PDF, DOCX,
     // and other formats.  A format-keyed cache avoids redundant work across builds.
-    let base_input_hash = compute_input_hash(&normalized_content, &config_content, &config.variables);
+    let base_input_hash =
+        compute_input_hash(&normalized_content, &config_content, &config.variables);
     let cache_path = output_dir.join(".renderflow-cache.json");
     // Always attempt to read the cache; load_cache handles missing/corrupt files
     // gracefully.  Only write back to disk in non-dry-run mode.
@@ -179,17 +216,27 @@ fn run_impl(config_path: &str, dry_run: bool, resilient: bool, optimization: Opt
     // These are applied after the standard built-in pipeline (emoji, variables, syntax).
     let command_registry: Option<TransformRegistry> = if let Some(ref path) = config.transforms {
         info!(path = %path, "Loading command-based transforms");
-        let mode = if resilient { FailureMode::ContinueOnError } else { FailureMode::FailFast };
+        let mode = if resilient {
+            FailureMode::ContinueOnError
+        } else {
+            FailureMode::FailFast
+        };
         Some(
             load_transforms_from_yaml(path)
-                .with_context(|| format!("Failed to load command-based transforms from '{}'", path))?
+                .with_context(|| {
+                    format!("Failed to load command-based transforms from '{}'", path)
+                })?
                 .with_failure_mode(mode),
         )
     } else {
         None
     };
 
-    pb.set_message(if dry_run { "[DRY RUN] Applying transforms" } else { "Applying transforms" });
+    pb.set_message(if dry_run {
+        "[DRY RUN] Applying transforms"
+    } else {
+        "Applying transforms"
+    });
     let mut format_transformed: HashMap<String, String> = HashMap::new();
     for output in &config.outputs {
         let format = &output.output_type;
@@ -210,13 +257,15 @@ fn run_impl(config_path: &str, dry_run: bool, resilient: bool, optimization: Opt
             };
             let standard_output = pipeline
                 .run_transforms(normalized_content.as_ref().to_owned())
-                .with_context(|| format!("Transform pipeline failed for format: {format_str}; aborting build"))?;
+                .with_context(|| {
+                    format!("Transform pipeline failed for format: {format_str}; aborting build")
+                })?;
             // Apply command-based transforms (e.g. ImageMagick, Pandoc) if configured.
             if let Some(ref cmd_registry) = command_registry {
                 debug!(format = %format_str, "Applying command-based transforms");
-                cmd_registry
-                    .apply_all(standard_output)
-                    .with_context(|| format!("Command transform pipeline failed for format: {format_str}"))?
+                cmd_registry.apply_all(standard_output).with_context(|| {
+                    format!("Command transform pipeline failed for format: {format_str}")
+                })?
             } else {
                 standard_output
             }
@@ -397,11 +446,16 @@ fn run_impl(config_path: &str, dry_run: bool, resilient: bool, optimization: Opt
         .collect();
 
     if dry_run {
-        pb.finish_with_message(format!("[DRY RUN] {SYMBOL_OK} Dry-run complete — no output written"));
+        pb.finish_with_message(format!(
+            "[DRY RUN] {SYMBOL_OK} Dry-run complete — no output written"
+        ));
     } else if failed_outputs.is_empty() {
         pb.finish_with_message(format!("{SYMBOL_OK} Build complete"));
     } else {
-        pb.finish_with_message(format!("⚠ Build completed with {} failure(s)", failed_outputs.len()));
+        pb.finish_with_message(format!(
+            "⚠ Build completed with {} failure(s)",
+            failed_outputs.len()
+        ));
         let messages: Vec<String> = failed_outputs
             .iter()
             .map(|(fmt, err)| format!("  - {}: {:#}", fmt, err))
@@ -433,7 +487,10 @@ fn run_audio_build(
 
     let output_dir = if dry_run {
         let path = std::path::PathBuf::from(&config.output_dir);
-        info!("[DRY RUN] Would create output directory: {}", path.display());
+        info!(
+            "[DRY RUN] Would create output directory: {}",
+            path.display()
+        );
         path
     } else {
         ensure_output_dir(&config.output_dir)?
@@ -445,7 +502,10 @@ fn run_audio_build(
         .unwrap_or("audio");
 
     let input_path_str = canonical_input.to_str().ok_or_else(|| {
-        anyhow::anyhow!("Input path contains invalid UTF-8: {}", canonical_input.display())
+        anyhow::anyhow!(
+            "Input path contains invalid UTF-8: {}",
+            canonical_input.display()
+        )
     })?;
 
     let total_outputs = config.outputs.len() as u64;
@@ -559,7 +619,10 @@ fn run_audio_build(
     } else if failed.is_empty() {
         pb.finish_with_message(format!("{SYMBOL_OK} Audio build complete"));
     } else {
-        pb.finish_with_message(format!("⚠ Build completed with {} failure(s)", failed.len()));
+        pb.finish_with_message(format!(
+            "⚠ Build completed with {} failure(s)",
+            failed.len()
+        ));
         let messages: Vec<String> = failed
             .iter()
             .map(|(fmt, err)| format!("  - {}: {:#}", fmt, err))
@@ -591,7 +654,10 @@ fn run_image_build(
 
     let output_dir = if dry_run {
         let path = std::path::PathBuf::from(&config.output_dir);
-        info!("[DRY RUN] Would create output directory: {}", path.display());
+        info!(
+            "[DRY RUN] Would create output directory: {}",
+            path.display()
+        );
         path
     } else {
         ensure_output_dir(&config.output_dir)?
@@ -603,7 +669,10 @@ fn run_image_build(
         .unwrap_or("image");
 
     let input_path_str = canonical_input.to_str().ok_or_else(|| {
-        anyhow::anyhow!("Input path contains invalid UTF-8: {}", canonical_input.display())
+        anyhow::anyhow!(
+            "Input path contains invalid UTF-8: {}",
+            canonical_input.display()
+        )
     })?;
 
     let total_outputs = config.outputs.len() as u64;
@@ -717,7 +786,10 @@ fn run_image_build(
     } else if failed.is_empty() {
         pb.finish_with_message(format!("{SYMBOL_OK} Image build complete"));
     } else {
-        pb.finish_with_message(format!("⚠ Build completed with {} failure(s)", failed.len()));
+        pb.finish_with_message(format!(
+            "⚠ Build completed with {} failure(s)",
+            failed.len()
+        ));
         let messages: Vec<String> = failed
             .iter()
             .map(|(fmt, err)| format!("  - {}: {:#}", fmt, err))
@@ -781,7 +853,11 @@ mod tests {
         let result = run(f.path().to_str().unwrap(), false, None);
         assert!(result.is_err(), "expected error when input file is missing");
         let msg = format!("{}", result.unwrap_err());
-        assert!(msg.contains("Input file not found"), "unexpected error: {}", msg);
+        assert!(
+            msg.contains("Input file not found"),
+            "unexpected error: {}",
+            msg
+        );
     }
 
     #[test]
@@ -823,9 +899,7 @@ mod tests {
         );
 
         let mut config_file = NamedTempFile::new().unwrap();
-        config_file
-            .write_all(config_content.as_bytes())
-            .unwrap();
+        config_file.write_all(config_content.as_bytes()).unwrap();
 
         assert!(run(config_file.path().to_str().unwrap(), false, None).is_ok());
         assert!(output_dir.join("input.html").exists());
@@ -838,7 +912,10 @@ mod tests {
         let result = run(f.path().to_str().unwrap(), true, None);
         assert!(result.is_ok(), "dry-run should succeed: {:?}", result);
         // No output directory should have been created in dry-run mode
-        assert!(!output_dir.exists(), "output directory must not be created in dry-run mode");
+        assert!(
+            !output_dir.exists(),
+            "output directory must not be created in dry-run mode"
+        );
     }
 
     #[test]
@@ -847,13 +924,19 @@ mod tests {
         let output_dir = dir.path().join("dist");
         run(f.path().to_str().unwrap(), true, None).expect("dry-run should not fail");
         // The dist directory and any rendered files must not exist
-        assert!(!output_dir.exists(), "output directory must not be created in dry-run mode");
+        assert!(
+            !output_dir.exists(),
+            "output directory must not be created in dry-run mode"
+        );
     }
 
     #[test]
     fn test_dry_run_missing_config_still_errors() {
         let result = run("/nonexistent/renderflow.yaml", true, None);
-        assert!(result.is_err(), "dry-run with missing config should still error");
+        assert!(
+            result.is_err(),
+            "dry-run with missing config should still error"
+        );
     }
 
     /// Build a config with multiple output formats for testing that transforms run once.
@@ -884,9 +967,16 @@ mod tests {
         let (f, dir) = multi_output_config_file();
         let output_dir = dir.path().join("dist");
         let result = run(f.path().to_str().unwrap(), true, None);
-        assert!(result.is_ok(), "dry-run with multiple outputs should succeed: {:?}", result);
+        assert!(
+            result.is_ok(),
+            "dry-run with multiple outputs should succeed: {:?}",
+            result
+        );
         // No output directory should have been created in dry-run mode.
-        assert!(!output_dir.exists(), "output directory must not be created in dry-run mode");
+        assert!(
+            !output_dir.exists(),
+            "output directory must not be created in dry-run mode"
+        );
     }
 
     #[test]
@@ -902,8 +992,16 @@ mod tests {
         let single_result = run(single_f.path().to_str().unwrap(), true, None);
         let multi_result = run(multi_f.path().to_str().unwrap(), true, None);
 
-        assert!(single_result.is_ok(), "single-output dry-run failed: {:?}", single_result);
-        assert!(multi_result.is_ok(), "multi-output dry-run failed: {:?}", multi_result);
+        assert!(
+            single_result.is_ok(),
+            "single-output dry-run failed: {:?}",
+            single_result
+        );
+        assert!(
+            multi_result.is_ok(),
+            "multi-output dry-run failed: {:?}",
+            multi_result
+        );
     }
 
     // ── cache integration tests ───────────────────────────────────────────────
@@ -928,9 +1026,16 @@ mod tests {
         let output_dir = dir.path().join("dist");
         // No cache file exists — this is a fresh state.
         let result = run(f.path().to_str().unwrap(), true, None);
-        assert!(result.is_ok(), "dry-run should succeed without a cache: {:?}", result);
+        assert!(
+            result.is_ok(),
+            "dry-run should succeed without a cache: {:?}",
+            result
+        );
         // In dry-run mode the output directory is never created.
-        assert!(!output_dir.exists(), "output directory must not be created in dry-run mode");
+        assert!(
+            !output_dir.exists(),
+            "output directory must not be created in dry-run mode"
+        );
     }
 
     #[test]
@@ -954,17 +1059,23 @@ mod tests {
         // Compute the hash the same way the build command will: base hash + "-html".
         // The hash now also incorporates the config file content.
         let variables = std::collections::HashMap::new();
-        let base_hash = crate::cache::compute_input_hash(input_content, &config_content, &variables);
+        let base_hash =
+            crate::cache::compute_input_hash(input_content, &config_content, &variables);
         let hash_key = format!("{base_hash}-html");
         let cached_transform = "# Test (from cache)\n";
         write_cache_file(&output_dir, &hash_key, cached_transform);
 
         let mut f = NamedTempFile::new().expect("failed to create temp file");
-        f.write_all(config_content.as_bytes()).expect("failed to write config");
+        f.write_all(config_content.as_bytes())
+            .expect("failed to write config");
 
         // The dry-run should succeed; cache hit is detected in both modes.
         let result = run(f.path().to_str().unwrap(), true, None);
-        assert!(result.is_ok(), "dry-run with cache hit should succeed: {:?}", result);
+        assert!(
+            result.is_ok(),
+            "dry-run with cache hit should succeed: {:?}",
+            result
+        );
     }
 
     #[test]
@@ -985,7 +1096,8 @@ mod tests {
 
         // Cache is keyed on the *original* content + config + format.
         let variables = std::collections::HashMap::new();
-        let old_base_hash = crate::cache::compute_input_hash(original_content, &config_content, &variables);
+        let old_base_hash =
+            crate::cache::compute_input_hash(original_content, &config_content, &variables);
         let old_hash_key = format!("{old_base_hash}-html");
         write_cache_file(&output_dir, &old_hash_key, "cached result");
 
@@ -994,11 +1106,16 @@ mod tests {
         fs::write(&input_path, new_content).expect("failed to write updated input");
 
         let mut f = NamedTempFile::new().expect("failed to create temp file");
-        f.write_all(config_content.as_bytes()).expect("failed to write config");
+        f.write_all(config_content.as_bytes())
+            .expect("failed to write config");
 
         // Dry-run still succeeds; it runs transforms because the hash misses.
         let result = run(f.path().to_str().unwrap(), true, None);
-        assert!(result.is_ok(), "dry-run with cache miss should still succeed: {:?}", result);
+        assert!(
+            result.is_ok(),
+            "dry-run with cache miss should still succeed: {:?}",
+            result
+        );
     }
 
     #[test]
@@ -1018,7 +1135,8 @@ mod tests {
             output_dir.display()
         );
         let variables = std::collections::HashMap::new();
-        let old_base_hash = crate::cache::compute_input_hash(input_content, &original_config, &variables);
+        let old_base_hash =
+            crate::cache::compute_input_hash(input_content, &original_config, &variables);
         let old_hash_key = format!("{old_base_hash}-html");
         write_cache_file(&output_dir, &old_hash_key, "cached result");
 
@@ -1029,11 +1147,16 @@ mod tests {
             output_dir.display()
         );
         let mut f = NamedTempFile::new().expect("failed to create temp file");
-        f.write_all(updated_config.as_bytes()).expect("failed to write config");
+        f.write_all(updated_config.as_bytes())
+            .expect("failed to write config");
 
         // Dry-run succeeds; transforms run because the config hash misses.
         let result = run(f.path().to_str().unwrap(), true, None);
-        assert!(result.is_ok(), "dry-run with changed config should succeed: {:?}", result);
+        assert!(
+            result.is_ok(),
+            "dry-run with changed config should succeed: {:?}",
+            result
+        );
     }
 
     #[test]
@@ -1051,12 +1174,16 @@ mod tests {
             output_dir.display()
         );
         let mut f = NamedTempFile::new().expect("failed to create temp file");
-        f.write_all(config_content.as_bytes()).expect("failed to write config");
+        f.write_all(config_content.as_bytes())
+            .expect("failed to write config");
 
         run(f.path().to_str().unwrap(), false, None).expect("build should succeed");
 
         let cache_path = output_dir.join(".renderflow-cache.json");
-        assert!(cache_path.exists(), "cache file must exist after a real build");
+        assert!(
+            cache_path.exists(),
+            "cache file must exist after a real build"
+        );
     }
 
     #[test]
@@ -1075,15 +1202,20 @@ mod tests {
             output_dir.display()
         );
         let mut f = NamedTempFile::new().expect("failed to create temp file");
-        f.write_all(config_content.as_bytes()).expect("failed to write config");
+        f.write_all(config_content.as_bytes())
+            .expect("failed to write config");
 
         // First build — cache miss, cache written.
         run(f.path().to_str().unwrap(), false, None).expect("first build should succeed");
         // Second build — cache hit.
-        run(f.path().to_str().unwrap(), false, None).expect("second build (cache hit) should succeed");
+        run(f.path().to_str().unwrap(), false, None)
+            .expect("second build (cache hit) should succeed");
 
         let cache_path = output_dir.join(".renderflow-cache.json");
-        assert!(cache_path.exists(), "cache file must still exist after second build");
+        assert!(
+            cache_path.exists(),
+            "cache file must still exist after second build"
+        );
     }
 
     // ── output cache integration tests ───────────────────────────────────────
@@ -1113,12 +1245,16 @@ mod tests {
             output_dir.display()
         );
         let mut f = NamedTempFile::new().expect("failed to create temp file");
-        f.write_all(config_content.as_bytes()).expect("failed to write config");
+        f.write_all(config_content.as_bytes())
+            .expect("failed to write config");
 
         run(f.path().to_str().unwrap(), false, None).expect("build should succeed");
 
         let output_cache_path = output_dir.join(".renderflow-output-cache.json");
-        assert!(output_cache_path.exists(), "output cache file must exist after a real build");
+        assert!(
+            output_cache_path.exists(),
+            "output cache file must exist after a real build"
+        );
     }
 
     #[test]
@@ -1138,15 +1274,20 @@ mod tests {
             output_dir.display()
         );
         let mut f = NamedTempFile::new().expect("failed to create temp file");
-        f.write_all(config_content.as_bytes()).expect("failed to write config");
+        f.write_all(config_content.as_bytes())
+            .expect("failed to write config");
 
         // First build — output cache miss, pandoc runs, cache written.
         run(f.path().to_str().unwrap(), false, None).expect("first build should succeed");
         // Second build — output cache hit, pandoc skipped.
-        run(f.path().to_str().unwrap(), false, None).expect("second build (output cache hit) should succeed");
+        run(f.path().to_str().unwrap(), false, None)
+            .expect("second build (output cache hit) should succeed");
 
         let output_cache_path = output_dir.join(".renderflow-output-cache.json");
-        assert!(output_cache_path.exists(), "output cache must still exist after second build");
+        assert!(
+            output_cache_path.exists(),
+            "output cache must still exist after second build"
+        );
     }
 
     #[test]
@@ -1164,7 +1305,8 @@ mod tests {
             output_dir.display()
         );
         let mut f = NamedTempFile::new().expect("failed to create temp file");
-        f.write_all(config_content.as_bytes()).expect("failed to write config");
+        f.write_all(config_content.as_bytes())
+            .expect("failed to write config");
 
         // First build with original content.
         run(f.path().to_str().unwrap(), false, None).expect("first build should succeed");
@@ -1173,7 +1315,8 @@ mod tests {
         fs::write(&input_path, "# Modified\n").expect("failed to write updated input");
 
         // Second build must succeed (re-render triggered by cache miss).
-        run(f.path().to_str().unwrap(), false, None).expect("second build after input change should succeed");
+        run(f.path().to_str().unwrap(), false, None)
+            .expect("second build after input change should succeed");
     }
 
     #[test]
@@ -1209,10 +1352,15 @@ mod tests {
             output_dir.display()
         );
         let mut f = NamedTempFile::new().expect("failed to create temp file");
-        f.write_all(config_content.as_bytes()).expect("failed to write config");
+        f.write_all(config_content.as_bytes())
+            .expect("failed to write config");
 
         let result = run(f.path().to_str().unwrap(), true, None);
-        assert!(result.is_ok(), "dry-run with output cache should succeed: {:?}", result);
+        assert!(
+            result.is_ok(),
+            "dry-run with output cache should succeed: {:?}",
+            result
+        );
     }
 
     #[test]
@@ -1222,7 +1370,11 @@ mod tests {
         // This verifies that par_iter covers all outputs, not just the first.
         let (f, _dir) = multi_output_config_file();
         let result = run(f.path().to_str().unwrap(), true, None);
-        assert!(result.is_ok(), "dry-run with multiple outputs should succeed: {:?}", result);
+        assert!(
+            result.is_ok(),
+            "dry-run with multiple outputs should succeed: {:?}",
+            result
+        );
     }
 
     #[test]
@@ -1250,7 +1402,10 @@ mod tests {
             .expect("failed to write config");
 
         let result = run(f.path().to_str().unwrap(), false, None);
-        assert!(result.is_err(), "build with only unsupported formats should fail");
+        assert!(
+            result.is_err(),
+            "build with only unsupported formats should fail"
+        );
         let err_msg = format!("{:#}", result.unwrap_err());
         // Both format names must appear in the aggregated error message.
         assert!(
@@ -1271,8 +1426,7 @@ mod tests {
         // each output strategy running concurrently.
         let dir = tempfile::tempdir().expect("failed to create temp dir");
         let input_path = dir.path().join("input.md");
-        fs::write(&input_path, "# Hello\n\nThis is a test.\n")
-            .expect("failed to write input file");
+        fs::write(&input_path, "# Hello\n\nThis is a test.\n").expect("failed to write input file");
         let output_dir = dir.path().join("dist");
         let config_content = format!(
             "outputs:\n  - type: html\n  - type: pdf\n  - type: docx\ninput: \"{}\"\noutput_dir: \"{}\"\n",
@@ -1284,10 +1438,23 @@ mod tests {
             .expect("failed to write config");
 
         let result = run(f.path().to_str().unwrap(), false, None);
-        assert!(result.is_ok(), "parallel build with html+pdf+docx should succeed: {:?}", result);
-        assert!(output_dir.join("input.html").exists(), "html output must exist");
-        assert!(output_dir.join("input.pdf").exists(), "pdf output must exist");
-        assert!(output_dir.join("input.docx").exists(), "docx output must exist");
+        assert!(
+            result.is_ok(),
+            "parallel build with html+pdf+docx should succeed: {:?}",
+            result
+        );
+        assert!(
+            output_dir.join("input.html").exists(),
+            "html output must exist"
+        );
+        assert!(
+            output_dir.join("input.pdf").exists(),
+            "pdf output must exist"
+        );
+        assert!(
+            output_dir.join("input.docx").exists(),
+            "docx output must exist"
+        );
     }
 
     // ── Image build tests ─────────────────────────────────────────────────────
@@ -1302,13 +1469,7 @@ mod tests {
         let input_path = dir.path().join("input.wav");
         let output_dir = dir.path().join("dist");
         let status = Command::new("ffmpeg")
-            .args([
-                "-y",
-                "-f",
-                "lavfi",
-                "-i",
-                "sine=frequency=880:duration=0.2",
-            ])
+            .args(["-y", "-f", "lavfi", "-i", "sine=frequency=880:duration=0.2"])
             .arg(&input_path)
             .status()
             .expect("failed to generate wav fixture");
@@ -1324,12 +1485,19 @@ mod tests {
             .expect("failed to write config");
 
         let result = run(f.path().to_str().unwrap(), false, None);
-        assert!(result.is_ok(), "audio build should succeed with ffmpeg: {:?}", result);
+        assert!(
+            result.is_ok(),
+            "audio build should succeed with ffmpeg: {:?}",
+            result
+        );
 
         let output_path = output_dir.join("input.mp3");
         assert!(output_path.exists(), "audio output must exist");
         assert!(
-            fs::metadata(output_path).expect("missing audio output metadata").len() > 0,
+            fs::metadata(output_path)
+                .expect("missing audio output metadata")
+                .len()
+                > 0,
             "audio output must be non-empty"
         );
     }
@@ -1492,12 +1660,19 @@ mod tests {
             .expect("failed to write config");
 
         let result = run(f.path().to_str().unwrap(), false, None);
-        assert!(result.is_ok(), "image build should succeed with ffmpeg: {:?}", result);
+        assert!(
+            result.is_ok(),
+            "image build should succeed with ffmpeg: {:?}",
+            result
+        );
 
         let output_path = output_dir.join("input.webp");
         assert!(output_path.exists(), "image output must exist");
         assert!(
-            fs::metadata(output_path).expect("missing image output metadata").len() > 0,
+            fs::metadata(output_path)
+                .expect("missing image output metadata")
+                .len()
+                > 0,
             "image output must be non-empty"
         );
     }

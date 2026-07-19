@@ -43,7 +43,10 @@ mod tests {
         assert!(result.is_ok(), "expected Ok for existing file");
         let path = result.unwrap();
         assert!(path.is_absolute(), "canonical path should be absolute");
-        assert!(path.exists(), "canonical path should point to an existing file");
+        assert!(
+            path.exists(),
+            "canonical path should point to an existing file"
+        );
     }
 
     #[test]
@@ -51,7 +54,11 @@ mod tests {
         let result = validate_input("/nonexistent/path/input.md");
         assert!(result.is_err(), "expected error for missing file");
         let msg = format!("{}", result.unwrap_err());
-        assert!(msg.contains("Input file not found"), "unexpected error: {}", msg);
+        assert!(
+            msg.contains("Input file not found"),
+            "unexpected error: {}",
+            msg
+        );
     }
 
     #[test]

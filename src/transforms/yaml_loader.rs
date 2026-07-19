@@ -169,19 +169,28 @@ impl YamlTransformDef {
         match (&self.ai, &self.plugin, &self.program) {
             // ai takes precedence – validate the backend name.
             (Some(backend), _, _) if backend.trim().is_empty() => {
-                anyhow::bail!("transform '{}': 'ai' must not be empty when provided", self.name);
+                anyhow::bail!(
+                    "transform '{}': 'ai' must not be empty when provided",
+                    self.name
+                );
             }
             (Some(backend), _, _) => {
-                backend.parse::<AiBackend>().with_context(|| {
-                    format!("transform '{}': invalid 'ai' backend", self.name)
-                })?;
+                backend
+                    .parse::<AiBackend>()
+                    .with_context(|| format!("transform '{}': invalid 'ai' backend", self.name))?;
             }
             // plugin next.
             (None, Some(p), _) if p.trim().is_empty() => {
-                anyhow::bail!("transform '{}': 'plugin' must not be empty when provided", self.name);
+                anyhow::bail!(
+                    "transform '{}': 'plugin' must not be empty when provided",
+                    self.name
+                );
             }
             (None, None, None) => {
-                anyhow::bail!("transform '{}': one of 'program', 'plugin', or 'ai' must be provided", self.name);
+                anyhow::bail!(
+                    "transform '{}': one of 'program', 'plugin', or 'ai' must be provided",
+                    self.name
+                );
             }
             (None, None, Some(prog)) if prog.trim().is_empty() => {
                 anyhow::bail!("transform '{}': 'program' must not be empty", self.name);
@@ -208,11 +217,17 @@ impl YamlTransformDef {
     /// Returns an error when `program` is `None`.  Call [`validate`](Self::validate)
     /// first to ensure the definition is well-formed before calling this method.
     pub fn to_command_transform(&self) -> Result<CommandTransform> {
-        let program = self
-            .program
-            .as_deref()
-            .ok_or_else(|| anyhow::anyhow!("transform '{}': 'program' is required for a command transform", self.name))?;
-        Ok(CommandTransform::new(self.name.clone(), program, self.args.clone()))
+        let program = self.program.as_deref().ok_or_else(|| {
+            anyhow::anyhow!(
+                "transform '{}': 'program' is required for a command transform",
+                self.name
+            )
+        })?;
+        Ok(CommandTransform::new(
+            self.name.clone(),
+            program,
+            self.args.clone(),
+        ))
     }
 
     /// Build a [`PluginTransform`] from this definition by looking up the
@@ -221,13 +236,19 @@ impl YamlTransformDef {
     /// Returns an error when the plugin field is not set or the plugin name is
     /// not registered in `registry`.
     pub fn to_plugin_transform(&self, registry: &PluginRegistry) -> Result<PluginTransform> {
-        let plugin_name = self
-            .plugin
-            .as_deref()
-            .ok_or_else(|| anyhow::anyhow!("transform '{}': 'plugin' field is required for a plugin transform", self.name))?;
-        let executor = registry
-            .get(plugin_name)
-            .ok_or_else(|| anyhow::anyhow!("transform '{}': plugin '{}' not found in registry", self.name, plugin_name))?;
+        let plugin_name = self.plugin.as_deref().ok_or_else(|| {
+            anyhow::anyhow!(
+                "transform '{}': 'plugin' field is required for a plugin transform",
+                self.name
+            )
+        })?;
+        let executor = registry.get(plugin_name).ok_or_else(|| {
+            anyhow::anyhow!(
+                "transform '{}': plugin '{}' not found in registry",
+                self.name,
+                plugin_name
+            )
+        })?;
         Ok(PluginTransform::new(executor))
     }
 
@@ -237,12 +258,17 @@ impl YamlTransformDef {
     /// backend name.  Call [`validate`](Self::validate) first to ensure the
     /// definition is well-formed before calling this method.
     pub fn to_ai_transform(&self) -> Result<AiTransform> {
-        let backend_str = self
-            .ai
-            .as_deref()
-            .ok_or_else(|| anyhow::anyhow!("transform '{}': 'ai' field is required for an AI transform", self.name))?;
+        let backend_str = self.ai.as_deref().ok_or_else(|| {
+            anyhow::anyhow!(
+                "transform '{}': 'ai' field is required for an AI transform",
+                self.name
+            )
+        })?;
         let backend: AiBackend = backend_str.parse().with_context(|| {
-            format!("transform '{}': invalid 'ai' backend '{}'", self.name, backend_str)
+            format!(
+                "transform '{}': invalid 'ai' backend '{}'",
+                self.name, backend_str
+            )
         })?;
 
         let mut builder = AiTransform::builder()
@@ -345,7 +371,10 @@ pub fn load_transforms_from_yaml(path: &str) -> Result<TransformRegistry> {
 /// * any transform definition fails validation (see [`YamlTransformDef::validate`]),
 /// * a referenced plugin is not registered in `plugins`.
 #[expect(dead_code)]
-pub fn load_transforms_from_yaml_with_plugins(path: &str, plugins: &PluginRegistry) -> Result<TransformRegistry> {
+pub fn load_transforms_from_yaml_with_plugins(
+    path: &str,
+    plugins: &PluginRegistry,
+) -> Result<TransformRegistry> {
     let content = fs::read_to_string(path)
         .with_context(|| format!("Failed to read transform config: {}", path))?;
     parse_transforms_from_str_with_plugins(&content, plugins)
@@ -369,7 +398,10 @@ pub fn parse_transforms_from_str(yaml: &str) -> Result<TransformRegistry> {
 /// skipped; use [`parse_aggregation_transforms_from_str`] to load those.
 ///
 /// See [`load_transforms_from_yaml_with_plugins`] for the expected schema and error behaviour.
-pub fn parse_transforms_from_str_with_plugins(yaml: &str, plugins: &PluginRegistry) -> Result<TransformRegistry> {
+pub fn parse_transforms_from_str_with_plugins(
+    yaml: &str,
+    plugins: &PluginRegistry,
+) -> Result<TransformRegistry> {
     let config: YamlTransformConfig =
         serde_yaml_ng::from_str(yaml).context("Failed to parse YAML transform config")?;
 
@@ -505,7 +537,11 @@ pub fn build_graph_and_executor_from_str(
         };
 
         graph.add_transform(TransformEdge::with_input_kind(
-            from, to, def.cost, def.quality, input_kind,
+            from,
+            to,
+            def.cost,
+            def.quality,
+            input_kind,
         ));
 
         if def.is_collection() {
@@ -639,9 +675,12 @@ transforms:
     #[test]
     fn test_invalid_yaml_returns_error() {
         let yaml = "not: valid: yaml: [";
-        let err = parse_transforms_from_str(yaml).err().expect("expected an error");
+        let err = parse_transforms_from_str(yaml)
+            .err()
+            .expect("expected an error");
         assert!(
-            err.to_string().contains("Failed to parse YAML transform config"),
+            err.to_string()
+                .contains("Failed to parse YAML transform config"),
             "unexpected: {}",
             err
         );
@@ -658,7 +697,9 @@ transforms:
     cost: 1.0
     quality: 0.9
 "#;
-        let err = parse_transforms_from_str(yaml).err().expect("expected an error");
+        let err = parse_transforms_from_str(yaml)
+            .err()
+            .expect("expected an error");
         assert!(
             err.to_string().contains("'name' must not be empty"),
             "unexpected: {}",
@@ -677,7 +718,9 @@ transforms:
     cost: 1.0
     quality: 0.9
 "#;
-        let err = parse_transforms_from_str(yaml).err().expect("expected an error");
+        let err = parse_transforms_from_str(yaml)
+            .err()
+            .expect("expected an error");
         assert!(
             err.to_string().contains("'program' must not be empty"),
             "unexpected: {}",
@@ -696,7 +739,9 @@ transforms:
     cost: 1.0
     quality: 0.9
 "#;
-        let err = parse_transforms_from_str(yaml).err().expect("expected an error");
+        let err = parse_transforms_from_str(yaml)
+            .err()
+            .expect("expected an error");
         assert!(
             err.to_string().contains("'from' must not be empty"),
             "unexpected: {}",
@@ -715,7 +760,9 @@ transforms:
     cost: 1.0
     quality: 0.9
 "#;
-        let err = parse_transforms_from_str(yaml).err().expect("expected an error");
+        let err = parse_transforms_from_str(yaml)
+            .err()
+            .expect("expected an error");
         assert!(
             err.to_string().contains("'to' must not be empty"),
             "unexpected: {}",
@@ -734,12 +781,11 @@ transforms:
     cost: 1.0
     quality: 0.9
 "#;
-        let err = parse_transforms_from_str(yaml).err().expect("expected an error");
+        let err = parse_transforms_from_str(yaml)
+            .err()
+            .expect("expected an error");
         let msg = err.to_string();
-        assert!(
-            msg.contains("invalid 'from' format"),
-            "unexpected: {msg}"
-        );
+        assert!(msg.contains("invalid 'from' format"), "unexpected: {msg}");
     }
 
     #[test]
@@ -753,12 +799,11 @@ transforms:
     cost: 1.0
     quality: 0.9
 "#;
-        let err = parse_transforms_from_str(yaml).err().expect("expected an error");
+        let err = parse_transforms_from_str(yaml)
+            .err()
+            .expect("expected an error");
         let msg = err.to_string();
-        assert!(
-            msg.contains("invalid 'to' format"),
-            "unexpected: {msg}"
-        );
+        assert!(msg.contains("invalid 'to' format"), "unexpected: {msg}");
     }
 
     #[test]
@@ -773,7 +818,10 @@ transforms:
     quality: 0.9
 "#;
         let result = parse_transforms_from_str(yaml);
-        assert!(result.is_err(), "missing 'program' or 'plugin' should be an error");
+        assert!(
+            result.is_err(),
+            "missing 'program' or 'plugin' should be an error"
+        );
     }
 
     // ── load_transforms_from_yaml ─────────────────────────────────────────────
@@ -790,15 +838,17 @@ transforms:
     quality: 0.9
 "#;
         let f = write_temp_yaml(yaml);
-        let registry = load_transforms_from_yaml(f.path().to_str().unwrap())
-            .expect("should load from file");
+        let registry =
+            load_transforms_from_yaml(f.path().to_str().unwrap()).expect("should load from file");
         let result = registry.apply_all("data".to_string()).unwrap();
         assert_eq!(result, "data");
     }
 
     #[test]
     fn test_load_from_missing_file_returns_error() {
-        let err = load_transforms_from_yaml("/nonexistent/transforms.yaml").err().expect("expected an error");
+        let err = load_transforms_from_yaml("/nonexistent/transforms.yaml")
+            .err()
+            .expect("expected an error");
         let msg = err.to_string();
         assert!(
             msg.contains("Failed to read transform config"),
@@ -809,7 +859,9 @@ transforms:
     #[test]
     fn test_load_from_file_invalid_yaml_returns_error() {
         let f = write_temp_yaml("not: valid: yaml: [");
-        let err = load_transforms_from_yaml(f.path().to_str().unwrap()).err().expect("expected an error");
+        let err = load_transforms_from_yaml(f.path().to_str().unwrap())
+            .err()
+            .expect("expected an error");
         let msg = err.to_string();
         assert!(
             msg.contains("Failed to load transforms from"),
@@ -831,8 +883,7 @@ transforms:
     cost: 2.5
     quality: 0.95
 "#;
-        let config: YamlTransformConfig =
-            serde_yaml_ng::from_str(yaml).expect("should parse");
+        let config: YamlTransformConfig = serde_yaml_ng::from_str(yaml).expect("should parse");
         let def = &config.transforms[0];
         assert_eq!(def.name, "meta-test");
         assert_eq!(def.program, Some("pandoc".to_string()));
@@ -847,12 +898,14 @@ transforms:
 
     #[test]
     fn test_plugin_transform_executes_correctly() {
-        use std::sync::Arc;
         use crate::transforms::plugin::{PluginExecutor, PluginRegistry};
+        use std::sync::Arc;
 
         struct UpperPlugin;
         impl PluginExecutor for UpperPlugin {
-            fn name(&self) -> &str { "upper" }
+            fn name(&self) -> &str {
+                "upper"
+            }
             fn execute(&self, input: String) -> anyhow::Result<String> {
                 Ok(input.to_uppercase())
             }
@@ -887,8 +940,7 @@ transforms:
     cost: 1.0
     quality: 0.8
 "#;
-        let config: YamlTransformConfig =
-            serde_yaml_ng::from_str(yaml).expect("should parse");
+        let config: YamlTransformConfig = serde_yaml_ng::from_str(yaml).expect("should parse");
         let def = &config.transforms[0];
         assert_eq!(def.plugin, Some("my-plugin".to_string()));
         assert_eq!(def.program, None);
@@ -948,9 +1000,12 @@ transforms:
     cost: 1.0
     quality: 0.9
 "#;
-        let err = parse_transforms_from_str(yaml).err().expect("expected an error");
+        let err = parse_transforms_from_str(yaml)
+            .err()
+            .expect("expected an error");
         assert!(
-            err.to_string().contains("one of 'program', 'plugin', or 'ai' must be provided"),
+            err.to_string()
+                .contains("one of 'program', 'plugin', or 'ai' must be provided"),
             "unexpected: {}",
             err
         );
@@ -958,12 +1013,14 @@ transforms:
 
     #[test]
     fn test_plugin_takes_precedence_over_program_when_both_set() {
-        use std::sync::Arc;
         use crate::transforms::plugin::{PluginExecutor, PluginRegistry};
+        use std::sync::Arc;
 
         struct AppendBangPlugin;
         impl PluginExecutor for AppendBangPlugin {
-            fn name(&self) -> &str { "bang" }
+            fn name(&self) -> &str {
+                "bang"
+            }
             fn execute(&self, input: String) -> anyhow::Result<String> {
                 Ok(format!("{}!", input))
             }
@@ -983,20 +1040,22 @@ transforms:
     cost: 0.5
     quality: 1.0
 "#;
-        let registry = parse_transforms_from_str_with_plugins(yaml, &plugins)
-            .expect("should parse");
+        let registry =
+            parse_transforms_from_str_with_plugins(yaml, &plugins).expect("should parse");
         let result = registry.apply_all("hello".to_string()).unwrap();
         assert_eq!(result, "hello!");
     }
 
     #[test]
     fn test_load_from_file_with_plugins() {
-        use std::sync::Arc;
         use crate::transforms::plugin::{PluginExecutor, PluginRegistry};
+        use std::sync::Arc;
 
         struct ReversePlugin;
         impl PluginExecutor for ReversePlugin {
-            fn name(&self) -> &str { "reverse" }
+            fn name(&self) -> &str {
+                "reverse"
+            }
             fn execute(&self, input: String) -> anyhow::Result<String> {
                 Ok(input.chars().rev().collect())
             }
@@ -1037,8 +1096,7 @@ transforms:
     cost: 1.0
     quality: 0.9
 "#;
-        let config: YamlTransformConfig =
-            serde_yaml_ng::from_str(yaml).expect("should parse");
+        let config: YamlTransformConfig = serde_yaml_ng::from_str(yaml).expect("should parse");
         let def = &config.transforms[0];
         assert_eq!(def.ai, Some("ollama".to_string()));
         assert_eq!(def.model, Some("mistral".to_string()));
@@ -1064,8 +1122,7 @@ transforms:
     cost: 2.0
     quality: 0.95
 "#;
-        let config: YamlTransformConfig =
-            serde_yaml_ng::from_str(yaml).expect("should parse");
+        let config: YamlTransformConfig = serde_yaml_ng::from_str(yaml).expect("should parse");
         let def = &config.transforms[0];
         let t = def.to_ai_transform().expect("should build AI transform");
         assert_eq!(t.name(), "ai-transform");
@@ -1084,8 +1141,7 @@ transforms:
     cost: 1.0
     quality: 0.9
 "#;
-        let config: YamlTransformConfig =
-            serde_yaml_ng::from_str(yaml).expect("should parse");
+        let config: YamlTransformConfig = serde_yaml_ng::from_str(yaml).expect("should parse");
         let def = &config.transforms[0];
         assert_eq!(def.api_key_env.as_deref(), Some("OPENAI_API_KEY"));
     }
@@ -1103,8 +1159,7 @@ transforms:
     cost: 1.0
     quality: 0.9
 "#;
-        let config: YamlTransformConfig =
-            serde_yaml_ng::from_str(yaml).expect("should parse");
+        let config: YamlTransformConfig = serde_yaml_ng::from_str(yaml).expect("should parse");
         let def = &config.transforms[0];
         let t = def.to_ai_transform().expect("should build AI transform");
         assert!(
@@ -1128,7 +1183,10 @@ transforms:
     quality: 0.85
 "#;
         let result = parse_transforms_from_str(yaml);
-        assert!(result.is_ok(), "valid AI transform should parse successfully");
+        assert!(
+            result.is_ok(),
+            "valid AI transform should parse successfully"
+        );
     }
 
     #[test]
@@ -1142,7 +1200,9 @@ transforms:
     cost: 1.0
     quality: 0.9
 "#;
-        let err = parse_transforms_from_str(yaml).err().expect("expected an error");
+        let err = parse_transforms_from_str(yaml)
+            .err()
+            .expect("expected an error");
         assert!(
             err.to_string().contains("invalid 'ai' backend"),
             "unexpected: {}",
@@ -1161,7 +1221,9 @@ transforms:
     cost: 1.0
     quality: 0.9
 "#;
-        let err = parse_transforms_from_str(yaml).err().expect("expected an error");
+        let err = parse_transforms_from_str(yaml)
+            .err()
+            .expect("expected an error");
         assert!(
             err.to_string().contains("'ai' must not be empty"),
             "unexpected: {}",
@@ -1189,8 +1251,7 @@ transforms:
     cost: 0.5
     quality: 1.0
 "#;
-        let config: YamlTransformConfig =
-            serde_yaml_ng::from_str(yaml).expect("should parse");
+        let config: YamlTransformConfig = serde_yaml_ng::from_str(yaml).expect("should parse");
         let def = &config.transforms[0];
         // The AI transform should build without looking up the plugin.
         let t = def.to_ai_transform().expect("ai transform should build");
@@ -1211,7 +1272,11 @@ transforms:
     quality: 0.8
 "#;
         let result = parse_transforms_from_str(yaml);
-        assert!(result.is_ok(), "fountain format must be accepted: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "fountain format must be accepted: {:?}",
+            result.err()
+        );
     }
 
     #[test]
@@ -1228,10 +1293,12 @@ transforms:
     cost: 1.0
     quality: 0.9
 "#;
-        let config: YamlTransformConfig =
-            serde_yaml_ng::from_str(yaml).expect("should parse");
+        let config: YamlTransformConfig = serde_yaml_ng::from_str(yaml).expect("should parse");
         let def = &config.transforms[0];
-        assert_eq!(def.cache_path, Some("/tmp/.renderflow-ai-cache.json".to_string()));
+        assert_eq!(
+            def.cache_path,
+            Some("/tmp/.renderflow-ai-cache.json".to_string())
+        );
     }
 
     #[test]
@@ -1272,8 +1339,7 @@ transforms:
 "#,
             cache_file.to_str().unwrap()
         );
-        let config: YamlTransformConfig =
-            serde_yaml_ng::from_str(&yaml).expect("should parse");
+        let config: YamlTransformConfig = serde_yaml_ng::from_str(&yaml).expect("should parse");
         let def = &config.transforms[0];
         let t = def.to_ai_transform().expect("should build AI transform");
 
@@ -1294,8 +1360,7 @@ transforms:
     cost: 1.0
     quality: 0.9
 "#;
-        let config: YamlTransformConfig =
-            serde_yaml_ng::from_str(yaml).expect("should parse");
+        let config: YamlTransformConfig = serde_yaml_ng::from_str(yaml).expect("should parse");
         let def = &config.transforms[0];
         assert!(def.cache_path.is_none());
     }
@@ -1313,8 +1378,7 @@ transforms:
     cost: 1.0
     quality: 0.9
 "#;
-        let config: YamlTransformConfig =
-            serde_yaml_ng::from_str(yaml).expect("should parse");
+        let config: YamlTransformConfig = serde_yaml_ng::from_str(yaml).expect("should parse");
         assert!(config.transforms[0].input_kind.is_none());
         assert!(!config.transforms[0].is_collection());
     }
@@ -1332,8 +1396,7 @@ transforms:
     cost: 1.0
     quality: 0.9
 "#;
-        let config: YamlTransformConfig =
-            serde_yaml_ng::from_str(yaml).expect("should parse");
+        let config: YamlTransformConfig = serde_yaml_ng::from_str(yaml).expect("should parse");
         assert!(config.transforms[0].is_collection());
     }
 
@@ -1349,8 +1412,7 @@ transforms:
     cost: 1.0
     quality: 0.9
 "#;
-        let config: YamlTransformConfig =
-            serde_yaml_ng::from_str(yaml).expect("should parse");
+        let config: YamlTransformConfig = serde_yaml_ng::from_str(yaml).expect("should parse");
         assert!(!config.transforms[0].is_collection());
     }
 
@@ -1394,10 +1456,15 @@ transforms:
     cost: 1.0
     quality: 0.9
 "#;
-        let registry =
-            parse_aggregation_transforms_from_str(yaml).expect("should parse");
-        assert!(registry.get("aggregated").is_some(), "collection entry must be loaded");
-        assert!(registry.get("regular").is_none(), "non-collection entry must be skipped");
+        let registry = parse_aggregation_transforms_from_str(yaml).expect("should parse");
+        assert!(
+            registry.get("aggregated").is_some(),
+            "collection entry must be loaded"
+        );
+        assert!(
+            registry.get("regular").is_none(),
+            "non-collection entry must be skipped"
+        );
     }
 
     #[test]
@@ -1437,8 +1504,7 @@ transforms:
     cost: 1.0
     quality: 0.9
 "#;
-        let config: YamlTransformConfig =
-            serde_yaml_ng::from_str(yaml).expect("should parse yaml");
+        let config: YamlTransformConfig = serde_yaml_ng::from_str(yaml).expect("should parse yaml");
         let def = &config.transforms[0];
         // to_aggregation_transform must fail when program is absent.
         assert!(def.to_aggregation_transform().is_err());
@@ -1520,7 +1586,10 @@ transforms:
     quality: 1.0
 "#;
         let result = build_graph_and_executor_from_str(yaml);
-        assert!(result.is_err(), "invalid 'from' format should return an error");
+        assert!(
+            result.is_err(),
+            "invalid 'from' format should return an error"
+        );
     }
 
     #[test]

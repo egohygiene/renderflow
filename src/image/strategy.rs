@@ -86,8 +86,8 @@ impl OutputStrategy for ImageStrategy {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::HashMap;
     use crate::input_format::InputFormat;
+    use std::collections::HashMap;
 
     fn image_ctx<'a>(
         input: &'a str,

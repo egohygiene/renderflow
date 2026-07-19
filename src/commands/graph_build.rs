@@ -35,7 +35,12 @@ pub fn run_target(
         .parse::<Format>()
         .with_context(|| format!("'{}' is not a valid target format", target))?;
 
-    run_impl(config_path, Some(vec![target_format]), dry_run, optimization)
+    run_impl(
+        config_path,
+        Some(vec![target_format]),
+        dry_run,
+        optimization,
+    )
 }
 
 /// Run graph-based execution targeting all formats reachable from the source.
@@ -91,16 +96,12 @@ fn run_impl(
     info!(optimization = %opt_mode, "Using optimization mode");
 
     // Derive the source format from the config's input field.
-    let source_format: Format = config
-        .input_format()
-        .to_string()
-        .parse()
-        .with_context(|| {
-            format!(
-                "Could not map input format '{}' to a known graph format",
-                config.input_format()
-            )
-        })?;
+    let source_format: Format = config.input_format().to_string().parse().with_context(|| {
+        format!(
+            "Could not map input format '{}' to a known graph format",
+            config.input_format()
+        )
+    })?;
 
     // Determine which formats to build.
     let targets: Vec<Format> = match explicit_targets {
@@ -154,7 +155,11 @@ fn run_impl(
         );
         for target in &targets {
             let output_path = path.join(format!("{}.{}", input_stem, target));
-            info!("[DRY RUN] Would write '{}' output to: {}", target, output_path.display());
+            info!(
+                "[DRY RUN] Would write '{}' output to: {}",
+                target,
+                output_path.display()
+            );
         }
         return Ok(());
     } else {

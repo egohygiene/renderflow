@@ -65,7 +65,10 @@ fn test_watch_help_flag_exits_successfully() {
         .output()
         .expect("failed to execute renderflow");
 
-    assert!(output.status.success(), "watch --help should exit with code 0");
+    assert!(
+        output.status.success(),
+        "watch --help should exit with code 0"
+    );
 }
 
 #[test]
@@ -117,7 +120,10 @@ fn test_build_help_flag_exits_successfully() {
         .output()
         .expect("failed to execute renderflow");
 
-    assert!(output.status.success(), "build --help should exit with code 0");
+    assert!(
+        output.status.success(),
+        "build --help should exit with code 0"
+    );
 }
 
 #[test]
@@ -173,7 +179,10 @@ fn test_build_command_runs() {
         .output()
         .expect("failed to execute renderflow");
 
-    assert!(output.status.success(), "renderflow build exited with non-zero status");
+    assert!(
+        output.status.success(),
+        "renderflow build exited with non-zero status"
+    );
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("Running build pipeline"));
     assert!(stdout.contains("Loaded config successfully"));
@@ -188,7 +197,10 @@ fn test_build_command_missing_config() {
         .output()
         .expect("failed to execute renderflow");
 
-    assert!(!output.status.success(), "expected non-zero exit when config is missing");
+    assert!(
+        !output.status.success(),
+        "expected non-zero exit when config is missing"
+    );
 }
 
 #[test]
@@ -200,7 +212,10 @@ fn test_implicit_build_command_runs() {
         .output()
         .expect("failed to execute renderflow");
 
-    assert!(output.status.success(), "renderflow <input> exited with non-zero status");
+    assert!(
+        output.status.success(),
+        "renderflow <input> exited with non-zero status"
+    );
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("Running build pipeline"));
     assert!(stdout.contains("Loaded config successfully"));
@@ -213,7 +228,10 @@ fn test_implicit_build_missing_config() {
         .output()
         .expect("failed to execute renderflow");
 
-    assert!(!output.status.success(), "expected non-zero exit when config is missing");
+    assert!(
+        !output.status.success(),
+        "expected non-zero exit when config is missing"
+    );
 }
 
 #[test]
@@ -278,9 +296,15 @@ fn test_no_input_provided_exits_with_error() {
         .output()
         .expect("failed to execute renderflow");
 
-    assert!(!output.status.success(), "expected non-zero exit when no input is provided");
+    assert!(
+        !output.status.success(),
+        "expected non-zero exit when no input is provided"
+    );
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("No input provided"), "expected helpful error message, got: {stderr}");
+    assert!(
+        stderr.contains("No input provided"),
+        "expected helpful error message, got: {stderr}"
+    );
 }
 
 // ── --target flag ────────────────────────────────────────────────────────────
@@ -334,7 +358,13 @@ fn test_target_and_all_are_mutually_exclusive() {
 #[test]
 fn test_target_with_missing_config_exits_with_error() {
     let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
-        .args(["build", "--config", "/nonexistent/renderflow.yaml", "--target", "pdf"])
+        .args([
+            "build",
+            "--config",
+            "/nonexistent/renderflow.yaml",
+            "--target",
+            "pdf",
+        ])
         .output()
         .expect("failed to execute renderflow");
 
@@ -466,7 +496,10 @@ fn test_inspect_help_exits_successfully() {
         .output()
         .expect("failed to execute renderflow");
 
-    assert!(output.status.success(), "inspect --help should exit with code 0");
+    assert!(
+        output.status.success(),
+        "inspect --help should exit with code 0"
+    );
 }
 
 #[test]

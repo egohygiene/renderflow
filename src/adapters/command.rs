@@ -84,13 +84,19 @@ mod tests {
         let result = run_command("false", &[]);
         assert!(result.is_err(), "false should fail");
         let err = result.unwrap_err().to_string();
-        assert!(err.contains("failed with exit code"), "error message should mention exit code");
+        assert!(
+            err.contains("failed with exit code"),
+            "error message should mention exit code"
+        );
     }
 
     #[test]
     fn test_nonexistent_program() {
         let result = run_command("__nonexistent_program__", &[]);
-        assert!(result.is_err(), "nonexistent program should return an error");
+        assert!(
+            result.is_err(),
+            "nonexistent program should return an error"
+        );
         let err = result.unwrap_err().to_string();
         assert!(
             err.contains("was not found") && err.contains("PATH"),

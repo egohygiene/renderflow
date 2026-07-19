@@ -119,7 +119,10 @@ mod tests {
     #[test]
     fn test_build_minimal_args() {
         let args = PandocArgs::new("markdown", "input.md", "output.html").build();
-        assert_eq!(args, vec!["--from", "markdown", "input.md", "-o", "output.html"]);
+        assert_eq!(
+            args,
+            vec!["--from", "markdown", "input.md", "-o", "output.html"]
+        );
     }
 
     #[test]
@@ -129,7 +132,15 @@ mod tests {
             .build();
         assert_eq!(
             args,
-            vec!["--from", "markdown", "input.md", "-o", "output.html", "--template", "/templates/default.html"]
+            vec![
+                "--from",
+                "markdown",
+                "input.md",
+                "-o",
+                "output.html",
+                "--template",
+                "/templates/default.html"
+            ]
         );
     }
 
@@ -140,7 +151,14 @@ mod tests {
             .build();
         assert_eq!(
             args,
-            vec!["--from", "markdown", "input.md", "-o", "output.pdf", "--pdf-engine=tectonic"]
+            vec![
+                "--from",
+                "markdown",
+                "input.md",
+                "-o",
+                "output.pdf",
+                "--pdf-engine=tectonic"
+            ]
         );
     }
 
@@ -153,9 +171,14 @@ mod tests {
         assert_eq!(
             args,
             vec![
-                "--from", "markdown", "input.md", "-o", "output.pdf",
+                "--from",
+                "markdown",
+                "input.md",
+                "-o",
+                "output.pdf",
                 "--pdf-engine=tectonic",
-                "--template", "/templates/default.tex",
+                "--template",
+                "/templates/default.tex",
             ]
         );
     }
@@ -168,15 +191,25 @@ mod tests {
         assert_eq!(
             args,
             vec![
-                "--from", "markdown", "input.md", "-o", "output.docx",
-                "--reference-doc", "/templates/reference.docx",
+                "--from",
+                "markdown",
+                "input.md",
+                "-o",
+                "output.docx",
+                "--reference-doc",
+                "/templates/reference.docx",
             ]
         );
     }
 
     #[test]
     fn test_build_different_input_formats() {
-        for (format, expected) in [("rst", "rst"), ("html", "html"), ("latex", "latex"), ("docx", "docx")] {
+        for (format, expected) in [
+            ("rst", "rst"),
+            ("html", "html"),
+            ("latex", "latex"),
+            ("docx", "docx"),
+        ] {
             let args = PandocArgs::new(format, "input", "output").build();
             assert_eq!(args[1], expected, "input format should be passed as-is");
         }
@@ -185,10 +218,22 @@ mod tests {
     #[test]
     fn test_no_optional_flags_when_not_set() {
         let args = PandocArgs::new("markdown", "input.md", "output.html").build();
-        assert!(!args.iter().any(|a| a.contains("--template")), "should not have --template");
-        assert!(!args.iter().any(|a| a.contains("--pdf-engine")), "should not have --pdf-engine");
-        assert!(!args.iter().any(|a| a.contains("--reference-doc")), "should not have --reference-doc");
-        assert!(!args.iter().any(|a| a.contains("--variable")), "should not have --variable");
+        assert!(
+            !args.iter().any(|a| a.contains("--template")),
+            "should not have --template"
+        );
+        assert!(
+            !args.iter().any(|a| a.contains("--pdf-engine")),
+            "should not have --pdf-engine"
+        );
+        assert!(
+            !args.iter().any(|a| a.contains("--reference-doc")),
+            "should not have --reference-doc"
+        );
+        assert!(
+            !args.iter().any(|a| a.contains("--variable")),
+            "should not have --variable"
+        );
     }
 
     #[test]
@@ -199,7 +244,10 @@ mod tests {
         let args = PandocArgs::new("markdown", "input.md", "output.html")
             .with_variables(&vars)
             .build();
-        let var_pos = args.iter().position(|a| a == "--variable").expect("--variable flag expected");
+        let var_pos = args
+            .iter()
+            .position(|a| a == "--variable")
+            .expect("--variable flag expected");
         assert_eq!(args[var_pos + 1], "author=Alice");
     }
 
@@ -213,7 +261,8 @@ mod tests {
             .with_variables(&vars)
             .build();
         // Collect all --variable values from the argument list.
-        let mut pairs: Vec<String> = args.windows(2)
+        let mut pairs: Vec<String> = args
+            .windows(2)
             .filter(|w| w[0] == "--variable")
             .map(|w| w[1].clone())
             .collect();
@@ -227,6 +276,9 @@ mod tests {
         let args = PandocArgs::new("markdown", "input.md", "output.html")
             .with_variables(&HashMap::new())
             .build();
-        assert!(!args.iter().any(|a| a == "--variable"), "empty variables should produce no --variable flags");
+        assert!(
+            !args.iter().any(|a| a == "--variable"),
+            "empty variables should produce no --variable flags"
+        );
     }
 }

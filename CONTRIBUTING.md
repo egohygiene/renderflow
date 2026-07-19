@@ -114,6 +114,14 @@ task lint     # run Clippy
 task test     # run all tests
 ```
 
+### Dependency Maintenance Notes
+
+- Prefer targeted dependency upgrades with a clear benefit (security fix, API simplification, or removal of compatibility glue); avoid version churn for its own sake.
+- `ureq` remains on v2 for now because the current synchronous AI transform flow is stable and fully covered by the existing build, lint, and test commands.
+- The AI networking code now routes requests through a small internal HTTP-client abstraction in `src/transforms/ai.rs`. Use that seam for future transport work instead of spreading `ureq` calls across backend-specific branches.
+- Before moving to `ureq` v3, review the migration impact on request construction, response-body handling, and error reporting so the change can stay behavior-compatible.
+- Only introduce async HTTP support when there is a concrete need for concurrent remote AI calls; doing so earlier would widen the executor surface area without benefiting the current transform pipeline.
+
 ---
 
 ## Releases

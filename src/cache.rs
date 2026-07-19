@@ -379,7 +379,10 @@ mod tests {
     #[test]
     fn test_hash_is_hex_string() {
         let h = compute_input_hash("test", "", &vars(&[]));
-        assert!(h.chars().all(|c| c.is_ascii_hexdigit()), "hash must be hex: {h}");
+        assert!(
+            h.chars().all(|c| c.is_ascii_hexdigit()),
+            "hash must be hex: {h}"
+        );
         assert_eq!(h.len(), 64, "SHA-256 hex must be 64 chars");
     }
 
@@ -507,7 +510,10 @@ mod tests {
     #[test]
     fn test_output_hash_is_hex_string() {
         let h = compute_output_hash("content", "html", None, None);
-        assert!(h.chars().all(|c| c.is_ascii_hexdigit()), "hash must be hex: {h}");
+        assert!(
+            h.chars().all(|c| c.is_ascii_hexdigit()),
+            "hash must be hex: {h}"
+        );
         assert_eq!(h.len(), 64, "SHA-256 hex must be 64 chars");
     }
 
@@ -621,7 +627,10 @@ mod tests {
     #[test]
     fn test_ai_hash_is_hex_string() {
         let h = compute_ai_input_hash("prompt", "model");
-        assert!(h.chars().all(|c| c.is_ascii_hexdigit()), "hash must be hex: {h}");
+        assert!(
+            h.chars().all(|c| c.is_ascii_hexdigit()),
+            "hash must be hex: {h}"
+        );
         assert_eq!(h.len(), 64, "SHA-256 hex must be 64 chars");
     }
 
@@ -676,8 +685,14 @@ mod tests {
         let cache_path = dir.path().join(".renderflow-ai-cache.json");
 
         let mut cache = AiCache::default();
-        cache.insert("hash1".to_string(), make_entry("hash1", "mistral", "output1"));
-        cache.insert("hash2".to_string(), make_entry("hash2", "gpt-4o", "output2"));
+        cache.insert(
+            "hash1".to_string(),
+            make_entry("hash1", "mistral", "output1"),
+        );
+        cache.insert(
+            "hash2".to_string(),
+            make_entry("hash2", "gpt-4o", "output2"),
+        );
 
         save_ai_cache(&cache, &cache_path).expect("save should succeed");
 
@@ -704,7 +719,10 @@ mod tests {
         let cache_path = dir.path().join(".renderflow-ai-cache.json");
 
         let mut cache = AiCache::default();
-        cache.insert("testhash".to_string(), make_entry("testhash", "mistral", "testoutput"));
+        cache.insert(
+            "testhash".to_string(),
+            make_entry("testhash", "mistral", "testoutput"),
+        );
         save_ai_cache(&cache, &cache_path).expect("save should succeed");
 
         let raw = fs::read_to_string(&cache_path).expect("read failed");
@@ -768,7 +786,10 @@ mod tests {
     #[test]
     fn test_dag_node_hash_is_hex_string() {
         let h = compute_dag_node_hash("test", "markdown", "html");
-        assert!(h.chars().all(|c| c.is_ascii_hexdigit()), "hash must be hex: {h}");
+        assert!(
+            h.chars().all(|c| c.is_ascii_hexdigit()),
+            "hash must be hex: {h}"
+        );
         assert_eq!(h.len(), 64, "SHA-256 hex must be 64 chars");
     }
 }

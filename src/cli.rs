@@ -41,16 +41,14 @@ pub struct Cli {
 #[derive(Subcommand)]
 pub enum Commands {
     /// Build rendered documents from a renderflow configuration file
-    #[command(
-        after_help = "Examples:\n  \
+    #[command(after_help = "Examples:\n  \
             renderflow build                        Build using renderflow.yaml\n  \
             renderflow build --config custom.yaml   Build with a custom config file\n  \
             renderflow build --dry-run              Preview what would be built\n  \
             renderflow build --optimization speed   Build using speed optimization mode\n  \
             renderflow build --optimization pareto  Build with Pareto-optimal path selection\n  \
             renderflow build --target pdf           Build only the PDF output via graph resolution\n  \
-            renderflow build --all                  Build all reachable outputs via graph resolution"
-    )]
+            renderflow build --all                  Build all reachable outputs via graph resolution")]
     Build {
         /// Path to the renderflow configuration file
         #[arg(long, default_value = "renderflow.yaml", value_name = "FILE")]
@@ -82,12 +80,10 @@ pub enum Commands {
     },
 
     /// Watch for file changes and automatically rebuild
-    #[command(
-        after_help = "Examples:\n  \
+    #[command(after_help = "Examples:\n  \
             renderflow watch                                    Watch using renderflow.yaml\n  \
             renderflow watch --config custom.yaml               Watch with a custom config file\n  \
-            renderflow watch --config custom.yaml --debounce 300   Watch with a 300 ms debounce delay"
-    )]
+            renderflow watch --config custom.yaml --debounce 300   Watch with a 300 ms debounce delay")]
     Watch {
         /// Path to the renderflow configuration file
         #[arg(long, default_value = "renderflow.yaml", value_name = "FILE")]
@@ -99,21 +95,17 @@ pub enum Commands {
     },
 
     /// Generate an optimization audit report covering performance, memory, and Rust best practices
-    #[command(
-        after_help = "Examples:\n  \
-            renderflow audit   Generate an audit report in the audits/ directory"
-    )]
+    #[command(after_help = "Examples:\n  \
+            renderflow audit   Generate an audit report in the audits/ directory")]
     Audit,
 
     /// Visualize the transformation DAG and execution plan
-    #[command(
-        after_help = "Examples:\n  \
+    #[command(after_help = "Examples:\n  \
             renderflow inspect                          Show DAG tree for renderflow.yaml\n  \
             renderflow inspect --config custom.yaml    Show DAG tree for a custom config\n  \
             renderflow inspect --output-format dot     Emit Graphviz DOT output to stdout\n  \
             renderflow inspect --target pdf            Show execution plan for a single target\n  \
-            renderflow inspect --all --export dag.dot  Export full DAG to a DOT file"
-    )]
+            renderflow inspect --all --export dag.dot  Export full DAG to a DOT file")]
     Inspect {
         /// Path to the renderflow configuration file
         #[arg(long, default_value = "renderflow.yaml", value_name = "FILE")]

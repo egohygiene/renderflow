@@ -259,9 +259,10 @@ impl ImageProfile {
             // Two-pass palette optimisation is handled in FfmpegImageArgs::build
             // via extra_args when GifOptimized is selected.
             ImageProfile::GifOptimized => ImageProfileOptions {
-                extra_args: vec![
-                    ("vf".to_string(), "split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse".to_string()),
-                ],
+                extra_args: vec![(
+                    "vf".to_string(),
+                    "split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse".to_string(),
+                )],
                 ..Default::default()
             },
 
@@ -389,10 +390,7 @@ mod tests {
             joined.contains("-vcodec mjpeg"),
             "must include -vcodec mjpeg: {joined}"
         );
-        assert!(
-            joined.contains("-q:v 5"),
-            "must include -q:v 5: {joined}"
-        );
+        assert!(joined.contains("-q:v 5"), "must include -q:v 5: {joined}");
     }
 
     #[test]

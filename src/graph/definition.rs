@@ -53,7 +53,13 @@ impl TransformDefinition {
     /// * `quality` – expected output quality in the range `[0.0, 1.0]`; values
     ///   outside this range are clamped automatically.
     /// * `label`   – human-readable name identifying the conversion tool or method
-    pub fn new(from: Format, to: Format, cost: f32, quality: f32, label: impl Into<String>) -> Self {
+    pub fn new(
+        from: Format,
+        to: Format,
+        cost: f32,
+        quality: f32,
+        label: impl Into<String>,
+    ) -> Self {
         Self {
             from,
             to,
@@ -121,13 +127,19 @@ mod tests {
     #[test]
     fn test_quality_clamped_above_one() {
         let def = TransformDefinition::new(Format::Markdown, Format::Pdf, 1.0, 1.5, "tool");
-        assert!((def.quality - 1.0).abs() < 1e-5, "quality above 1.0 must be clamped");
+        assert!(
+            (def.quality - 1.0).abs() < 1e-5,
+            "quality above 1.0 must be clamped"
+        );
     }
 
     #[test]
     fn test_quality_clamped_below_zero() {
         let def = TransformDefinition::new(Format::Markdown, Format::Pdf, 1.0, -0.5, "tool");
-        assert!((def.quality - 0.0).abs() < 1e-5, "quality below 0.0 must be clamped");
+        assert!(
+            (def.quality - 0.0).abs() < 1e-5,
+            "quality below 0.0 must be clamped"
+        );
     }
 
     #[test]
@@ -177,7 +189,12 @@ mod tests {
     #[test]
     fn test_with_input_kind_collection() {
         let def = TransformDefinition::with_input_kind(
-            Format::Markdown, Format::Epub, 1.0, 0.85, "book-assembler", InputKind::Collection,
+            Format::Markdown,
+            Format::Epub,
+            1.0,
+            0.85,
+            "book-assembler",
+            InputKind::Collection,
         );
         assert_eq!(def.input_kind, InputKind::Collection);
         assert_eq!(def.label, "book-assembler");
@@ -193,7 +210,12 @@ mod tests {
     fn test_definition_inequality_by_input_kind() {
         let a = TransformDefinition::new(Format::Markdown, Format::Epub, 1.0, 0.85, "tool");
         let b = TransformDefinition::with_input_kind(
-            Format::Markdown, Format::Epub, 1.0, 0.85, "tool", InputKind::Collection,
+            Format::Markdown,
+            Format::Epub,
+            1.0,
+            0.85,
+            "tool",
+            InputKind::Collection,
         );
         assert_ne!(a, b);
     }
@@ -228,7 +250,12 @@ mod tests {
     #[test]
     fn test_to_edge_propagates_input_kind_collection() {
         let def = TransformDefinition::with_input_kind(
-            Format::Markdown, Format::Epub, 1.0, 0.85, "book-assembler", InputKind::Collection,
+            Format::Markdown,
+            Format::Epub,
+            1.0,
+            0.85,
+            "book-assembler",
+            InputKind::Collection,
         );
         let edge = def.to_edge();
         assert_eq!(edge.input_kind, InputKind::Collection);

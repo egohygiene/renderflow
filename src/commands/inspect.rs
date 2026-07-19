@@ -43,16 +43,12 @@ pub fn run(
 
     let opt_mode = optimization.unwrap_or(config.optimization);
 
-    let source_format: Format = config
-        .input_format()
-        .to_string()
-        .parse()
-        .with_context(|| {
-            format!(
-                "Could not map input format '{}' to a known graph format",
-                config.input_format()
-            )
-        })?;
+    let source_format: Format = config.input_format().to_string().parse().with_context(|| {
+        format!(
+            "Could not map input format '{}' to a known graph format",
+            config.input_format()
+        )
+    })?;
 
     // Determine targets.
     let targets: Vec<Format> = if let Some(t) = target {

@@ -142,9 +142,7 @@ impl Config {
             anyhow::bail!("Config validation failed: 'input' must not be empty");
         }
         if self.outputs.is_empty() {
-            anyhow::bail!(
-                "Config validation failed: 'outputs' must contain at least one entry"
-            );
+            anyhow::bail!("Config validation failed: 'outputs' must contain at least one entry");
         }
         // Collect all unsupported types so the user sees every problem at once.
         let bad: Vec<String> = self
@@ -303,8 +301,16 @@ output_dir: "dist"
         assert_eq!(
             config.outputs,
             vec![
-                OutputConfig { output_type: OutputType::Pdf, template: None, profile: None },
-                OutputConfig { output_type: OutputType::Html, template: None, profile: None },
+                OutputConfig {
+                    output_type: OutputType::Pdf,
+                    template: None,
+                    profile: None
+                },
+                OutputConfig {
+                    output_type: OutputType::Html,
+                    template: None,
+                    profile: None
+                },
             ]
         );
         assert_eq!(config.input, "input.md");
@@ -368,7 +374,8 @@ outputs:
 input: "input.md"
 "#;
         let f = write_temp_yaml(yaml);
-        let config = load_config(f.path().to_str().unwrap()).expect("should parse with default output_dir");
+        let config =
+            load_config(f.path().to_str().unwrap()).expect("should parse with default output_dir");
         assert_eq!(config.output_dir, "dist");
     }
 
@@ -383,7 +390,11 @@ output_dir: "dist"
         let result = load_config(f.path().to_str().unwrap());
         assert!(result.is_err());
         let msg = format!("{}", result.unwrap_err());
-        assert!(msg.contains("at least one entry"), "unexpected error: {}", msg);
+        assert!(
+            msg.contains("at least one entry"),
+            "unexpected error: {}",
+            msg
+        );
     }
 
     #[test]
@@ -398,7 +409,11 @@ output_dir: "dist"
         let result = load_config(f.path().to_str().unwrap());
         assert!(result.is_err());
         let msg = format!("{}", result.unwrap_err());
-        assert!(msg.contains("'input' must not be empty"), "unexpected error: {}", msg);
+        assert!(
+            msg.contains("'input' must not be empty"),
+            "unexpected error: {}",
+            msg
+        );
     }
 
     #[test]
@@ -410,10 +425,15 @@ input: "input.md"
 output_dir: "dist"
 "#;
         let f = write_temp_yaml(yaml);
-        let config = load_config(f.path().to_str().unwrap()).expect("should parse docx output type");
+        let config =
+            load_config(f.path().to_str().unwrap()).expect("should parse docx output type");
         assert_eq!(
             config.outputs,
-            vec![OutputConfig { output_type: OutputType::Docx, template: None, profile: None }]
+            vec![OutputConfig {
+                output_type: OutputType::Docx,
+                template: None,
+                profile: None
+            }]
         );
     }
 
@@ -483,8 +503,14 @@ variables:
 "#;
         let f = write_temp_yaml(yaml);
         let config = load_config(f.path().to_str().unwrap()).expect("should parse with variables");
-        assert_eq!(config.variables.get("title").map(String::as_str), Some("My Document"));
-        assert_eq!(config.variables.get("author").map(String::as_str), Some("Alan"));
+        assert_eq!(
+            config.variables.get("title").map(String::as_str),
+            Some("My Document")
+        );
+        assert_eq!(
+            config.variables.get("author").map(String::as_str),
+            Some("Alan")
+        );
     }
 
     #[test]
@@ -496,7 +522,8 @@ input: "input.md"
 output_dir: "dist"
 "#;
         let f = write_temp_yaml(yaml);
-        let config = load_config(f.path().to_str().unwrap()).expect("should parse without variables");
+        let config =
+            load_config(f.path().to_str().unwrap()).expect("should parse without variables");
         assert!(config.variables.is_empty());
     }
 
@@ -510,7 +537,10 @@ output_dir: "dist"
 "#;
         let f = write_temp_yaml(yaml);
         let config = load_config(f.path().to_str().unwrap()).expect("should parse");
-        assert_eq!(config.optimization, crate::optimization::OptimizationMode::Balanced);
+        assert_eq!(
+            config.optimization,
+            crate::optimization::OptimizationMode::Balanced
+        );
     }
 
     #[test]
@@ -524,7 +554,10 @@ optimization: speed
 "#;
         let f = write_temp_yaml(yaml);
         let config = load_config(f.path().to_str().unwrap()).expect("should parse");
-        assert_eq!(config.optimization, crate::optimization::OptimizationMode::Speed);
+        assert_eq!(
+            config.optimization,
+            crate::optimization::OptimizationMode::Speed
+        );
     }
 
     #[test]
@@ -538,7 +571,10 @@ optimization: quality
 "#;
         let f = write_temp_yaml(yaml);
         let config = load_config(f.path().to_str().unwrap()).expect("should parse");
-        assert_eq!(config.optimization, crate::optimization::OptimizationMode::Quality);
+        assert_eq!(
+            config.optimization,
+            crate::optimization::OptimizationMode::Quality
+        );
     }
 
     #[test]
@@ -552,7 +588,10 @@ optimization: balanced
 "#;
         let f = write_temp_yaml(yaml);
         let config = load_config(f.path().to_str().unwrap()).expect("should parse");
-        assert_eq!(config.optimization, crate::optimization::OptimizationMode::Balanced);
+        assert_eq!(
+            config.optimization,
+            crate::optimization::OptimizationMode::Balanced
+        );
     }
 
     #[test]
@@ -565,7 +604,8 @@ output_dir: "dist"
 input_format: html
 "#;
         let f = write_temp_yaml(yaml);
-        let config = load_config(f.path().to_str().unwrap()).expect("should parse with explicit input_format");
+        let config = load_config(f.path().to_str().unwrap())
+            .expect("should parse with explicit input_format");
         assert_eq!(config.input_format(), InputFormat::Html);
     }
 
@@ -757,7 +797,8 @@ input: "input.md"
 output_dir: "dist"
 "#;
         let f = write_temp_yaml(yaml);
-        let config = load_config(f.path().to_str().unwrap()).expect("should parse without transforms");
+        let config =
+            load_config(f.path().to_str().unwrap()).expect("should parse without transforms");
         assert!(config.transforms.is_none());
     }
 }

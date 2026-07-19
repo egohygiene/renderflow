@@ -187,11 +187,8 @@ impl MultiTargetDag {
         let _ = writeln!(out, "Nodes ({}):", self.node_count());
 
         // Sort node labels for deterministic output.
-        let mut node_labels: Vec<String> = self
-            .graph
-            .node_weights()
-            .map(|f| f.to_string())
-            .collect();
+        let mut node_labels: Vec<String> =
+            self.graph.node_weights().map(|f| f.to_string()).collect();
         node_labels.sort();
         for label in &node_labels {
             let _ = writeln!(out, "  • {}", label);
@@ -308,11 +305,8 @@ impl MultiTargetDag {
             .collect();
 
         // Emit node declarations with styles.
-        let mut node_labels: Vec<String> = self
-            .graph
-            .node_weights()
-            .map(|f| f.to_string())
-            .collect();
+        let mut node_labels: Vec<String> =
+            self.graph.node_weights().map(|f| f.to_string()).collect();
         node_labels.sort();
         for label in &node_labels {
             let format: Format = label
@@ -407,9 +401,7 @@ mod tests {
     #[test]
     fn test_dag_empty_targets_returns_empty_dag() {
         let g = build_graph();
-        let dag = g
-            .build_multi_target_dag(Format::Markdown, &[])
-            .unwrap();
+        let dag = g.build_multi_target_dag(Format::Markdown, &[]).unwrap();
 
         assert_eq!(dag.edge_count(), 0);
         assert_eq!(dag.node_count(), 0);
@@ -421,8 +413,7 @@ mod tests {
         g.add_transform(TransformEdge::new(Format::Markdown, Format::Html, 0.5, 1.0));
 
         // Epub is not reachable.
-        let result = g
-            .build_multi_target_dag(Format::Markdown, &[Format::Html, Format::Epub]);
+        let result = g.build_multi_target_dag(Format::Markdown, &[Format::Html, Format::Epub]);
         assert!(result.is_none());
     }
 
@@ -487,7 +478,11 @@ mod tests {
         let mut seen = std::collections::HashSet::new();
         for edge in &order {
             let pair = (edge.from, edge.to);
-            assert!(seen.insert(pair), "duplicate edge in execution order: {:?}", pair);
+            assert!(
+                seen.insert(pair),
+                "duplicate edge in execution order: {:?}",
+                pair
+            );
         }
     }
 
@@ -498,7 +493,12 @@ mod tests {
         let mut dag = MultiTargetDag::new();
         // Add the same (from, to) pair twice: expensive first, then cheaper.
         dag.merge_edge(TransformEdge::new(Format::Markdown, Format::Html, 2.0, 0.9));
-        dag.merge_edge(TransformEdge::new(Format::Markdown, Format::Html, 1.0, 0.95));
+        dag.merge_edge(TransformEdge::new(
+            Format::Markdown,
+            Format::Html,
+            1.0,
+            0.95,
+        ));
 
         // Only one edge should be stored.
         assert_eq!(dag.edge_count(), 1);
@@ -511,7 +511,12 @@ mod tests {
     fn test_merge_edge_retains_existing_when_new_is_more_expensive() {
         let mut dag = MultiTargetDag::new();
         // Add the cheaper edge first, then try to replace it with a more expensive one.
-        dag.merge_edge(TransformEdge::new(Format::Markdown, Format::Html, 1.0, 0.95));
+        dag.merge_edge(TransformEdge::new(
+            Format::Markdown,
+            Format::Html,
+            1.0,
+            0.95,
+        ));
         dag.merge_edge(TransformEdge::new(Format::Markdown, Format::Html, 2.0, 0.9));
 
         assert_eq!(dag.edge_count(), 1);
@@ -559,7 +564,11 @@ mod tests {
         let mut dag = MultiTargetDag::new();
         dag.merge_edge(TransformEdge::new(Format::Markdown, Format::Html, 0.5, 1.0));
         dag.merge_edge(TransformEdge::with_input_kind(
-            Format::Markdown, Format::Epub, 1.0, 0.85, InputKind::Collection,
+            Format::Markdown,
+            Format::Epub,
+            1.0,
+            0.85,
+            InputKind::Collection,
         ));
 
         let collection = dag.collection_edges();
@@ -573,7 +582,11 @@ mod tests {
         let mut dag = MultiTargetDag::new();
         dag.merge_edge(TransformEdge::new(Format::Markdown, Format::Html, 0.5, 1.0));
         dag.merge_edge(TransformEdge::with_input_kind(
-            Format::Markdown, Format::Epub, 1.0, 0.85, InputKind::Collection,
+            Format::Markdown,
+            Format::Epub,
+            1.0,
+            0.85,
+            InputKind::Collection,
         ));
 
         let collection = dag.collection_edges();
@@ -584,10 +597,18 @@ mod tests {
     fn test_collection_edges_multiple() {
         let mut dag = MultiTargetDag::new();
         dag.merge_edge(TransformEdge::with_input_kind(
-            Format::Markdown, Format::Epub, 1.0, 0.85, InputKind::Collection,
+            Format::Markdown,
+            Format::Epub,
+            1.0,
+            0.85,
+            InputKind::Collection,
         ));
         dag.merge_edge(TransformEdge::with_input_kind(
-            Format::Html, Format::Pdf, 0.8, 0.85, InputKind::Collection,
+            Format::Html,
+            Format::Pdf,
+            0.8,
+            0.85,
+            InputKind::Collection,
         ));
         dag.merge_edge(TransformEdge::new(Format::Markdown, Format::Html, 0.5, 1.0));
 
@@ -605,8 +626,14 @@ mod tests {
             .unwrap();
 
         let tree = dag.to_tree(Format::Markdown);
-        assert!(tree.contains("DAG Execution Plan"), "header missing: {tree}");
-        assert!(tree.contains("Source: markdown"), "source line missing: {tree}");
+        assert!(
+            tree.contains("DAG Execution Plan"),
+            "header missing: {tree}"
+        );
+        assert!(
+            tree.contains("Source: markdown"),
+            "source line missing: {tree}"
+        );
     }
 
     #[test]
@@ -644,16 +671,17 @@ mod tests {
             .unwrap();
 
         let tree = dag.to_tree(Format::Markdown);
-        assert!(tree.contains("Execution Order:"), "execution order section missing");
+        assert!(
+            tree.contains("Execution Order:"),
+            "execution order section missing"
+        );
         assert!(tree.contains("[1]"), "first step missing");
     }
 
     #[test]
     fn test_to_tree_empty_dag() {
         let g = build_graph();
-        let dag = g
-            .build_multi_target_dag(Format::Markdown, &[])
-            .unwrap();
+        let dag = g.build_multi_target_dag(Format::Markdown, &[]).unwrap();
 
         let tree = dag.to_tree(Format::Markdown);
         assert!(tree.contains("Nodes (0)"), "empty node count wrong: {tree}");
@@ -670,8 +698,14 @@ mod tests {
             .unwrap();
 
         let dot = dag.to_dot(Format::Markdown);
-        assert!(dot.starts_with("digraph renderflow {"), "missing digraph header: {dot}");
-        assert!(dot.trim_end().ends_with('}'), "missing closing brace: {dot}");
+        assert!(
+            dot.starts_with("digraph renderflow {"),
+            "missing digraph header: {dot}"
+        );
+        assert!(
+            dot.trim_end().ends_with('}'),
+            "missing closing brace: {dot}"
+        );
     }
 
     #[test]
@@ -710,9 +744,18 @@ mod tests {
             .unwrap();
 
         let dot = dag.to_dot(Format::Markdown);
-        assert!(dot.contains("\"markdown\" -> \"html\""), "markdown→html edge missing: {dot}");
-        assert!(dot.contains("\"html\" -> \"pdf\""), "html→pdf edge missing: {dot}");
-        assert!(dot.contains("\"html\" -> \"docx\""), "html→docx edge missing: {dot}");
+        assert!(
+            dot.contains("\"markdown\" -> \"html\""),
+            "markdown→html edge missing: {dot}"
+        );
+        assert!(
+            dot.contains("\"html\" -> \"pdf\""),
+            "html→pdf edge missing: {dot}"
+        );
+        assert!(
+            dot.contains("\"html\" -> \"docx\""),
+            "html→docx edge missing: {dot}"
+        );
     }
 
     #[test]

@@ -73,7 +73,9 @@ pub fn run(config_path: &str, debounce_ms: u64) -> Result<()> {
 /// This is best-effort: if the config cannot be loaded or the dependency map
 /// cannot be found, the function silently returns.
 fn log_affected_outputs(config_path: &str, changed_path: &Path) {
-    let Ok(config) = load_config(config_path) else { return };
+    let Ok(config) = load_config(config_path) else {
+        return;
+    };
     let output_dir = PathBuf::from(&config.output_dir);
     let dep_map_path = output_dir.join(".renderflow-deps.json");
     let dep_map = load_dependency_map(&dep_map_path);
@@ -150,7 +152,11 @@ mod tests {
         // We can only assert that the function returns without panicking and that
         // every returned path actually exists on disk.
         for p in &paths {
-            assert!(p.exists(), "extra_watch_paths returned a non-existent path: {}", p.display());
+            assert!(
+                p.exists(),
+                "extra_watch_paths returned a non-existent path: {}",
+                p.display()
+            );
         }
     }
 
@@ -160,10 +166,8 @@ mod tests {
         let input_path = dir.path().join("doc.md");
         fs::write(&input_path, "# Hello\n").expect("write failed");
         let output_dir = dir.path().join("dist");
-        let config = config_with_input(
-            &input_path.to_string_lossy(),
-            &output_dir.to_string_lossy(),
-        );
+        let config =
+            config_with_input(&input_path.to_string_lossy(), &output_dir.to_string_lossy());
 
         let paths = extra_watch_paths(config.path().to_str().unwrap());
         assert!(
@@ -178,10 +182,8 @@ mod tests {
         // The input file does not exist.
         let input_path = dir.path().join("missing.md");
         let output_dir = dir.path().join("dist");
-        let config = config_with_input(
-            &input_path.to_string_lossy(),
-            &output_dir.to_string_lossy(),
-        );
+        let config =
+            config_with_input(&input_path.to_string_lossy(), &output_dir.to_string_lossy());
 
         let paths = extra_watch_paths(config.path().to_str().unwrap());
         assert!(
@@ -196,10 +198,8 @@ mod tests {
         let input_path = dir.path().join("doc.md");
         fs::write(&input_path, "# Hello\n").expect("write failed");
         let output_dir = dir.path().join("dist");
-        let config = config_with_input(
-            &input_path.to_string_lossy(),
-            &output_dir.to_string_lossy(),
-        );
+        let config =
+            config_with_input(&input_path.to_string_lossy(), &output_dir.to_string_lossy());
 
         let paths = extra_watch_paths(config.path().to_str().unwrap());
         for p in &paths {
@@ -225,10 +225,8 @@ mod tests {
         let input_path = dir.path().join("doc.md");
         fs::write(&input_path, "# Hello\n").expect("write failed");
         let output_dir = dir.path().join("dist");
-        let config = config_with_input(
-            &input_path.to_string_lossy(),
-            &output_dir.to_string_lossy(),
-        );
+        let config =
+            config_with_input(&input_path.to_string_lossy(), &output_dir.to_string_lossy());
 
         // No .renderflow-deps.json exists — the function should handle this gracefully.
         log_affected_outputs(config.path().to_str().unwrap(), &input_path);

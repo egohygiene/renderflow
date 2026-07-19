@@ -137,7 +137,10 @@ impl Default for TransformRegistry {
 /// When `variables` is empty the variable-substitution transform is still
 /// registered but becomes a no-op, ensuring consistent ordering regardless of
 /// configuration.
-pub fn register_transforms(variables: &HashMap<String, String>, output_type: &OutputType) -> TransformRegistry {
+pub fn register_transforms(
+    variables: &HashMap<String, String>,
+    output_type: &OutputType,
+) -> TransformRegistry {
     let mut registry = TransformRegistry::new();
     registry
         .register(Box::new(EmojiTransform::new_for_format(output_type)))
@@ -354,7 +357,9 @@ mod tests {
         let r1 = register_transforms(&vars_map, &OutputType::Pdf)
             .apply_all(input.clone())
             .unwrap();
-        let r2 = register_transforms(&vars_map, &OutputType::Pdf).apply_all(input).unwrap();
+        let r2 = register_transforms(&vars_map, &OutputType::Pdf)
+            .apply_all(input)
+            .unwrap();
 
         assert_eq!(r1, r2);
     }
@@ -475,7 +480,8 @@ mod tests {
 
         let err = registry.apply_all("input".to_string()).unwrap_err();
         assert!(
-            err.to_string().contains("Transform failed: VariableSubstitutionTransform"),
+            err.to_string()
+                .contains("Transform failed: VariableSubstitutionTransform"),
             "error should contain transform name, got: {}",
             err
         );

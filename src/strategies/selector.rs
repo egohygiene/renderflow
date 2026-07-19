@@ -20,11 +20,26 @@ pub fn select_strategy(
     profile: Option<&str>,
 ) -> Result<Box<dyn OutputStrategy + Send + Sync>> {
     match output_type {
-        OutputType::Html => Ok(Box::new(HtmlStrategy::new(template.map(str::to_owned), template_dir.to_owned()))),
-        OutputType::Pdf => Ok(Box::new(PdfStrategy::new(template.map(str::to_owned), template_dir.to_owned()))),
-        OutputType::Docx => Ok(Box::new(DocxStrategy::new(template.map(str::to_owned), template_dir.to_owned()))),
-        OutputType::Audio(fmt) => Ok(Box::new(AudioStrategy::new(*fmt, profile.map(str::to_owned)))),
-        OutputType::Image(fmt) => Ok(Box::new(ImageStrategy::new(*fmt, profile.map(str::to_owned)))),
+        OutputType::Html => Ok(Box::new(HtmlStrategy::new(
+            template.map(str::to_owned),
+            template_dir.to_owned(),
+        ))),
+        OutputType::Pdf => Ok(Box::new(PdfStrategy::new(
+            template.map(str::to_owned),
+            template_dir.to_owned(),
+        ))),
+        OutputType::Docx => Ok(Box::new(DocxStrategy::new(
+            template.map(str::to_owned),
+            template_dir.to_owned(),
+        ))),
+        OutputType::Audio(fmt) => Ok(Box::new(AudioStrategy::new(
+            *fmt,
+            profile.map(str::to_owned),
+        ))),
+        OutputType::Image(fmt) => Ok(Box::new(ImageStrategy::new(
+            *fmt,
+            profile.map(str::to_owned),
+        ))),
         OutputType::Unsupported(t) => {
             anyhow::bail!("{}", unsupported_type_message(t.as_str()))
         }
@@ -34,13 +49,17 @@ pub fn select_strategy(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::HashMap;
     use crate::audio::AudioFormat;
     use crate::image::ImageFormat;
     use crate::input_format::InputFormat;
     use crate::strategies::RenderContext;
+    use std::collections::HashMap;
 
-    fn default_ctx<'a>(input: &'a str, output: &'a str, vars: &'a HashMap<String, String>) -> RenderContext<'a> {
+    fn default_ctx<'a>(
+        input: &'a str,
+        output: &'a str,
+        vars: &'a HashMap<String, String>,
+    ) -> RenderContext<'a> {
         RenderContext {
             input_path: input,
             input_format: InputFormat::Markdown,
@@ -73,12 +92,7 @@ mod tests {
 
     #[test]
     fn test_select_strategy_passes_template_to_strategy() {
-        let strategy = select_strategy(
-            &OutputType::Html,
-            Some("default.html"),
-            "templates",
-            None,
-        );
+        let strategy = select_strategy(&OutputType::Html, Some("default.html"), "templates", None);
         assert!(strategy.is_ok());
     }
 
@@ -171,13 +185,23 @@ mod tests {
 
     #[test]
     fn test_select_strategy_audio_mp3() {
-        let result = select_strategy(&OutputType::Audio(AudioFormat::Mp3), None, "templates", None);
+        let result = select_strategy(
+            &OutputType::Audio(AudioFormat::Mp3),
+            None,
+            "templates",
+            None,
+        );
         assert!(result.is_ok(), "expected audio strategy for mp3");
     }
 
     #[test]
     fn test_select_strategy_audio_flac() {
-        let result = select_strategy(&OutputType::Audio(AudioFormat::Flac), None, "templates", None);
+        let result = select_strategy(
+            &OutputType::Audio(AudioFormat::Flac),
+            None,
+            "templates",
+            None,
+        );
         assert!(result.is_ok(), "expected audio strategy for flac");
     }
 
@@ -206,13 +230,8 @@ mod tests {
     fn test_select_strategy_audio_unsupported_encoding_returns_error() {
         let vars = HashMap::new();
         // RealAudio does not support encoding via FFmpeg.
-        let strategy = select_strategy(
-            &OutputType::Audio(AudioFormat::Ra),
-            None,
-            "templates",
-            None,
-        )
-        .unwrap();
+        let strategy =
+            select_strategy(&OutputType::Audio(AudioFormat::Ra), None, "templates", None).unwrap();
         let ctx = RenderContext {
             input_path: "/input/test.wav",
             input_format: InputFormat::Markdown,
@@ -228,13 +247,23 @@ mod tests {
 
     #[test]
     fn test_select_strategy_image_png() {
-        let result = select_strategy(&OutputType::Image(ImageFormat::Png), None, "templates", None);
+        let result = select_strategy(
+            &OutputType::Image(ImageFormat::Png),
+            None,
+            "templates",
+            None,
+        );
         assert!(result.is_ok(), "expected image strategy for png");
     }
 
     #[test]
     fn test_select_strategy_image_jpeg() {
-        let result = select_strategy(&OutputType::Image(ImageFormat::Jpeg), None, "templates", None);
+        let result = select_strategy(
+            &OutputType::Image(ImageFormat::Jpeg),
+            None,
+            "templates",
+            None,
+        );
         assert!(result.is_ok(), "expected image strategy for jpeg");
     }
 

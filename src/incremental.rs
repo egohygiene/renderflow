@@ -63,11 +63,7 @@ impl DependencyMap {
     /// * `output_path` has no recorded dependencies (never tracked).
     /// * Any recorded dependency's current hash differs from the stored hash.
     /// * `current_deps` is empty (no dependencies provided by the caller).
-    pub fn is_output_up_to_date(
-        &self,
-        output_path: &str,
-        current_deps: &[FileDependency],
-    ) -> bool {
+    pub fn is_output_up_to_date(&self, output_path: &str, current_deps: &[FileDependency]) -> bool {
         if current_deps.is_empty() {
             return false;
         }
@@ -98,10 +94,14 @@ impl DependencyMap {
         self.0
             .iter()
             .filter_map(|(output, deps)| {
-                let affected = deps.iter().any(|dep| {
-                    dep.path == changed_path && dep.hash != changed_hash
-                });
-                if affected { Some(output.clone()) } else { None }
+                let affected = deps
+                    .iter()
+                    .any(|dep| dep.path == changed_path && dep.hash != changed_hash);
+                if affected {
+                    Some(output.clone())
+                } else {
+                    None
+                }
             })
             .collect()
     }
@@ -266,7 +266,10 @@ mod tests {
     #[test]
     fn test_stale_when_dep_hash_changed() {
         let mut map = DependencyMap::default();
-        map.record("/out/doc.html".to_string(), vec![dep("/in/doc.md", "old_hash")]);
+        map.record(
+            "/out/doc.html".to_string(),
+            vec![dep("/in/doc.md", "old_hash")],
+        );
         let current = vec![dep("/in/doc.md", "new_hash")];
         assert!(!map.is_output_up_to_date("/out/doc.html", &current));
     }
@@ -281,14 +284,20 @@ mod tests {
     #[test]
     fn test_stale_when_current_deps_empty() {
         let mut map = DependencyMap::default();
-        map.record("/out/doc.html".to_string(), vec![dep("/in/doc.md", "hash1")]);
+        map.record(
+            "/out/doc.html".to_string(),
+            vec![dep("/in/doc.md", "hash1")],
+        );
         assert!(!map.is_output_up_to_date("/out/doc.html", &[]));
     }
 
     #[test]
     fn test_stale_when_new_dep_not_in_recorded() {
         let mut map = DependencyMap::default();
-        map.record("/out/doc.html".to_string(), vec![dep("/in/doc.md", "hash1")]);
+        map.record(
+            "/out/doc.html".to_string(),
+            vec![dep("/in/doc.md", "hash1")],
+        );
         // Current state has an extra dep the recorded map doesn't know about.
         let current = vec![
             dep("/in/doc.md", "hash1"),
@@ -302,7 +311,10 @@ mod tests {
     #[test]
     fn test_outputs_affected_by_detects_changed_dep() {
         let mut map = DependencyMap::default();
-        map.record("/out/doc.html".to_string(), vec![dep("/templates/a.html", "old")]);
+        map.record(
+            "/out/doc.html".to_string(),
+            vec![dep("/templates/a.html", "old")],
+        );
         map.record("/out/doc.pdf".to_string(), vec![dep("/in/doc.md", "hash1")]);
 
         let affected = map.outputs_affected_by("/templates/a.html", "new");
@@ -312,7 +324,10 @@ mod tests {
     #[test]
     fn test_outputs_affected_by_returns_empty_when_dep_unchanged() {
         let mut map = DependencyMap::default();
-        map.record("/out/doc.html".to_string(), vec![dep("/templates/a.html", "same")]);
+        map.record(
+            "/out/doc.html".to_string(),
+            vec![dep("/templates/a.html", "same")],
+        );
 
         let affected = map.outputs_affected_by("/templates/a.html", "same");
         assert!(affected.is_empty());
@@ -321,7 +336,10 @@ mod tests {
     #[test]
     fn test_outputs_affected_by_returns_empty_when_file_not_tracked() {
         let mut map = DependencyMap::default();
-        map.record("/out/doc.html".to_string(), vec![dep("/in/doc.md", "hash1")]);
+        map.record(
+            "/out/doc.html".to_string(),
+            vec![dep("/in/doc.md", "hash1")],
+        );
 
         let affected = map.outputs_affected_by("/unrelated/file.txt", "some_hash");
         assert!(affected.is_empty());
@@ -330,13 +348,25 @@ mod tests {
     #[test]
     fn test_multiple_outputs_affected_by_shared_template() {
         let mut map = DependencyMap::default();
-        map.record("/out/doc.html".to_string(), vec![dep("/templates/shared.html", "old")]);
-        map.record("/out/report.html".to_string(), vec![dep("/templates/shared.html", "old")]);
-        map.record("/out/other.pdf".to_string(), vec![dep("/in/doc.md", "hash1")]);
+        map.record(
+            "/out/doc.html".to_string(),
+            vec![dep("/templates/shared.html", "old")],
+        );
+        map.record(
+            "/out/report.html".to_string(),
+            vec![dep("/templates/shared.html", "old")],
+        );
+        map.record(
+            "/out/other.pdf".to_string(),
+            vec![dep("/in/doc.md", "hash1")],
+        );
 
         let mut affected = map.outputs_affected_by("/templates/shared.html", "new");
         affected.sort();
-        assert_eq!(affected, vec!["/out/doc.html".to_string(), "/out/report.html".to_string()]);
+        assert_eq!(
+            affected,
+            vec!["/out/doc.html".to_string(), "/out/report.html".to_string()]
+        );
     }
 
     // ── hash_file ─────────────────────────────────────────────────────────────
@@ -431,7 +461,10 @@ mod tests {
         let path = dir.path().join(".renderflow-deps.json");
 
         let mut map = DependencyMap::default();
-        map.record("/out/doc.html".to_string(), vec![dep("/in/doc.md", "h1"), dep("/cfg/build.yaml", "h2")]);
+        map.record(
+            "/out/doc.html".to_string(),
+            vec![dep("/in/doc.md", "h1"), dep("/cfg/build.yaml", "h2")],
+        );
         map.record("/out/doc.pdf".to_string(), vec![dep("/in/doc.md", "h1")]);
 
         save_dependency_map(&map, &path).expect("save should succeed");
