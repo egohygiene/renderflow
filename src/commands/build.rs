@@ -730,6 +730,7 @@ fn run_image_build(
 
     Ok(())
 }
+#[cfg(test)]
 mod tests {
     use super::*;
     use std::fs;
