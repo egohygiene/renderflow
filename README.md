@@ -16,6 +16,7 @@
 [![CI](https://github.com/egohygiene/renderflow/actions/workflows/ci.yml/badge.svg)](https://github.com/egohygiene/renderflow/actions/workflows/ci.yml)
 [![Release](https://github.com/egohygiene/renderflow/actions/workflows/release.yml/badge.svg)](https://github.com/egohygiene/renderflow/actions/workflows/release.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Rust: 1.94+](https://img.shields.io/badge/rust-1.94%2B-orange.svg)](https://www.rust-lang.org/)
 [![Built with Rust](https://img.shields.io/badge/built%20with-Rust-orange.svg)](https://www.rust-lang.org/)
 
 </div>
@@ -515,6 +516,58 @@ impl PluginExecutor for ReversePlugin {
 ```
 
 > **See it in action:** The [`examples/transforms/`](examples/transforms/) directory contains a complete working example that exercises all three built-in transforms.
+
+---
+
+## Transform Failure Modes
+
+Renderflow provides two transform failure modes that control what happens when a transform encounters an error during document processing.
+
+### FailFast (default)
+
+The pipeline aborts immediately on the first transform error and surfaces the error to the caller. This is the default when running `renderflow build`.
+
+```yaml
+# renderflow.yaml — default behaviour: a failed transform stops the build
+outputs:
+  - type: html
+```
+
+**When to use:** In CI pipelines and production builds where a broken transform should be a hard failure.
+
+### ContinueOnError
+
+The failing transform is skipped, an error is logged, and the pipeline continues with the unmodified input passed to the next transform.
+
+Renderflow uses `ContinueOnError` automatically in watch mode (`renderflow watch`) so that a single transform failure does not halt the watcher — the next file-save will trigger another attempt.
+
+```yaml
+# renderflow.yaml — watch mode implicitly uses ContinueOnError
+outputs:
+  - type: html
+```
+
+**When to use:** Watch mode and resilient rebuild pipelines where best-effort output is preferable to a complete failure.
+
+### Optional transforms
+
+AI transforms and command transforms are always **optional** in the sense that they only run when explicitly configured. If the external backend (Ollama, OpenAI, external tool) is unavailable the transform fails, and the active failure mode determines whether the build aborts or continues.
+
+```yaml
+# Omitting the ai/command key means the transform is simply not registered
+outputs:
+  - type: html
+# No transforms key → no AI or command transforms are applied
+```
+
+### AI transform failure behaviour
+
+When an AI transform (`AiTransform`) fails — for example, because the Ollama server is not running or the API key is invalid — the error is propagated according to the active failure mode:
+
+- **FailFast** (default): build aborts with a clear error message identifying the failing transform.
+- **ContinueOnError** (watch mode): the AI transform is skipped, the original document content passes through unchanged, and the build continues.
+
+Cached responses are reused across builds: if the same prompt + content hash was seen in a previous run, the cached result is returned without contacting the model, so AI failures only occur when the cache is cold or invalidated.
 
 ---
 

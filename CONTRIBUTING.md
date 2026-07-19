@@ -298,6 +298,20 @@ src/
 - Add tests for new behaviour in the `tests/` directory (integration tests) or as inline `#[cfg(test)]` modules (unit tests).
 - Run `task test` to verify the full test suite passes before pushing.
 
+### Examples
+
+The `examples/` directory is treated as part of the public API. If you add a new feature, consider adding or updating an example that demonstrates it.
+
+Each bundled example is validated in CI using `renderflow build --dry-run`. If you modify an existing example or add a new one, verify it passes locally:
+
+```bash
+cd examples/hello-world
+../../target/debug/renderflow build --dry-run
+
+cd examples/transforms
+../../target/debug/renderflow build --dry-run
+```
+
 ---
 
 ## Commit Conventions

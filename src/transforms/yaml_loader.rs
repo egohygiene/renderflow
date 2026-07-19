@@ -297,7 +297,6 @@ impl YamlTransformDef {
     /// Only valid when `program` is set; call [`validate`](Self::validate)
     /// first.  `plugin` and `ai` fields are not supported for aggregation
     /// transforms.
-    #[allow(dead_code)]
     pub fn to_aggregation_transform(&self) -> Result<CommandAggregationTransform> {
         let program = self.program.as_deref().ok_or_else(|| {
             anyhow::anyhow!(
@@ -345,7 +344,7 @@ pub fn load_transforms_from_yaml(path: &str) -> Result<TransformRegistry> {
 /// * the YAML is malformed,
 /// * any transform definition fails validation (see [`YamlTransformDef::validate`]),
 /// * a referenced plugin is not registered in `plugins`.
-#[allow(dead_code)]
+#[expect(dead_code)]
 pub fn load_transforms_from_yaml_with_plugins(path: &str, plugins: &PluginRegistry) -> Result<TransformRegistry> {
     let content = fs::read_to_string(path)
         .with_context(|| format!("Failed to read transform config: {}", path))?;
@@ -406,7 +405,6 @@ pub fn parse_transforms_from_str_with_plugins(yaml: &str, plugins: &PluginRegist
 /// * the YAML is malformed,
 /// * any collection transform definition fails validation,
 /// * a collection entry has no `program` field.
-#[allow(dead_code)]
 pub fn parse_aggregation_transforms_from_str(yaml: &str) -> Result<AggregationRegistry> {
     let config: YamlTransformConfig =
         serde_yaml_ng::from_str(yaml).context("Failed to parse YAML transform config")?;
@@ -436,7 +434,7 @@ pub fn parse_aggregation_transforms_from_str(yaml: &str) -> Result<AggregationRe
 /// * the YAML is malformed,
 /// * any collection transform definition fails validation (see
 ///   [`YamlTransformDef::validate`]).
-#[allow(dead_code)]
+#[expect(dead_code)]
 pub fn load_aggregation_transforms_from_yaml(path: &str) -> Result<AggregationRegistry> {
     let content = fs::read_to_string(path)
         .with_context(|| format!("Failed to read transform config: {}", path))?;
