@@ -6,8 +6,10 @@ use anyhow::{Context, Result};
 use serde_json::json;
 use tracing::{debug, warn};
 
-use crate::cache::{compute_ai_input_hash, current_unix_timestamp, load_ai_cache, save_ai_cache, AiCacheEntry};
 use super::Transform;
+use crate::cache::{
+    compute_ai_input_hash, current_unix_timestamp, load_ai_cache, save_ai_cache, AiCacheEntry,
+};
 
 /// The AI backend to use for an [`AiTransform`].
 ///
@@ -83,6 +85,7 @@ impl std::str::FromStr for AiBackend {
 /// // show the builder API.
 /// let _ = t; // avoid unused-variable warning in doc test
 /// ```
+#[derive(Debug)]
 pub struct AiTransform {
     name: String,
     backend: AiBackend,
@@ -210,8 +213,12 @@ impl AiTransformBuilder {
             name: self.name.unwrap_or_else(|| "AiTransform".to_string()),
             backend: self.backend.unwrap_or(AiBackend::Ollama),
             model: self.model.unwrap_or_else(|| "mistral".to_string()),
-            prompt_template: self.prompt_template.unwrap_or_else(|| "{input}".to_string()),
-            endpoint: self.endpoint.unwrap_or_else(|| "http://localhost:11434".to_string()),
+            prompt_template: self
+                .prompt_template
+                .unwrap_or_else(|| "{input}".to_string()),
+            endpoint: self
+                .endpoint
+                .unwrap_or_else(|| "http://localhost:11434".to_string()),
             api_key: self.api_key,
             api_key_env: self.api_key_env,
             artifact_path: self.artifact_path,
@@ -311,10 +318,12 @@ impl AiTransform {
             .into_string()
             .context("Failed to read Ollama response body")?;
 
-        let json: serde_json::Value =
-            serde_json::from_str(&body_str).with_context(|| {
-                format!("Failed to parse Ollama JSON response; body was: {}", body_str)
-            })?;
+        let json: serde_json::Value = serde_json::from_str(&body_str).with_context(|| {
+            format!(
+                "Failed to parse Ollama JSON response; body was: {}",
+                body_str
+            )
+        })?;
 
         json["response"]
             .as_str()
@@ -329,7 +338,10 @@ impl AiTransform {
 
     /// Call an OpenAI-compatible `/v1/chat/completions` endpoint.
     fn call_openai(&self, prompt: &str) -> Result<String> {
-        let url = format!("{}/v1/chat/completions", self.endpoint.trim_end_matches('/'));
+        let url = format!(
+            "{}/v1/chat/completions",
+            self.endpoint.trim_end_matches('/')
+        );
         let body = json!({
             "model": self.model,
             "messages": [{"role": "user", "content": prompt}],
@@ -348,13 +360,12 @@ impl AiTransform {
             .into_string()
             .context("Failed to read OpenAI response body")?;
 
-        let json: serde_json::Value =
-            serde_json::from_str(&body_str).with_context(|| {
-                format!(
-                    "Failed to parse OpenAI JSON response; body was: {}",
-                    body_str
-                )
-            })?;
+        let json: serde_json::Value = serde_json::from_str(&body_str).with_context(|| {
+            format!(
+                "Failed to parse OpenAI JSON response; body was: {}",
+                body_str
+            )
+        })?;
 
         json["choices"][0]["message"]["content"]
             .as_str()
@@ -582,7 +593,8 @@ mod tests {
     fn test_backend_from_str_unknown_returns_error() {
         let err = "anthropic".parse::<AiBackend>().unwrap_err();
         assert!(
-            err.to_string().contains("'anthropic' is not a known AI backend"),
+            err.to_string()
+                .contains("'anthropic' is not a known AI backend"),
             "unexpected error: {}",
             err
         );
@@ -678,9 +690,7 @@ mod tests {
         // A transform with no cache_path – the cache is never consulted.
         // We cannot call apply() without a live backend, so we just verify the
         // field is absent and that the transform is constructed correctly.
-        let t = AiTransform::builder()
-            .model("mistral")
-            .build();
+        let t = AiTransform::builder().model("mistral").build();
         assert!(t.cache_path.is_none());
     }
 
@@ -711,6 +721,8 @@ mod tests {
         // Use the rendered prompt (as apply() does) to compute the expected hash.
         let rendered = t.render_prompt("test input");
         let reloaded = load_ai_cache(&cache_file);
-        assert!(reloaded.get(&crate::cache::compute_ai_input_hash(&rendered, "mistral")).is_none());
+        assert!(reloaded
+            .get(&crate::cache::compute_ai_input_hash(&rendered, "mistral"))
+            .is_none());
     }
 }

@@ -1109,7 +1109,10 @@ transforms:
             serde_yaml_ng::from_str(yaml).expect("should parse");
         let def = &config.transforms[0];
         let t = def.to_ai_transform().expect("should build AI transform");
-        assert_eq!(t.api_key_env.as_deref(), Some("OPENAI_API_KEY"));
+        assert!(
+            format!("{t:?}").contains("api_key_env: Some(\"OPENAI_API_KEY\")"),
+            "AI transform should retain api_key_env in its configuration: {t:?}"
+        );
     }
 
     #[test]

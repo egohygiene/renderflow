@@ -163,6 +163,8 @@ fn run_impl(
 
     let executor = executor.with_cache(output_dir.join(".renderflow-dag-cache.json"));
 
+    let executor = executor.with_cache(output_dir.join(".renderflow-dag-cache.json"));
+
     // Read and execute.
     let content = fs::read_to_string(&config.input)
         .with_context(|| format!("Failed to read input file: {}", config.input))?;
