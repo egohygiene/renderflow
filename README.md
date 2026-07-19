@@ -7,6 +7,7 @@
 *Transform Markdown into publication-ready PDF and HTML — defined once, rendered anywhere.*
 
 [![CI](https://github.com/egohygiene/renderflow/actions/workflows/ci.yml/badge.svg)](https://github.com/egohygiene/renderflow/actions/workflows/ci.yml)
+[![Release](https://github.com/egohygiene/renderflow/actions/workflows/release.yml/badge.svg)](https://github.com/egohygiene/renderflow/actions/workflows/release.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Built with Rust](https://img.shields.io/badge/built%20with-Rust-orange.svg)](https://www.rust-lang.org/)
 

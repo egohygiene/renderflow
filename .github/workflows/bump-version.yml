@@ -87,6 +87,63 @@ jobs:
           print(f"Updated Cargo.toml to {version}")
           EOF
 
+      - name: Update version in package manifests
+        run: |
+          VERSION="${{ steps.ver.outputs.new }}"
+          TAG="${{ steps.ver.outputs.tag }}"
+
+          python3 - <<EOF
+          import json, re
+
+          version = "${VERSION}"
+          tag     = "${TAG}"
+
+          # Homebrew formula
+          with open("Formula/renderflow.rb") as f:
+              rb = f.read()
+          rb = re.sub(r'archive/refs/tags/v[^/]+\.tar\.gz', f'archive/refs/tags/{tag}.tar.gz', rb)
+          with open("Formula/renderflow.rb", "w") as f:
+              f.write(rb)
+
+          # Scoop manifest
+          with open("pkg/scoop/renderflow.json") as f:
+              scoop = json.load(f)
+          scoop["version"] = version
+          scoop["architecture"]["64bit"]["url"] = (
+              f"https://github.com/egohygiene/renderflow/releases/download/{tag}"
+              f"/renderflow-x86_64-pc-windows-msvc.exe#/renderflow.exe"
+          )
+          scoop["architecture"]["64bit"]["hash"] = "PLACEHOLDER"
+          with open("pkg/scoop/renderflow.json", "w") as f:
+              json.dump(scoop, f, indent=4)
+              f.write("\n")
+
+          # Chocolatey nuspec
+          with open("pkg/chocolatey/renderflow.nuspec") as f:
+              nuspec = f.read()
+          nuspec = re.sub(r'<version>[^<]*</version>', f'<version>{version}</version>', nuspec)
+          with open("pkg/chocolatey/renderflow.nuspec", "w") as f:
+              f.write(nuspec)
+
+          # Chocolatey install script
+          with open("pkg/chocolatey/tools/chocolateyinstall.ps1") as f:
+              ps1 = f.read()
+          ps1 = re.sub(r'PLACEHOLDER_VERSION', tag, ps1)
+          with open("pkg/chocolatey/tools/chocolateyinstall.ps1", "w") as f:
+              f.write(ps1)
+
+          # AUR PKGBUILD (stable)
+          with open("pkg/aur/renderflow/PKGBUILD") as f:
+              pkgbuild = f.read()
+          pkgbuild = re.sub(r'^pkgver=.*', f'pkgver={version}', pkgbuild, flags=re.MULTILINE)
+          pkgbuild = re.sub(r'^pkgrel=.*', 'pkgrel=1',          pkgbuild, flags=re.MULTILINE)
+          pkgbuild = re.sub(r"^sha256sums=.*", "sha256sums=('PLACEHOLDER')", pkgbuild, flags=re.MULTILINE)
+          with open("pkg/aur/renderflow/PKGBUILD", "w") as f:
+              f.write(pkgbuild)
+
+          print(f"Updated all package manifests to {version}")
+          EOF
+
       - name: Update Cargo.lock
         run: cargo update --workspace
 
@@ -97,7 +154,12 @@ jobs:
 
       - name: Commit version bump
         run: |
-          git add Cargo.toml Cargo.lock
+          git add Cargo.toml Cargo.lock \
+            Formula/renderflow.rb \
+            pkg/scoop/renderflow.json \
+            pkg/chocolatey/renderflow.nuspec \
+            pkg/chocolatey/tools/chocolateyinstall.ps1 \
+            pkg/aur/renderflow/PKGBUILD
           if git diff --staged --quiet; then
             echo "Nothing changed — version may already be ${{ steps.ver.outputs.new }}"
             exit 0
