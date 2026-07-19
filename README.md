@@ -1,8 +1,15 @@
 <div align="center">
 
-# ✨ renderflow
-
-**Spec-driven document rendering engine**
+<div align="center">
+  <a href="https://github.com/egohygiene/renderflow">
+    <img
+      src="assets/branding/renderflow-banner.png"
+      alt="Renderflow Banner"
+      width="100%"
+      style="max-width: 1200px;"
+    >
+  </a>
+</div>
 
 *Transform Markdown into publication-ready PDF and HTML — defined once, rendered anywhere.*
 
