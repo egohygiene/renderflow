@@ -11,6 +11,10 @@ on:
       - 'v*'
   workflow_dispatch:
 
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+
 jobs:
   # ── 1. Changelog & GitHub Release ────────────────────────────────────────
 
@@ -456,8 +460,8 @@ jobs:
 
           # install script URL + checksum
           (Get-Content "pkg\chocolatey\tools\chocolateyinstall.ps1") `
-            -replace 'PLACEHOLDER_VERSION', "${{ github.ref_name }}" `
-            -replace 'PLACEHOLDER_SHA256', $sha256 |
+            -replace 'https://github.com/egohygiene/renderflow/releases/download/v[^/]+/renderflow-x86_64-pc-windows-msvc.exe', $url `
+            -replace "(-Checksum64\\s+)'[^']*'", "`$1'$sha256'" |
             Set-Content "pkg\chocolatey\tools\chocolateyinstall.ps1"
 
       - name: Pack Chocolatey package
@@ -482,6 +486,7 @@ jobs:
     name: Update Homebrew formula
     runs-on: ubuntu-latest
     needs: [generate-changelog, lint-release]
+    continue-on-error: true
     permissions:
       contents: write
 
@@ -491,6 +496,7 @@ jobs:
         with:
           ref: ${{ github.event.repository.default_branch }}
           token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
 
       - name: Compute source tarball SHA256
         id: formula
@@ -508,6 +514,7 @@ jobs:
 
       - name: Commit and push updated formula
         run: |
+          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add Formula/renderflow.rb
@@ -515,13 +522,28 @@ jobs:
             echo "Formula already up to date, no commit needed."
           else
             git commit -m "chore: update Homebrew formula to ${{ github.ref_name }}"
-            git push origin ${{ github.event.repository.default_branch }}
+            BRANCH="${{ github.event.repository.default_branch }}"
+            for attempt in 1 2 3 4 5; do
+              git fetch origin "${BRANCH}"
+              if git rebase "origin/${BRANCH}"; then
+                if git push origin "HEAD:${BRANCH}"; then
+                  echo "Pushed Homebrew formula update on attempt ${attempt}."
+                  exit 0
+                fi
+              else
+                git rebase --abort || true
+              fi
+              echo "Push attempt ${attempt} failed; retrying..."
+              sleep $((attempt * 2))
+            done
+            echo "::warning::Unable to push Homebrew update after retries; continuing release."
           fi
 
   update-scoop-manifest:
     name: Update Scoop manifest
     runs-on: ubuntu-latest
     needs: [build-binaries, update-homebrew-formula]
+    continue-on-error: true
     permissions:
       contents: write
 
@@ -531,6 +553,7 @@ jobs:
         with:
           ref: ${{ github.event.repository.default_branch }}
           token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
 
       - name: Download Windows MSVC binary artifact
         uses: actions/download-artifact@v4
@@ -563,6 +586,7 @@ jobs:
 
       - name: Commit and push updated manifest
         run: |
+          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add pkg/scoop/renderflow.json
@@ -570,13 +594,28 @@ jobs:
             echo "Scoop manifest already up to date, no commit needed."
           else
             git commit -m "chore: update Scoop manifest to ${{ github.ref_name }}"
-            git push origin ${{ github.event.repository.default_branch }}
+            BRANCH="${{ github.event.repository.default_branch }}"
+            for attempt in 1 2 3 4 5; do
+              git fetch origin "${BRANCH}"
+              if git rebase "origin/${BRANCH}"; then
+                if git push origin "HEAD:${BRANCH}"; then
+                  echo "Pushed Scoop manifest update on attempt ${attempt}."
+                  exit 0
+                fi
+              else
+                git rebase --abort || true
+              fi
+              echo "Push attempt ${attempt} failed; retrying..."
+              sleep $((attempt * 2))
+            done
+            echo "::warning::Unable to push Scoop update after retries; continuing release."
           fi
 
   update-aur-pkgbuild:
     name: Update AUR PKGBUILD
     runs-on: ubuntu-latest
     needs: update-scoop-manifest
+    continue-on-error: true
     permissions:
       contents: write
 
@@ -586,6 +625,7 @@ jobs:
         with:
           ref: ${{ github.event.repository.default_branch }}
           token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
 
       - name: Compute source tarball SHA256
         id: aur
@@ -605,6 +645,7 @@ jobs:
 
       - name: Commit and push updated PKGBUILD
         run: |
+          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add pkg/aur/renderflow/PKGBUILD
@@ -612,7 +653,21 @@ jobs:
             echo "PKGBUILD already up to date, no commit needed."
           else
             git commit -m "chore: update AUR PKGBUILD to ${{ github.ref_name }}"
-            git push origin ${{ github.event.repository.default_branch }}
+            BRANCH="${{ github.event.repository.default_branch }}"
+            for attempt in 1 2 3 4 5; do
+              git fetch origin "${BRANCH}"
+              if git rebase "origin/${BRANCH}"; then
+                if git push origin "HEAD:${BRANCH}"; then
+                  echo "Pushed AUR update on attempt ${attempt}."
+                  exit 0
+                fi
+              else
+                git rebase --abort || true
+              fi
+              echo "Push attempt ${attempt} failed; retrying..."
+              sleep $((attempt * 2))
+            done
+            echo "::warning::Unable to push AUR update after retries; continuing release."
           fi
 
   # ── 4. Verify release ─────────────────────────────────────────────────────
@@ -628,7 +683,6 @@ jobs:
       - package-rpm-aarch64
       - snap-package
       - package-chocolatey
-      - update-aur-pkgbuild
     permissions:
       contents: read
 
@@ -664,16 +718,38 @@ jobs:
             "renderflow-aarch64-apple-darwin"
             "renderflow-aarch64-apple-darwin.sha256"
           )
+          EXPECTED_PATTERNS=(
+            '^renderflow_.*_amd64\.deb$'
+            '^renderflow_.*_arm64\.deb$'
+            '^renderflow-.*\.x86_64\.rpm$'
+            '^renderflow-.*\.aarch64\.rpm$'
+            '^renderflow_.*\.snap$'
+            '^renderflow\..*\.nupkg$'
+          )
 
-          # Fetch the list of uploaded assets from the GitHub Release
-          ASSETS=$(gh release view "${TAG}" --repo "${REPO}" --json assets --jq '[.assets[].name]')
+          # Fetch the list of uploaded assets from the GitHub Release.
+          ASSET_LINES="$(
+            gh release view "${TAG}" --repo "${REPO}" --json assets --jq '.assets[].name' \
+              | sed 's/^"//; s/"$//'
+          )"
 
           MISSING=()
           for ASSET in "${EXPECTED[@]}"; do
-            if ! echo "${ASSETS}" | grep -q "\"${ASSET}\""; then
+            if ! printf '%s\n' "${ASSET_LINES}" | grep -Fxq "${ASSET}"; then
               MISSING+=("${ASSET}")
             fi
           done
+
+          for PATTERN in "${EXPECTED_PATTERNS[@]}"; do
+            if ! printf '%s\n' "${ASSET_LINES}" | grep -Eq "${PATTERN}"; then
+              MISSING+=("pattern:${PATTERN}")
+            fi
+          done
+
+          SOURCE_TARBALL_URL="https://github.com/egohygiene/renderflow/archive/refs/tags/${TAG}.tar.gz"
+          if ! curl -fsSI "${SOURCE_TARBALL_URL}" >/dev/null; then
+            MISSING+=("source-tarball:${SOURCE_TARBALL_URL}")
+          fi
 
           if [ ${#MISSING[@]} -gt 0 ]; then
             echo "ERROR: The following expected release assets are missing:"

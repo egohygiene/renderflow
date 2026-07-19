@@ -129,7 +129,12 @@ jobs:
           # Chocolatey install script
           with open("pkg/chocolatey/tools/chocolateyinstall.ps1") as f:
               ps1 = f.read()
-          ps1 = re.sub(r'PLACEHOLDER_VERSION', tag, ps1)
+          ps1 = re.sub(
+              r'https://github.com/egohygiene/renderflow/releases/download/v[^/]+/renderflow-x86_64-pc-windows-msvc\.exe',
+              f'https://github.com/egohygiene/renderflow/releases/download/{tag}/renderflow-x86_64-pc-windows-msvc.exe',
+              ps1
+          )
+          ps1 = re.sub(r"-Checksum64\s+'[^']*'", "-Checksum64   'PLACEHOLDER_SHA256'", ps1)
           with open("pkg/chocolatey/tools/chocolateyinstall.ps1", "w") as f:
               f.write(ps1)
 
@@ -145,8 +150,27 @@ jobs:
           print(f"Updated all package manifests to {version}")
           EOF
 
-      - name: Update Cargo.lock
-        run: cargo update --workspace
+      - name: Update Cargo.lock package version only
+        run: |
+          VERSION="${{ steps.ver.outputs.new }}"
+          python3 - <<'EOF'
+          import re
+          import sys
+
+          version = "${{ steps.ver.outputs.new }}"
+          with open("Cargo.lock") as f:
+              lock = f.read()
+
+          pattern = r'(\[\[package\]\]\nname = "renderflow"\nversion = ")[^"]*(")'
+          updated, replacements = re.subn(pattern, rf'\g<1>{version}\2', lock, count=1)
+          if replacements != 1:
+              print("Failed to update renderflow package version in Cargo.lock", file=sys.stderr)
+              sys.exit(1)
+
+          with open("Cargo.lock", "w") as f:
+              f.write(updated)
+          print(f"Updated Cargo.lock renderflow package version to {version}")
+          EOF
 
       - name: Configure git
         run: |
