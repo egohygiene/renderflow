@@ -450,7 +450,7 @@ Normalises the language tags on fenced code blocks (` ``` `) to lowercase with s
 | ` ```  Python  `  | ` ```python `       |
 | ` ```JavaScript ` | ` ```javascript `   |
 
-### AiTransform
+### AI Transform (`AiTransform`)
 
 Applies an LLM prompt to document content before rendering.
 
@@ -560,7 +560,7 @@ Input Document
 │             Graph Engine                │
 │  • DAG construction (petgraph)          │  Model formats as nodes, conversions as edges
 │  • Path optimisation                    │  Speed / Quality / Balanced / Pareto
-│  • Shared intermediate deduplication   │  Compute Markdown→HTML once for PDF+DOCX
+│  • Shared intermediate deduplication  │  Compute Markdown→HTML once for PDF+DOCX
 │  • Parallel wave execution (Rayon)      │  Independent edges run concurrently
 │  • Incremental hash cache              │  Skip unchanged nodes
 └─────────────────────────────────────────┘
