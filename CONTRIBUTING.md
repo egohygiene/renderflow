@@ -118,59 +118,113 @@ task test     # run all tests
 
 ## Releases
 
-Releases are managed using [`cargo-release`](https://github.com/crate-ci/cargo-release), which automates version bumping, committing, and tagging.
+Releases are fully automated. A single version bump through the **Bump Version** GitHub Actions workflow triggers the entire release pipeline — no manual steps are required after that.
 
-### Install cargo-release
+### Version Bump (single source of truth)
 
-```bash
-cargo install cargo-release
+The canonical version lives in `Cargo.toml` under `[package].version`. Running the **Bump Version** workflow:
+
+1. Resolves the new version (explicit input or a patch/minor/major bump).
+2. Updates `Cargo.toml`, `Cargo.lock`, and all package manifests in one commit:
+   - `Formula/renderflow.rb` (Homebrew — URL updated, SHA256 set by release pipeline)
+   - `pkg/scoop/renderflow.json` (Scoop)
+   - `pkg/chocolatey/renderflow.nuspec` and `chocolateyinstall.ps1` (Chocolatey)
+   - `pkg/aur/renderflow/PKGBUILD` (AUR)
+3. Creates an annotated git tag (e.g. `v0.3.0`).
+4. Pushes the commit and the tag to `main`.
+
+Pushing the tag automatically triggers the **Release** workflow.
+
+### Release Pipeline
+
+The **Release** workflow (`.github/workflows/release.yml`) is triggered by any `v*` tag push. It runs in four sequential stages:
+
+```
+[1] generate-changelog
+       │
+       ├─ [2a] build-binaries (10 targets, in parallel)
+       │         └─ update-scoop-manifest (needs: build-binaries + update-homebrew)
+       │         └─ package-chocolatey   (needs: build-binaries)
+       │
+       ├─ [2b] package-deb-x86_64    ┐
+       │       package-deb-aarch64   │ (in parallel, all need generate-changelog)
+       │       package-rpm-x86_64    │
+       │       package-rpm-aarch64   ┘
+       │
+       ├─ [2c] snap-package
+       │
+       └─ [3]  update-homebrew-formula
+                └─ update-scoop-manifest
+                     └─ update-aur-pkgbuild
+                          └─ [4] verify-release
 ```
 
-### Release Commands
+**Stage 1 — Changelog & GitHub Release**
 
-Use the Taskfile tasks to trigger a release. Each command bumps the corresponding version component in `Cargo.toml`, commits the change, and creates a git tag.
+- Generates `CHANGELOG.md` and per-release notes using `git-cliff`.
+- Commits the updated changelog to `main`.
+- Creates the GitHub Release with auto-generated release notes.
 
-| Command | Version bump | Example |
-|---------|-------------|---------|
-| `task release-patch` | Patch (`0.1.x`) | `0.1.0 → 0.1.1` |
-| `task release-minor` | Minor (`0.x.0`) | `0.1.0 → 0.2.0` |
-| `task release-major` | Major (`x.0.0`) | `0.1.0 → 1.0.0` |
+**Stage 2 — Artifacts (run in parallel)**
 
-You can also invoke `cargo-release` directly:
+- Cross-compiles binaries for all 10 supported targets using `cross` or native Rust.
+- Generates SHA256 checksums for every binary.
+- Builds `.deb` packages for x86_64 and aarch64.
+- Builds `.rpm` packages for x86_64 and aarch64.
+- Builds the Snap package (version injected from the tag).
+- Packs the Chocolatey `.nupkg` with the real checksum.
+- Uploads all artifacts to the GitHub Release.
+
+**Stage 3 — Manifest Updates (sequential)**
+
+- Updates the Homebrew formula (`Formula/renderflow.rb`) with the new tarball URL and SHA256.
+- Updates the Scoop manifest (`pkg/scoop/renderflow.json`) with the new version, URL, and checksum.
+- Updates the AUR PKGBUILD (`pkg/aur/renderflow/PKGBUILD`) with the new version and SHA256.
+- Each update is committed and pushed directly to `main`.
+
+**Stage 4 — Verification**
+
+- Fetches the GitHub Release asset list and confirms every expected binary and checksum file is present.
+- Fails the workflow if any asset is missing.
+
+### Triggering a Release
 
 ```bash
-cargo release patch --execute
-cargo release minor --execute
-cargo release major --execute
-```
+# Trigger from GitHub UI: Actions → Bump Version → Run workflow
+# Select: bump level (patch / minor / major) or enter an explicit version
 
-> **Note:** Omit `--execute` to perform a dry run and preview what would change without applying any modifications.
+# Alternatively, trigger locally (requires push access):
+# 1. Bump and tag manually
+task release-patch   # or release-minor / release-major
 
-### Release Configuration
-
-Release behaviour is controlled by [`release.toml`](./release.toml) at the root of the repository. Key settings:
-
-- **`tag = true`** — a git tag (e.g. `v0.2.0`) is created automatically
-- **`push = false`** — the tag and commit are not pushed automatically; push manually after reviewing
-- **`publish = false`** — the crate is not published to crates.io
-- **`allow-branch = ["main"]`** — releases must be made from the `main` branch
-
-### Typical Release Workflow
-
-```bash
-# 1. Ensure working tree is clean and on main
-git checkout main
-git pull
-
-# 2. Perform a dry run to preview changes
-cargo release patch
-
-# 3. Execute the release (bumps version, commits, tags)
-task release-patch
-
-# 4. Push the commit and tag to trigger CI
+# 2. Push commit and tag
 git push && git push --tags
 ```
+
+> The `bump-version` workflow is the preferred method. It keeps the version bump commit and the release tag in sync and updates all package manifests atomically.
+
+### Supported Distribution Channels
+
+| Channel | Artifact | Updated by |
+|---------|----------|------------|
+| GitHub Releases | Binaries + checksums + packages | `release.yml` |
+| Homebrew | `Formula/renderflow.rb` | `release.yml` → update-homebrew-formula |
+| Scoop | `pkg/scoop/renderflow.json` | `release.yml` → update-scoop-manifest |
+| Chocolatey | `.nupkg` uploaded to GitHub Release | `release.yml` → package-chocolatey |
+| Snap | `.snap` uploaded to GitHub Release | `release.yml` → snap-package |
+| Debian/Ubuntu | `.deb` (x86_64 + aarch64) | `release.yml` → package-deb-* |
+| RHEL/Fedora | `.rpm` (x86_64 + aarch64) | `release.yml` → package-rpm-* |
+| Arch Linux (AUR) | `pkg/aur/renderflow/PKGBUILD` | `release.yml` → update-aur-pkgbuild |
+
+### Release Configuration Files
+
+| File | Purpose |
+|------|---------|
+| `release.toml` | `cargo-release` settings (tag format, branch restriction) |
+| `cliff.toml` | `git-cliff` changelog generation rules |
+| `.github/workflows/bump-version.yml` | Version bump workflow (triggers release) |
+| `.github/workflows/release.yml` | Full release pipeline |
+| `.github/workflows/ci.yml` | Continuous integration (lint, build, test) |
 
 ---
 

@@ -1,0 +1,664 @@
+name: Release
+
+# Triggered automatically when bump-version pushes a version tag.
+# Do not trigger this workflow manually — use the Bump Version workflow instead.
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  # ── 1. Changelog & GitHub Release ────────────────────────────────────────
+
+  generate-changelog:
+    name: Generate changelog and create GitHub Release
+    runs-on: ubuntu-latest
+    concurrency:
+      group: changelog-${{ github.repository }}
+      cancel-in-progress: false
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository (main branch)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Fetch tags
+        run: git fetch --tags
+
+      - name: Install git-cliff
+        uses: taiki-e/install-action@v2
+        with:
+          tool: git-cliff
+
+      - name: Generate full changelog
+        run: git cliff -o CHANGELOG.md
+
+      - name: Generate release notes
+        run: git cliff --latest --strip header -o RELEASE_NOTES.md
+
+      - name: Commit changelog
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md
+          if git diff --staged --quiet; then
+            echo "Changelog already up to date, no commit needed."
+          else
+            git commit -m "chore(release): update changelog for ${{ github.ref_name }}"
+            git push origin ${{ github.event.repository.default_branch }}
+          fi
+
+      - name: Upload release notes artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-notes
+          path: RELEASE_NOTES.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: RELEASE_NOTES.md
+
+  # ── 2a. Release binaries (all platforms) ─────────────────────────────────
+
+  build-binaries:
+    name: Build binary (${{ matrix.target }})
+    runs-on: ${{ matrix.runner }}
+    needs: generate-changelog
+    permissions:
+      contents: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # ── Linux x86_64 ──────────────────────────────────────────────────
+          - target: x86_64-unknown-linux-musl
+            artifact_name: renderflow-x86_64-unknown-linux-musl
+            binary: target/x86_64-unknown-linux-musl/release/renderflow
+            runner: ubuntu-latest
+            use_cross: true
+          - target: x86_64-unknown-linux-gnu
+            artifact_name: renderflow-x86_64-unknown-linux-gnu
+            binary: target/x86_64-unknown-linux-gnu/release/renderflow
+            runner: ubuntu-latest
+            use_cross: true
+          # ── Linux aarch64 ─────────────────────────────────────────────────
+          - target: aarch64-unknown-linux-musl
+            artifact_name: renderflow-aarch64-unknown-linux-musl
+            binary: target/aarch64-unknown-linux-musl/release/renderflow
+            runner: ubuntu-latest
+            use_cross: true
+          - target: aarch64-unknown-linux-gnu
+            artifact_name: renderflow-aarch64-unknown-linux-gnu
+            binary: target/aarch64-unknown-linux-gnu/release/renderflow
+            runner: ubuntu-latest
+            use_cross: true
+          # ── Linux ARMv7 ───────────────────────────────────────────────────
+          - target: armv7-unknown-linux-musleabihf
+            artifact_name: renderflow-armv7-unknown-linux-musleabihf
+            binary: target/armv7-unknown-linux-musleabihf/release/renderflow
+            runner: ubuntu-latest
+            use_cross: true
+          # ── Linux i686 ────────────────────────────────────────────────────
+          - target: i686-unknown-linux-musl
+            artifact_name: renderflow-i686-unknown-linux-musl
+            binary: target/i686-unknown-linux-musl/release/renderflow
+            runner: ubuntu-latest
+            use_cross: true
+          # ── Windows ───────────────────────────────────────────────────────
+          - target: x86_64-pc-windows-gnu
+            artifact_name: renderflow-x86_64-pc-windows-gnu.exe
+            binary: target/x86_64-pc-windows-gnu/release/renderflow.exe
+            runner: ubuntu-latest
+            use_cross: true
+          - target: x86_64-pc-windows-msvc
+            artifact_name: renderflow-x86_64-pc-windows-msvc.exe
+            binary: target/x86_64-pc-windows-msvc/release/renderflow.exe
+            runner: windows-latest
+            use_cross: false
+          # ── macOS ─────────────────────────────────────────────────────────
+          - target: x86_64-apple-darwin
+            artifact_name: renderflow-x86_64-apple-darwin
+            binary: target/x86_64-apple-darwin/release/renderflow
+            runner: macos-13
+            use_cross: false
+          - target: aarch64-apple-darwin
+            artifact_name: renderflow-aarch64-apple-darwin
+            binary: target/aarch64-apple-darwin/release/renderflow
+            runner: macos-latest
+            use_cross: false
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.94"
+          targets: ${{ matrix.target }}
+
+      - name: Install cross
+        if: matrix.use_cross
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cross
+
+      - name: Build release binary (cross)
+        if: matrix.use_cross
+        run: cross build --target ${{ matrix.target }} --release
+
+      - name: Build release binary (cargo)
+        if: "!matrix.use_cross"
+        run: cargo build --target ${{ matrix.target }} --release
+
+      - name: Copy binary to artifact name
+        shell: bash
+        run: cp ${{ matrix.binary }} ${{ matrix.artifact_name }}
+
+      - name: Generate SHA256 checksum
+        shell: bash
+        run: |
+          if command -v sha256sum &>/dev/null; then
+            sha256sum "${{ matrix.artifact_name }}" > "${{ matrix.artifact_name }}.sha256"
+          else
+            shasum -a 256 "${{ matrix.artifact_name }}" > "${{ matrix.artifact_name }}.sha256"
+          fi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: |
+            ${{ matrix.artifact_name }}
+            ${{ matrix.artifact_name }}.sha256
+
+      - name: Attach binary to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ${{ matrix.artifact_name }}
+            ${{ matrix.artifact_name }}.sha256
+
+  # ── 2b. Linux packages (.deb, .rpm) ──────────────────────────────────────
+
+  package-deb-x86_64:
+    name: Package .deb (x86_64)
+    runs-on: ubuntu-latest
+    needs: generate-changelog
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.94"
+
+      - name: Install cargo-deb
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deb
+
+      - name: Build release binary
+        run: cargo build --release
+
+      - name: Build .deb package
+        run: cargo deb --no-build
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: renderflow-deb-x86_64
+          path: target/debian/*.deb
+
+      - name: Attach .deb to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: target/debian/*.deb
+
+  package-deb-aarch64:
+    name: Package .deb (aarch64)
+    runs-on: ubuntu-latest
+    needs: generate-changelog
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.94"
+          targets: aarch64-unknown-linux-gnu
+
+      - name: Install cross-compilation toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+
+      - name: Install cargo-deb
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deb
+
+      - name: Build release binary for aarch64
+        run: cargo build --release --target aarch64-unknown-linux-gnu
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+
+      - name: Build .deb for aarch64
+        run: cargo deb --no-build --target aarch64-unknown-linux-gnu
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: renderflow-deb-aarch64
+          path: target/aarch64-unknown-linux-gnu/debian/*.deb
+
+      - name: Attach .deb to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: target/aarch64-unknown-linux-gnu/debian/*.deb
+
+  package-rpm-x86_64:
+    name: Package .rpm (x86_64)
+    runs-on: ubuntu-latest
+    needs: generate-changelog
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.94"
+
+      - name: Install cargo-generate-rpm
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-generate-rpm
+
+      - name: Build release binary
+        run: cargo build --release
+
+      - name: Build .rpm package
+        run: cargo generate-rpm
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: renderflow-rpm-x86_64
+          path: target/generate-rpm/*.rpm
+
+      - name: Attach .rpm to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: target/generate-rpm/*.rpm
+
+  package-rpm-aarch64:
+    name: Package .rpm (aarch64)
+    runs-on: ubuntu-latest
+    needs: generate-changelog
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.94"
+          targets: aarch64-unknown-linux-gnu
+
+      - name: Install cross-compilation toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+
+      - name: Install cargo-generate-rpm
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-generate-rpm
+
+      - name: Build release binary for aarch64
+        run: cargo build --release --target aarch64-unknown-linux-gnu
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+
+      - name: Build .rpm for aarch64
+        run: cargo generate-rpm --target aarch64-unknown-linux-gnu
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: renderflow-rpm-aarch64
+          path: target/aarch64-unknown-linux-gnu/generate-rpm/*.rpm
+
+      - name: Attach .rpm to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: target/aarch64-unknown-linux-gnu/generate-rpm/*.rpm
+
+  # ── 2c. Snap ──────────────────────────────────────────────────────────────
+
+  snap-package:
+    name: Build Snap package
+    runs-on: ubuntu-latest
+    needs: generate-changelog
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch tags
+        run: git fetch --tags
+
+      - name: Inject version into snapcraft.yaml
+        run: |
+          VERSION="${{ github.ref_name }}"
+          VERSION="${VERSION#v}"
+          sed -i "s/^version: .*/version: '${VERSION}'/" snap/snapcraft.yaml
+
+      - name: Build Snap
+        uses: snapcore/action-build@v1
+        id: snap-build
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: renderflow-snap
+          path: ${{ steps.snap-build.outputs.snap }}
+
+      - name: Attach Snap to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.snap-build.outputs.snap }}
+
+  # ── 2d. Chocolatey ────────────────────────────────────────────────────────
+
+  package-chocolatey:
+    name: Package Chocolatey
+    runs-on: windows-latest
+    needs: build-binaries
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download Windows MSVC binary artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: renderflow-x86_64-pc-windows-msvc.exe
+          path: pkg/chocolatey/tools
+
+      - name: Capture checksum and update package files
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart('v')
+          # Read sha256 before the binary is renamed
+          $sha256  = (Get-Content "pkg\chocolatey\tools\renderflow-x86_64-pc-windows-msvc.exe.sha256" -Raw).Trim().Split(' ')[0]
+          $url     = "https://github.com/egohygiene/renderflow/releases/download/${{ github.ref_name }}/renderflow-x86_64-pc-windows-msvc.exe"
+
+          # Rename binary so Chocolatey shims it correctly
+          Rename-Item -Path "pkg\chocolatey\tools\renderflow-x86_64-pc-windows-msvc.exe" `
+                      -NewName "renderflow.exe"
+
+          # nuspec version
+          (Get-Content "pkg\chocolatey\renderflow.nuspec") `
+            -replace '<version>[^<]*</version>', "<version>$version</version>" |
+            Set-Content "pkg\chocolatey\renderflow.nuspec"
+
+          # install script URL + checksum
+          (Get-Content "pkg\chocolatey\tools\chocolateyinstall.ps1") `
+            -replace 'PLACEHOLDER_VERSION', "${{ github.ref_name }}" `
+            -replace 'PLACEHOLDER_SHA256', $sha256 |
+            Set-Content "pkg\chocolatey\tools\chocolateyinstall.ps1"
+
+      - name: Pack Chocolatey package
+        shell: pwsh
+        run: choco pack pkg\chocolatey\renderflow.nuspec --output-directory pkg\chocolatey\out
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: renderflow-chocolatey
+          path: pkg/chocolatey/out/*.nupkg
+
+      - name: Attach Chocolatey package to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: pkg/chocolatey/out/*.nupkg
+
+  # ── 3. Manifest updates ───────────────────────────────────────────────────
+  # Sequential to avoid concurrent pushes to the default branch.
+
+  update-homebrew-formula:
+    name: Update Homebrew formula
+    runs-on: ubuntu-latest
+    needs: generate-changelog
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository (main branch)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute source tarball SHA256
+        id: formula
+        run: |
+          VERSION="${{ github.ref_name }}"
+          URL="https://github.com/egohygiene/renderflow/archive/refs/tags/${VERSION}.tar.gz"
+          SHA256=$(curl -fsSL "$URL" | sha256sum | awk '{print $1}')
+          echo "url=${URL}"       >> "$GITHUB_OUTPUT"
+          echo "sha256=${SHA256}" >> "$GITHUB_OUTPUT"
+
+      - name: Update formula url and sha256
+        run: |
+          sed -i 's|url "https://github.com/egohygiene/renderflow/archive/refs/tags/.*"|url "${{ steps.formula.outputs.url }}"|' Formula/renderflow.rb
+          sed -i 's|sha256 ".*"|sha256 "${{ steps.formula.outputs.sha256 }}"|' Formula/renderflow.rb
+
+      - name: Commit and push updated formula
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Formula/renderflow.rb
+          if git diff --staged --quiet; then
+            echo "Formula already up to date, no commit needed."
+          else
+            git commit -m "chore: update Homebrew formula to ${{ github.ref_name }}"
+            git push origin ${{ github.event.repository.default_branch }}
+          fi
+
+  update-scoop-manifest:
+    name: Update Scoop manifest
+    runs-on: ubuntu-latest
+    needs: [build-binaries, update-homebrew-formula]
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository (main branch)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download Windows MSVC binary artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: renderflow-x86_64-pc-windows-msvc.exe
+          path: /tmp/windows-msvc
+
+      - name: Update Scoop manifest
+        run: |
+          VERSION="${{ github.ref_name }}"
+          VERSION="${VERSION#v}"
+          SHA256=$(awk '{print $1}' /tmp/windows-msvc/renderflow-x86_64-pc-windows-msvc.exe.sha256)
+          URL="https://github.com/egohygiene/renderflow/releases/download/${{ github.ref_name }}/renderflow-x86_64-pc-windows-msvc.exe"
+          python3 - <<EOF
+          import json
+
+          with open("pkg/scoop/renderflow.json") as f:
+              d = json.load(f)
+
+          d["version"]                              = "${VERSION}"
+          d["architecture"]["64bit"]["url"]         = "${URL}#/renderflow.exe"
+          d["architecture"]["64bit"]["hash"]        = "${SHA256}"
+
+          with open("pkg/scoop/renderflow.json", "w") as f:
+              json.dump(d, f, indent=4)
+              f.write("\n")
+
+          print(f"Updated Scoop manifest to {d['version']}")
+          EOF
+
+      - name: Commit and push updated manifest
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add pkg/scoop/renderflow.json
+          if git diff --staged --quiet; then
+            echo "Scoop manifest already up to date, no commit needed."
+          else
+            git commit -m "chore: update Scoop manifest to ${{ github.ref_name }}"
+            git push origin ${{ github.event.repository.default_branch }}
+          fi
+
+  update-aur-pkgbuild:
+    name: Update AUR PKGBUILD
+    runs-on: ubuntu-latest
+    needs: update-scoop-manifest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository (main branch)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute source tarball SHA256
+        id: aur
+        run: |
+          VERSION="${{ github.ref_name }}"
+          VERSION="${VERSION#v}"
+          URL="https://github.com/egohygiene/renderflow/archive/refs/tags/${{ github.ref_name }}.tar.gz"
+          SHA256=$(curl -fsSL "$URL" | sha256sum | awk '{print $1}')
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "sha256=${SHA256}"   >> "$GITHUB_OUTPUT"
+
+      - name: Update PKGBUILD version and checksum
+        run: |
+          sed -i "s/^pkgver=.*/pkgver=${{ steps.aur.outputs.version }}/" pkg/aur/renderflow/PKGBUILD
+          sed -i "s/^pkgrel=.*/pkgrel=1/"                                pkg/aur/renderflow/PKGBUILD
+          sed -i "s/^sha256sums=.*/sha256sums=('${{ steps.aur.outputs.sha256 }}')/" pkg/aur/renderflow/PKGBUILD
+
+      - name: Commit and push updated PKGBUILD
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add pkg/aur/renderflow/PKGBUILD
+          if git diff --staged --quiet; then
+            echo "PKGBUILD already up to date, no commit needed."
+          else
+            git commit -m "chore: update AUR PKGBUILD to ${{ github.ref_name }}"
+            git push origin ${{ github.event.repository.default_branch }}
+          fi
+
+  # ── 4. Verify release ─────────────────────────────────────────────────────
+
+  verify-release:
+    name: Verify release assets
+    runs-on: ubuntu-latest
+    needs:
+      - build-binaries
+      - package-deb-x86_64
+      - package-deb-aarch64
+      - package-rpm-x86_64
+      - package-rpm-aarch64
+      - snap-package
+      - package-chocolatey
+      - update-aur-pkgbuild
+    permissions:
+      contents: read
+
+    steps:
+      - name: Check GitHub Release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ github.ref_name }}"
+          REPO="${{ github.repository }}"
+
+          echo "Verifying release assets for ${TAG}..."
+
+          EXPECTED=(
+            "renderflow-x86_64-unknown-linux-musl"
+            "renderflow-x86_64-unknown-linux-musl.sha256"
+            "renderflow-x86_64-unknown-linux-gnu"
+            "renderflow-x86_64-unknown-linux-gnu.sha256"
+            "renderflow-aarch64-unknown-linux-musl"
+            "renderflow-aarch64-unknown-linux-musl.sha256"
+            "renderflow-aarch64-unknown-linux-gnu"
+            "renderflow-aarch64-unknown-linux-gnu.sha256"
+            "renderflow-armv7-unknown-linux-musleabihf"
+            "renderflow-armv7-unknown-linux-musleabihf.sha256"
+            "renderflow-i686-unknown-linux-musl"
+            "renderflow-i686-unknown-linux-musl.sha256"
+            "renderflow-x86_64-pc-windows-gnu.exe"
+            "renderflow-x86_64-pc-windows-gnu.exe.sha256"
+            "renderflow-x86_64-pc-windows-msvc.exe"
+            "renderflow-x86_64-pc-windows-msvc.exe.sha256"
+            "renderflow-x86_64-apple-darwin"
+            "renderflow-x86_64-apple-darwin.sha256"
+            "renderflow-aarch64-apple-darwin"
+            "renderflow-aarch64-apple-darwin.sha256"
+          )
+
+          # Fetch the list of uploaded assets from the GitHub Release
+          ASSETS=$(gh release view "${TAG}" --repo "${REPO}" --json assets --jq '[.assets[].name]')
+
+          MISSING=()
+          for ASSET in "${EXPECTED[@]}"; do
+            if ! echo "${ASSETS}" | grep -q "\"${ASSET}\""; then
+              MISSING+=("${ASSET}")
+            fi
+          done
+
+          if [ ${#MISSING[@]} -gt 0 ]; then
+            echo "ERROR: The following expected release assets are missing:"
+            for M in "${MISSING[@]}"; do
+              echo "  - ${M}"
+            done
+            exit 1
+          fi
+
+          echo "All expected release assets are present."
+          echo "Release ${TAG} verified successfully."
