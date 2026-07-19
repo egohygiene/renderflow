@@ -78,9 +78,12 @@ dist/
 ### Via Homebrew (macOS and Linux)
 
 ```bash
+brew trust egohygiene/renderflow
 brew tap egohygiene/renderflow https://github.com/egohygiene/renderflow
 brew install renderflow
 ```
+
+> **Note:** The `brew trust` step is required before tapping because this is a third-party tap. Without it, Homebrew will refuse to load the formula with an "untrusted tap" error.
 
 Pandoc is installed automatically as a dependency.
 

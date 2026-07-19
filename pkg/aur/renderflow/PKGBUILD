@@ -1,7 +1,7 @@
 # Maintainer: Ego Hygiene <egohygiene@users.noreply.github.com>
 # pkgver and sha256sums are updated automatically by CI on each tagged release.
 pkgname=renderflow
-pkgver=0.1.0
+pkgver=0.2.0
 pkgrel=1
 pkgdesc="Spec-driven document rendering engine"
 arch=('x86_64' 'aarch64')
