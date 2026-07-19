@@ -606,14 +606,15 @@ Releases are fully automated. Run the **Bump Version** workflow from GitHub Acti
 
 1. Navigate to **Actions → Bump Version → Run workflow**.
 2. Select the bump level (`patch` / `minor` / `major`) or enter an explicit version.
-3. The workflow bumps `Cargo.toml`, updates all package manifests, creates an annotated tag, pushes to `main`, and dispatches the release pipeline.
+3. The workflow bumps `Cargo.toml`, updates the workspace package version in `Cargo.lock`, updates package manifest versions, creates an annotated tag, pushes to `main`, and dispatches the release pipeline.
 
 The **Release** workflow then:
 - Generates `CHANGELOG.md` and release notes with `git-cliff`.
 - Cross-compiles release binaries for all 10 supported targets.
 - Builds `.deb`, `.rpm`, `.snap`, and `.nupkg` packages.
 - Uploads all artifacts to the GitHub Release.
-- Updates Homebrew, Scoop, and AUR package manifests.
+- Updates Homebrew, Scoop, and AUR package manifests with retry/rebase safeguards.
+- Verifies required binaries, checksums, package artifacts, and source tarball availability.
 
 ---
 

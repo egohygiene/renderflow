@@ -125,7 +125,7 @@ Releases are fully automated. A single version bump through the **Bump Version**
 The canonical version lives in `Cargo.toml` under `[package].version`. Running the **Bump Version** workflow:
 
 1. Resolves the new version (explicit input or a patch/minor/major bump).
-2. Updates `Cargo.toml`, `Cargo.lock`, and all package manifests in one commit:
+2. Updates `Cargo.toml`, `Cargo.lock` (workspace package version only), and package manifest versions in one commit:
    - `Formula/renderflow.rb` (Homebrew — URL updated, SHA256 set by release pipeline)
    - `pkg/scoop/renderflow.json` (Scoop)
    - `pkg/chocolatey/renderflow.nuspec` and `chocolateyinstall.ps1` (Chocolatey)
@@ -180,11 +180,13 @@ The **Release** workflow (`.github/workflows/release.yml`) is triggered by any `
 - Updates the Homebrew formula (`Formula/renderflow.rb`) with the new tarball URL and SHA256.
 - Updates the Scoop manifest (`pkg/scoop/renderflow.json`) with the new version, URL, and checksum.
 - Updates the AUR PKGBUILD (`pkg/aur/renderflow/PKGBUILD`) with the new version and SHA256.
-- Each update is committed and pushed directly to `main`.
+- Each update is committed and pushed to `main` with retry + rebase logic to handle concurrent changes.
+- Manifest update failures are downgraded to warnings so GitHub Release publishing can still complete.
 
 **Stage 4 — Verification**
 
-- Fetches the GitHub Release asset list and confirms every expected binary and checksum file is present.
+- Fetches the GitHub Release asset list and confirms every expected binary/checksum plus `.deb`, `.rpm`, `.snap`, and `.nupkg` assets are present.
+- Verifies the source tarball used by Homebrew/AUR is reachable.
 - Fails the workflow if any asset is missing.
 
 ### Triggering a Release
