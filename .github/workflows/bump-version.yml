@@ -26,6 +26,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      actions: write
 
     steps:
       - name: Checkout repository
@@ -175,3 +176,13 @@ jobs:
         run: |
           git push origin ${{ github.event.repository.default_branch }}
           git push origin "${{ steps.ver.outputs.tag }}"
+
+      - name: Dispatch release workflow
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # GITHUB_TOKEN pushes do not automatically trigger other workflows.
+          # Explicitly dispatch the release workflow so the release pipeline runs.
+          gh workflow run release.yml \
+            --repo "${{ github.repository }}" \
+            --ref "${{ steps.ver.outputs.tag }}"

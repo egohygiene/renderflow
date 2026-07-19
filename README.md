@@ -11,7 +11,7 @@
   </a>
 </div>
 
-*Transform Markdown into publication-ready PDF and HTML — defined once, rendered anywhere.*
+*Spec-driven document rendering engine — transform Markdown into publication-ready PDF, HTML, DOCX, and more.*
 
 [![CI](https://github.com/egohygiene/renderflow/actions/workflows/ci.yml/badge.svg)](https://github.com/egohygiene/renderflow/actions/workflows/ci.yml)
 [![Release](https://github.com/egohygiene/renderflow/actions/workflows/release.yml/badge.svg)](https://github.com/egohygiene/renderflow/actions/workflows/release.yml)
@@ -24,21 +24,30 @@
 
 ## What is Renderflow?
 
-Renderflow is a config-driven rendering engine that transforms Markdown documents into polished PDF and HTML output — no complex shell scripts, no Pandoc flags to memorize.
+Renderflow is a config-driven rendering engine that transforms documents into polished output — no complex shell scripts, no Pandoc flags to memorize.
 
-Define your output spec in YAML. Point it at your Markdown. Run one command.
+Define your output spec in YAML. Point it at your source. Run one command.
+
+At its core, Renderflow models every transformation as a **directed acyclic graph (DAG)**. The graph engine finds the optimal path between your source format and each target, shares intermediate steps across outputs, and executes independent conversions in parallel using Rayon.
 
 ---
 
 ## Features
 
-- 📄 **Multi-format output** — Render to PDF, HTML, and DOCX from a single config file
+- 📄 **Multi-format output** — Render to PDF, HTML, DOCX, and more from a single config file
 - 🗂️ **YAML-driven spec** — Declarative, repeatable, version-controllable builds
-- 🖼️ **Asset management** — Automatically resolves and validates image paths
-- 🔄 **Transform pipeline** — Pluggable in-memory content transforms
+- 🔀 **Graph engine** — DAG-based transform planner with parallel execution and shared intermediate steps
+- 🎯 **Optimization modes** — Choose Speed, Quality, Balanced, or Pareto-optimal path selection
+- 🔄 **Transform pipeline** — Pluggable in-memory content transforms (built-in and custom)
+- 🤖 **AI transforms** — Ollama and OpenAI-compatible LLM integration with local caching
+- 🖼️ **Image conversion** — FFmpeg-backed format conversion across 80+ image formats (JPEG, PNG, WebP, AVIF, HEIC, EXR, and more)
+- 🎵 **Audio conversion** — FFmpeg-backed format conversion across 40+ audio formats (WAV, FLAC, MP3, AAC, Opus, and more)
 - 🧩 **Custom templates** — Per-output Jinja2-compatible templates via [Tera](https://keats.github.io/tera/)
+- 🔌 **Plugin system** — Register external transform executors at runtime without modifying core
+- 🖼️ **Asset management** — Automatically resolves and validates image paths
 - 🔍 **Dry-run mode** — Preview what will be built without writing any files
-- 👁️ **Watch mode** — Automatically rebuild on file changes
+- 👁️ **Watch mode** — Automatically rebuild on file changes with configurable debounce
+- ⚡ **Incremental builds** — Content-hash-based caching skips unchanged outputs
 - 🦀 **Built with Rust** — Fast, safe, and reliable
 
 ---
@@ -319,7 +328,7 @@ outputs:
 | `input_format` | ❌ No    | auto-detect  | Override the input format; auto-detected from file extension when omitted |
 | `output_dir`   | ❌ No    | `dist`       | Directory where output files are written |
 | `outputs`      | ✅ Yes   | —            | List of one or more output targets (must contain at least one entry) |
-| `outputs[].type` | ✅ Yes | —           | Output format: `html`, `pdf`, or `docx` |
+| `outputs[].type` | ✅ Yes | —           | Output format: `html`, `pdf`, `docx`, or any supported audio/image format |
 | `outputs[].template` | ❌ No | —        | Name of a Tera template in the `templates/` directory to use for this output |
 | `variables`    | ❌ No    | `{}`         | Map of string key/value pairs injected into the document via `{{key}}` placeholders |
 
@@ -340,6 +349,8 @@ When `input_format` is omitted, Renderflow auto-detects the format from the file
 
 ### Supported Output Types
 
+**Document formats:**
+
 | Type   | Description                   | Requirements      |
 |--------|-------------------------------|-------------------|
 | `html` | Renders to HTML               | Pandoc            |
@@ -347,6 +358,20 @@ When `input_format` is omitted, Renderflow auto-detects the format from the file
 | `docx` | Renders to Word document      | Pandoc            |
 
 Not every input → output combination is supported. For example, `epub` and `latex` inputs cannot currently be converted to `docx`. Renderflow reports a clear error when an unsupported combination is specified.
+
+**Image formats** (via FFmpeg):
+
+Common formats: `jpeg`, `png`, `webp`, `avif`, `gif`, `bmp`, `tiff`
+
+Professional/HDR: `exr`, `hdr`, `dpx`, `cin`
+
+**Audio formats** (via FFmpeg):
+
+Lossless: `wav`, `flac`, `aiff`, `alac`
+
+Lossy: `mp3`, `aac`, `ogg`, `opus`, `wma`
+
+Multichannel: `ac3`, `dts`, `truehd`
 
 ### Templates
 
@@ -411,31 +436,6 @@ Replaces `{{key}}` placeholders in the source document with values defined in th
 - Unclosed placeholders (e.g. `{{unclosed`) are also left unchanged.
 - **Code block protection:** Placeholders inside fenced code blocks (` ``` ... ``` `) and inline code spans (`` `...` ``) are **not** substituted, so example code in your document is never corrupted.
 
-**Example:**
-
-Config:
-```yaml
-variables:
-  title: "Annual Report"
-  year: "2024"
-```
-
-`report.md`:
-```markdown
-# {{title}} — {{year}}
-```
-
-After the transform, the document becomes:
-```markdown
-# Annual Report — 2024
-```
-
-**Code block protection example:**
-
-The placeholder `{{title}}` in normal prose → **replaced**.
-The placeholder in an inline code span `` `{{title}}` `` → **left unchanged**.
-The placeholder inside a fenced code block body → **left unchanged**.
-
 ### SyntaxHighlightTransform
 
 Normalises the language tags on fenced code blocks (` ``` `) to lowercase with surrounding whitespace stripped.
@@ -450,34 +450,131 @@ Normalises the language tags on fenced code blocks (` ``` `) to lowercase with s
 | ` ```  Python  `  | ` ```python `       |
 | ` ```JavaScript ` | ` ```javascript `   |
 
-**Limitation (V1):** Only the opening fence language tag is normalised. The code body itself is passed through unchanged.
+### AI Transform (`AiTransform`)
 
-> **See it in action:** The [`examples/transforms/`](examples/transforms/) directory contains a complete working example that exercises all three transforms.
+Applies an LLM prompt to document content before rendering.
+
+**Backends:**
+
+| Backend   | Endpoint                           | Notes |
+|-----------|------------------------------------|-------|
+| `ollama`  | `http://localhost:11434` (default) | Local model via Ollama |
+| `openai`  | OpenAI-compatible API              | Set `api_key` on the transform |
+
+**Caching:** Responses are cached locally using a SHA-256 hash of the prompt + input content. Unchanged content is never re-sent to the model.
+
+### CommandTransform
+
+Pipes document content through an external command.
+
+**Pipe-based** (stdin → stdout):
+```yaml
+transforms:
+  - name: my-filter
+    command: pandoc-filter
+    args: []
+```
+
+**File-based** (uses `{input}` / `{output}` placeholders):
+```yaml
+transforms:
+  - name: my-filter
+    command: my-tool
+    args: ["--in", "{input}", "--out", "{output}"]
+```
+
+### Plugin System
+
+Register custom transform executors at runtime without modifying the core engine. Implement the `PluginExecutor` trait in your own crate and register it with the `PluginRegistry`:
+
+```rust
+use renderflow::transforms::plugin::PluginExecutor;
+
+struct ReversePlugin;
+
+impl PluginExecutor for ReversePlugin {
+    fn name(&self) -> &str { "reverse" }
+    fn execute(&self, input: String) -> anyhow::Result<String> {
+        Ok(input.chars().rev().collect())
+    }
+}
+```
+
+> **See it in action:** The [`examples/transforms/`](examples/transforms/) directory contains a complete working example that exercises all three built-in transforms.
+
+---
+
+## Graph Engine
+
+Renderflow's transform planner models every conversion as a **directed acyclic graph (DAG)** backed by [petgraph](https://docs.rs/petgraph).
+
+### How it works
+
+Each format is a node; each supported conversion is a weighted directed edge. When you specify multiple output targets, the planner:
+
+1. Finds the shortest path from your source format to each target.
+2. Merges paths into a single DAG, **reusing shared intermediate steps** (e.g. `Markdown → HTML` is computed once when producing both PDF and DOCX).
+3. Groups independent edges into **execution waves** and runs each wave in parallel using Rayon.
+
+### Optimization modes
+
+Control how the planner selects transformation paths:
+
+| Mode       | Strategy |
+|------------|----------|
+| `speed`    | Minimise total transformation cost |
+| `quality`  | Maximise total output quality |
+| `balanced` | Weighted combination of cost and quality (default) |
+| `pareto`   | Return the full Pareto-optimal frontier of non-dominated paths |
+
+```bash
+renderflow build --optimization quality
+```
+
+### Incremental builds
+
+Renderflow tracks a SHA-256 content hash for every DAG node. On subsequent builds, nodes whose input hash is unchanged are skipped entirely — only the affected subgraph is re-executed.
 
 ---
 
 ## Architecture
 
-Renderflow processes documents through a two-phase pipeline:
+Renderflow processes documents through a layered pipeline:
 
 ```
-Input Markdown
+Input Document
       │
       ▼
-┌─────────────────────────────────────┐
-│           Transform Phase           │
-│  1. EmojiTransform                  │  Replace emoji (format-aware)
-│  2. VariableSubstitutionTransform   │  Substitute {{key}} placeholders
-│  3. SyntaxHighlightTransform        │  Normalise code fence language tags
-└─────────────────────────────────────┘
+┌─────────────────────────────────────────┐
+│             Transform Phase             │
+│  1. EmojiTransform                      │  Replace emoji (format-aware)
+│  2. VariableSubstitutionTransform       │  Substitute {{key}} placeholders
+│  3. SyntaxHighlightTransform            │  Normalise code fence language tags
+│  4. AiTransform (optional)             │  LLM-powered content processing
+│  5. CommandTransform (optional)        │  External command filters
+│  6. Plugin transforms (optional)       │  Runtime-registered extensions
+└─────────────────────────────────────────┘
       │
       ▼
-┌─────────────────────┐
-│    Step Phase       │  I/O and external tool execution (Pandoc, Tectonic)
-└─────────────────────┘
+┌─────────────────────────────────────────┐
+│             Graph Engine                │
+│  • DAG construction (petgraph)          │  Model formats as nodes, conversions as edges
+│  • Path optimisation                    │  Speed / Quality / Balanced / Pareto
+│  • Shared intermediate deduplication  │  Compute Markdown→HTML once for PDF+DOCX
+│  • Parallel wave execution (Rayon)      │  Independent edges run concurrently
+│  • Incremental hash cache              │  Skip unchanged nodes
+└─────────────────────────────────────────┘
       │
       ▼
-Output Files (PDF / HTML / DOCX)
+┌─────────────────────────────────────────┐
+│              Step Phase                 │
+│  • Strategy dispatch                    │  Select renderer per output type
+│  • I/O (Pandoc, Tectonic, FFmpeg)       │  External tool execution
+│  • Artifact collection                  │  Gather outputs for the release step
+└─────────────────────────────────────────┘
+      │
+      ▼
+Output Files (PDF / HTML / DOCX / images / audio / …)
 ```
 
 **Key design patterns:**
@@ -485,6 +582,24 @@ Output Files (PDF / HTML / DOCX)
 - **Pipeline** — Ordered, composable steps with clean error propagation
 - **Strategy** — Each output format is an independent, swappable rendering strategy
 - **Transform** — Pure in-memory text transforms applied before any I/O
+- **DAG** — Transform paths are modelled as graphs for optimal multi-target execution
+
+---
+
+## Release Process
+
+Releases are fully automated. Run the **Bump Version** workflow from GitHub Actions:
+
+1. Navigate to **Actions → Bump Version → Run workflow**.
+2. Select the bump level (`patch` / `minor` / `major`) or enter an explicit version.
+3. The workflow bumps `Cargo.toml`, updates all package manifests, creates an annotated tag, pushes to `main`, and dispatches the release pipeline.
+
+The **Release** workflow then:
+- Generates `CHANGELOG.md` and release notes with `git-cliff`.
+- Cross-compiles release binaries for all 10 supported targets.
+- Builds `.deb`, `.rpm`, `.snap`, and `.nupkg` packages.
+- Uploads all artifacts to the GitHub Release.
+- Updates Homebrew, Scoop, and AUR package manifests.
 
 ---
 
@@ -492,8 +607,12 @@ Output Files (PDF / HTML / DOCX)
 
 - [ ] Built-in stylesheet themes
 - [ ] SVG / emoji embedding in PDFs
-- [ ] Plugin system for custom transforms
+- [ ] More example configs and templates
 - [x] Automated release workflow for pre-built binaries
+- [x] Graph engine with DAG-based transform planner
+- [x] AI transform integration (Ollama / OpenAI)
+- [x] Audio and image format conversion via FFmpeg
+- [x] Plugin system for custom transforms
 
 ---
 

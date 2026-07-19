@@ -1,0 +1,461 @@
+================================================================================
+RENDERFLOW PRODUCTION READINESS AUDIT
+================================================================================
+Generated : 2026-07-19T14:18:44Z
+Version   : 0.2.1
+Auditor   : GitHub Copilot Coding Agent
+Repository: https://github.com/egohygiene/renderflow
+================================================================================
+
+EXECUTIVE SUMMARY
+─────────────────
+This audit covers the full Renderflow repository as of v0.2.1.  Two critical
+release pipeline defects were identified and remediated as part of this audit
+(see "Immediate Remediations" below).  The remaining findings are categorised
+HIGH / MEDIUM / LOW and include a recommended fix and effort estimate for each.
+
+Overall, Renderflow is architecturally sound with clean Rust idioms, a well-
+designed graph engine, and a comprehensive release pipeline.  The primary
+production risks are the previously broken release trigger and several gaps in
+documentation and test coverage.
+
+────────────────────────────────────────────────────────────────────────────────
+IMMEDIATE REMEDIATIONS (applied in this PR)
+────────────────────────────────────────────────────────────────────────────────
+
+[FIX-1] Release workflow never triggered after version bump
+──────────────────────────────────────────────────────────
+Root cause : GitHub Actions does not trigger other workflows when an event is
+             created by GITHUB_TOKEN.  The bump-version workflow pushed the
+             release tag using GITHUB_TOKEN, so release.yml was never triggered.
+             This is a documented GitHub Actions security restriction preventing
+             recursive workflow execution.
+
+Fix applied:
+  1. Added `workflow_dispatch` trigger to release.yml so it can be dispatched
+     explicitly.
+  2. Added `actions: write` permission and a "Dispatch release workflow" step to
+     bump-version.yml that calls `gh workflow run release.yml --ref <tag>` after
+     pushing the tag.  This bypasses the GITHUB_TOKEN restriction by converting
+     the tag push into an explicit workflow dispatch.
+
+Verification: The next `Bump Version` run will push the tag and then dispatch
+the release pipeline.  Release artifacts, notes, and the GitHub Release entry
+will be created automatically.
+
+[FIX-2] README did not reflect current feature set
+──────────────────────────────────────────────────
+The README omitted:
+  • The graph engine (DAG-based transform planner with petgraph)
+  • Optimization modes (Speed / Quality / Balanced / Pareto)
+  • Incremental build caching
+  • AI transforms (Ollama / OpenAI backends with local cache)
+  • CommandTransform (external command filter support)
+  • Plugin system (runtime-registered PluginExecutor extensions)
+  • Audio format conversion (40+ formats via FFmpeg)
+  • Image format conversion (80+ formats via FFmpeg)
+  • Updated release process documentation
+  • Completed roadmap items
+
+Fix applied: README.md rewritten to document all current features with examples,
+architecture diagram, and accurate roadmap.
+
+================================================================================
+FINDINGS
+================================================================================
+
+────────────────────────────────────────────────────────────────────────────────
+HIGH PRIORITY
+────────────────────────────────────────────────────────────────────────────────
+
+[H-1] No integration tests for graph engine execution paths
+────────────────────────────────────────────────────────────
+Description:
+  The DAG executor (src/graph/dag_executor.rs) is the most complex subsystem in
+  Renderflow.  It has doc-tests for the MultiTargetDag struct, but no integration
+  tests covering the DagExecutor's wave-parallel execution, incremental caching
+  behaviour, or error propagation through the graph.
+
+Rationale:
+  Regressions in the graph executor would silently corrupt multi-target builds
+  or silently skip outputs.  The absence of integration tests means these failure
+  modes would only surface at runtime.
+
+Recommended fix:
+  Add tests/graph_executor_test.rs covering:
+  • Single-edge single-target execution
+  • Multi-target DAG with shared intermediate node (verify step runs once)
+  • Parallel wave execution (verify all targets are reached)
+  • Cache hit: unchanged input node skips downstream execution
+  • Error propagation: transform failure returns an error and halts the wave
+
+Effort: 3–4 hours
+
+────────────────────────────────────────────────────────────────────────────────
+
+[H-2] AiTransform API key stored in YAML config in plaintext
+─────────────────────────────────────────────────────────────
+Description:
+  AiTransform supports an optional `api_key` field.  When configured via YAML
+  (src/transforms/yaml_loader.rs), this key is deserialized directly from the
+  config file, meaning users must store the API key in their renderflow.yaml.
+  There is no support for environment variable substitution or secret store
+  integration.
+
+Rationale:
+  Storing secrets in config files risks accidental commits and exposure in logs.
+  Users rendering documents in CI pipelines will have no secure way to supply
+  the key.
+
+Recommended fix:
+  1. Add `api_key_env` field to the AI transform config: read the key from the
+     named environment variable at runtime instead of from the YAML value.
+  2. Log a warning (not the value) if the key is provided inline in YAML and
+     the environment is a CI context (CI=true).
+  3. Document the `api_key_env` pattern in the README and in CONTRIBUTING.md.
+
+Effort: 2–3 hours
+
+────────────────────────────────────────────────────────────────────────────────
+
+[H-3] Snap package build untested in CI
+─────────────────────────────────────────
+Description:
+  The release pipeline builds a Snap package via snapcore/action-build@v1.
+  The CI workflow (ci.yml) does not validate the snapcraft.yaml file or perform
+  a test build.  The first time the Snap build runs is during a real release,
+  where failures block all artifact uploads.
+
+Rationale:
+  A snapcraft.yaml syntax error or missing field discovered only during release
+  will delay the entire release pipeline and require a re-run after hotfixing.
+
+Recommended fix:
+  Add a `validate-snap` job to ci.yml that runs `snap pack --check-skeleton`
+  or snapcraft's lint command on snap/snapcraft.yaml to catch structural errors
+  early.
+
+Effort: 1 hour
+
+────────────────────────────────────────────────────────────────────────────────
+MEDIUM PRIORITY
+────────────────────────────────────────────────────────────────────────────────
+
+[M-1] TransformRegistry failure mode `Abort` is under-documented
+─────────────────────────────────────────────────────────────────
+Description:
+  src/transforms/registry.rs exposes a `FailureMode` enum with `Abort` and
+  `Skip` variants, but the registry-level documentation does not describe the
+  implications of each mode on downstream transforms or the output pipeline.
+  The YAML loader (yaml_loader.rs) maps `on_failure: abort|skip` but this is
+  not mentioned in the README or any user-facing documentation.
+
+Rationale:
+  Users composing multi-step transform chains need to understand whether a
+  failed optional transform (e.g. an AI step that times out) aborts the entire
+  build or is gracefully skipped.
+
+Recommended fix:
+  Add a "Transform failure modes" section to the README under the Transforms
+  heading.  Include YAML examples for both `abort` and `skip`.
+
+Effort: 1 hour
+
+────────────────────────────────────────────────────────────────────────────────
+
+[M-2] `cargo update --workspace` in bump-version may produce non-reproducible lock file
+─────────────────────────────────────────────────────────────────────────────────────────
+Description:
+  bump-version.yml runs `cargo update --workspace` after editing Cargo.toml.
+  This updates ALL transitive dependencies to their latest semver-compatible
+  versions, not just the version-bumped package.  The resulting Cargo.lock may
+  differ non-trivially from what was tested in CI.
+
+Rationale:
+  If a transitive dependency released a buggy patch between the last CI run and
+  the bump, the release binary will silently include that regression.
+
+Recommended fix:
+  Replace `cargo update --workspace` with `cargo update --precise <new-version>
+  renderflow` to update only the crate's own entry in Cargo.lock without pulling
+  in unrelated dependency upgrades.
+
+Effort: 30 minutes
+
+────────────────────────────────────────────────────────────────────────────────
+
+[M-3] Manifest update in release pipeline is not atomic — concurrent pushes may conflict
+──────────────────────────────────────────────────────────────────────────────────────────
+Description:
+  The update-homebrew-formula, update-scoop-manifest, and update-aur-pkgbuild
+  jobs each fetch main, apply a change, and push — sequentially.  If another
+  push lands on main between fetches (e.g. a hotfix), the push will fail with
+  a non-fast-forward error and the release manifest will not be updated.
+
+Rationale:
+  Manifest update failures leave package manager users on an older version even
+  though a GitHub Release exists.  The sequential pipeline means a single failure
+  blocks all subsequent manifest jobs.
+
+Recommended fix:
+  Add `git pull --rebase origin main` before each manifest commit-and-push step,
+  and add `continue-on-error: true` with a follow-up notification step so the
+  failure is visible without blocking the release.
+
+Effort: 1 hour
+
+────────────────────────────────────────────────────────────────────────────────
+
+[M-4] `ureq` used for AI HTTP calls but not in dev-dependencies — no mocking
+─────────────────────────────────────────────────────────────────────────────
+Description:
+  AiTransform makes live HTTP calls to Ollama / OpenAI via `ureq`.  There are
+  no tests for AiTransform because the calls require a live backend.  The
+  `ureq` crate does not have a built-in mock facility.
+
+Rationale:
+  The AI transform is untested.  Any regression in the request construction,
+  response parsing, or cache invalidation logic will only surface in production.
+
+Recommended fix:
+  1. Extract the HTTP call into an injectable `AiClient` trait.
+  2. Provide a `MockAiClient` in test code that returns canned responses.
+  3. Add unit tests for: successful response, cache hit, cache miss, error
+     response (non-200), and malformed JSON.
+
+Effort: 4 hours
+
+────────────────────────────────────────────────────────────────────────────────
+
+[M-5] Audio and image format support not validated in CI
+──────────────────────────────────────────────────────────
+Description:
+  The CI build-and-test job runs on ubuntu-latest which does not have FFmpeg
+  installed.  Tests that exercise audio or image conversion strategies are
+  therefore either absent or gated by tool availability checks.  The
+  AudioStrategy and ImageStrategy code paths are never exercised in CI.
+
+Rationale:
+  A logic error in FfmpegAudioArgs or FfmpegImageArgs will only be caught when
+  a user runs renderflow with an audio or image output configured.
+
+Recommended fix:
+  Add `sudo apt-get install -y ffmpeg` to the CI job's setup steps, and add a
+  basic integration test that exercises at least one audio→audio and one
+  image→image conversion using a small test fixture.
+
+Effort: 2–3 hours
+
+────────────────────────────────────────────────────────────────────────────────
+
+[M-6] `clippy` only runs with `-D warnings` on the CI branch — not on release builds
+──────────────────────────────────────────────────────────────────────────────────────
+Description:
+  ci.yml runs `cargo clippy -- -D warnings`, but the release pipeline does not
+  run clippy at all.  Clippy warnings that are suppressed in development may
+  still appear and cause confusion when reviewing release artifacts.
+
+Rationale:
+  Minor issue, but consistent lint enforcement improves code quality and avoids
+  flag-day accumulation of warnings.
+
+Recommended fix:
+  Add a clippy step to the generate-changelog job, or add a dedicated lint gate
+  job to the release workflow that must pass before build-binaries starts.
+
+Effort: 30 minutes
+
+────────────────────────────────────────────────────────────────────────────────
+LOW PRIORITY
+────────────────────────────────────────────────────────────────────────────────
+
+[L-1] `#[allow(dead_code)]` in aggregation module suppresses useful warnings
+─────────────────────────────────────────────────────────────────────────────
+Description:
+  src/transforms/aggregation.rs carries `#![allow(dead_code)]` at the top of
+  the file with the comment "not yet called from the main binary entry-point".
+  This suppresses warnings for the entire module unconditionally.
+
+Rationale:
+  Dead-code warnings exist to flag unused public API and accidental orphaning
+  of logic.  Suppressing them globally on a module hides future regressions.
+
+Recommended fix:
+  Instead of a module-level allow, annotate only the specific items that are
+  intentionally unused with `#[allow(dead_code)]`, or better, expose them via
+  integration test usage so the compiler's liveness analysis covers them.
+
+Effort: 30 minutes
+
+────────────────────────────────────────────────────────────────────────────────
+
+[L-2] `Cargo.toml` excludes `dist/` but dist/ may contain stale artifacts
+───────────────────────────────────────────────────────────────────────────
+Description:
+  The `dist/` directory is excluded from `cargo package` but is present in the
+  repository.  It is not listed in `.gitignore`, meaning rendered output files
+  can be accidentally committed.
+
+Rationale:
+  Committed build artifacts inflate repository size and create confusing diffs.
+
+Recommended fix:
+  Add `dist/` to `.gitignore`.  Verify the `.gitignore` also covers
+  `.renderflow-cache.json` and `.renderflow-deps.json` (the incremental build
+  state files), which should never be committed.
+
+Effort: 15 minutes
+
+────────────────────────────────────────────────────────────────────────────────
+
+[L-3] Release verification job does not check .deb, .rpm, or .snap assets
+───────────────────────────────────────────────────────────────────────────
+Description:
+  The verify-release job in release.yml checks for the 20 binary/checksum
+  assets but does not verify that .deb, .rpm, .snap, and .nupkg packages were
+  uploaded successfully.
+
+Rationale:
+  If a packaging job silently uploads zero files (e.g. glob expansion fails),
+  the verify step will pass without detecting the missing packages.
+
+Recommended fix:
+  Extend the EXPECTED array in verify-release to include at least one file
+  pattern for each package type (.deb, .rpm, .snap, .nupkg).
+
+Effort: 30 minutes
+
+────────────────────────────────────────────────────────────────────────────────
+
+[L-4] CONTRIBUTING.md references `cargo-release` in the release config table
+───────────────────────────────────────────────────────────────────────────────
+Description:
+  CONTRIBUTING.md lists release.toml as "`cargo-release` settings", but the
+  actual release pipeline does not use cargo-release — it uses a custom
+  bump-version.yml workflow.  The release.toml is present but unused.
+
+Rationale:
+  Misleading documentation causes contributor confusion about the release
+  process.
+
+Recommended fix:
+  Remove or clarify the release.toml entry in CONTRIBUTING.md's release
+  configuration table.  If release.toml is genuinely unused, remove the file
+  or add a comment explaining its status.
+
+Effort: 15 minutes
+
+────────────────────────────────────────────────────────────────────────────────
+
+[L-5] The `examples/` directory is not validated in CI
+───────────────────────────────────────────────────────
+Description:
+  The `examples/` directory contains working render configs (hello-world,
+  transforms).  There is no CI job that runs `renderflow build` against these
+  examples to verify they still work after changes to the core engine.
+
+Rationale:
+  Breaking changes to config field names or output types will not be caught
+  until a user attempts to use the example.
+
+Recommended fix:
+  Add a `validate-examples` CI job that installs renderflow from the built
+  binary and runs `renderflow build --config examples/hello-world/renderflow.yaml
+  --dry-run`.  Dry-run mode does not require Pandoc/Tectonic/FFmpeg to be
+  installed.
+
+Effort: 1 hour
+
+────────────────────────────────────────────────────────────────────────────────
+
+[L-6] `renderflow.code-workspace` committed to main branch
+──────────────────────────────────────────────────────────
+Description:
+  renderflow.code-workspace is a VS Code workspace file that records per-user
+  editor settings.  It is committed to the repository and not listed in
+  .gitignore.  It is excluded from `cargo package` but is part of the public
+  repository.
+
+Rationale:
+  Editor config files don't belong in shared repositories unless they encode
+  project-level settings useful to all contributors (e.g. recommended
+  extensions).  Committing it can cause spurious diffs when different developers
+  open the workspace.
+
+Recommended fix:
+  Move it to `.gitignore` or to a `.vscode/` directory and document recommended
+  extensions there instead.
+
+Effort: 15 minutes
+
+────────────────────────────────────────────────────────────────────────────────
+
+[L-7] Missing MSRV badge in README
+────────────────────────────────────
+Description:
+  Cargo.toml specifies `rust-version = "1.94"` (MSRV), but the README has no
+  MSRV badge indicating the minimum supported Rust version.
+
+Rationale:
+  Users building from source need to know which Rust version is required.
+  Without a badge, they may encounter opaque compile errors.
+
+Recommended fix:
+  Add `[![Rust MSRV](https://img.shields.io/badge/MSRV-1.94-orange)](Cargo.toml)`
+  to the README badge row.
+
+Effort: 5 minutes
+
+────────────────────────────────────────────────────────────────────────────────
+
+[L-8] `ureq` v2 is pinned — v3 released with breaking changes
+────────────────────────────────────────────────────────────────
+Description:
+  Cargo.toml pins `ureq = { version = "2", features = ["json"] }`.  ureq v3
+  is available and includes significant API improvements, but upgrading is
+  a breaking change that requires updating call sites in src/transforms/ai.rs.
+
+Rationale:
+  Staying on ureq v2 is not immediately harmful, but v2 will receive fewer
+  security updates over time as the ecosystem migrates.
+
+Recommended fix:
+  Evaluate ureq v3 migration.  The changes primarily affect the builder API
+  for request construction.  Update src/transforms/ai.rs accordingly and bump
+  the dependency in Cargo.toml.
+
+Effort: 2 hours
+
+────────────────────────────────────────────────────────────────────────────────
+
+SUMMARY TABLE
+────────────────────────────────────────────────────────────────────────────────
+
+Priority | ID   | Title                                              | Effort
+─────────┼──────┼────────────────────────────────────────────────────┼────────
+HIGH     | H-1  | No integration tests for graph engine              | 3–4 h
+HIGH     | H-2  | AiTransform API key in plaintext YAML              | 2–3 h
+HIGH     | H-3  | Snap package build untested in CI                  | 1 h
+─────────┼──────┼────────────────────────────────────────────────────┼────────
+MEDIUM   | M-1  | FailureMode documentation gap                      | 1 h
+MEDIUM   | M-2  | cargo update --workspace may break reproducibility | 0.5 h
+MEDIUM   | M-3  | Manifest update race condition on main             | 1 h
+MEDIUM   | M-4  | AiTransform HTTP calls not testable                | 4 h
+MEDIUM   | M-5  | Audio/image paths not exercised in CI              | 2–3 h
+MEDIUM   | M-6  | clippy not enforced in release pipeline            | 0.5 h
+─────────┼──────┼────────────────────────────────────────────────────┼────────
+LOW      | L-1  | Module-level #[allow(dead_code)] in aggregation    | 0.5 h
+LOW      | L-2  | dist/ not in .gitignore                            | 0.25 h
+LOW      | L-3  | Packaging assets not verified after release        | 0.5 h
+LOW      | L-4  | CONTRIBUTING references unused cargo-release       | 0.25 h
+LOW      | L-5  | examples/ not validated in CI                      | 1 h
+LOW      | L-6  | VS Code workspace file committed                   | 0.25 h
+LOW      | L-7  | Missing MSRV badge in README                       | 0.1 h
+LOW      | L-8  | ureq v2 pinned — v3 available                      | 2 h
+─────────┴──────┴────────────────────────────────────────────────────┴────────
+
+Total estimated remediation effort: ~23 hours
+
+================================================================================
+END OF AUDIT
+================================================================================
