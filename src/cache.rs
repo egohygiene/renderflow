@@ -256,6 +256,16 @@ impl AiCache {
     pub fn insert(&mut self, hash: String, entry: AiCacheEntry) {
         self.0.insert(hash, entry);
     }
+
+    /// Return the number of cached entries.
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    /// Iterate over all cached entries.
+    pub fn entries(&self) -> impl Iterator<Item = &AiCacheEntry> {
+        self.0.values()
+    }
 }
 
 /// Compute a stable SHA-256 hash of the AI transform inputs.

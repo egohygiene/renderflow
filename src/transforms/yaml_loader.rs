@@ -11,6 +11,7 @@ use super::{
     plugin::{PluginRegistry, PluginTransform},
     Transform, TransformRegistry,
 };
+use crate::ai::providers::{OllamaProvider, OpenAiProvider};
 
 /// Top-level structure of a YAML transform configuration file.
 ///
@@ -129,6 +130,13 @@ pub struct YamlTransformDef {
     /// not set.
     #[serde(default)]
     pub cache_path: Option<String>,
+    /// Optional version string for the prompt template.
+    ///
+    /// When set, this string is included in the AI cache key so that prompt
+    /// updates automatically invalidate the cache.  Ignored when `ai` is not
+    /// set.
+    #[serde(default)]
+    pub prompt_version: Option<String>,
     /// Whether this transform consumes a single input or a collection.
     ///
     /// Accepted values: `"single"` (default) and `"collection"`.
@@ -217,12 +225,7 @@ impl YamlTransformDef {
                 self.name
             );
         }
-        if !self.quality.is_finite() {
-            anyhow::bail!(
-                "transform '{}': 'quality' must be a finite number between 0.0 and 1.0",
-                self.name
-            );
-        } else if !(0.0..=1.0).contains(&self.quality) {
+        if !self.quality.is_finite() || !(0.0..=1.0).contains(&self.quality) {
             anyhow::bail!(
                 "transform '{}': 'quality' must be a finite number between 0.0 and 1.0",
                 self.name
@@ -319,6 +322,32 @@ impl YamlTransformDef {
         if let Some(cache_path) = &self.cache_path {
             builder = builder.cache_path(cache_path.clone());
         }
+        if let Some(prompt_version) = &self.prompt_version {
+            builder = builder.prompt_version(prompt_version.clone());
+        }
+
+        // Attach a provider abstraction so the transform can use the
+        // expanded cache key, retry logic, and metrics.
+        let endpoint = self
+            .endpoint
+            .clone()
+            .unwrap_or_else(|| "http://localhost:11434".to_string());
+        let provider: std::sync::Arc<dyn crate::ai::AiProvider> = match backend_str {
+            "ollama" => {
+                std::sync::Arc::new(OllamaProvider::new(endpoint))
+            }
+            _ => {
+                // openai or any other backend: default to OpenAI-compatible provider
+                let mut p = OpenAiProvider::new().with_endpoint(endpoint);
+                if let Some(env_var) = &self.api_key_env {
+                    p = p.with_api_key_env(env_var.clone());
+                } else if let Some(key) = &self.api_key {
+                    p = p.with_api_key(key.clone());
+                }
+                std::sync::Arc::new(p)
+            }
+        };
+        builder = builder.ai_provider(provider);
 
         Ok(builder.build())
     }
@@ -1376,14 +1405,16 @@ transforms:
 
     #[test]
     fn test_ai_cache_path_wired_through_to_ai_transform() {
-        use crate::cache::{compute_ai_input_hash, save_ai_cache, AiCache, AiCacheEntry};
+        use crate::ai::compute_ai_cache_key;
+        use crate::cache::{save_ai_cache, AiCache, AiCacheEntry};
 
         let dir = tempfile::tempdir().unwrap();
         let cache_file = dir.path().join(".renderflow-ai-cache.json");
 
-        // Pre-populate the cache for the prompt "Summarise: hello" + model "mistral".
+        // Pre-populate the cache using the expanded key (provider + model + prompt).
+        // When built from YAML with ai: ollama, the provider name is "ollama".
         let rendered_prompt = "Summarise: hello";
-        let hash = compute_ai_input_hash(rendered_prompt, "mistral");
+        let hash = compute_ai_cache_key("ollama", "mistral", rendered_prompt, None, "");
         let mut cache = AiCache::default();
         cache.insert(
             hash.clone(),
