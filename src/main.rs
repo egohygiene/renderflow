@@ -22,7 +22,7 @@ mod transforms;
 
 use anyhow::{bail, Result};
 use clap::Parser;
-use cli::{AiCommands, Cli, Commands, PluginCommands};
+use cli::{AiCommands, Cli, Commands, GraphCommands, PluginCommands};
 use tracing::info;
 
 fn main() -> Result<()> {
@@ -36,7 +36,10 @@ fn main() -> Result<()> {
         tracing::Level::INFO
     };
 
-    tracing_subscriber::fmt().with_max_level(log_level).init();
+    tracing_subscriber::fmt()
+        .with_max_level(log_level)
+        .with_writer(std::io::stderr)
+        .init();
 
     match cli.command {
         Some(Commands::Build {
@@ -93,6 +96,62 @@ fn main() -> Result<()> {
                 commands::ai::run_doctor(&ollama_endpoint)?
             }
             AiCommands::Cache { path } => commands::ai::run_cache(&path)?,
+        },
+        Some(Commands::Graph { subcommand }) => match subcommand {
+            GraphCommands::Plan {
+                config,
+                format,
+                target,
+                export,
+                optimization,
+            } => commands::graph::run_plan(
+                &config,
+                &format,
+                target.as_deref(),
+                export.as_deref(),
+                optimization,
+            )?,
+            GraphCommands::Render {
+                config,
+                format,
+                target,
+                export,
+                optimization,
+            } => commands::graph::run_render(
+                &config,
+                &format,
+                target.as_deref(),
+                export.as_deref(),
+                optimization,
+            )?,
+            GraphCommands::Explain {
+                config,
+                target,
+                optimization,
+            } => commands::graph::run_explain(&config, target.as_deref(), optimization)?,
+            GraphCommands::Export {
+                config,
+                format,
+                output,
+                target,
+                optimization,
+            } => commands::graph::run_export(
+                &config,
+                &format,
+                &output,
+                target.as_deref(),
+                optimization,
+            )?,
+            GraphCommands::Doctor {
+                config,
+                target,
+                optimization,
+            } => commands::graph::run_doctor(&config, target.as_deref(), optimization)?,
+            GraphCommands::Stats {
+                config,
+                target,
+                optimization,
+            } => commands::graph::run_stats(&config, target.as_deref(), optimization)?,
         },
         None => {
             info!("No subcommand provided, defaulting to build");

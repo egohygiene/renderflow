@@ -171,6 +171,29 @@ pub enum Commands {
         #[command(subcommand)]
         subcommand: AiCommands,
     },
+
+    /// Inspect, visualize, and export the transformation execution plan
+    ///
+    /// These commands expose the canonical execution plan that the planner
+    /// produces before running any transforms.  Use them to understand exactly
+    /// what work will be performed, in which order, and why.
+    #[command(
+        subcommand_required = true,
+        arg_required_else_help = true,
+        after_help = "Examples:\n  \
+            renderflow graph plan                           Show the execution plan (text)\n  \
+            renderflow graph plan --format mermaid          Render the plan as Mermaid\n  \
+            renderflow graph plan --format json             Export plan as JSON\n  \
+            renderflow graph render --format dot            Emit Graphviz DOT output\n  \
+            renderflow graph explain                        Show planner diagnostics\n  \
+            renderflow graph export --format markdown -o plan.md  Export Markdown report\n  \
+            renderflow graph doctor                         Run graph health checks\n  \
+            renderflow graph stats                          Print graph statistics"
+    )]
+    Graph {
+        #[command(subcommand)]
+        subcommand: GraphCommands,
+    },
 }
 
 /// Subcommands for `renderflow plugin`.
@@ -238,5 +261,164 @@ pub enum AiCommands {
         /// Path to the AI cache file
         #[arg(long, default_value = ".renderflow-ai-cache.json", value_name = "FILE")]
         path: String,
+    },
+}
+
+/// Subcommands for `renderflow graph`.
+#[derive(Subcommand)]
+pub enum GraphCommands {
+    /// Display the canonical execution plan
+    ///
+    /// Loads the transform graph, computes the optimal DAG for the configured
+    /// outputs, and prints the execution plan.
+    #[command(after_help = "Examples:\n  \
+            renderflow graph plan\n  \
+            renderflow graph plan --format mermaid\n  \
+            renderflow graph plan --format json --export plan.json\n  \
+            renderflow graph plan --target pdf")]
+    Plan {
+        /// Path to the renderflow configuration file
+        #[arg(long, default_value = "renderflow.yaml", value_name = "FILE")]
+        config: String,
+
+        /// Output format.
+        /// Choices: text (default), dot, mermaid, json, yaml, markdown.
+        #[arg(long, default_value = "text", value_name = "FORMAT")]
+        format: String,
+
+        /// Limit the plan to this output format only.
+        #[arg(long, value_name = "FORMAT")]
+        target: Option<String>,
+
+        /// Write the output to a file instead of stdout.
+        #[arg(long, short = 'o', value_name = "FILE")]
+        export: Option<String>,
+
+        /// Optimization mode override.
+        #[arg(long, value_name = "MODE")]
+        optimization: Option<OptimizationMode>,
+    },
+
+    /// Render the transformation graph as a visual diagram
+    ///
+    /// Produces a visual representation of the execution graph.
+    /// Defaults to Mermaid output suitable for embedding in GitHub Markdown.
+    #[command(after_help = "Examples:\n  \
+            renderflow graph render\n  \
+            renderflow graph render --format dot\n  \
+            renderflow graph render --format mermaid --export graph.mmd")]
+    Render {
+        /// Path to the renderflow configuration file
+        #[arg(long, default_value = "renderflow.yaml", value_name = "FILE")]
+        config: String,
+
+        /// Output format.
+        /// Choices: mermaid (default), dot, text, json, yaml, markdown.
+        #[arg(long, default_value = "mermaid", value_name = "FORMAT")]
+        format: String,
+
+        /// Limit the graph to this output format only.
+        #[arg(long, value_name = "FORMAT")]
+        target: Option<String>,
+
+        /// Write the output to a file instead of stdout.
+        #[arg(long, short = 'o', value_name = "FILE")]
+        export: Option<String>,
+
+        /// Optimization mode override.
+        #[arg(long, value_name = "MODE")]
+        optimization: Option<OptimizationMode>,
+    },
+
+    /// Explain planner decisions and transformation trade-offs
+    ///
+    /// Prints human-readable diagnostics that describe why the planner chose
+    /// particular paths, lists lossy transforms, and explains optimization
+    /// trade-offs.
+    #[command(after_help = "Examples:\n  \
+            renderflow graph explain\n  \
+            renderflow graph explain --target pdf")]
+    Explain {
+        /// Path to the renderflow configuration file
+        #[arg(long, default_value = "renderflow.yaml", value_name = "FILE")]
+        config: String,
+
+        /// Limit diagnostics to this output format only.
+        #[arg(long, value_name = "FORMAT")]
+        target: Option<String>,
+
+        /// Optimization mode override.
+        #[arg(long, value_name = "MODE")]
+        optimization: Option<OptimizationMode>,
+    },
+
+    /// Export the execution plan to a file
+    ///
+    /// Serializes the full execution plan to the requested format and writes it
+    /// to a file.  Suitable for use as a CI artifact.
+    #[command(after_help = "Examples:\n  \
+            renderflow graph export --format json -o plan.json\n  \
+            renderflow graph export --format markdown -o plan.md\n  \
+            renderflow graph export --format dot -o graph.dot")]
+    Export {
+        /// Path to the renderflow configuration file
+        #[arg(long, default_value = "renderflow.yaml", value_name = "FILE")]
+        config: String,
+
+        /// Export format.
+        /// Choices: json (default), yaml, mermaid, dot, markdown, text.
+        #[arg(long, default_value = "json", value_name = "FORMAT")]
+        format: String,
+
+        /// Path of the output file (required).
+        #[arg(long, short = 'o', value_name = "FILE", required = true)]
+        output: String,
+
+        /// Limit the export to this output format only.
+        #[arg(long, value_name = "FORMAT")]
+        target: Option<String>,
+
+        /// Optimization mode override.
+        #[arg(long, value_name = "MODE")]
+        optimization: Option<OptimizationMode>,
+    },
+
+    /// Run health checks on the transformation graph
+    ///
+    /// Checks the execution plan for issues such as lossy transforms and
+    /// reports any error-level diagnostics.  Exits with a non-zero status
+    /// when errors are found.
+    #[command(after_help = "Examples:\n  renderflow graph doctor")]
+    Doctor {
+        /// Path to the renderflow configuration file
+        #[arg(long, default_value = "renderflow.yaml", value_name = "FILE")]
+        config: String,
+
+        /// Limit diagnostics to this output format only.
+        #[arg(long, value_name = "FORMAT")]
+        target: Option<String>,
+
+        /// Optimization mode override.
+        #[arg(long, value_name = "MODE")]
+        optimization: Option<OptimizationMode>,
+    },
+
+    /// Print graph statistics
+    ///
+    /// Outputs node count, edge count, execution depth, wave count, estimated
+    /// cost, and estimated quality for the planned execution graph.
+    #[command(after_help = "Examples:\n  renderflow graph stats")]
+    Stats {
+        /// Path to the renderflow configuration file
+        #[arg(long, default_value = "renderflow.yaml", value_name = "FILE")]
+        config: String,
+
+        /// Limit statistics to this output format only.
+        #[arg(long, value_name = "FORMAT")]
+        target: Option<String>,
+
+        /// Optimization mode override.
+        #[arg(long, value_name = "MODE")]
+        optimization: Option<OptimizationMode>,
     },
 }

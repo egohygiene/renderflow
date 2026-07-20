@@ -282,11 +282,11 @@ fn test_dry_run_output_labeled() {
         .expect("failed to execute renderflow");
 
     assert!(output.status.success(), "dry-run should exit with code 0");
-    // Tracing log messages go to stdout; verify [DRY RUN] prefix is present
-    let stdout = String::from_utf8_lossy(&output.stdout);
+    // Log messages (including [DRY RUN] prefixes) go to stderr.
+    let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stdout.contains("[DRY RUN]"),
-        "dry-run output should contain [DRY RUN] label, got stdout: {stdout}"
+        stderr.contains("[DRY RUN]"),
+        "dry-run output should contain [DRY RUN] label, got stderr: {stderr}"
     );
 }
 
@@ -455,10 +455,11 @@ fn test_target_dry_run_exits_successfully() {
         "--target html --dry-run should succeed, stderr: {}",
         String::from_utf8_lossy(&output.stderr)
     );
-    let stdout = String::from_utf8_lossy(&output.stdout);
+    // Log messages (including [DRY RUN] prefixes) go to stderr.
+    let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stdout.contains("[DRY RUN]"),
-        "--target dry-run should print [DRY RUN] lines, got: {stdout}"
+        stderr.contains("[DRY RUN]"),
+        "--target dry-run should print [DRY RUN] lines, got stderr: {stderr}"
     );
 }
 
@@ -480,10 +481,11 @@ fn test_all_dry_run_exits_successfully() {
         "--all --dry-run should succeed, stderr: {}",
         String::from_utf8_lossy(&output.stderr)
     );
-    let stdout = String::from_utf8_lossy(&output.stdout);
+    // Log messages (including [DRY RUN] prefixes) go to stderr.
+    let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stdout.contains("[DRY RUN]"),
-        "--all dry-run should print [DRY RUN] lines, got: {stdout}"
+        stderr.contains("[DRY RUN]"),
+        "--all dry-run should print [DRY RUN] lines, got stderr: {stderr}"
     );
 }
 
@@ -693,5 +695,377 @@ fn test_help_output_lists_inspect_command() {
     assert!(
         stdout.contains("inspect"),
         "--help should list the inspect subcommand, got: {stdout}"
+    );
+}
+
+// ── graph subcommand tests ────────────────────────────────────────────────────
+
+#[test]
+fn test_graph_help_exits_successfully() {
+    let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
+        .args(["graph", "--help"])
+        .output()
+        .expect("failed to execute renderflow");
+
+    assert!(
+        output.status.success(),
+        "graph --help should exit with code 0, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn test_graph_plan_help_exits_successfully() {
+    let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
+        .args(["graph", "plan", "--help"])
+        .output()
+        .expect("failed to execute renderflow");
+
+    assert!(
+        output.status.success(),
+        "graph plan --help should exit with code 0"
+    );
+}
+
+#[test]
+fn test_graph_render_help_exits_successfully() {
+    let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
+        .args(["graph", "render", "--help"])
+        .output()
+        .expect("failed to execute renderflow");
+
+    assert!(output.status.success(), "graph render --help should exit with code 0");
+}
+
+#[test]
+fn test_graph_explain_help_exits_successfully() {
+    let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
+        .args(["graph", "explain", "--help"])
+        .output()
+        .expect("failed to execute renderflow");
+
+    assert!(output.status.success(), "graph explain --help should exit with code 0");
+}
+
+#[test]
+fn test_graph_export_help_exits_successfully() {
+    let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
+        .args(["graph", "export", "--help"])
+        .output()
+        .expect("failed to execute renderflow");
+
+    assert!(output.status.success(), "graph export --help should exit with code 0");
+}
+
+#[test]
+fn test_graph_doctor_help_exits_successfully() {
+    let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
+        .args(["graph", "doctor", "--help"])
+        .output()
+        .expect("failed to execute renderflow");
+
+    assert!(output.status.success(), "graph doctor --help should exit with code 0");
+}
+
+#[test]
+fn test_graph_stats_help_exits_successfully() {
+    let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
+        .args(["graph", "stats", "--help"])
+        .output()
+        .expect("failed to execute renderflow");
+
+    assert!(output.status.success(), "graph stats --help should exit with code 0");
+}
+
+#[test]
+fn test_graph_plan_without_transforms_exits_with_error() {
+    let (config_file, _dir) = common::valid_config_file();
+    let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
+        .args(["graph", "plan", "--config", config_file.path().to_str().unwrap()])
+        .output()
+        .expect("failed to execute renderflow");
+
+    assert!(
+        !output.status.success(),
+        "graph plan without transforms should exit with error"
+    );
+}
+
+#[test]
+fn test_graph_plan_text_output_contains_execution_plan() {
+    let (config_file, _dir) = common::graph_config_file();
+    let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
+        .args([
+            "graph",
+            "plan",
+            "--config",
+            config_file.path().to_str().unwrap(),
+            "--format",
+            "text",
+        ])
+        .output()
+        .expect("failed to execute renderflow");
+
+    assert!(
+        output.status.success(),
+        "graph plan text should succeed, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("Execution Plan"),
+        "text output should contain 'Execution Plan', got: {stdout}"
+    );
+}
+
+#[test]
+fn test_graph_plan_mermaid_output_contains_flowchart() {
+    let (config_file, _dir) = common::graph_config_file();
+    let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
+        .args([
+            "graph",
+            "plan",
+            "--config",
+            config_file.path().to_str().unwrap(),
+            "--format",
+            "mermaid",
+        ])
+        .output()
+        .expect("failed to execute renderflow");
+
+    assert!(
+        output.status.success(),
+        "graph plan mermaid should succeed, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("flowchart LR"),
+        "mermaid output should contain 'flowchart LR', got: {stdout}"
+    );
+}
+
+#[test]
+fn test_graph_plan_json_output_is_valid_json() {
+    let (config_file, _dir) = common::graph_config_file();
+    let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
+        .args([
+            "graph",
+            "plan",
+            "--config",
+            config_file.path().to_str().unwrap(),
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("failed to execute renderflow");
+
+    assert!(
+        output.status.success(),
+        "graph plan json should succeed, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let parsed: Result<serde_json::Value, _> = serde_json::from_str(&stdout);
+    assert!(parsed.is_ok(), "JSON output should be valid JSON, got: {stdout}");
+    assert_eq!(parsed.unwrap()["source"], "markdown");
+}
+
+#[test]
+fn test_graph_plan_dot_output_contains_digraph() {
+    let (config_file, _dir) = common::graph_config_file();
+    let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
+        .args([
+            "graph",
+            "plan",
+            "--config",
+            config_file.path().to_str().unwrap(),
+            "--format",
+            "dot",
+        ])
+        .output()
+        .expect("failed to execute renderflow");
+
+    assert!(
+        output.status.success(),
+        "graph plan dot should succeed, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("digraph renderflow"),
+        "dot output should contain 'digraph renderflow', got: {stdout}"
+    );
+}
+
+#[test]
+fn test_graph_plan_markdown_output_contains_h1() {
+    let (config_file, _dir) = common::graph_config_file();
+    let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
+        .args([
+            "graph",
+            "plan",
+            "--config",
+            config_file.path().to_str().unwrap(),
+            "--format",
+            "markdown",
+        ])
+        .output()
+        .expect("failed to execute renderflow");
+
+    assert!(
+        output.status.success(),
+        "graph plan markdown should succeed, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("# Execution Plan"),
+        "markdown output should contain '# Execution Plan', got: {stdout}"
+    );
+}
+
+#[test]
+fn test_graph_explain_prints_diagnostics() {
+    let (config_file, _dir) = common::graph_config_file();
+    let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
+        .args([
+            "graph",
+            "explain",
+            "--config",
+            config_file.path().to_str().unwrap(),
+        ])
+        .output()
+        .expect("failed to execute renderflow");
+
+    assert!(
+        output.status.success(),
+        "graph explain should succeed, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("Planning Diagnostics"),
+        "graph explain should print diagnostics header, got: {stdout}"
+    );
+}
+
+#[test]
+fn test_graph_stats_prints_statistics() {
+    let (config_file, _dir) = common::graph_config_file();
+    let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
+        .args([
+            "graph",
+            "stats",
+            "--config",
+            config_file.path().to_str().unwrap(),
+        ])
+        .output()
+        .expect("failed to execute renderflow");
+
+    assert!(
+        output.status.success(),
+        "graph stats should succeed, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("Graph Statistics"),
+        "graph stats should print statistics header, got: {stdout}"
+    );
+}
+
+#[test]
+fn test_graph_doctor_passes_clean_graph() {
+    let (config_file, _dir) = common::graph_config_file();
+    let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
+        .args([
+            "graph",
+            "doctor",
+            "--config",
+            config_file.path().to_str().unwrap(),
+        ])
+        .output()
+        .expect("failed to execute renderflow");
+
+    assert!(
+        output.status.success(),
+        "graph doctor should succeed for a clean graph, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn test_graph_export_writes_json_file() {
+    let (config_file, dir) = common::graph_config_file();
+    let export_path = dir.path().join("plan.json");
+    let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
+        .args([
+            "graph",
+            "export",
+            "--config",
+            config_file.path().to_str().unwrap(),
+            "--format",
+            "json",
+            "-o",
+            export_path.to_str().unwrap(),
+        ])
+        .output()
+        .expect("failed to execute renderflow");
+
+    assert!(
+        output.status.success(),
+        "graph export should succeed, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(export_path.exists(), "exported json file should exist");
+    let content = std::fs::read_to_string(&export_path).expect("failed to read export file");
+    let parsed: serde_json::Value = serde_json::from_str(&content).expect("export should be valid JSON");
+    assert_eq!(parsed["source"], "markdown");
+}
+
+#[test]
+fn test_graph_render_mermaid_is_default_format() {
+    let (config_file, _dir) = common::graph_config_file();
+    let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
+        .args([
+            "graph",
+            "render",
+            "--config",
+            config_file.path().to_str().unwrap(),
+        ])
+        .output()
+        .expect("failed to execute renderflow");
+
+    assert!(
+        output.status.success(),
+        "graph render should succeed, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("flowchart LR"),
+        "graph render default should output mermaid, got: {stdout}"
+    );
+}
+
+#[test]
+fn test_graph_plan_unknown_format_exits_with_error() {
+    let (config_file, _dir) = common::graph_config_file();
+    let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
+        .args([
+            "graph",
+            "plan",
+            "--config",
+            config_file.path().to_str().unwrap(),
+            "--format",
+            "unknown_format_xyz",
+        ])
+        .output()
+        .expect("failed to execute renderflow");
+
+    assert!(
+        !output.status.success(),
+        "graph plan with unknown format should fail"
     );
 }
