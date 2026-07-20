@@ -39,12 +39,14 @@ fn bench_compute_input_hash(c: &mut Criterion) {
     let content = "# Title\n\nSome document content.";
     let config = "output: [pdf, html]\nvariables:\n  author: Alice\n";
 
-    let mut vars_small: HashMap<String, String> = HashMap::new();
-    vars_small.insert("author".to_string(), "Alice".to_string());
+    let mut vars_5: HashMap<String, String> = HashMap::new();
+    for i in 0..5 {
+        vars_5.insert(format!("var_{i}"), format!("value_{i}"));
+    }
 
-    let mut vars_large: HashMap<String, String> = HashMap::new();
+    let mut vars_20: HashMap<String, String> = HashMap::new();
     for i in 0..20 {
-        vars_large.insert(format!("var_{i}"), format!("value_{i}"));
+        vars_20.insert(format!("var_{i}"), format!("value_{i}"));
     }
 
     let mut group = c.benchmark_group("compute_input_hash");
@@ -52,10 +54,10 @@ fn bench_compute_input_hash(c: &mut Criterion) {
         b.iter(|| compute_input_hash(content, config, &HashMap::new()));
     });
     group.bench_function("5_vars", |b| {
-        b.iter(|| compute_input_hash(content, config, &vars_small));
+        b.iter(|| compute_input_hash(content, config, &vars_5));
     });
     group.bench_function("20_vars", |b| {
-        b.iter(|| compute_input_hash(content, config, &vars_large));
+        b.iter(|| compute_input_hash(content, config, &vars_20));
     });
     group.finish();
 }
