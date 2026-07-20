@@ -21,7 +21,7 @@ mod transforms;
 
 use anyhow::{bail, Result};
 use clap::Parser;
-use cli::{Cli, Commands};
+use cli::{Cli, Commands, PluginCommands};
 use tracing::info;
 
 fn main() -> Result<()> {
@@ -70,6 +70,20 @@ fn main() -> Result<()> {
                 export.as_deref(),
                 None, // optimization: use the mode from the config file
             )?
+        }
+        Some(Commands::Plugin { subcommand }) => {
+            // The plugin registry is empty at the top-level CLI entry point.
+            // Third-party plugins are registered programmatically before
+            // calling renderflow as a library.  The CLI commands are
+            // primarily useful when renderflow is embedded in a larger
+            // application that populates the registry before dispatching.
+            let registry = transforms::plugin::PluginRegistry::new();
+            match subcommand {
+                PluginCommands::List => commands::plugin::run_list(&registry)?,
+                PluginCommands::Info { name } => commands::plugin::run_info(&registry, &name)?,
+                PluginCommands::Validate => commands::plugin::run_validate(&registry)?,
+                PluginCommands::Doctor => commands::plugin::run_doctor(&registry)?,
+            }
         }
         None => {
             info!("No subcommand provided, defaulting to build");
