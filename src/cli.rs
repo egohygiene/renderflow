@@ -20,6 +20,10 @@ use crate::optimization::OptimizationMode;
         renderflow audit                        Generate an optimization audit report\n  \
         renderflow inspect                      Visualize the transformation DAG\n  \
         renderflow inspect --output-format dot  Export DAG as Graphviz DOT\n  \
+        renderflow plugin list                  List registered plugins\n  \
+        renderflow plugin info <name>           Show details for a plugin\n  \
+        renderflow plugin validate              Validate all plugin metadata\n  \
+        renderflow plugin doctor                Run plugin diagnostics\n  \
         renderflow my-project.yaml              Shorthand: run build on the given config"
 )]
 pub struct Cli {
@@ -130,4 +134,48 @@ pub enum Commands {
         #[arg(long, value_name = "FILE")]
         export: Option<String>,
     },
+
+    /// Manage and inspect plugins
+    ///
+    /// Plugins extend the renderflow transform pipeline at runtime without
+    /// modifying the core codebase.
+    #[command(
+        subcommand_required = true,
+        arg_required_else_help = true,
+        after_help = "Examples:\n  \
+            renderflow plugin list              List all registered plugins\n  \
+            renderflow plugin info my-plugin    Show details for 'my-plugin'\n  \
+            renderflow plugin validate          Validate all plugin metadata\n  \
+            renderflow plugin doctor            Run diagnostics on all plugins"
+    )]
+    Plugin {
+        #[command(subcommand)]
+        subcommand: PluginCommands,
+    },
+}
+
+/// Subcommands for `renderflow plugin`.
+#[derive(Subcommand)]
+pub enum PluginCommands {
+    /// List all registered plugins
+    #[command(after_help = "Examples:\n  renderflow plugin list")]
+    List,
+
+    /// Print detailed information about a named plugin
+    #[command(after_help = "Examples:\n  renderflow plugin info my-plugin")]
+    Info {
+        /// Name of the plugin to inspect
+        name: String,
+    },
+
+    /// Validate all registered plugin metadata and report any issues
+    #[command(after_help = "Examples:\n  renderflow plugin validate")]
+    Validate,
+
+    /// Run diagnostics on all registered plugins
+    ///
+    /// Checks required external tools, validates metadata, and reports
+    /// actionable issues.
+    #[command(after_help = "Examples:\n  renderflow plugin doctor")]
+    Doctor,
 }
