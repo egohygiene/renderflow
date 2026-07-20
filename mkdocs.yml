@@ -1,0 +1,99 @@
+site_name: Renderflow
+site_url: https://egohygiene.github.io/renderflow/
+repo_name: egohygiene/renderflow
+repo_url: https://github.com/egohygiene/renderflow
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.top
+    - content.code.copy
+    - search.suggest
+    - search.highlight
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+
+plugins:
+  - search
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+
+extra_javascript:
+  - https://unpkg.com/mermaid@10/dist/mermaid.min.js
+  - javascripts/mermaid.js
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Installation: getting-started/installation.md
+      - Quick Start: getting-started/quickstart.md
+      - CLI Overview: getting-started/cli-overview.md
+  - User Guide:
+      - Configuration: user-guide/configuration.md
+      - Pipelines: user-guide/pipelines.md
+      - Transforms: user-guide/transforms.md
+      - Optimization: user-guide/optimization.md
+      - Caching: user-guide/caching.md
+      - AI: user-guide/ai.md
+      - Plugins: user-guide/plugins.md
+  - Architecture:
+      - Overview: architecture/overview.md
+      - Graph Engine: architecture/graph-engine.md
+      - DAG Execution: architecture/dag-execution.md
+      - Plugin Architecture: architecture/plugin-architecture.md
+      - Execution Plans: architecture/execution-plans.md
+  - CLI Reference:
+      - Overview: cli-reference/index.md
+      - build: cli-reference/build.md
+      - watch: cli-reference/watch.md
+      - inspect: cli-reference/inspect.md
+      - audit: cli-reference/audit.md
+      - graph: cli-reference/graph.md
+      - plugin: cli-reference/plugin.md
+      - ai: cli-reference/ai.md
+  - Transform Reference:
+      - Overview: transform-reference/index.md
+      - Emoji: transform-reference/emoji.md
+      - Variables: transform-reference/variables.md
+      - Syntax Highlight: transform-reference/syntax-highlight.md
+  - Plugin Guide:
+      - Overview: plugin-guide/overview.md
+      - Developing: plugin-guide/developing.md
+  - AI Guide:
+      - Overview: ai-guide/overview.md
+      - Configuration: ai-guide/configuration.md
+  - Examples:
+      - Hello World: examples/hello-world.md
+      - Multi Output: examples/multi-output.md
