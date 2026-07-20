@@ -1,19 +1,23 @@
 mod dag_executor;
 mod definition;
 mod definition_registry;
+pub mod execution_plan;
 mod format;
 mod input_kind;
 mod multi_target;
 mod pathfinding;
+pub mod renderers;
 mod transform_edge;
 
 pub use dag_executor::DagExecutor;
 pub use definition::TransformDefinition;
 pub use definition_registry::TransformDefinitionRegistry;
+pub use execution_plan::ExecutionPlan;
 pub use format::Format;
 pub use input_kind::InputKind;
 pub use multi_target::MultiTargetDag;
 pub use pathfinding::TransformPath;
+pub use renderers::PlanRenderer;
 pub use transform_edge::TransformEdge;
 
 use crate::optimization::OptimizationMode;
