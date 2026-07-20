@@ -404,7 +404,7 @@ impl ExecutionPlan {
                 "Optimization mode 'quality': paths were selected to maximise output quality."
             }
             OptimizationMode::Balanced => {
-                "Optimization mode 'balanced': paths were selected using an equal cost/quality weighting."
+                "Optimization mode 'balanced': paths were selected using equally weighted cost and quality."
             }
             OptimizationMode::Pareto => {
                 "Optimization mode 'pareto': the Pareto-optimal frontier was used; the lowest-cost non-dominated path was selected."

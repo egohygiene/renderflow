@@ -81,7 +81,7 @@ impl PlanRenderer for TextRenderer {
         );
         let _ = writeln!(
             out,
-            "  reused intermediates:{} ",
+            "  reused intermediates: {}",
             plan.metadata.reused_intermediates
         );
 
