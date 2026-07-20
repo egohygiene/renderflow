@@ -1,3 +1,4 @@
+pub mod ai;
 mod adapters;
 mod assets;
 mod audio;
@@ -21,7 +22,7 @@ mod transforms;
 
 use anyhow::{bail, Result};
 use clap::Parser;
-use cli::{Cli, Commands, PluginCommands};
+use cli::{AiCommands, Cli, Commands, PluginCommands};
 use tracing::info;
 
 fn main() -> Result<()> {
@@ -85,6 +86,14 @@ fn main() -> Result<()> {
                 PluginCommands::Doctor => commands::plugin::run_doctor(&registry)?,
             }
         }
+        Some(Commands::Ai { subcommand }) => match subcommand {
+            AiCommands::Providers => commands::ai::run_providers()?,
+            AiCommands::Models => commands::ai::run_models()?,
+            AiCommands::Doctor { ollama_endpoint } => {
+                commands::ai::run_doctor(&ollama_endpoint)?
+            }
+            AiCommands::Cache { path } => commands::ai::run_cache(&path)?,
+        },
         None => {
             info!("No subcommand provided, defaulting to build");
             match cli.input {

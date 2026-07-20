@@ -152,6 +152,25 @@ pub enum Commands {
         #[command(subcommand)]
         subcommand: PluginCommands,
     },
+
+    /// Manage and inspect AI providers and the AI transform cache
+    ///
+    /// These commands help you discover configured AI providers, inspect
+    /// available models, run connectivity diagnostics, and manage the AI
+    /// response cache.
+    #[command(
+        subcommand_required = true,
+        arg_required_else_help = true,
+        after_help = "Examples:\n  \
+            renderflow ai providers             List available AI providers\n  \
+            renderflow ai models                List available models per provider\n  \
+            renderflow ai doctor                Run AI provider diagnostics\n  \
+            renderflow ai cache                 Show AI cache statistics"
+    )]
+    Ai {
+        #[command(subcommand)]
+        subcommand: AiCommands,
+    },
 }
 
 /// Subcommands for `renderflow plugin`.
@@ -178,4 +197,46 @@ pub enum PluginCommands {
     /// actionable issues.
     #[command(after_help = "Examples:\n  renderflow plugin doctor")]
     Doctor,
+}
+
+/// Subcommands for `renderflow ai`.
+#[derive(Subcommand)]
+pub enum AiCommands {
+    /// List available AI providers and their capabilities
+    ///
+    /// Prints a table of all known providers (Ollama, OpenAI) with their
+    /// locality (local/remote) and supported capabilities.
+    #[command(after_help = "Examples:\n  renderflow ai providers")]
+    Providers,
+
+    /// List available AI models per provider
+    ///
+    /// Prints the default model list for each known provider.  For Ollama
+    /// the list is the built-in set of common models; run `ollama list` to
+    /// see models actually installed locally.
+    #[command(after_help = "Examples:\n  renderflow ai models")]
+    Models,
+
+    /// Run AI provider connectivity diagnostics
+    ///
+    /// Checks whether each provider's endpoint is reachable and prints
+    /// actionable guidance for any issues found.  Always returns `Ok` so
+    /// callers can use the output as advisory information.
+    #[command(after_help = "Examples:\n  renderflow ai doctor")]
+    Doctor {
+        /// Base URL of the Ollama server to probe (default: http://localhost:11434)
+        #[arg(long, default_value = "http://localhost:11434", value_name = "URL")]
+        ollama_endpoint: String,
+    },
+
+    /// Show AI response cache statistics
+    ///
+    /// Reads the AI cache file (if it exists) and prints summary statistics:
+    /// number of cached entries, total size, and per-provider/model counts.
+    #[command(after_help = "Examples:\n  renderflow ai cache\n  renderflow ai cache --path .renderflow-ai-cache.json")]
+    Cache {
+        /// Path to the AI cache file
+        #[arg(long, default_value = ".renderflow-ai-cache.json", value_name = "FILE")]
+        path: String,
+    },
 }
