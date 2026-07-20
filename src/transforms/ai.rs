@@ -225,7 +225,7 @@ impl AiTransformBuilder {
         self
     }
 
-    /// Optional API key sent as `Authorization: ******
+    /// Optional plaintext API key sent as a `Bearer` token in the `Authorization` header.
     ///
     /// Required for OpenAI-compatible backends that enforce authentication.
     pub fn api_key(mut self, key: impl Into<String>) -> Self {
@@ -333,6 +333,7 @@ impl AiTransformBuilder {
         }
     }
 }
+
 impl AiTransform {
     /// Return a new [`AiTransformBuilder`].
     pub fn builder() -> AiTransformBuilder {
