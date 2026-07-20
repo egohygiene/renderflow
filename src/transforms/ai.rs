@@ -8,6 +8,10 @@ use serde_json::json;
 use tracing::{debug, warn};
 
 use super::Transform;
+use crate::ai::{
+    compute_ai_cache_key, AiExecutionPreference, AiProvider, AiRequest, RetryConfig, SharedMetrics,
+};
+use crate::ai::retry::execute_with_retry;
 use crate::cache::{
     compute_ai_input_hash, current_unix_timestamp, load_ai_cache, save_ai_cache, AiCacheEntry,
 };
@@ -133,8 +137,22 @@ pub struct AiTransform {
     /// AI backend and stores the result with metadata after a successful call.
     cache_path: Option<String>,
     http_client: Arc<dyn AiHttpClient>,
+    /// Optional provider abstraction.  When set, execution is delegated to
+    /// the provider (with retry and metrics) instead of calling the backend
+    /// directly via `http_client`.
+    ai_provider: Option<Arc<dyn AiProvider>>,
+    /// Retry configuration for transient provider failures.
+    retry_config: RetryConfig,
+    /// Optional shared metrics sink for cost tracking.
+    metrics: Option<SharedMetrics>,
+    /// Prompt template version string included in expanded cache keys.
+    prompt_version: Option<String>,
+    /// Execution preference (local-first, remote-only, etc.).
+    #[allow(dead_code)]
+    execution_preference: AiExecutionPreference,
 }
 
+// ── Builder ───────────────────────────────────────────────────────────────────
 // ── Builder ───────────────────────────────────────────────────────────────────
 
 /// Fluent builder for [`AiTransform`].
@@ -150,6 +168,11 @@ pub struct AiTransformBuilder {
     api_key_env: Option<String>,
     artifact_path: Option<String>,
     cache_path: Option<String>,
+    ai_provider: Option<Arc<dyn AiProvider>>,
+    retry_config: Option<RetryConfig>,
+    metrics: Option<SharedMetrics>,
+    prompt_version: Option<String>,
+    execution_preference: Option<AiExecutionPreference>,
 }
 
 impl AiTransformBuilder {
@@ -164,6 +187,11 @@ impl AiTransformBuilder {
             api_key_env: None,
             artifact_path: None,
             cache_path: None,
+            ai_provider: None,
+            retry_config: None,
+            metrics: None,
+            prompt_version: None,
+            execution_preference: None,
         }
     }
 
@@ -197,7 +225,7 @@ impl AiTransformBuilder {
         self
     }
 
-    /// Optional API key sent as `Authorization: Bearer <key>`.
+    /// Optional API key sent as `Authorization: ******
     ///
     /// Required for OpenAI-compatible backends that enforce authentication.
     pub fn api_key(mut self, key: impl Into<String>) -> Self {
@@ -233,6 +261,42 @@ impl AiTransformBuilder {
         self
     }
 
+    /// Attach a provider abstraction for execution.
+    ///
+    /// When set, [`AiTransform::apply`] delegates execution to the provider
+    /// (including retry and metrics) instead of calling the AI backend directly.
+    pub fn ai_provider(mut self, provider: Arc<dyn AiProvider>) -> Self {
+        self.ai_provider = Some(provider);
+        self
+    }
+
+    /// Override the retry configuration.  Defaults to [`RetryConfig::default`].
+    #[allow(dead_code)]
+    pub fn retry_config(mut self, config: RetryConfig) -> Self {
+        self.retry_config = Some(config);
+        self
+    }
+
+    /// Attach a shared metrics sink for cost tracking.
+    #[allow(dead_code)]
+    pub fn metrics(mut self, metrics: SharedMetrics) -> Self {
+        self.metrics = Some(metrics);
+        self
+    }
+
+    /// Set a prompt template version string included in expanded cache keys.
+    pub fn prompt_version(mut self, version: impl Into<String>) -> Self {
+        self.prompt_version = Some(version.into());
+        self
+    }
+
+    /// Set the execution preference for provider selection.
+    #[allow(dead_code)]
+    pub fn execution_preference(mut self, preference: AiExecutionPreference) -> Self {
+        self.execution_preference = Some(preference);
+        self
+    }
+
     /// Consume the builder and return an [`AiTransform`].
     ///
     /// Uses sensible defaults for any unset fields:
@@ -241,6 +305,8 @@ impl AiTransformBuilder {
     /// * `model` → `"mistral"`
     /// * `prompt_template` → `"{input}"`
     /// * `endpoint` → `"http://localhost:11434"`
+    /// * `retry_config` → [`RetryConfig::default`]
+    /// * `execution_preference` → [`AiExecutionPreference::LocalPreferred`]
     pub fn build(self) -> AiTransform {
         AiTransform {
             name: self.name.unwrap_or_else(|| "AiTransform".to_string()),
@@ -257,10 +323,16 @@ impl AiTransformBuilder {
             artifact_path: self.artifact_path,
             cache_path: self.cache_path,
             http_client: Arc::new(UreqHttpClient),
+            ai_provider: self.ai_provider,
+            retry_config: self.retry_config.unwrap_or_default(),
+            metrics: self.metrics,
+            prompt_version: self.prompt_version,
+            execution_preference: self
+                .execution_preference
+                .unwrap_or(AiExecutionPreference::LocalPreferred),
         }
     }
 }
-
 impl AiTransform {
     /// Return a new [`AiTransformBuilder`].
     pub fn builder() -> AiTransformBuilder {
@@ -411,9 +483,28 @@ impl Transform for AiTransform {
     /// output immediately, skipping the AI call.  On a miss the backend is
     /// called, and the result is stored in the cache together with metadata
     /// (model, Unix timestamp, input hash) before being returned.
+    ///
+    /// When an [`AiProvider`] is attached via the builder, execution is
+    /// delegated to the provider (with retry and metrics tracking) and the
+    /// expanded cache key covers provider name, model, prompt version, and
+    /// generation parameters.
     fn apply(&self, input: String) -> Result<String> {
         let prompt = self.render_prompt(&input);
-        let input_hash = compute_ai_input_hash(&prompt, &self.model);
+
+        // ── Cache key ─────────────────────────────────────────────────────────
+        // Use the expanded key when a provider is attached; fall back to the
+        // legacy hash (prompt + model) for backward compatibility.
+        let input_hash = if let Some(ref provider) = self.ai_provider {
+            compute_ai_cache_key(
+                provider.name(),
+                &self.model,
+                &prompt,
+                self.prompt_version.as_deref(),
+                "",
+            )
+        } else {
+            compute_ai_input_hash(&prompt, &self.model)
+        };
 
         // ── Cache lookup ──────────────────────────────────────────────────────
         if let Some(ref cache_path) = self.cache_path {
@@ -426,6 +517,9 @@ impl Transform for AiTransform {
                     input_hash = %input_hash,
                     "AI cache hit — returning cached output"
                 );
+                if let Some(ref m) = self.metrics {
+                    m.record_cache_hit();
+                }
                 return Ok(entry.output.clone());
             }
             debug!(
@@ -437,16 +531,41 @@ impl Transform for AiTransform {
         }
 
         // ── Backend call ──────────────────────────────────────────────────────
-        let output = match self.backend {
-            AiBackend::Ollama => self.call_ollama(&prompt),
-            AiBackend::OpenAi => self.call_openai(&prompt),
-        }
-        .with_context(|| {
-            format!(
-                "AiTransform '{}' failed (backend={}, model='{}')",
-                self.name, self.backend, self.model
-            )
-        })?;
+        let output = if let Some(ref provider) = self.ai_provider {
+            // New path: delegate to the provider with retry and metrics.
+            let request = AiRequest::new(self.model.clone(), prompt.clone());
+            let response = execute_with_retry(&self.retry_config, &self.name, || {
+                provider.execute(&request)
+            })
+            .with_context(|| {
+                format!(
+                    "AiTransform '{}' failed (provider={}, model='{}')",
+                    self.name,
+                    provider.name(),
+                    self.model
+                )
+            })?;
+            if let Some(ref m) = self.metrics {
+                m.record_call(
+                    response.input_tokens,
+                    response.output_tokens,
+                    response.duration_ms.unwrap_or(0),
+                );
+            }
+            response.content
+        } else {
+            // Legacy path: call the backend directly via http_client.
+            match self.backend {
+                AiBackend::Ollama => self.call_ollama(&prompt),
+                AiBackend::OpenAi => self.call_openai(&prompt),
+            }
+            .with_context(|| {
+                format!(
+                    "AiTransform '{}' failed (backend={}, model='{}')",
+                    self.name, self.backend, self.model
+                )
+            })?
+        };
 
         // ── Cache store ───────────────────────────────────────────────────────
         if let Some(ref cache_path) = self.cache_path {
@@ -478,7 +597,68 @@ impl Transform for AiTransform {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Mutex;
+    use crate::ai::{
+        metrics::SharedMetrics,
+        provider::{AiCapabilities, AiExecutionPreference, AiModel},
+        request::{AiRequest, AiResponse},
+        retry::RetryConfig,
+        AiProvider,
+    };
+    use std::sync::{Arc, Mutex};
+
+    // ── Mock provider ─────────────────────────────────────────────────────────
+
+    #[derive(Debug)]
+    struct MockProvider {
+        name: String,
+        responses: Mutex<Vec<Result<AiResponse>>>,
+    }
+
+    impl MockProvider {
+        fn new(responses: Vec<Result<AiResponse>>) -> Arc<Self> {
+            Arc::new(Self {
+                name: "mock".to_string(),
+                responses: Mutex::new(responses),
+            })
+        }
+
+        fn ok(content: impl Into<String>) -> Arc<Self> {
+            Self::new(vec![Ok(AiResponse {
+                content: content.into(),
+                input_tokens: Some(10),
+                output_tokens: Some(20),
+                duration_ms: Some(50),
+                model: "mock-model".to_string(),
+                provider: "mock".to_string(),
+            })])
+        }
+    }
+
+    impl AiProvider for MockProvider {
+        fn name(&self) -> &str {
+            &self.name
+        }
+
+        fn models(&self) -> Vec<AiModel> {
+            vec![AiModel {
+                id: "mock-model".to_string(),
+                description: Some("mock model".to_string()),
+                is_local: true,
+            }]
+        }
+
+        fn capabilities(&self) -> AiCapabilities {
+            AiCapabilities::default()
+        }
+
+        fn is_local(&self) -> bool {
+            true
+        }
+
+        fn execute(&self, _request: &AiRequest) -> Result<AiResponse> {
+            self.responses.lock().unwrap().remove(0)
+        }
+    }
 
     #[derive(Debug)]
     struct FakeHttpClient {
@@ -825,5 +1005,126 @@ mod tests {
                 bearer_token: None,
             }]
         );
+    }
+
+    // ── new provider-abstraction builder methods ───────────────────────────────
+
+    #[test]
+    fn test_builder_provider_methods() {
+        let provider = MockProvider::ok("hi");
+        let metrics = SharedMetrics::new();
+        let t = AiTransform::builder()
+            .name("provider-test")
+            .model("mock-model")
+            .ai_provider(provider)
+            .retry_config(RetryConfig { max_attempts: 1, ..Default::default() })
+            .metrics(metrics)
+            .prompt_version("v1")
+            .execution_preference(AiExecutionPreference::LocalOnly)
+            .build();
+
+        assert_eq!(t.name(), "provider-test");
+        assert!(t.ai_provider.is_some());
+        assert_eq!(t.retry_config.max_attempts, 1);
+        assert!(t.metrics.is_some());
+        assert_eq!(t.prompt_version.as_deref(), Some("v1"));
+        assert!(matches!(t.execution_preference, AiExecutionPreference::LocalOnly));
+    }
+
+    #[test]
+    fn test_apply_uses_provider_when_set() {
+        let provider = MockProvider::ok("provider response");
+        let t = AiTransform::builder()
+            .name("provider-ai")
+            .model("mock-model")
+            .prompt_template("Echo: {input}")
+            .ai_provider(provider)
+            .build();
+
+        let result = t.apply("test input".to_string()).unwrap();
+        assert_eq!(result, "provider response");
+    }
+
+    #[test]
+    fn test_apply_provider_records_metrics() {
+        let provider = MockProvider::ok("metrics response");
+        let metrics = SharedMetrics::new();
+        let t = AiTransform::builder()
+            .name("metrics-ai")
+            .model("mock-model")
+            .ai_provider(provider)
+            .metrics(metrics.clone())
+            .build();
+
+        t.apply("input".to_string()).unwrap();
+        let snapshot = metrics.snapshot();
+        assert_eq!(snapshot.request_count, 1);
+        assert_eq!(snapshot.total_input_tokens, 10);
+        assert_eq!(snapshot.total_output_tokens, 20);
+    }
+
+    #[test]
+    fn test_apply_provider_expanded_cache_key() {
+        use crate::cache::{load_ai_cache, AiCache};
+
+        let dir = tempfile::tempdir().unwrap();
+        let cache_file = dir.path().join("ai-cache.json");
+
+        let empty_cache = AiCache::default();
+        crate::cache::save_ai_cache(&empty_cache, &cache_file).unwrap();
+
+        let provider = MockProvider::ok("fresh result");
+        let t = AiTransform::builder()
+            .name("cached-provider")
+            .model("mock-model")
+            .prompt_template("{input}")
+            .prompt_version("v2")
+            .ai_provider(provider)
+            .cache_path(cache_file.to_str().unwrap())
+            .build();
+
+        let result = t.apply("hello".to_string()).unwrap();
+        assert_eq!(result, "fresh result");
+
+        // The result should be persisted in the cache.
+        let reloaded = load_ai_cache(&cache_file);
+        assert_eq!(reloaded.len(), 1);
+    }
+
+    #[test]
+    fn test_apply_provider_cache_hit_skips_provider() {
+        use crate::ai::compute_ai_cache_key;
+        use crate::cache::{save_ai_cache, AiCache, AiCacheEntry};
+
+        let dir = tempfile::tempdir().unwrap();
+        let cache_file = dir.path().join("ai-cache.json");
+
+        let prompt = "hello";
+        let key = compute_ai_cache_key("mock", "mock-model", prompt, None, "");
+
+        let mut cache = AiCache::default();
+        cache.insert(
+            key.clone(),
+            AiCacheEntry {
+                input_hash: key,
+                model: "mock-model".to_string(),
+                timestamp: 1_700_000_000,
+                output: "cached provider output".to_string(),
+            },
+        );
+        save_ai_cache(&cache, &cache_file).unwrap();
+
+        // Provider has no responses – would panic if called.
+        let provider = MockProvider::new(vec![]);
+        let t = AiTransform::builder()
+            .name("cached-provider")
+            .model("mock-model")
+            .prompt_template("{input}")
+            .ai_provider(provider)
+            .cache_path(cache_file.to_str().unwrap())
+            .build();
+
+        let result = t.apply("hello".to_string()).unwrap();
+        assert_eq!(result, "cached provider output");
     }
 }
