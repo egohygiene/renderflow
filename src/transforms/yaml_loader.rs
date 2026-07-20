@@ -160,6 +160,8 @@ impl YamlTransformDef {
     /// * Exactly one of `program`, `plugin`, or `ai` must be provided.
     /// * When `ai` is set it must be a known backend name (see [`AiBackend`]).
     /// * `from` and `to` must both be non-blank and parseable as a known [`Format`].
+    /// * `cost` must be finite and non-negative.
+    /// * `quality` must be finite and within `0.0..=1.0`.
     ///
     /// [`Format`]: crate::graph::Format
     pub fn validate(&self) -> Result<()> {
@@ -209,6 +211,23 @@ impl YamlTransformDef {
         self.to
             .parse::<crate::graph::Format>()
             .with_context(|| format!("transform '{}': invalid 'to' format", self.name))?;
+        if !self.cost.is_finite() || self.cost < 0.0 {
+            anyhow::bail!(
+                "transform '{}': 'cost' must be a finite non-negative number",
+                self.name
+            );
+        }
+        if !self.quality.is_finite() {
+            anyhow::bail!(
+                "transform '{}': 'quality' must be a finite number between 0.0 and 1.0",
+                self.name
+            );
+        } else if !(0.0..=1.0).contains(&self.quality) {
+            anyhow::bail!(
+                "transform '{}': 'quality' must be a finite number between 0.0 and 1.0",
+                self.name
+            );
+        }
         Ok(())
     }
 
@@ -804,6 +823,60 @@ transforms:
             .expect("expected an error");
         let msg = err.to_string();
         assert!(msg.contains("invalid 'to' format"), "unexpected: {msg}");
+    }
+
+    #[test]
+    fn test_quality_above_one_returns_error() {
+        let yaml = r#"
+transforms:
+  - name: bad-quality-high
+    program: cat
+    from: markdown
+    to: html
+    cost: 1.0
+    quality: 1.5
+"#;
+        let err = parse_transforms_from_str(yaml)
+            .err()
+            .expect("expected an error");
+        let msg = err.to_string();
+        assert!(msg.contains("'quality' must be a finite number between 0.0 and 1.0"));
+    }
+
+    #[test]
+    fn test_quality_below_zero_returns_error() {
+        let yaml = r#"
+transforms:
+  - name: bad-quality-low
+    program: cat
+    from: markdown
+    to: html
+    cost: 1.0
+    quality: -0.1
+"#;
+        let err = parse_transforms_from_str(yaml)
+            .err()
+            .expect("expected an error");
+        let msg = err.to_string();
+        assert!(msg.contains("'quality' must be a finite number between 0.0 and 1.0"));
+    }
+
+    #[test]
+    fn test_negative_cost_returns_error() {
+        let yaml = r#"
+transforms:
+  - name: bad-cost
+    program: cat
+    from: markdown
+    to: html
+    cost: -1.0
+    quality: 0.9
+"#;
+        let err = parse_transforms_from_str(yaml)
+            .err()
+            .expect("expected an error");
+        let msg = err.to_string();
+        assert!(msg.contains("'cost' must be a finite non-negative number"));
     }
 
     #[test]
