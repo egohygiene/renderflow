@@ -217,7 +217,7 @@ impl YamlTransformDef {
                 self.name
             );
         }
-        if !(0.0..=1.0).contains(&self.quality) {
+        if !self.quality.is_finite() || !(0.0..=1.0).contains(&self.quality) {
             anyhow::bail!(
                 "transform '{}': 'quality' must be a finite number between 0.0 and 1.0",
                 self.name
