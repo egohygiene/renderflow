@@ -68,6 +68,7 @@ nav:
       - Caching: user-guide/caching.md
       - AI: user-guide/ai.md
       - Plugins: user-guide/plugins.md
+      - Benchmarking: user-guide/benchmarking.md
   - Architecture:
       - Overview: architecture/overview.md
       - Graph Engine: architecture/graph-engine.md
