@@ -71,10 +71,36 @@ nav:
       - Benchmarking: user-guide/benchmarking.md
   - Architecture:
       - Overview: architecture/overview.md
-      - Graph Engine: architecture/graph-engine.md
-      - DAG Execution: architecture/dag-execution.md
-      - Plugin Architecture: architecture/plugin-architecture.md
-      - Execution Plans: architecture/execution-plans.md
+      - Knowledge Base:
+          - Identity:
+              - Purpose: architecture/identity/PURPOSE.md
+              - Vision: architecture/identity/VISION.md
+              - Manifesto: architecture/identity/MANIFESTO.md
+              - Principles: architecture/identity/PRINCIPLES.md
+              - Pillars: architecture/identity/PILLARS.md
+          - Foundation:
+              - Methodology: architecture/foundation/METHODOLOGY.md
+              - Foundations: architecture/foundation/FOUNDATIONS.md
+              - System: architecture/foundation/SYSTEM.md
+              - Architecture: architecture/foundation/ARCHITECTURE.md
+              - Roadmap: architecture/foundation/ROADMAP.md
+          - Domain:
+              - Ontology: architecture/domain/ONTOLOGY.md
+              - Personal Model: architecture/domain/PERSONAL_MODEL.md
+          - Governance:
+              - Decisions: architecture/governance/DECISIONS.md
+          - Experience:
+              - Design: architecture/experience/DESIGN.md
+              - Design System: architecture/experience/DESIGN_SYSTEM.md
+          - Meta:
+              - AI Constitution: architecture/meta/AI_CONSTITUTION.md
+              - Epistemology: architecture/meta/EPISTEMOLOGY.md
+              - Meta: architecture/meta/META.md
+      - Implementation Views:
+          - Graph Engine: architecture/graph-engine.md
+          - DAG Execution: architecture/dag-execution.md
+          - Plugin Architecture: architecture/plugin-architecture.md
+          - Execution Plans: architecture/execution-plans.md
   - CLI Reference:
       - Overview: cli-reference/index.md
       - build: cli-reference/build.md
