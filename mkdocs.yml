@@ -31,6 +31,10 @@ theme:
 plugins:
   - search
 
+extra:
+  version:
+    provider: mike
+
 markdown_extensions:
   - admonition
   - attr_list
@@ -62,6 +66,7 @@ nav:
       - CLI Overview: getting-started/cli-overview.md
   - User Guide:
       - Configuration: user-guide/configuration.md
+      - Supported Formats: user-guide/supported-formats.md
       - Pipelines: user-guide/pipelines.md
       - Transforms: user-guide/transforms.md
       - Optimization: user-guide/optimization.md
@@ -69,6 +74,8 @@ nav:
       - AI: user-guide/ai.md
       - Plugins: user-guide/plugins.md
       - Benchmarking: user-guide/benchmarking.md
+      - Troubleshooting: user-guide/troubleshooting.md
+      - FAQ: user-guide/faq.md
   - Architecture:
       - Overview: architecture/overview.md
       - Knowledge Base:

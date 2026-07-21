@@ -92,6 +92,8 @@ Audio and image outputs are broader. Representative examples include:
 - Audio: `wav`, `flac`, `mp3`, `aac`, `ogg`, `opus`, `wma`, `ac3`, `ec3`, `dts`, `midi`
 - Image: `jpeg`, `png`, `webp`, `avif`, `gif`, `bmp`, `tiff`, `exr`, `hdr`, `jp2`, `jxl`, `dds`, `ico`
 
+For the full generated list of config values, graph identifiers, file extensions, and encode support, see [Supported Formats](supported-formats.md).
+
 ## Templates
 
 `template: default` resolves to `templates/default.html` for HTML output. Renderflow validates configured templates before rendering so missing templates fail fast.

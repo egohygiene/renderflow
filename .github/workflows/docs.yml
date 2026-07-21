@@ -1,9 +1,32 @@
 name: docs
 
 on:
+  pull_request:
+    paths:
+      - '.github/workflows/docs.yml'
+      - 'README.md'
+      - 'docs/**'
+      - 'mkdocs.yml'
+      - 'scripts/generate_supported_formats_doc.py'
+      - 'src/audio/format.rs'
+      - 'src/graph/format.rs'
+      - 'src/image/format.rs'
+      - 'src/input_format.rs'
   push:
     branches:
       - main
+    tags:
+      - 'v*'
+    paths:
+      - '.github/workflows/docs.yml'
+      - 'README.md'
+      - 'docs/**'
+      - 'mkdocs.yml'
+      - 'scripts/generate_supported_formats_doc.py'
+      - 'src/audio/format.rs'
+      - 'src/graph/format.rs'
+      - 'src/image/format.rs'
+      - 'src/input_format.rs'
   workflow_dispatch:
 
 permissions:
@@ -16,11 +39,13 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
+  validate:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -30,20 +55,83 @@ jobs:
       - name: Install MkDocs Material
         run: |
           python -m pip install --upgrade pip
-          pip install mkdocs-material
+          pip install mkdocs-material mike
+
+      - name: Regenerate generated docs
+        run: python scripts/generate_supported_formats_doc.py
+
+      - name: Verify generated docs are committed
+        run: git diff --exit-code -- docs/user-guide/supported-formats.md
+
+      - name: Build docs
+        run: mkdocs build --strict
+
+      - name: Smoke test versioned docs build
+        run: |
+          mike deploy --config-file mkdocs.yml --branch __docs_preview__ preview latest
+          git branch -D __docs_preview__
+
+  build:
+    if: github.event_name != 'pull_request'
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install MkDocs Material
+        run: |
+          python -m pip install --upgrade pip
+          pip install mkdocs-material mike
+
+      - name: Regenerate generated docs
+        run: python scripts/generate_supported_formats_doc.py
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
         with:
           enablement: true
 
-      - name: Build docs
-        run: mkdocs build --strict
+      - name: Determine docs version
+        id: version
+        run: |
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            if [[ "${GITHUB_REF_NAME}" != v* ]]; then
+              echo "Expected release tags to start with 'v', got: ${GITHUB_REF_NAME}" >&2
+              exit 1
+            fi
+            echo "value=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=dev" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build versioned site
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin gh-pages:gh-pages || true
+          mike deploy \
+            --config-file mkdocs.yml \
+            --branch gh-pages \
+            --update-aliases \
+            "${{ steps.version.outputs.value }}" \
+            latest
+          mike set-default --config-file mkdocs.yml --branch gh-pages latest
+          git worktree add /tmp/renderflow-docs gh-pages
+          rsync -a --delete --exclude '.git' /tmp/renderflow-docs/ /tmp/renderflow-pages/
+          git worktree remove /tmp/renderflow-docs --force
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: site
+          path: /tmp/renderflow-pages
 
   deploy:
     needs: build
