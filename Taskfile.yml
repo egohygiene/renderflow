@@ -52,6 +52,27 @@ tasks:
     cmds:
       - cargo clippy
 
+  # Run all benchmarks
+  bench:
+    desc: Run all benchmarks and open Criterion HTML reports
+    cmds:
+      - cargo bench
+
+  # Run a single benchmark suite by name (e.g. task bench-suite SUITE=graph_planner)
+  bench-suite:
+    desc: Run a specific benchmark suite (requires SUITE=<name>)
+    cmds:
+      - cargo bench --bench {{.SUITE}}
+    requires:
+      vars:
+        - SUITE
+
+  # Run benchmarks without collecting samples (compile-only check)
+  bench-check:
+    desc: Compile benchmarks without running them
+    cmds:
+      - cargo bench --no-run
+
   # Generate CHANGELOG.md from commit history using git-cliff
   changelog:
     desc: Generate CHANGELOG.md from commit history

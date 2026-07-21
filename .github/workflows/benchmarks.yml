@@ -1,0 +1,87 @@
+name: Benchmarks
+
+on:
+  # Run on a weekly schedule to detect performance regressions over time.
+  schedule:
+    - cron: "0 3 * * 1"   # Monday at 03:00 UTC
+
+  # Allow maintainers to trigger a benchmark run on demand.
+  workflow_dispatch:
+    inputs:
+      bench_filter:
+        description: "Optional bench name filter (e.g. 'graph_planner'). Leave blank to run all."
+        required: false
+        default: ""
+
+jobs:
+  benchmarks:
+    name: Run benchmarks
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.94"
+
+      - name: Cache Cargo registry and build artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            target/
+          key: ${{ runner.os }}-bench-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bench-
+
+      # Run benchmarks that match the optional filter, or all benchmarks.
+      # --message-format=json captures machine-readable output for archiving.
+      - name: Run benchmarks
+        run: |
+          if [ -n "${{ github.event.inputs.bench_filter }}" ]; then
+            cargo bench --bench "${{ github.event.inputs.bench_filter }}" \
+              -- --output-format bencher | tee /tmp/bench-output.txt
+          else
+            cargo bench \
+              -- --output-format bencher | tee /tmp/bench-output.txt
+          fi
+
+      # Criterion writes HTML reports to target/criterion/.
+      - name: Upload Criterion HTML reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: criterion-reports-${{ github.run_id }}
+          path: target/criterion/
+          retention-days: 90
+
+      # Upload the raw bencher-format output for downstream tooling.
+      - name: Upload raw benchmark output
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bench-output-${{ github.run_id }}
+          path: /tmp/bench-output.txt
+          retention-days: 90
+
+      # Persist a JSON snapshot of results alongside the commit SHA so that
+      # future runs can compare against this baseline.
+      - name: Save baseline snapshot
+        run: |
+          mkdir -p bench-history
+          cp /tmp/bench-output.txt bench-history/bench-${{ github.sha }}.txt
+          echo "${{ github.sha }}" > bench-history/latest-sha.txt
+
+      - name: Upload baseline snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-history-${{ github.run_id }}
+          path: bench-history/
+          retention-days: 365
