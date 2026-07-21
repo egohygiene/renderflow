@@ -17,7 +17,6 @@ fn probe_tool_version(name: &str) -> Result<String, String> {
             }
         })
 }
-
 pub fn run_version() {
     println!("renderflow {}", env!("CARGO_PKG_VERSION"));
 }
@@ -71,4 +70,3 @@ pub fn run_doctor(strict: bool) -> Result<()> {
 
     Ok(())
 }
-
