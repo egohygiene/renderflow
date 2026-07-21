@@ -2,6 +2,9 @@
 
 Renderflow is a spec-driven rendering engine for turning a single source document into repeatable outputs such as HTML, PDF, DOCX, audio, and images. It combines a YAML configuration file, an in-memory transform pipeline, and a DAG-based planner for graph-driven conversions.
 
+!!! note
+    Use the version selector in the site header to switch between the latest published docs and tagged release snapshots.
+
 ## Why Renderflow?
 
 - **One YAML spec** describes inputs, variables, templates, outputs, optimization mode, and optional transform graph files.
@@ -57,5 +60,6 @@ When a config includes `transforms: path/to/transforms.yaml`, Renderflow can bui
 - [Installation](getting-started/installation.md)
 - [Quick Start](getting-started/quickstart.md)
 - [Configuration](user-guide/configuration.md)
+- [Supported Formats](user-guide/supported-formats.md)
 - [CLI Reference](cli-reference/index.md)
 - [Architecture Overview](architecture/overview.md)

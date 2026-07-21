@@ -74,6 +74,12 @@ jobs:
         working-directory: examples/transforms
         run: ../../target/release/renderflow build --dry-run
 
+      - name: Run library embedding example
+        run: cargo run --example library_basic
+
+      - name: Run plugin registration example
+        run: cargo run --example plugin_registration
+
   validate-pkgbuild:
     name: Validate PKGBUILD git (Arch Linux)
     runs-on: ubuntu-latest
