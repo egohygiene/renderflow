@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use anyhow::{Context, Result};
 use std::io::ErrorKind;
 use std::path::Path;

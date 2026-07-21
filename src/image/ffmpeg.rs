@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use super::format::ImageFormat;
 use super::profile::ImageProfile;
 

@@ -128,7 +128,7 @@ impl AudioFormat {
 
     /// Return the FFmpeg format name used with `-f`, or `None` when FFmpeg does
     /// not support encoding to this format.
-    #[expect(dead_code)]
+    #[allow(dead_code)]
     pub fn ffmpeg_format(self) -> Option<&'static str> {
         match self {
             AudioFormat::Wav | AudioFormat::Bwf => Some("wav"),
@@ -192,7 +192,7 @@ impl AudioFormat {
     }
 
     /// Return `true` when this format stores audio without perceptual loss.
-    #[expect(dead_code)]
+    #[allow(dead_code)]
     pub fn is_lossless(self) -> bool {
         matches!(
             self,
@@ -297,7 +297,7 @@ impl AudioFormat {
     }
 
     /// All audio formats that can be encoded by FFmpeg (encode-capable subset).
-    #[expect(dead_code)]
+    #[allow(dead_code)]
     pub fn encodable_formats() -> &'static [AudioFormat] {
         &[
             AudioFormat::Wav,
