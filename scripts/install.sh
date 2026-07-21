@@ -49,6 +49,17 @@ checksum_file() {
   fi
 }
 
+is_install_dir_writable() {
+  dir="$1"
+  if [ -d "$dir" ]; then
+    [ -w "$dir" ]
+    return
+  fi
+
+  parent_dir="$(dirname "$dir")"
+  [ -d "$parent_dir" ] && [ -w "$parent_dir" ]
+}
+
 detect_target() {
   os="$(uname -s | tr '[:upper:]' '[:lower:]')"
   arch="$(uname -m)"
@@ -119,7 +130,7 @@ main() {
   fi
   log "Checksum verification passed."
 
-  if [ ! -w "$INSTALL_DIR" ] && [ -z "${RENDERFLOW_INSTALL_DIR:-}" ]; then
+  if ! is_install_dir_writable "$INSTALL_DIR" && [ -z "${RENDERFLOW_INSTALL_DIR:-}" ]; then
     INSTALL_DIR="${HOME}/.local/bin"
     log "No write access to /usr/local/bin; falling back to $INSTALL_DIR"
   fi

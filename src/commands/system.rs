@@ -1,6 +1,28 @@
 use anyhow::{bail, Result};
 use std::{env, path::PathBuf, process::Command};
 
+struct ToolCheck {
+    name: &'static str,
+    required: bool,
+}
+
+// `pandoc` is required for core document rendering, while `tectonic` (PDF)
+// and `ffmpeg` (media conversions) are optional unless those outputs are used.
+const TOOL_CHECKS: [ToolCheck; 3] = [
+    ToolCheck {
+        name: "pandoc",
+        required: true,
+    },
+    ToolCheck {
+        name: "tectonic",
+        required: false,
+    },
+    ToolCheck {
+        name: "ffmpeg",
+        required: false,
+    },
+];
+
 fn probe_tool_version(name: &str) -> Result<String, String> {
     Command::new(name)
         .arg("--version")
@@ -41,18 +63,17 @@ pub fn run_doctor(strict: bool) -> Result<()> {
     println!("renderflow: {}", env!("CARGO_PKG_VERSION"));
     println!("platform: {} {}", env::consts::OS, env::consts::ARCH);
 
-    let checks = [("pandoc", true), ("tectonic", false), ("ffmpeg", false)];
     let mut missing = 0usize;
 
-    for (tool, required) in checks {
-        match probe_tool_version(tool) {
-            Ok(version) => println!("[ok] {tool}: {version}"),
+    for check in TOOL_CHECKS {
+        match probe_tool_version(check.name) {
+            Ok(version) => println!("[ok] {}: {version}", check.name),
             Err(reason) => {
-                if required {
+                if check.required {
                     missing += 1;
-                    println!("[missing|required] {tool}: {reason}");
+                    println!("[missing|required] {}: {reason}", check.name);
                 } else {
-                    println!("[missing|optional] {tool}: {reason}");
+                    println!("[missing|optional] {}: {reason}", check.name);
                 }
             }
         }
