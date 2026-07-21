@@ -30,11 +30,13 @@ def extract_block(text: str, anchor: str) -> str:
 
 
 def extract_display_values(text: str, type_name: str) -> list[tuple[str, str]]:
+    """Extract variant-to-string mappings from a Display impl match block."""
     block = extract_block(text, f"impl fmt::Display for {type_name}")
     return re.findall(rf"{re.escape(type_name)}::(\w+)\s*=>\s*\"([^\"]+)\"", block)
 
 
 def extract_primary_values(block: str, type_name: str) -> list[tuple[str, str]]:
+    """Extract each variant's first accepted string from a FromStr match block."""
     values: list[tuple[str, str]] = []
     for names, variant in re.findall(
         rf'((?:"[^"]+"\s*\|\s*)*"[^"]+")\s*=>\s*Ok\({re.escape(type_name)}::(\w+)\)',
@@ -46,6 +48,7 @@ def extract_primary_values(block: str, type_name: str) -> list[tuple[str, str]]:
 
 
 def extract_string_arms(block: str, type_name: str) -> dict[str, str]:
+    """Extract grouped match arms that map enum variants to string literals."""
     mapping: dict[str, str] = {}
     for variants, value in re.findall(
         rf"((?:{re.escape(type_name)}::\w+\s*\|\s*)*{re.escape(type_name)}::\w+)\s*=>\s*\"([^\"]+)\"",
@@ -57,6 +60,7 @@ def extract_string_arms(block: str, type_name: str) -> dict[str, str]:
 
 
 def extract_option_arms(block: str, type_name: str) -> dict[str, bool]:
+    """Extract grouped match arms and record whether they resolve to Some or None."""
     support: dict[str, bool] = {}
     for variants, value in re.findall(
         rf"((?:{re.escape(type_name)}::\w+\s*\|\s*)*{re.escape(type_name)}::\w+)\s*=>\s*(Some\([^)]+\)|None)",
@@ -69,6 +73,7 @@ def extract_option_arms(block: str, type_name: str) -> dict[str, bool]:
 
 
 def extract_input_extensions(text: str) -> dict[str, list[str]]:
+    """Extract recognized file extensions for each InputFormat variant."""
     block = extract_block(text, "pub fn from_extension(path: &str) -> Option<Self>")
     extensions: dict[str, list[str]] = {}
     for names, variant in re.findall(
@@ -80,6 +85,7 @@ def extract_input_extensions(text: str) -> dict[str, list[str]]:
 
 
 def render_table(headers: list[str], rows: list[list[str]]) -> list[str]:
+    """Render a Markdown table from headers and row values."""
     lines = [
         "| " + " | ".join(headers) + " |",
         "| " + " | ".join("---" for _ in headers) + " |",
