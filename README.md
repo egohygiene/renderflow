@@ -219,6 +219,21 @@ renderflow build --debug
 
 > **Note:** The argument to `renderflow` is always a YAML config file. The Markdown source is specified inside the config via the `input` key (e.g. `input: "input.md"`).
 
+### Using Renderflow as a Rust library
+
+Renderflow also ships as a reusable Rust crate for embedding in your own tools.
+
+```bash
+cargo add renderflow
+```
+
+Runnable SDK examples are included in this repository:
+
+```bash
+cargo run --example library_basic
+cargo run --example plugin_registration
+```
+
 ### Multi-output example
 
 Produce PDF, HTML, and DOCX from one config:

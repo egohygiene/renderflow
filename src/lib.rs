@@ -3,11 +3,14 @@
 //! Exposes the core subsystems for use by benchmarks, tests, and external
 //! integrations.  The binary entrypoint lives in `main.rs`.
 
-pub mod ai;
 mod adapters;
+pub mod ai;
+pub mod app;
 mod assets;
 mod audio;
 pub mod cache;
+pub mod cli;
+mod commands;
 mod compat;
 mod config;
 mod deps;
