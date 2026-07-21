@@ -15,7 +15,9 @@ def read(path: Path) -> str:
 
 
 def extract_block(text: str, anchor: str) -> str:
-    start = text.index(anchor)
+    start = text.find(anchor)
+    if start == -1:
+        raise ValueError(f"anchor not found: {anchor}")
     brace = text.index("{", start)
     depth = 0
     for index in range(brace, len(text)):
@@ -32,7 +34,10 @@ def extract_block(text: str, anchor: str) -> str:
 def extract_display_values(text: str, type_name: str) -> list[tuple[str, str]]:
     """Extract variant-to-string mappings from a Display impl match block."""
     block = extract_block(text, f"impl fmt::Display for {type_name}")
-    return re.findall(rf"{re.escape(type_name)}::(\w+)\s*=>\s*\"([^\"]+)\"", block)
+    values = re.findall(rf"{re.escape(type_name)}::(\w+)\s*=>\s*\"([^\"]+)\"", block)
+    if not values:
+        raise ValueError(f"no display mappings found for {type_name}")
+    return values
 
 
 def extract_primary_values(block: str, type_name: str) -> list[tuple[str, str]]:
@@ -44,6 +49,8 @@ def extract_primary_values(block: str, type_name: str) -> list[tuple[str, str]]:
     ):
         aliases = re.findall(r'"([^"]+)"', names)
         values.append((variant, aliases[0]))
+    if not values:
+        raise ValueError(f"no primary values found for {type_name}")
     return values
 
 
@@ -81,6 +88,8 @@ def extract_input_extensions(text: str) -> dict[str, list[str]]:
         block,
     ):
         extensions[variant] = re.findall(r'"([^"]+)"', names)
+    if not extensions:
+        raise ValueError("no input extensions found")
     return extensions
 
 
