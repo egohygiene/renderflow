@@ -108,6 +108,38 @@ jobs:
       - name: Validate PKGBUILD with namcap
         run: namcap pkg/aur/renderflow/PKGBUILD
 
+  installer-smoke-test:
+    name: Installer smoke test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.94"
+
+      - name: Build release binary
+        run: cargo build --release
+
+      - name: Prepare local release assets with checksum
+        run: |
+          mkdir -p /tmp/renderflow-release
+          cp target/release/renderflow /tmp/renderflow-release/renderflow-x86_64-unknown-linux-gnu
+          sha256sum /tmp/renderflow-release/renderflow-x86_64-unknown-linux-gnu > /tmp/renderflow-release/renderflow-x86_64-unknown-linux-gnu.sha256
+
+      - name: Install from portable installer script
+        run: |
+          mkdir -p /tmp/renderflow-bin
+          RENDERFLOW_DOWNLOAD_BASE_URL="file:///tmp/renderflow-release" \
+          RENDERFLOW_INSTALL_DIR="/tmp/renderflow-bin" \
+          sh scripts/install.sh
+          /tmp/renderflow-bin/renderflow --version
+
   validate-snap:
     name: Validate Snap package
     runs-on: ubuntu-latest

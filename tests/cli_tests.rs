@@ -59,6 +59,73 @@ fn test_help_output_lists_watch_command() {
 }
 
 #[test]
+fn test_help_output_lists_version_env_and_doctor_commands() {
+    let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
+        .arg("--help")
+        .output()
+        .expect("failed to execute renderflow");
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("version"),
+        "--help should list the version subcommand, got: {stdout}"
+    );
+    assert!(
+        stdout.contains("env"),
+        "--help should list the env subcommand, got: {stdout}"
+    );
+    assert!(
+        stdout.contains("doctor"),
+        "--help should list the doctor subcommand, got: {stdout}"
+    );
+}
+
+#[test]
+fn test_version_subcommand_prints_semver() {
+    let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
+        .arg("version")
+        .output()
+        .expect("failed to execute renderflow");
+
+    assert!(output.status.success(), "version should exit with code 0");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains(env!("CARGO_PKG_VERSION")),
+        "version output should include crate version, got: {stdout}"
+    );
+}
+
+#[test]
+fn test_env_subcommand_prints_diagnostics() {
+    let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
+        .arg("env")
+        .output()
+        .expect("failed to execute renderflow");
+
+    assert!(output.status.success(), "env should exit with code 0");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("os=") && stdout.contains("arch=") && stdout.contains("executable="),
+        "env output should include expected fields, got: {stdout}"
+    );
+}
+
+#[test]
+fn test_doctor_subcommand_runs() {
+    let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
+        .arg("doctor")
+        .output()
+        .expect("failed to execute renderflow");
+
+    assert!(output.status.success(), "doctor should exit with code 0");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("Renderflow Doctor"),
+        "doctor output should include header, got: {stdout}"
+    );
+}
+
+#[test]
 fn test_watch_help_flag_exits_successfully() {
     let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
         .args(["watch", "--help"])

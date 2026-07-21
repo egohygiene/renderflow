@@ -40,6 +40,25 @@ brew tap egohygiene/renderflow https://github.com/egohygiene/renderflow
 brew install renderflow
 ```
 
+## Portable install script (macOS/Linux)
+
+Use the first-party installer to auto-detect OS/architecture, download the matching release asset, verify SHA256 checksums, and install `renderflow`:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/egohygiene/renderflow/main/scripts/install.sh | sh
+```
+
+Or with `wget`:
+
+```bash
+wget -qO- https://raw.githubusercontent.com/egohygiene/renderflow/main/scripts/install.sh | sh
+```
+
+Optional environment variables:
+
+- `RENDERFLOW_VERSION` (default: `latest`) — install a specific release (for example `0.2.1` or `v0.2.1`)
+- `RENDERFLOW_INSTALL_DIR` (default: `/usr/local/bin`, fallback: `~/.local/bin`)
+
 ## Scoop (Windows)
 
 Renderflow ships a Scoop manifest in `pkg/scoop/renderflow.json`.
@@ -102,5 +121,54 @@ cargo install --path .
 
 ```bash
 renderflow --version
+renderflow version
+renderflow env
+renderflow doctor
 renderflow --help
 ```
+
+## Upgrade
+
+Use your package manager's native upgrade flow when installed from a package channel.
+
+Examples:
+
+```bash
+brew upgrade renderflow
+scoop update renderflow
+snap refresh renderflow
+```
+
+If you installed with the portable installer, re-run the installer command to fetch the latest release or set `RENDERFLOW_VERSION` for a pinned upgrade.
+
+## Uninstall
+
+Package-manager uninstall examples:
+
+```bash
+brew uninstall renderflow
+scoop uninstall renderflow
+snap remove renderflow
+```
+
+Portable installer uninstall:
+
+```bash
+rm -f /usr/local/bin/renderflow
+# or:
+rm -f ~/.local/bin/renderflow
+```
+
+## Additional distribution targets (status)
+
+| Target | Status |
+|---|---|
+| Docker / OCI images | Planned |
+| Dev Container (`.devcontainer`) | Available |
+| GitHub Codespaces | Supported via Dev Container |
+| Nix / Nix Flakes | Planned |
+| Alpine package | Planned |
+| Winget | Planned |
+| pkgx | Planned |
+| mise | Planned |
+| asdf | Planned |

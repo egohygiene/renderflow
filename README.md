@@ -124,6 +124,14 @@ choco install renderflow
 snap install renderflow --classic
 ```
 
+### Portable install script (macOS/Linux)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/egohygiene/renderflow/main/scripts/install.sh | sh
+```
+
+You can pin a release version with `RENDERFLOW_VERSION` and override install location with `RENDERFLOW_INSTALL_DIR`.
+
 ### Via AUR (Arch Linux)
 
 Stable release:
@@ -176,6 +184,15 @@ Requires [Rust](https://rustup.rs) and [Pandoc](https://pandoc.org/installing.ht
 
 ```bash
 cargo install --path .
+```
+
+### Verify installation
+
+```bash
+renderflow --version
+renderflow version
+renderflow env
+renderflow doctor
 ```
 
 ---

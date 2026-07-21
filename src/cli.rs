@@ -24,6 +24,9 @@ use crate::optimization::OptimizationMode;
         renderflow plugin info <name>           Show details for a plugin\n  \
         renderflow plugin validate              Validate all plugin metadata\n  \
         renderflow plugin doctor                Run plugin diagnostics\n  \
+        renderflow version                      Print the installed version\n  \
+        renderflow env                          Print installation environment details\n  \
+        renderflow doctor                       Run installation diagnostics\n  \
         renderflow my-project.yaml              Shorthand: run build on the given config"
 )]
 pub struct Cli {
@@ -193,6 +196,19 @@ pub enum Commands {
     Graph {
         #[command(subcommand)]
         subcommand: GraphCommands,
+    },
+
+    /// Print the installed Renderflow version
+    Version,
+
+    /// Print installation environment details for troubleshooting
+    Env,
+
+    /// Run installation diagnostics
+    Doctor {
+        /// Exit with non-zero status when required dependencies are missing
+        #[arg(long)]
+        strict: bool,
     },
 }
 

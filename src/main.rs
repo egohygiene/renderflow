@@ -153,6 +153,9 @@ fn main() -> Result<()> {
                 optimization,
             } => commands::graph::run_stats(&config, target.as_deref(), optimization)?,
         },
+        Some(Commands::Version) => commands::system::run_version(),
+        Some(Commands::Env) => commands::system::run_env(),
+        Some(Commands::Doctor { strict }) => commands::system::run_doctor(strict)?,
         None => {
             info!("No subcommand provided, defaulting to build");
             match cli.input {
