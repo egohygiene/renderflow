@@ -19,6 +19,6 @@ mod incremental;
 mod input_format;
 pub mod optimization;
 mod pipeline;
-mod strategies;
+pub mod strategies;
 mod template;
 pub mod transforms;

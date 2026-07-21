@@ -153,7 +153,7 @@ impl Default for AggregationRegistry {
 /// # Example
 ///
 /// ```rust
-/// use renderflow::transforms::aggregation::CommandAggregationTransform;
+/// use renderflow::transforms::aggregation::{AggregationTransform, CommandAggregationTransform};
 ///
 /// // Equivalent to: zip -j output.cbz page1.jpg page2.jpg
 /// let t = CommandAggregationTransform::new(

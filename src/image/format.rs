@@ -464,7 +464,7 @@ impl ImageFormat {
     ///
     /// Most image formats use the `image2` muxer for single-frame output;
     /// a few need a specific muxer name.
-    #[expect(dead_code)]
+    #[allow(dead_code)]
     pub fn ffmpeg_format(self) -> Option<&'static str> {
         match self {
             ImageFormat::Jpeg | ImageFormat::Jpg => Some("image2"),
@@ -501,7 +501,7 @@ impl ImageFormat {
     }
 
     /// Return `true` when this format stores pixel data without perceptual loss.
-    #[expect(dead_code)]
+    #[allow(dead_code)]
     pub fn is_lossless(self) -> bool {
         matches!(
             self,
@@ -780,7 +780,7 @@ impl ImageFormat {
     }
 
     /// All image formats that can be encoded by FFmpeg (encode-capable subset).
-    #[expect(dead_code)]
+    #[allow(dead_code)]
     pub fn encodable_formats() -> &'static [ImageFormat] {
         &[
             ImageFormat::Jpeg,
@@ -952,6 +952,7 @@ impl FromStr for ImageFormat {
 
 /// Return `true` when the file-path extension identifies an image file that
 /// renderflow can process as an image input.
+#[allow(dead_code)]
 pub fn is_image_path(path: &str) -> bool {
     let ext = std::path::Path::new(path)
         .extension()

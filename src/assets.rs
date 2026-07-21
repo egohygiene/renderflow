@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use anyhow::{Context, Result};
 use std::borrow::Cow;
 use std::path::{Path, PathBuf};

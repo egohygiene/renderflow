@@ -262,6 +262,12 @@ impl AiCache {
         self.0.len()
     }
 
+    /// Return `true` when the cache contains no entries.
+    #[allow(dead_code)]
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
     /// Iterate over all cached entries.
     pub fn entries(&self) -> impl Iterator<Item = &AiCacheEntry> {
         self.0.values()
