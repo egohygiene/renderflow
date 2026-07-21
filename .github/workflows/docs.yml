@@ -68,6 +68,8 @@ jobs:
 
       - name: Smoke test versioned docs build
         run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           mike deploy --config-file mkdocs.yml --branch __docs_preview__ preview latest
           git branch -D __docs_preview__
 
