@@ -1351,6 +1351,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "renderflow-cli"
+version = "0.2.1"
+dependencies = [
+ "anyhow",
+ "renderflow",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
+name = "renderflow-plugin-sdk"
+version = "0.2.1"
+dependencies = [
+ "renderflow",
+]
+
+[[package]]
 name = "ring"
 version = "0.17.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"

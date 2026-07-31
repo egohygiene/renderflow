@@ -1,0 +1,54 @@
+[package]
+publish = false
+name = "renderflow-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Renderflow command-line adapter"
+readme = "../../README.md"
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+
+[[bin]]
+name = "renderflow"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1"
+renderflow = { path = "../renderflow-core", package = "renderflow" }
+
+[dev-dependencies]
+tempfile = "3"
+serde_json = "1"
+
+[[test]]
+name = "cli_tests"
+path = "../../tests/cli_tests.rs"
+
+[[test]]
+name = "graph_integration_test"
+path = "../../tests/graph_integration_test.rs"
+
+[[test]]
+name = "pipeline_integration_test"
+path = "../../tests/pipeline_integration_test.rs"
+
+[package.metadata.generate-rpm]
+assets = [
+    { source = "target/release/renderflow", dest = "/usr/bin/renderflow", mode = "0755" },
+    { source = "../../LICENSE", dest = "/usr/share/licenses/renderflow/LICENSE", mode = "0644", doc = true },
+]
+
+[package.metadata.deb]
+maintainer = "Ego Hygiene <egohygiene@users.noreply.github.com>"
+copyright = "2024, Ego Hygiene"
+license-file = ["../../LICENSE", "0"]
+extended-description = "Spec-driven document rendering engine for transforming Markdown into PDF, HTML, and DOCX output."
+depends = "$auto"
+section = "utils"
+priority = "optional"
+assets = [
+    ["target/release/renderflow", "usr/bin/", "755"],
+]

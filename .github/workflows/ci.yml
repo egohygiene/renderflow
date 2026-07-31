@@ -39,13 +39,13 @@ jobs:
           fi
 
       - name: Lint (clippy)
-        run: cargo clippy -- -D warnings
+        run: cargo clippy --workspace -- -D warnings
 
       - name: Build
-        run: cargo build --verbose
+        run: cargo build --workspace --verbose
 
       - name: Test
-        run: cargo test --verbose
+        run: cargo test --workspace --verbose
 
   validate-examples:
     name: Validate bundled examples
@@ -64,7 +64,7 @@ jobs:
           toolchain: "1.94"
 
       - name: Build renderflow
-        run: cargo build --release
+        run: cargo build --release --package renderflow-cli
 
       - name: Validate hello-world example (dry-run)
         working-directory: examples/hello-world
@@ -75,10 +75,10 @@ jobs:
         run: ../../target/release/renderflow build --dry-run
 
       - name: Run library embedding example
-        run: cargo run --example library_basic
+        run: cargo run -p renderflow --example library_basic
 
       - name: Run plugin registration example
-        run: cargo run --example plugin_registration
+        run: cargo run -p renderflow --example plugin_registration
 
   validate-pkgbuild:
     name: Validate PKGBUILD git (Arch Linux)
@@ -130,7 +130,7 @@ jobs:
           toolchain: "1.94"
 
       - name: Build release binary
-        run: cargo build --release
+        run: cargo build --release --package renderflow-cli
 
       - name: Prepare local release assets with checksum
         run: |

@@ -1,0 +1,15 @@
+[package]
+publish = false
+name = "renderflow-plugin-sdk"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Plugin SDK boundary for Renderflow"
+readme = "../../README.md"
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+
+[dependencies]
+renderflow = { path = "../renderflow-core", package = "renderflow" }
