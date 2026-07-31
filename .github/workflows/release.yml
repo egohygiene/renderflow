@@ -89,7 +89,7 @@ jobs:
           components: clippy
 
       - name: Lint (clippy)
-        run: cargo clippy -- -D warnings
+        run: cargo clippy --workspace -- -D warnings
 
   # ── 2a. Release binaries (all platforms) ─────────────────────────────────
 
@@ -237,7 +237,7 @@ jobs:
           tool: cargo-deb
 
       - name: Build release binary
-        run: cargo build --release
+        run: cargo build --release --package renderflow-cli
 
       - name: Build .deb package
         run: cargo deb --no-build
@@ -281,7 +281,7 @@ jobs:
           tool: cargo-deb
 
       - name: Build release binary for aarch64
-        run: cargo build --release --target aarch64-unknown-linux-gnu
+        run: cargo build --release --package renderflow-cli --target aarch64-unknown-linux-gnu
         env:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
 
@@ -321,7 +321,7 @@ jobs:
           tool: cargo-generate-rpm
 
       - name: Build release binary
-        run: cargo build --release
+        run: cargo build --release --package renderflow-cli
 
       - name: Build .rpm package
         run: cargo generate-rpm
@@ -365,7 +365,7 @@ jobs:
           tool: cargo-generate-rpm
 
       - name: Build release binary for aarch64
-        run: cargo build --release --target aarch64-unknown-linux-gnu
+        run: cargo build --release --package renderflow-cli --target aarch64-unknown-linux-gnu
         env:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
 

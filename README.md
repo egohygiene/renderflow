@@ -237,8 +237,10 @@ cargo add renderflow
 Runnable SDK examples are included in this repository:
 
 ```bash
-cargo run --example library_basic
-cargo run --example plugin_registration
+cargo run -p renderflow --example library_basic
+cargo run -p renderflow --example plugin_registration
+cargo run -p renderflow --example embedded-basic
+cargo run -p renderflow --example embedded-multi-target
 ```
 
 ### Multi-output example
@@ -689,6 +691,23 @@ Output Files (PDF / HTML / DOCX / images / audio / …)
 - **Strategy** — Each output format is an independent, swappable rendering strategy
 - **Transform** — Pure in-memory text transforms applied before any I/O
 - **DAG** — Transform paths are modelled as graphs for optimal multi-target execution
+
+
+### Workspace crates
+
+Renderflow is organized as a Rust workspace:
+
+- `crates/renderflow-core` (`renderflow`) — reusable SDK and engine
+- `crates/renderflow-cli` — thin command-line adapter that calls the core API
+- `crates/renderflow-plugin-sdk` — plugin-facing type boundary
+
+The CLI does not reimplement planning or execution logic; it delegates to the core crate.
+
+### Compatibility policy
+
+- The `renderflow` public API follows semantic versioning.
+- New APIs may be added in minor releases; breaking changes are reserved for major releases.
+- Deprecated APIs remain available for at least one minor release before removal.
 
 ---
 
