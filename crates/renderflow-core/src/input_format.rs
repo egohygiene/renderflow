@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 use serde::{Deserialize, Deserializer};
 use std::fmt;
 use std::path::Path;

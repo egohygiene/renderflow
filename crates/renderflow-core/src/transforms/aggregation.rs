@@ -1,7 +1,6 @@
 // Items in this module form a public aggregation API that is not yet called
 // from the main binary entry-point but is exercised through tests and
 // available for callers embedding renderflow as a library.
-#![allow(dead_code)]
 
 use std::collections::HashMap;
 use std::process::Stdio;

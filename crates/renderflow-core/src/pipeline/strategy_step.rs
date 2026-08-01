@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 use anyhow::{Context, Result};
 use std::collections::HashMap;
 use std::io::Write;

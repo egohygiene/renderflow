@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 /// Builder for pandoc command-line arguments.
 ///
 /// Centralises argument construction so that all strategies produce a
