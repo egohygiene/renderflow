@@ -1,0 +1,18 @@
+{
+	"name": "renderflow",
+	"short_name": "renderflow",
+	"description": "Spec-driven document rendering engine.",
+	"start_url": ".",
+	"scope": ".",
+	"display": "standalone",
+	"background_color": "#090611",
+	"theme_color": "#090611",
+	"icons": [
+		{
+			"src": "favicon.svg",
+			"sizes": "64x64",
+			"type": "image/svg+xml",
+			"purpose": "any"
+		}
+	]
+}

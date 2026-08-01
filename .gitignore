@@ -23,3 +23,8 @@ dist/
 
 # MkDocs build output
 site/
+
+# JavaScript workspace artifacts
+node_modules/
+apps/web/coverage/
+apps/web/.vitest/

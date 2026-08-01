@@ -1,0 +1,27 @@
+{
+	"schema": "egohygiene.product-site/v1",
+	"product": "renderflow",
+	"displayName": "renderflow",
+	"basePath": "/renderflow/",
+	"repository": "egohygiene/renderflow",
+	"status": "development",
+	"buildCommand": "pnpm web:build",
+	"outputDirectory": "apps/web/dist",
+	"localDevelopmentCommand": "pnpm web:dev",
+	"routes": ["/renderflow/", "/renderflow/examples", "/renderflow/architecture"],
+	"documentation": {
+		"home": "https://egohygiene.github.io/renderflow/",
+		"installation": "https://github.com/egohygiene/renderflow/blob/main/docs/getting-started/installation.md",
+		"quickstart": "https://github.com/egohygiene/renderflow/blob/main/docs/getting-started/quickstart.md",
+		"architecture": "https://github.com/egohygiene/renderflow/blob/main/docs/architecture/overview.md"
+	},
+	"deployment": {
+		"requiredNodeVersion": "24.x",
+		"previewCommand": "pnpm web:preview",
+		"smokeTestPath": "/renderflow/",
+		"gatewayOwner": "egohygiene/website",
+		"gatewayPath": "/renderflow/*",
+		"spaFallback": "Serve apps/web/dist/index.html or apps/web/dist/404.html for unknown /renderflow/* routes.",
+		"environmentVariables": ["VITE_PUBLIC_BASE_PATH"]
+	}
+}
