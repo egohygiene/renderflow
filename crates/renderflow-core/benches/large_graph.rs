@@ -11,7 +11,7 @@
 use std::sync::Arc;
 
 use anyhow::Result;
-use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use renderflow::graph::{DagExecutor, Format, TransformEdge, TransformGraph};
 use renderflow::optimization::OptimizationMode;
 use renderflow::transforms::Transform;
@@ -107,7 +107,10 @@ fn parallel_edges_graph(edges_per_pair: usize) -> TransformGraph {
 fn bench_dense_graph_planning(c: &mut Criterion) {
     let g = dense_document_graph();
     c.bench_function("large_graph/dense/find_path/markdown_to_pdf", |b| {
-        b.iter(|| g.find_path(Format::Markdown, Format::Pdf).expect("path must exist"));
+        b.iter(|| {
+            g.find_path(Format::Markdown, Format::Pdf)
+                .expect("path must exist")
+        });
     });
 }
 
@@ -120,7 +123,13 @@ fn bench_dense_graph_all_paths(c: &mut Criterion) {
 
 fn bench_dense_graph_multi_target(c: &mut Criterion) {
     let g = dense_document_graph();
-    let targets = [Format::Pdf, Format::Docx, Format::Epub, Format::Html, Format::Rst];
+    let targets = [
+        Format::Pdf,
+        Format::Docx,
+        Format::Epub,
+        Format::Html,
+        Format::Rst,
+    ];
     c.bench_function("large_graph/dense/build_multi_target_dag/5_targets", |b| {
         b.iter(|| {
             g.build_multi_target_dag(Format::Markdown, &targets)
@@ -156,12 +165,15 @@ fn bench_dense_graph_all_modes(c: &mut Criterion) {
 
 fn bench_deep_chain_planning(c: &mut Criterion) {
     let g = deep_chain_graph();
-    c.bench_function("large_graph/deep_chain/find_path/markdown_to_fountain", |b| {
-        b.iter(|| {
-            g.find_path(Format::Markdown, Format::Fountain)
-                .expect("path must exist")
-        });
-    });
+    c.bench_function(
+        "large_graph/deep_chain/find_path/markdown_to_fountain",
+        |b| {
+            b.iter(|| {
+                g.find_path(Format::Markdown, Format::Fountain)
+                    .expect("path must exist")
+            });
+        },
+    );
 }
 
 fn bench_deep_chain_execution(c: &mut Criterion) {
@@ -194,16 +206,12 @@ fn bench_parallel_edges_planning(c: &mut Criterion) {
     let mut group = c.benchmark_group("large_graph/parallel_edges/find_path");
     for &n in &edge_counts {
         let g = parallel_edges_graph(n);
-        group.bench_with_input(
-            BenchmarkId::new("edges_per_pair", n),
-            &n,
-            |b, _| {
-                b.iter(|| {
-                    g.find_path(Format::Markdown, Format::Pdf)
-                        .expect("path must exist")
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("edges_per_pair", n), &n, |b, _| {
+            b.iter(|| {
+                g.find_path(Format::Markdown, Format::Pdf)
+                    .expect("path must exist")
+            });
+        });
     }
     group.finish();
 }

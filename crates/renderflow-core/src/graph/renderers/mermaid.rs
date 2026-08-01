@@ -99,8 +99,8 @@ fn sanitise_id(name: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::graph::{Format, TransformEdge, TransformGraph};
     use crate::graph::execution_plan::ExecutionPlan;
+    use crate::graph::{Format, TransformEdge, TransformGraph};
     use crate::optimization::OptimizationMode;
 
     fn make_plan() -> ExecutionPlan {

@@ -122,10 +122,7 @@ impl PluginMetadata {
             anyhow::bail!("plugin metadata 'id' must not be empty");
         }
         if self.version.trim().is_empty() {
-            anyhow::bail!(
-                "plugin '{}' metadata 'version' must not be empty",
-                self.id
-            );
+            anyhow::bail!("plugin '{}' metadata 'version' must not be empty", self.id);
         }
         Ok(())
     }
@@ -169,10 +166,7 @@ impl PluginConfig {
     /// key is absent.
     pub fn require(&self, key: &str) -> Result<&str> {
         self.get(key).ok_or_else(|| {
-            anyhow::anyhow!(
-                "required plugin configuration key '{}' is not set",
-                key
-            )
+            anyhow::anyhow!("required plugin configuration key '{}' is not set", key)
         })
     }
 }
@@ -801,7 +795,9 @@ mod tests {
             .register_with_metadata(Arc::new(UpperPlugin), meta)
             .unwrap();
 
-        let stored = registry.metadata("upper").expect("metadata must be present");
+        let stored = registry
+            .metadata("upper")
+            .expect("metadata must be present");
         assert_eq!(stored.id, "upper");
         assert_eq!(stored.version, "1.0.0");
     }

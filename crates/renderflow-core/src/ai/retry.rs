@@ -64,8 +64,7 @@ impl RetryConfig {
         if attempt == 0 {
             return 0;
         }
-        let delay = self.initial_delay_ms as f64
-            * self.backoff_factor.powi(attempt as i32 - 1);
+        let delay = self.initial_delay_ms as f64 * self.backoff_factor.powi(attempt as i32 - 1);
         (delay as u64).min(self.max_delay_ms)
     }
 }

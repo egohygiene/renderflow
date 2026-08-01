@@ -121,7 +121,12 @@ impl SharedMetrics {
     }
 
     /// Record a provider call.
-    pub fn record_call(&self, input_tokens: Option<u32>, output_tokens: Option<u32>, duration_ms: u64) {
+    pub fn record_call(
+        &self,
+        input_tokens: Option<u32>,
+        output_tokens: Option<u32>,
+        duration_ms: u64,
+    ) {
         if let Ok(mut guard) = self.0.lock() {
             guard.record_call(input_tokens, output_tokens, duration_ms);
         }
@@ -136,10 +141,7 @@ impl SharedMetrics {
 
     /// Retrieve a snapshot of the current metrics.
     pub fn snapshot(&self) -> AiExecutionMetrics {
-        self.0
-            .lock()
-            .map(|g| g.clone())
-            .unwrap_or_default()
+        self.0.lock().map(|g| g.clone()).unwrap_or_default()
     }
 }
 

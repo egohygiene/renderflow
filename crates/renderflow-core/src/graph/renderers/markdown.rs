@@ -18,7 +18,15 @@ impl PlanRenderer for MarkdownRenderer {
         let _ = writeln!(out, "| Property | Value |");
         let _ = writeln!(out, "|----------|-------|");
         let _ = writeln!(out, "| Source | `{}` |", plan.source);
-        let _ = writeln!(out, "| Targets | {} |", plan.targets.iter().map(|t| format!("`{}`", t)).collect::<Vec<_>>().join(", "));
+        let _ = writeln!(
+            out,
+            "| Targets | {} |",
+            plan.targets
+                .iter()
+                .map(|t| format!("`{}`", t))
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
         let _ = writeln!(out, "| Optimization | `{}` |", plan.optimization);
         let _ = writeln!(out);
 
@@ -31,9 +39,21 @@ impl PlanRenderer for MarkdownRenderer {
         let _ = writeln!(out, "| Edges | {} |", plan.metadata.total_edges);
         let _ = writeln!(out, "| Depth | {} |", plan.metadata.execution_depth);
         let _ = writeln!(out, "| Waves | {} |", plan.metadata.execution_waves);
-        let _ = writeln!(out, "| Estimated Cost | {:.2} |", plan.metadata.estimated_cost);
-        let _ = writeln!(out, "| Estimated Quality | {:.2} |", plan.metadata.estimated_quality);
-        let _ = writeln!(out, "| Reused Intermediates | {} |", plan.metadata.reused_intermediates);
+        let _ = writeln!(
+            out,
+            "| Estimated Cost | {:.2} |",
+            plan.metadata.estimated_cost
+        );
+        let _ = writeln!(
+            out,
+            "| Estimated Quality | {:.2} |",
+            plan.metadata.estimated_quality
+        );
+        let _ = writeln!(
+            out,
+            "| Reused Intermediates | {} |",
+            plan.metadata.reused_intermediates
+        );
         let _ = writeln!(out);
 
         // ── nodes ─────────────────────────────────────────────────────────
@@ -60,11 +80,7 @@ impl PlanRenderer for MarkdownRenderer {
             let _ = writeln!(
                 out,
                 "| `{}` | `{}` | {:.2} | {:.2} | {:?} |",
-                e.from,
-                e.to,
-                e.cost,
-                e.quality,
-                e.edge_type
+                e.from, e.to, e.cost, e.quality, e.edge_type
             );
         }
         let _ = writeln!(out);
@@ -112,8 +128,8 @@ impl PlanRenderer for MarkdownRenderer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::graph::{Format, TransformEdge, TransformGraph};
     use crate::graph::execution_plan::ExecutionPlan;
+    use crate::graph::{Format, TransformEdge, TransformGraph};
     use crate::optimization::OptimizationMode;
 
     fn make_plan() -> ExecutionPlan {

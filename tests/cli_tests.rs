@@ -801,7 +801,10 @@ fn test_graph_render_help_exits_successfully() {
         .output()
         .expect("failed to execute renderflow");
 
-    assert!(output.status.success(), "graph render --help should exit with code 0");
+    assert!(
+        output.status.success(),
+        "graph render --help should exit with code 0"
+    );
 }
 
 #[test]
@@ -811,7 +814,10 @@ fn test_graph_explain_help_exits_successfully() {
         .output()
         .expect("failed to execute renderflow");
 
-    assert!(output.status.success(), "graph explain --help should exit with code 0");
+    assert!(
+        output.status.success(),
+        "graph explain --help should exit with code 0"
+    );
 }
 
 #[test]
@@ -821,7 +827,10 @@ fn test_graph_export_help_exits_successfully() {
         .output()
         .expect("failed to execute renderflow");
 
-    assert!(output.status.success(), "graph export --help should exit with code 0");
+    assert!(
+        output.status.success(),
+        "graph export --help should exit with code 0"
+    );
 }
 
 #[test]
@@ -831,7 +840,10 @@ fn test_graph_doctor_help_exits_successfully() {
         .output()
         .expect("failed to execute renderflow");
 
-    assert!(output.status.success(), "graph doctor --help should exit with code 0");
+    assert!(
+        output.status.success(),
+        "graph doctor --help should exit with code 0"
+    );
 }
 
 #[test]
@@ -841,14 +853,22 @@ fn test_graph_stats_help_exits_successfully() {
         .output()
         .expect("failed to execute renderflow");
 
-    assert!(output.status.success(), "graph stats --help should exit with code 0");
+    assert!(
+        output.status.success(),
+        "graph stats --help should exit with code 0"
+    );
 }
 
 #[test]
 fn test_graph_plan_without_transforms_exits_with_error() {
     let (config_file, _dir) = common::valid_config_file();
     let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
-        .args(["graph", "plan", "--config", config_file.path().to_str().unwrap()])
+        .args([
+            "graph",
+            "plan",
+            "--config",
+            config_file.path().to_str().unwrap(),
+        ])
         .output()
         .expect("failed to execute renderflow");
 
@@ -934,7 +954,10 @@ fn test_graph_plan_json_output_is_valid_json() {
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
     let parsed: Result<serde_json::Value, _> = serde_json::from_str(&stdout);
-    assert!(parsed.is_ok(), "JSON output should be valid JSON, got: {stdout}");
+    assert!(
+        parsed.is_ok(),
+        "JSON output should be valid JSON, got: {stdout}"
+    );
     assert_eq!(parsed.unwrap()["source"], "markdown");
 }
 
@@ -1087,7 +1110,8 @@ fn test_graph_export_writes_json_file() {
     );
     assert!(export_path.exists(), "exported json file should exist");
     let content = std::fs::read_to_string(&export_path).expect("failed to read export file");
-    let parsed: serde_json::Value = serde_json::from_str(&content).expect("export should be valid JSON");
+    let parsed: serde_json::Value =
+        serde_json::from_str(&content).expect("export should be valid JSON");
     assert_eq!(parsed["source"], "markdown");
 }
 

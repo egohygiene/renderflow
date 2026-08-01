@@ -32,7 +32,11 @@ pub fn run_providers() -> Result<()> {
     println!("  {:-<12} {:-<10} {:-<40}", "", "", "");
 
     for provider in &providers {
-        let locality = if provider.is_local() { "local" } else { "remote" };
+        let locality = if provider.is_local() {
+            "local"
+        } else {
+            "remote"
+        };
         let caps: Vec<String> = provider
             .capabilities()
             .iter()
@@ -64,7 +68,11 @@ pub fn run_models() -> Result<()> {
 
     for provider in &providers {
         let models = provider.models();
-        let locality = if provider.is_local() { "local" } else { "remote" };
+        let locality = if provider.is_local() {
+            "local"
+        } else {
+            "remote"
+        };
         println!("{} ({}):", provider.name(), locality);
         if models.is_empty() {
             println!("  (no models configured)");
@@ -149,8 +157,7 @@ pub fn run_cache(path: &str) -> Result<()> {
     }
 
     // Count entries per model.
-    let mut by_model: std::collections::HashMap<&str, usize> =
-        std::collections::HashMap::new();
+    let mut by_model: std::collections::HashMap<&str, usize> = std::collections::HashMap::new();
     for entry in cache.entries() {
         *by_model.entry(entry.model.as_str()).or_default() += 1;
     }

@@ -9,8 +9,13 @@ use anyhow::Result;
 /// [`TransformGraph`](super::TransformGraph).  An edge between two nodes
 /// indicates that a [`TransformEdge`](super::TransformEdge) exists that can
 /// convert from the source format to the target format.
+///
+/// For detailed capability information (detection signals, MIME types, magic
+/// bytes, families, and declared operations), see
+/// [`capability::FormatCapabilityRegistry`](super::capability::FormatCapabilityRegistry).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Format {
+    // ── Document formats ───────────────────────────────────────────────────────
     Markdown,
     Html,
     Pdf,
@@ -20,12 +25,24 @@ pub enum Format {
     Latex,
     /// Fountain screenplay plain-text format.
     Fountain,
+
+    // ── Image formats ──────────────────────────────────────────────────────────
     /// JPEG raster image format.
     Jpeg,
     /// PNG raster image format.
     Png,
     /// TIFF raster image format, commonly used in print/press workflows.
     Tiff,
+    /// WebP image format — modern lossy/lossless.
+    Webp,
+    /// GIF image format — supports animation and transparency.
+    Gif,
+    /// Windows Bitmap.
+    Bmp,
+    /// AV1 Image File Format.
+    Avif,
+    /// Scalable Vector Graphics.
+    Svg,
     /// Comic Book ZIP archive (`.cbz`).
     Cbz,
 
@@ -88,6 +105,46 @@ pub enum Format {
     Midi,
     /// Amiga Module tracker format (`.mod`).
     Mod,
+
+    // ── Video formats ─────────────────────────────────────────────────────────
+    /// MPEG-4 Part 14 video container (`.mp4`).
+    Mp4,
+    /// QuickTime Movie container (`.mov`).
+    Mov,
+    /// Matroska Video container (`.mkv`).
+    Mkv,
+    /// WebM video container (`.webm`).
+    WebM,
+    /// Audio Video Interleave container (`.avi`).
+    Avi,
+
+    // ── Structured data formats ────────────────────────────────────────────────
+    /// JavaScript Object Notation (`.json`).
+    Json,
+    /// YAML Ain't Markup Language (`.yaml` / `.yml`).
+    Yaml,
+    /// Tom's Obvious Minimal Language (`.toml`).
+    Toml,
+    /// Comma-Separated Values (`.csv`).
+    Csv,
+    /// Tab-Separated Values (`.tsv`).
+    Tsv,
+    /// Extensible Markup Language (`.xml`).
+    Xml,
+
+    // ── Archive formats ───────────────────────────────────────────────────────
+    /// ZIP archive (`.zip`).
+    Zip,
+    /// Gzip-compressed TAR archive (`.tar.gz` / `.tgz`).
+    TarGz,
+    /// XZ-compressed TAR archive (`.tar.xz` / `.txz`).
+    TarXz,
+
+    // ── Subtitle / transcript formats ─────────────────────────────────────────
+    /// SubRip Text subtitle format (`.srt`).
+    Srt,
+    /// Web Video Text Tracks (`.vtt`).
+    WebVtt,
 }
 
 impl fmt::Display for Format {
@@ -101,9 +158,15 @@ impl fmt::Display for Format {
             Format::Rst => "rst",
             Format::Latex => "latex",
             Format::Fountain => "fountain",
+            // Image
             Format::Jpeg => "jpeg",
             Format::Png => "png",
             Format::Tiff => "tiff",
+            Format::Webp => "webp",
+            Format::Gif => "gif",
+            Format::Bmp => "bmp",
+            Format::Avif => "avif",
+            Format::Svg => "svg",
             Format::Cbz => "cbz",
             // Audio
             Format::Wav => "wav",
@@ -135,6 +198,26 @@ impl fmt::Display for Format {
             Format::DtsHd => "dtshd",
             Format::Midi => "midi",
             Format::Mod => "mod",
+            // Video
+            Format::Mp4 => "mp4",
+            Format::Mov => "mov",
+            Format::Mkv => "mkv",
+            Format::WebM => "webm",
+            Format::Avi => "avi",
+            // Data
+            Format::Json => "json",
+            Format::Yaml => "yaml",
+            Format::Toml => "toml",
+            Format::Csv => "csv",
+            Format::Tsv => "tsv",
+            Format::Xml => "xml",
+            // Archives
+            Format::Zip => "zip",
+            Format::TarGz => "tar.gz",
+            Format::TarXz => "tar.xz",
+            // Subtitles
+            Format::Srt => "srt",
+            Format::WebVtt => "vtt",
         };
         write!(f, "{}", s)
     }
@@ -145,14 +228,14 @@ impl FromStr for Format {
 
     /// Parse a [`Format`] from a case-insensitive string.
     ///
-    /// Accepted values: `markdown` / `md`, `html`, `pdf`, `docx`, `epub`,
-    /// `rst`, `latex` / `tex`, `fountain`, `jpeg` / `jpg`, `png`, `tiff`,
-    /// `cbz`, and all audio format names.
+    /// Accepted values include all document, image, audio, video, data, archive,
+    /// and subtitle format identifiers.
     ///
-    /// Returns an error that lists all supported formats when the string is
-    /// unrecognised.
+    /// Returns an error that lists all supported format families when the string
+    /// is unrecognised.
     fn from_str(s: &str) -> Result<Self> {
         match s.to_lowercase().as_str() {
+            // Documents
             "markdown" | "md" => Ok(Format::Markdown),
             "html" => Ok(Format::Html),
             "pdf" => Ok(Format::Pdf),
@@ -161,9 +244,15 @@ impl FromStr for Format {
             "rst" => Ok(Format::Rst),
             "latex" | "tex" => Ok(Format::Latex),
             "fountain" => Ok(Format::Fountain),
+            // Images
             "jpeg" | "jpg" => Ok(Format::Jpeg),
             "png" => Ok(Format::Png),
             "tiff" | "tif" => Ok(Format::Tiff),
+            "webp" => Ok(Format::Webp),
+            "gif" => Ok(Format::Gif),
+            "bmp" => Ok(Format::Bmp),
+            "avif" => Ok(Format::Avif),
+            "svg" => Ok(Format::Svg),
             "cbz" => Ok(Format::Cbz),
             // Audio
             "wav" => Ok(Format::Wav),
@@ -195,13 +284,37 @@ impl FromStr for Format {
             "dtshd" => Ok(Format::DtsHd),
             "mid" | "midi" => Ok(Format::Midi),
             "mod" => Ok(Format::Mod),
+            // Video
+            "mp4" => Ok(Format::Mp4),
+            "mov" => Ok(Format::Mov),
+            "mkv" => Ok(Format::Mkv),
+            "webm" => Ok(Format::WebM),
+            "avi" => Ok(Format::Avi),
+            // Data
+            "json" => Ok(Format::Json),
+            "yaml" | "yml" => Ok(Format::Yaml),
+            "toml" => Ok(Format::Toml),
+            "csv" => Ok(Format::Csv),
+            "tsv" => Ok(Format::Tsv),
+            "xml" => Ok(Format::Xml),
+            // Archives
+            "zip" => Ok(Format::Zip),
+            "tar.gz" | "tgz" => Ok(Format::TarGz),
+            "tar.xz" | "txz" => Ok(Format::TarXz),
+            // Subtitles
+            "srt" => Ok(Format::Srt),
+            "vtt" | "webvtt" => Ok(Format::WebVtt),
             _ => anyhow::bail!(
-                "'{}' is not a known format. Supported formats are: \
-                 markdown, html, pdf, docx, epub, rst, latex, fountain, \
-                 jpeg, png, tiff, cbz, \
-                 wav, aiff, bwf, pcm, flac, m4a_alac, wv, ape, tta, dsf, dff, shn, \
+                "'{}' is not a known format. \
+                 Documents: markdown, html, pdf, docx, epub, rst, latex, fountain. \
+                 Images: jpeg, png, tiff, webp, gif, bmp, avif, svg, cbz. \
+                 Audio: wav, aiff, bwf, pcm, flac, m4a_alac, wv, ape, tta, dsf, dff, shn, \
                  mp3, m4a, aac, ogg, opus, wma, amr, mp2, ra, oma, \
-                 ac3, ec3, thd, dts, dtshd, midi, mod",
+                 ac3, ec3, thd, dts, dtshd, midi, mod. \
+                 Video: mp4, mov, mkv, webm, avi. \
+                 Data: json, yaml, toml, csv, tsv, xml. \
+                 Archives: zip, tar.gz, tar.xz. \
+                 Subtitles: srt, vtt.",
                 s
             ),
         }
@@ -397,5 +510,224 @@ mod tests {
     #[test]
     fn test_display_audio_wav() {
         assert_eq!(Format::Wav.to_string(), "wav");
+    }
+
+    // ── New image format tests ────────────────────────────────────────────────
+
+    #[test]
+    fn test_from_str_webp() {
+        assert_eq!("webp".parse::<Format>().unwrap(), Format::Webp);
+        assert_eq!("WEBP".parse::<Format>().unwrap(), Format::Webp);
+    }
+
+    #[test]
+    fn test_from_str_gif() {
+        assert_eq!("gif".parse::<Format>().unwrap(), Format::Gif);
+    }
+
+    #[test]
+    fn test_from_str_bmp() {
+        assert_eq!("bmp".parse::<Format>().unwrap(), Format::Bmp);
+    }
+
+    #[test]
+    fn test_from_str_avif() {
+        assert_eq!("avif".parse::<Format>().unwrap(), Format::Avif);
+    }
+
+    #[test]
+    fn test_from_str_svg() {
+        assert_eq!("svg".parse::<Format>().unwrap(), Format::Svg);
+    }
+
+    #[test]
+    fn test_display_webp() {
+        assert_eq!(Format::Webp.to_string(), "webp");
+    }
+
+    #[test]
+    fn test_display_gif() {
+        assert_eq!(Format::Gif.to_string(), "gif");
+    }
+
+    #[test]
+    fn test_display_svg() {
+        assert_eq!(Format::Svg.to_string(), "svg");
+    }
+
+    // ── Video format tests ────────────────────────────────────────────────────
+
+    #[test]
+    fn test_from_str_mp4() {
+        assert_eq!("mp4".parse::<Format>().unwrap(), Format::Mp4);
+    }
+
+    #[test]
+    fn test_from_str_mov() {
+        assert_eq!("mov".parse::<Format>().unwrap(), Format::Mov);
+    }
+
+    #[test]
+    fn test_from_str_mkv() {
+        assert_eq!("mkv".parse::<Format>().unwrap(), Format::Mkv);
+    }
+
+    #[test]
+    fn test_from_str_webm() {
+        assert_eq!("webm".parse::<Format>().unwrap(), Format::WebM);
+    }
+
+    #[test]
+    fn test_from_str_avi() {
+        assert_eq!("avi".parse::<Format>().unwrap(), Format::Avi);
+    }
+
+    #[test]
+    fn test_display_mp4() {
+        assert_eq!(Format::Mp4.to_string(), "mp4");
+    }
+
+    #[test]
+    fn test_display_mkv() {
+        assert_eq!(Format::Mkv.to_string(), "mkv");
+    }
+
+    #[test]
+    fn test_display_webm() {
+        assert_eq!(Format::WebM.to_string(), "webm");
+    }
+
+    // ── Structured data format tests ──────────────────────────────────────────
+
+    #[test]
+    fn test_from_str_json() {
+        assert_eq!("json".parse::<Format>().unwrap(), Format::Json);
+        assert_eq!("JSON".parse::<Format>().unwrap(), Format::Json);
+    }
+
+    #[test]
+    fn test_from_str_yaml() {
+        assert_eq!("yaml".parse::<Format>().unwrap(), Format::Yaml);
+        assert_eq!("yml".parse::<Format>().unwrap(), Format::Yaml);
+        assert_eq!("YAML".parse::<Format>().unwrap(), Format::Yaml);
+    }
+
+    #[test]
+    fn test_from_str_toml() {
+        assert_eq!("toml".parse::<Format>().unwrap(), Format::Toml);
+    }
+
+    #[test]
+    fn test_from_str_csv() {
+        assert_eq!("csv".parse::<Format>().unwrap(), Format::Csv);
+    }
+
+    #[test]
+    fn test_from_str_tsv() {
+        assert_eq!("tsv".parse::<Format>().unwrap(), Format::Tsv);
+    }
+
+    #[test]
+    fn test_from_str_xml() {
+        assert_eq!("xml".parse::<Format>().unwrap(), Format::Xml);
+    }
+
+    #[test]
+    fn test_display_json() {
+        assert_eq!(Format::Json.to_string(), "json");
+    }
+
+    #[test]
+    fn test_display_yaml() {
+        assert_eq!(Format::Yaml.to_string(), "yaml");
+    }
+
+    #[test]
+    fn test_display_csv() {
+        assert_eq!(Format::Csv.to_string(), "csv");
+    }
+
+    // ── Archive format tests ──────────────────────────────────────────────────
+
+    #[test]
+    fn test_from_str_zip() {
+        assert_eq!("zip".parse::<Format>().unwrap(), Format::Zip);
+    }
+
+    #[test]
+    fn test_from_str_tar_gz() {
+        assert_eq!("tar.gz".parse::<Format>().unwrap(), Format::TarGz);
+        assert_eq!("tgz".parse::<Format>().unwrap(), Format::TarGz);
+    }
+
+    #[test]
+    fn test_from_str_tar_xz() {
+        assert_eq!("tar.xz".parse::<Format>().unwrap(), Format::TarXz);
+        assert_eq!("txz".parse::<Format>().unwrap(), Format::TarXz);
+    }
+
+    #[test]
+    fn test_display_zip() {
+        assert_eq!(Format::Zip.to_string(), "zip");
+    }
+
+    #[test]
+    fn test_display_tar_gz() {
+        assert_eq!(Format::TarGz.to_string(), "tar.gz");
+    }
+
+    #[test]
+    fn test_display_tar_xz() {
+        assert_eq!(Format::TarXz.to_string(), "tar.xz");
+    }
+
+    // ── Subtitle format tests ─────────────────────────────────────────────────
+
+    #[test]
+    fn test_from_str_srt() {
+        assert_eq!("srt".parse::<Format>().unwrap(), Format::Srt);
+    }
+
+    #[test]
+    fn test_from_str_vtt() {
+        assert_eq!("vtt".parse::<Format>().unwrap(), Format::WebVtt);
+        assert_eq!("webvtt".parse::<Format>().unwrap(), Format::WebVtt);
+    }
+
+    #[test]
+    fn test_display_srt() {
+        assert_eq!(Format::Srt.to_string(), "srt");
+    }
+
+    #[test]
+    fn test_display_vtt() {
+        assert_eq!(Format::WebVtt.to_string(), "vtt");
+    }
+
+    // ── Error message includes all format families ────────────────────────────
+
+    #[test]
+    fn test_from_str_error_message_lists_all_families() {
+        let err = "xyz-unknown".parse::<Format>().unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("Documents:"),
+            "message must mention Documents: {msg}"
+        );
+        assert!(
+            msg.contains("Images:"),
+            "message must mention Images: {msg}"
+        );
+        assert!(msg.contains("Audio:"), "message must mention Audio: {msg}");
+        assert!(msg.contains("Video:"), "message must mention Video: {msg}");
+        assert!(msg.contains("Data:"), "message must mention Data: {msg}");
+        assert!(
+            msg.contains("Archives:"),
+            "message must mention Archives: {msg}"
+        );
+        assert!(
+            msg.contains("Subtitles:"),
+            "message must mention Subtitles: {msg}"
+        );
     }
 }

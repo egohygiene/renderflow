@@ -220,7 +220,10 @@ mod tests {
     fn test_capability_display() {
         assert_eq!(AiCapability::TextGeneration.to_string(), "text-generation");
         assert_eq!(AiCapability::Summarization.to_string(), "summarization");
-        assert_eq!(AiCapability::StructuredJsonOutput.to_string(), "structured-json-output");
+        assert_eq!(
+            AiCapability::StructuredJsonOutput.to_string(),
+            "structured-json-output"
+        );
     }
 
     // ── AiCapabilities ────────────────────────────────────────────────────────
@@ -271,12 +274,21 @@ mod tests {
     #[test]
     fn test_execution_preference_display() {
         assert_eq!(AiExecutionPreference::LocalOnly.to_string(), "local-only");
-        assert_eq!(AiExecutionPreference::LocalPreferred.to_string(), "local-preferred");
-        assert_eq!(AiExecutionPreference::HighestQuality.to_string(), "highest-quality");
+        assert_eq!(
+            AiExecutionPreference::LocalPreferred.to_string(),
+            "local-preferred"
+        );
+        assert_eq!(
+            AiExecutionPreference::HighestQuality.to_string(),
+            "highest-quality"
+        );
     }
 
     #[test]
     fn test_execution_preference_default_is_local_preferred() {
-        assert_eq!(AiExecutionPreference::default(), AiExecutionPreference::LocalPreferred);
+        assert_eq!(
+            AiExecutionPreference::default(),
+            AiExecutionPreference::LocalPreferred
+        );
     }
 }

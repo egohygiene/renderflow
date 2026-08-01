@@ -73,8 +73,7 @@ fn load_plan(
 /// Emit `output` to `export` path (if provided) or to stdout.
 fn emit(output: &str, export: Option<&str>) -> Result<()> {
     if let Some(path) = export {
-        fs::write(path, output)
-            .with_context(|| format!("Failed to write output to '{}'", path))?;
+        fs::write(path, output).with_context(|| format!("Failed to write output to '{}'", path))?;
         info!("Output written to '{}'", path);
     } else {
         print!("{}", output);
@@ -97,8 +96,12 @@ pub fn run_plan(
 ) -> Result<()> {
     let (plan, _) = load_plan(config_path, target, optimization)?;
 
-    let renderer = renderer_for(format)
-        .ok_or_else(|| anyhow::anyhow!("Unknown output format '{}'. Supported: text, dot, mermaid, json, yaml, markdown", format))?;
+    let renderer = renderer_for(format).ok_or_else(|| {
+        anyhow::anyhow!(
+            "Unknown output format '{}'. Supported: text, dot, mermaid, json, yaml, markdown",
+            format
+        )
+    })?;
 
     let output = renderer.render(&plan);
     emit(&output, export)
@@ -228,9 +231,18 @@ pub fn run_stats(
     println!("  edges:                {}", plan.metadata.total_edges);
     println!("  depth:                {}", plan.metadata.execution_depth);
     println!("  waves:                {}", plan.metadata.execution_waves);
-    println!("  estimated cost:       {:.2}", plan.metadata.estimated_cost);
-    println!("  estimated quality:    {:.2}", plan.metadata.estimated_quality);
-    println!("  reused intermediates: {}", plan.metadata.reused_intermediates);
+    println!(
+        "  estimated cost:       {:.2}",
+        plan.metadata.estimated_cost
+    );
+    println!(
+        "  estimated quality:    {:.2}",
+        plan.metadata.estimated_quality
+    );
+    println!(
+        "  reused intermediates: {}",
+        plan.metadata.reused_intermediates
+    );
     println!("  output count:         {}", plan.metadata.output_count);
 
     Ok(())

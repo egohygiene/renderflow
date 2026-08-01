@@ -14,6 +14,7 @@ mod commands;
 mod compat;
 mod config;
 mod deps;
+pub mod detect;
 pub mod error;
 mod files;
 pub mod graph;
@@ -22,13 +23,13 @@ mod incremental;
 mod input_format;
 pub mod optimization;
 mod pipeline;
+mod sdk;
 pub mod strategies;
 mod template;
 pub mod transforms;
-mod sdk;
 
 pub use sdk::{
     ArtifactManifest, ArtifactProfile, CancellationToken, DiagnosticReport, Engine, EngineBuilder,
-    ExecutionRequest, ExecutionResult, InspectionRequest, PlanRequest, ProgressEvent, ProgressReporter,
-    ProgressStage, RenderflowError,
+    ExecutionRequest, ExecutionResult, InspectionRequest, PlanRequest, ProgressEvent,
+    ProgressReporter, ProgressStage, RenderflowError,
 };
