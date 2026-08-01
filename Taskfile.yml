@@ -4,6 +4,169 @@
 version: "3"
 
 tasks:
+  # Full project bootstrap – installs all toolchain dependencies, web dependencies,
+  # and builds the renderflow CLI in release mode.
+  # Works on Linux, macOS, Termux (Android), and Windows.
+  setup:
+    desc: Full project setup (installs Rust, Node.js, pnpm, web deps, and builds the CLI)
+    summary: |
+      Performs a complete development environment bootstrap in one step:
+
+        1. Rust toolchain
+             • Termux  – pkg install rust
+             • Linux / macOS – rustup (https://rustup.rs)
+             • Windows – winget install Rustlang.Rustup
+
+        2. Node.js runtime
+             • Termux  – pkg install nodejs
+             • macOS   – brew install node
+             • Debian/Ubuntu – NodeSource LTS via apt-get
+             • Fedora/RHEL   – dnf install nodejs
+             • Arch Linux    – pacman -S nodejs npm
+             • Windows – winget install OpenJS.NodeJS.LTS
+
+        3. pnpm package manager
+             • Termux  – npm install -g pnpm
+             • Others  – corepack enable + corepack prepare pnpm@latest
+
+        4. Web workspace dependencies  (pnpm install --frozen-lockfile)
+
+        5. renderflow CLI  (cargo build --release)
+
+      After setup completes:
+        Use the CLI:     ./target/release/renderflow  (or cargo run -- build)
+        Start the web:   task web:dev
+    cmds:
+      - cmd: |
+          #!/usr/bin/env sh
+          set -e
+
+          _green='\033[0;32m'
+          _yellow='\033[0;33m'
+          _reset='\033[0m'
+          _ok()   { printf "${_green}✓ %s${_reset}\n" "$*"; }
+          _info() { printf "${_yellow}→ %s${_reset}\n" "$*"; }
+
+          _is_termux() { [ -n "${TERMUX_VERSION:-}" ]; }
+
+          # ── Rust ──────────────────────────────────────────────────────────
+          if command -v cargo >/dev/null 2>&1; then
+            _ok "Rust already installed ($(rustc --version))"
+          elif _is_termux; then
+            _info "Termux: installing Rust via pkg..."
+            pkg install rust -y
+          else
+            _info "Installing Rust via rustup..."
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path
+          fi
+
+          # Source cargo env so subsequent commands can find cargo/rustc
+          if [ -f "${HOME}/.cargo/env" ]; then
+            # shellcheck disable=SC1091
+            . "${HOME}/.cargo/env"
+          fi
+
+          # ── Node.js ───────────────────────────────────────────────────────
+          if command -v node >/dev/null 2>&1; then
+            _ok "Node.js already installed ($(node --version))"
+          elif _is_termux; then
+            _info "Termux: installing Node.js via pkg..."
+            pkg install nodejs -y
+          elif command -v brew >/dev/null 2>&1; then
+            _info "Homebrew: installing Node.js..."
+            brew install node
+          elif command -v apt-get >/dev/null 2>&1; then
+            _info "apt-get: installing Node.js LTS via NodeSource..."
+            curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
+            sudo apt-get install -y nodejs
+          elif command -v dnf >/dev/null 2>&1; then
+            _info "dnf: installing Node.js..."
+            sudo dnf install -y nodejs npm
+          elif command -v pacman >/dev/null 2>&1; then
+            _info "pacman: installing Node.js..."
+            sudo pacman -S --noconfirm nodejs npm
+          else
+            printf "⚠  No supported package manager found to install Node.js.\n"
+            printf "   Please install Node.js manually: https://nodejs.org\n"
+            exit 1
+          fi
+
+          # ── pnpm ──────────────────────────────────────────────────────────
+          if command -v pnpm >/dev/null 2>&1; then
+            _ok "pnpm already installed ($(pnpm --version))"
+          elif _is_termux; then
+            _info "Termux: installing pnpm via npm..."
+            npm install -g pnpm
+          else
+            _info "Enabling pnpm via corepack..."
+            corepack enable
+            corepack prepare pnpm@latest --activate
+          fi
+
+          # ── Web workspace dependencies ─────────────────────────────────
+          _info "Installing web workspace dependencies..."
+          pnpm install --frozen-lockfile
+
+          # ── Build renderflow CLI ───────────────────────────────────────
+          _info "Building renderflow CLI (release mode)..."
+          cargo build --release
+
+          printf "\n${_green}✅  Setup complete!${_reset}\n\n"
+          printf "  Use the CLI:     ./target/release/renderflow\n"
+          printf "               or  cargo run -- build\n"
+          printf "  Start the web:   task web:dev\n\n"
+        platforms: [linux, darwin]
+
+      - cmd: |
+          $ErrorActionPreference = 'Stop'
+
+          function _ok   { param($msg) Write-Host "v $msg" -ForegroundColor Green }
+          function _info { param($msg) Write-Host "-> $msg" -ForegroundColor Yellow }
+
+          # ── Rust ──────────────────────────────────────────────────────────
+          if (Get-Command cargo -ErrorAction SilentlyContinue) {
+            _ok "Rust already installed ($(rustc --version))"
+          } else {
+            _info "Installing Rust via winget..."
+            winget install Rustlang.Rustup --accept-source-agreements --accept-package-agreements
+            $env:PATH = "$env:USERPROFILE\.cargo\bin;$env:PATH"
+          }
+
+          # ── Node.js ───────────────────────────────────────────────────────
+          if (Get-Command node -ErrorAction SilentlyContinue) {
+            _ok "Node.js already installed ($(node --version))"
+          } else {
+            _info "Installing Node.js LTS via winget..."
+            winget install OpenJS.NodeJS.LTS --accept-source-agreements --accept-package-agreements
+            $env:PATH = "$env:ProgramFiles\nodejs;$env:PATH"
+          }
+
+          # ── pnpm ──────────────────────────────────────────────────────────
+          if (Get-Command pnpm -ErrorAction SilentlyContinue) {
+            _ok "pnpm already installed ($(pnpm --version))"
+          } else {
+            _info "Enabling pnpm via corepack..."
+            corepack enable
+            corepack prepare pnpm@latest --activate
+          }
+
+          # ── Web workspace dependencies ─────────────────────────────────
+          _info "Installing web workspace dependencies..."
+          pnpm install --frozen-lockfile
+
+          # ── Build renderflow CLI ───────────────────────────────────────
+          _info "Building renderflow CLI (release mode)..."
+          cargo build --release
+
+          Write-Host ""
+          Write-Host "Setup complete!" -ForegroundColor Green
+          Write-Host ""
+          Write-Host "  Use the CLI:     .\target\release\renderflow.exe"
+          Write-Host "               or  cargo run -- build"
+          Write-Host "  Start the web:   task web:dev"
+          Write-Host ""
+        platforms: [windows]
+
   # Build the project in debug mode
   build:
     desc: Build the project
