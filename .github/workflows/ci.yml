@@ -47,6 +47,52 @@ jobs:
       - name: Test
         run: cargo test --workspace --verbose
 
+
+
+  web:
+    name: Web checks
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Install web dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check web formatting
+        run: pnpm web:format
+
+      - name: Lint web sources
+        run: pnpm web:lint
+
+      - name: Typecheck web sources
+        run: pnpm web:typecheck
+
+      - name: Test web app
+        run: pnpm web:test
+
+      - name: Build web app
+        run: pnpm web:build
+
+      - name: Upload web artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: renderflow-web-dist
+          path: apps/web/dist
+
   validate-examples:
     name: Validate bundled examples
     runs-on: ubuntu-latest

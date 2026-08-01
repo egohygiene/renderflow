@@ -133,3 +133,50 @@ tasks:
     desc: Bump major version, commit, and tag (requires cargo-release)
     cmds:
       - cargo release major --execute
+
+
+  web:install:
+    desc: Install web workspace dependencies
+    cmds:
+      - corepack enable
+      - pnpm install --frozen-lockfile
+
+  web:dev:
+    desc: Run the Renderflow product site locally
+    cmds:
+      - pnpm web:dev
+
+  web:format:
+    desc: Check web formatting
+    cmds:
+      - pnpm web:format
+
+  web:lint:
+    desc: Lint web sources
+    cmds:
+      - pnpm web:lint
+
+  web:typecheck:
+    desc: Typecheck web sources
+    cmds:
+      - pnpm web:typecheck
+
+  web:test:
+    desc: Run web tests
+    cmds:
+      - pnpm web:test
+
+  web:build:
+    desc: Build the Renderflow product site
+    cmds:
+      - pnpm web:build
+
+  web:preview:
+    desc: Preview the Renderflow product site
+    cmds:
+      - pnpm web:preview
+
+  web:check:
+    desc: Run all web quality checks
+    cmds:
+      - pnpm web:check
