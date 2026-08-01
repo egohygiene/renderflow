@@ -272,7 +272,9 @@ pub enum AiCommands {
     ///
     /// Reads the AI cache file (if it exists) and prints summary statistics:
     /// number of cached entries, total size, and per-provider/model counts.
-    #[command(after_help = "Examples:\n  renderflow ai cache\n  renderflow ai cache --path .renderflow-ai-cache.json")]
+    #[command(
+        after_help = "Examples:\n  renderflow ai cache\n  renderflow ai cache --path .renderflow-ai-cache.json"
+    )]
     Cache {
         /// Path to the AI cache file
         #[arg(long, default_value = ".renderflow-ai-cache.json", value_name = "FILE")]

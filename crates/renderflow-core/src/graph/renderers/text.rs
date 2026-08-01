@@ -34,12 +34,7 @@ impl PlanRenderer for TextRenderer {
         // ── edges ──────────────────────────────────────────────────────────
         let _ = writeln!(out);
         let _ = writeln!(out, "Edges ({}):", plan.metadata.total_edges);
-        let max_from = plan
-            .edges
-            .iter()
-            .map(|e| e.from.len())
-            .max()
-            .unwrap_or(0);
+        let max_from = plan.edges.iter().map(|e| e.from.len()).max().unwrap_or(0);
         for e in &plan.edges {
             let _ = writeln!(
                 out,
@@ -67,8 +62,16 @@ impl PlanRenderer for TextRenderer {
         let _ = writeln!(out, "Statistics:");
         let _ = writeln!(out, "  nodes:               {}", plan.metadata.total_nodes);
         let _ = writeln!(out, "  edges:               {}", plan.metadata.total_edges);
-        let _ = writeln!(out, "  depth:               {}", plan.metadata.execution_depth);
-        let _ = writeln!(out, "  waves:               {}", plan.metadata.execution_waves);
+        let _ = writeln!(
+            out,
+            "  depth:               {}",
+            plan.metadata.execution_depth
+        );
+        let _ = writeln!(
+            out,
+            "  waves:               {}",
+            plan.metadata.execution_waves
+        );
         let _ = writeln!(
             out,
             "  estimated cost:      {:.2}",
@@ -92,8 +95,8 @@ impl PlanRenderer for TextRenderer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::graph::{Format, TransformEdge, TransformGraph};
     use crate::graph::execution_plan::ExecutionPlan;
+    use crate::graph::{Format, TransformEdge, TransformGraph};
     use crate::optimization::OptimizationMode;
 
     fn make_plan() -> ExecutionPlan {

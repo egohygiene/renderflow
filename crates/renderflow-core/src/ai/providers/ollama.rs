@@ -61,10 +61,7 @@ impl OllamaProvider {
     }
 
     fn call_api(&self, request: &AiRequest) -> Result<String> {
-        let url = format!(
-            "{}/api/generate",
-            self.endpoint.trim_end_matches('/')
-        );
+        let url = format!("{}/api/generate", self.endpoint.trim_end_matches('/'));
         let body = json!({
             "model": request.model,
             "prompt": request.prompt,
@@ -136,19 +133,16 @@ impl AiProvider for OllamaProvider {
 
     fn execute(&self, request: &AiRequest) -> Result<AiResponse> {
         let start = std::time::Instant::now();
-        let content = self.call_api(request).with_context(|| {
-            format!(
-                "Ollama provider failed for model '{}'",
-                request.model
-            )
-        })?;
+        let content = self
+            .call_api(request)
+            .with_context(|| format!("Ollama provider failed for model '{}'", request.model))?;
         let duration_ms = start.elapsed().as_millis() as u64;
 
         Ok(AiResponse {
             content,
             model: request.model.clone(),
             provider: self.name().to_string(),
-            input_tokens: None,   // Ollama does not report token counts here
+            input_tokens: None, // Ollama does not report token counts here
             output_tokens: None,
             duration_ms: Some(duration_ms),
         })
@@ -163,15 +157,13 @@ impl AiProvider for OllamaProvider {
 /// the connectivity problem.
 pub fn check_ollama_connectivity(endpoint: &str) -> Result<()> {
     let url = format!("{}/api/tags", endpoint.trim_end_matches('/'));
-    ureq::get(&url)
-        .call()
-        .with_context(|| {
-            format!(
-                "Ollama server is not reachable at '{}'. \
+    ureq::get(&url).call().with_context(|| {
+        format!(
+            "Ollama server is not reachable at '{}'. \
                  Ensure Ollama is running: `ollama serve`",
-                endpoint
-            )
-        })?;
+            endpoint
+        )
+    })?;
     Ok(())
 }
 
@@ -210,8 +202,7 @@ mod tests {
 
     #[test]
     fn test_ollama_with_custom_models() {
-        let p = OllamaProvider::default_local()
-            .with_models(vec!["custom-model".to_string()]);
+        let p = OllamaProvider::default_local().with_models(vec!["custom-model".to_string()]);
         let models = p.models();
         assert_eq!(models.len(), 1);
         assert_eq!(models[0].id, "custom-model");

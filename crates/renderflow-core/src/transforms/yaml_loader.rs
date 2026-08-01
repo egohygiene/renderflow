@@ -333,9 +333,7 @@ impl YamlTransformDef {
             .clone()
             .unwrap_or_else(|| "http://localhost:11434".to_string());
         let provider: std::sync::Arc<dyn crate::ai::AiProvider> = match backend_str {
-            "ollama" => {
-                std::sync::Arc::new(OllamaProvider::new(endpoint))
-            }
+            "ollama" => std::sync::Arc::new(OllamaProvider::new(endpoint)),
             _ => {
                 // openai or any other backend: default to OpenAI-compatible provider
                 let mut p = OpenAiProvider::new().with_endpoint(endpoint);
@@ -825,7 +823,7 @@ transforms:
 transforms:
   - name: my-transform
     program: cat
-    from: avif
+    from: xyz-not-a-real-format
     to: html
     cost: 1.0
     quality: 0.9
@@ -844,7 +842,7 @@ transforms:
   - name: my-transform
     program: cat
     from: markdown
-    to: mp4
+    to: xyz-not-a-real-format
     cost: 1.0
     quality: 0.9
 "#;

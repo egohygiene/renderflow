@@ -259,7 +259,10 @@ impl ExecutionPlan {
 
         // ── collect edges ──────────────────────────────────────────────────
         let order = dag.execution_order();
-        let edges: Vec<PlanEdge> = order.iter().map(|e| PlanEdge::from_transform_edge(e)).collect();
+        let edges: Vec<PlanEdge> = order
+            .iter()
+            .map(|e| PlanEdge::from_transform_edge(e))
+            .collect();
 
         // ── compute waves ──────────────────────────────────────────────────
         let waves = Self::compute_waves(dag, source);
@@ -300,8 +303,7 @@ impl ExecutionPlan {
         ExecutionPlan {
             source: source.to_string(),
             targets: {
-                let mut t: Vec<String> =
-                    targets.iter().map(|f| f.to_string()).collect();
+                let mut t: Vec<String> = targets.iter().map(|f| f.to_string()).collect();
                 t.sort();
                 t
             },
@@ -332,8 +334,9 @@ impl ExecutionPlan {
 
         let mut wave_index = 1usize;
         while !remaining.is_empty() {
-            let (ready, not_ready): (Vec<_>, Vec<_>) =
-                remaining.into_iter().partition(|e| available.contains(&e.from));
+            let (ready, not_ready): (Vec<_>, Vec<_>) = remaining
+                .into_iter()
+                .partition(|e| available.contains(&e.from));
 
             if ready.is_empty() {
                 // Cycle or missing edge — emit remaining as a single wave to avoid
@@ -415,8 +418,7 @@ impl ExecutionPlan {
         // Shared intermediates
         if !intermediates.is_empty() {
             let names: Vec<String> = {
-                let mut v: Vec<String> =
-                    intermediates.iter().map(|f| f.to_string()).collect();
+                let mut v: Vec<String> = intermediates.iter().map(|f| f.to_string()).collect();
                 v.sort();
                 v
             };
@@ -475,7 +477,7 @@ impl ExecutionPlan {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::graph::{TransformGraph};
+    use crate::graph::TransformGraph;
 
     fn build_plan() -> ExecutionPlan {
         let mut g = TransformGraph::new();

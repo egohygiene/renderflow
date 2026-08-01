@@ -146,19 +146,19 @@ impl OpenAiProvider {
         }
     }
 
-
     /// Extract token usage from an OpenAI response JSON object.
     fn extract_tokens(json: &serde_json::Value) -> (Option<u32>, Option<u32>) {
-        let input = json["usage"]["prompt_tokens"]
-            .as_u64()
-            .map(|v| v as u32);
+        let input = json["usage"]["prompt_tokens"].as_u64().map(|v| v as u32);
         let output = json["usage"]["completion_tokens"]
             .as_u64()
             .map(|v| v as u32);
         (input, output)
     }
 
-    fn call_api_with_tokens(&self, request: &AiRequest) -> Result<(String, Option<u32>, Option<u32>)> {
+    fn call_api_with_tokens(
+        &self,
+        request: &AiRequest,
+    ) -> Result<(String, Option<u32>, Option<u32>)> {
         let url = format!(
             "{}/v1/chat/completions",
             self.endpoint.trim_end_matches('/')
@@ -242,12 +242,7 @@ impl AiProvider for OpenAiProvider {
         let start = std::time::Instant::now();
         let (content, input_tokens, output_tokens) = self
             .call_api_with_tokens(request)
-            .with_context(|| {
-                format!(
-                    "OpenAI provider failed for model '{}'",
-                    request.model
-                )
-            })?;
+            .with_context(|| format!("OpenAI provider failed for model '{}'", request.model))?;
         let duration_ms = start.elapsed().as_millis() as u64;
 
         Ok(AiResponse {

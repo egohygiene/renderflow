@@ -6,7 +6,7 @@
 use std::sync::Arc;
 
 use anyhow::Result;
-use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use renderflow::graph::{DagExecutor, Format, TransformEdge, TransformGraph};
 use renderflow::transforms::Transform;
 
@@ -155,16 +155,12 @@ fn bench_execute_input_scaling(c: &mut Criterion) {
     let mut group = c.benchmark_group("execute/input_scaling/markdown_to_pdf");
     for size in sizes {
         let input = "a".repeat(size);
-        group.bench_with_input(
-            BenchmarkId::new("bytes", size),
-            &input,
-            |b, content| {
-                b.iter(|| {
-                    exec.execute(&dag, Format::Markdown, content.clone())
-                        .expect("execution must succeed")
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("bytes", size), &input, |b, content| {
+            b.iter(|| {
+                exec.execute(&dag, Format::Markdown, content.clone())
+                    .expect("execution must succeed")
+            });
+        });
     }
     group.finish();
 }

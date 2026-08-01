@@ -1,3 +1,4 @@
+pub mod capability;
 mod dag_executor;
 mod definition;
 mod definition_registry;

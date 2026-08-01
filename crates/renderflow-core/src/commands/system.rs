@@ -35,7 +35,9 @@ fn probe_tool_version(name: &str) -> Result<String, String> {
                 let line = stdout.lines().next().or_else(|| stderr.lines().next());
                 Ok(line.unwrap_or("available").trim().to_string())
             } else {
-                Err(format!("installed but failed to execute ({name} --version)"))
+                Err(format!(
+                    "installed but failed to execute ({name} --version)"
+                ))
             }
         })
 }

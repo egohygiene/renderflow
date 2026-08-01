@@ -75,10 +75,7 @@ fn print_metadata(meta: &PluginMetadata) {
     }
 
     if !meta.supported_transforms.is_empty() {
-        println!(
-            "  Transforms:  {}",
-            meta.supported_transforms.join(", ")
-        );
+        println!("  Transforms:  {}", meta.supported_transforms.join(", "));
     }
 
     if !meta.required_tools.is_empty() {
@@ -119,10 +116,7 @@ pub fn run_validate(registry: &PluginRegistry) -> Result<()> {
     let issues = registry.validate_all();
 
     if issues.is_empty() {
-        println!(
-            "All {} plugin(s) validated successfully.",
-            registry.len()
-        );
+        println!("All {} plugin(s) validated successfully.", registry.len());
         return Ok(());
     }
 
@@ -131,10 +125,7 @@ pub fn run_validate(registry: &PluginRegistry) -> Result<()> {
         eprintln!("  [{}] {}", name, msg);
     }
 
-    anyhow::bail!(
-        "{} plugin validation issue(s) found",
-        issues.len()
-    )
+    anyhow::bail!("{} plugin validation issue(s) found", issues.len())
 }
 
 // ── doctor ────────────────────────────────────────────────────────────────────
@@ -172,10 +163,7 @@ pub fn run_doctor(registry: &PluginRegistry) -> Result<()> {
             // 2. Required tools check.
             for tool in &meta.required_tools {
                 if !tool_is_available(tool) {
-                    issues.push(format!(
-                        "required tool '{}' was not found on PATH",
-                        tool
-                    ));
+                    issues.push(format!("required tool '{}' was not found on PATH", tool));
                 }
             }
         }

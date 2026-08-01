@@ -3,7 +3,7 @@
 //! Measures pathfinding, DAG merge, and multi-target planning performance
 //! across graphs of increasing complexity.
 
-use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use renderflow::graph::{Format, TransformEdge, TransformGraph};
 use renderflow::optimization::OptimizationMode;
 
@@ -28,7 +28,12 @@ fn small_graph() -> TransformGraph {
 fn medium_graph() -> TransformGraph {
     let mut g = TransformGraph::new();
     g.add_transform(TransformEdge::new(Format::Markdown, Format::Html, 0.5, 1.0));
-    g.add_transform(TransformEdge::new(Format::Markdown, Format::Latex, 0.7, 0.95));
+    g.add_transform(TransformEdge::new(
+        Format::Markdown,
+        Format::Latex,
+        0.7,
+        0.95,
+    ));
     g.add_transform(TransformEdge::new(Format::Markdown, Format::Rst, 0.4, 0.90));
     g.add_transform(TransformEdge::new(Format::Html, Format::Pdf, 0.8, 0.85));
     g.add_transform(TransformEdge::new(Format::Html, Format::Docx, 0.6, 0.90));
@@ -157,13 +162,9 @@ fn bench_fanout_pathfinding(c: &mut Criterion) {
     let mut group = c.benchmark_group("find_path/fanout");
     for width in widths {
         let (g, from, to) = fanout_graph(width);
-        group.bench_with_input(
-            BenchmarkId::new("width", width),
-            &width,
-            |b, _| {
-                b.iter(|| g.find_path(from, to).expect("path must exist"));
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("width", width), &width, |b, _| {
+            b.iter(|| g.find_path(from, to).expect("path must exist"));
+        });
     }
     group.finish();
 }
@@ -198,7 +199,10 @@ fn bench_multi_target_dag_scaling(c: &mut Criterion) {
         ("1_target", &[Format::Pdf]),
         ("2_targets", &[Format::Pdf, Format::Docx]),
         ("3_targets", &[Format::Pdf, Format::Docx, Format::Epub]),
-        ("4_targets", &[Format::Pdf, Format::Docx, Format::Epub, Format::Html]),
+        (
+            "4_targets",
+            &[Format::Pdf, Format::Docx, Format::Epub, Format::Html],
+        ),
     ];
     let mut group = c.benchmark_group("build_multi_target_dag/full_graph");
     for (label, targets) in target_sets {

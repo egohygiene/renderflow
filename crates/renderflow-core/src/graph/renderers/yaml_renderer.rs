@@ -6,16 +6,15 @@ pub struct YamlRenderer;
 
 impl PlanRenderer for YamlRenderer {
     fn render(&self, plan: &ExecutionPlan) -> String {
-        serde_yaml_ng::to_string(plan)
-            .unwrap_or_else(|e| format!("error: \"{}\"\n", e))
+        serde_yaml_ng::to_string(plan).unwrap_or_else(|e| format!("error: \"{}\"\n", e))
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::graph::{Format, TransformEdge, TransformGraph};
     use crate::graph::execution_plan::ExecutionPlan;
+    use crate::graph::{Format, TransformEdge, TransformGraph};
     use crate::optimization::OptimizationMode;
 
     fn make_plan() -> ExecutionPlan {

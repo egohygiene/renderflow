@@ -5,10 +5,10 @@
 
 use std::collections::HashMap;
 
-use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use renderflow::cache::{
-    AiCache, AiCacheEntry, OutputCache, TransformCache, compute_ai_input_hash,
-    compute_dag_node_hash, compute_input_hash, compute_output_hash, load_cache, save_cache,
+    compute_ai_input_hash, compute_dag_node_hash, compute_input_hash, compute_output_hash,
+    load_cache, save_cache, AiCache, AiCacheEntry, OutputCache, TransformCache,
 };
 
 // ── Hash computation benchmarks ───────────────────────────────────────────────
@@ -118,10 +118,7 @@ fn bench_transform_cache_insert(c: &mut Criterion) {
         b.iter_batched(
             || TransformCache::default(),
             |mut cache| {
-                cache.insert(
-                    "abc123".to_string(),
-                    "transformed output".to_string(),
-                );
+                cache.insert("abc123".to_string(), "transformed output".to_string());
                 cache
             },
             criterion::BatchSize::SmallInput,
@@ -185,9 +182,13 @@ fn bench_cache_serialization(c: &mut Criterion) {
             cache.insert(format!("{i:064x}"), "x".repeat(512));
         }
         let path = tmp.path().join(format!("cache_{size}.json"));
-        group.bench_with_input(BenchmarkId::new("entries", size), &(cache, path), |b, (c, p)| {
-            b.iter(|| save_cache(c, p).expect("save must succeed"));
-        });
+        group.bench_with_input(
+            BenchmarkId::new("entries", size),
+            &(cache, path),
+            |b, (c, p)| {
+                b.iter(|| save_cache(c, p).expect("save must succeed"));
+            },
+        );
     }
     group.finish();
 }

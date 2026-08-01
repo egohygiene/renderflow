@@ -8,10 +8,10 @@ use serde_json::json;
 use tracing::{debug, warn};
 
 use super::Transform;
+use crate::ai::retry::execute_with_retry;
 use crate::ai::{
     compute_ai_cache_key, AiExecutionPreference, AiProvider, AiRequest, RetryConfig, SharedMetrics,
 };
-use crate::ai::retry::execute_with_retry;
 use crate::cache::{
     compute_ai_input_hash, current_unix_timestamp, load_ai_cache, save_ai_cache, AiCacheEntry,
 };
@@ -1018,7 +1018,10 @@ mod tests {
             .name("provider-test")
             .model("mock-model")
             .ai_provider(provider)
-            .retry_config(RetryConfig { max_attempts: 1, ..Default::default() })
+            .retry_config(RetryConfig {
+                max_attempts: 1,
+                ..Default::default()
+            })
             .metrics(metrics)
             .prompt_version("v1")
             .execution_preference(AiExecutionPreference::LocalOnly)
@@ -1029,7 +1032,10 @@ mod tests {
         assert_eq!(t.retry_config.max_attempts, 1);
         assert!(t.metrics.is_some());
         assert_eq!(t.prompt_version.as_deref(), Some("v1"));
-        assert!(matches!(t.execution_preference, AiExecutionPreference::LocalOnly));
+        assert!(matches!(
+            t.execution_preference,
+            AiExecutionPreference::LocalOnly
+        ));
     }
 
     #[test]
