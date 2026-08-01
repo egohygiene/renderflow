@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 use super::format::ImageFormat;
 
 /// Named quality profiles for image output.
