@@ -24,6 +24,7 @@ mod incremental;
 mod input_format;
 pub mod optimization;
 mod pipeline;
+pub mod process;
 mod sdk;
 pub mod strategies;
 mod template;

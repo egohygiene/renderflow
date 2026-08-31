@@ -1,15 +1,12 @@
 use anyhow::Result;
-use std::process::Command;
 
 use crate::error::RenderError;
+use crate::process::ProcessExecutor;
 
-/// Check whether a tool is available in the system PATH.
+/// Check whether a tool is available in the system PATH using the canonical
+/// bounded version-probe path.
 fn tool_available(name: &str) -> bool {
-    Command::new(name)
-        .arg("--version")
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false)
+    ProcessExecutor::new().probe_version(name).is_available()
 }
 
 /// Verify that `pandoc` is installed and available in PATH.
@@ -113,7 +110,7 @@ mod tests {
     fn test_check_pandoc_error_contains_install_hint() {
         let result = check_pandoc();
         if pandoc_available() {
-            return; // nothing to assert
+            return;
         }
         let msg = result.unwrap_err().to_string();
         assert!(
@@ -158,8 +155,6 @@ mod tests {
 
     #[test]
     fn test_validate_dependencies_without_pdf_only_checks_pandoc() {
-        // When pdf_requested is false, tectonic is not checked.
-        // We can only verify the outcome matches what pandoc availability predicts.
         let result = validate_dependencies(false);
         if pandoc_available() {
             assert!(
@@ -194,7 +189,6 @@ mod tests {
 
     #[test]
     fn test_tool_available_with_known_tool() {
-        // `cargo` is always available in a Rust build environment and supports `--version`.
         assert!(
             tool_available("cargo"),
             "cargo should always be available in a Rust build environment"
