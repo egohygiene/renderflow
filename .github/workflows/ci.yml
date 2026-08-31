@@ -14,7 +14,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -31,10 +31,10 @@ jobs:
         run: |
           matches="$(git ls-files '*.yml' '*.yaml' | xargs grep -nH '^[[:space:]]*api_key[[:space:]]*:' || true)"
           if [ -n "$matches" ]; then
-            echo "$matches"
+            printf '%s\n' "$matches"
             while IFS= read -r line; do
               [ -n "$line" ] || continue
-              echo "::warning title=Plaintext AI API key configuration detected::$line uses api_key; prefer api_key_env"
+              printf '::warning title=Plaintext AI API key configuration detected::%s uses api_key; prefer api_key_env\n' "$line"
             done <<< "$matches"
           fi
 
@@ -47,8 +47,6 @@ jobs:
       - name: Test
         run: cargo test --workspace --verbose
 
-
-
   web:
     name: Web checks
     runs-on: ubuntu-latest
@@ -57,17 +55,24 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
+
+      - name: Setup pnpm
+        uses: pnpm/setup@v2
+        with:
+          install: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: '24'
+          node-version-file: package.json
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
 
-      - name: Enable Corepack
-        run: corepack enable
+      - name: Verify JavaScript toolchain
+        run: |
+          printf 'Node.js: %s\n' "$(node --version)"
+          printf 'pnpm: %s\n' "$(pnpm --version)"
 
       - name: Install web dependencies
         run: pnpm install --frozen-lockfile
@@ -88,7 +93,7 @@ jobs:
         run: pnpm web:build
 
       - name: Upload web artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: renderflow-web-dist
           path: apps/web/dist
@@ -102,7 +107,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -121,10 +126,10 @@ jobs:
         run: ../../target/release/renderflow build --dry-run
 
       - name: Run library embedding example
-        run: cargo run -p renderflow --example library_basic
+        run: cargo run --package renderflow --example library_basic
 
       - name: Run plugin registration example
-        run: cargo run -p renderflow --example plugin_registration
+        run: cargo run --package renderflow --example plugin_registration
 
   validate-pkgbuild:
     name: Validate PKGBUILD git (Arch Linux)
@@ -135,7 +140,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install dependencies
         run: pacman -Syu --noconfirm base-devel namcap
@@ -152,7 +157,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install dependencies
         run: pacman -Syu --noconfirm base-devel namcap
@@ -168,7 +173,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -200,7 +205,19 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Build Snap
+        id: snapcraft
         uses: snapcore/action-build@v1
+
+      - name: Install and smoke test Snap
+        run: |
+          sudo snap install --dangerous --classic "${{ steps.snapcraft.outputs.snap }}"
+          /snap/bin/renderflow --version
+
+      - name: Upload Snap artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: renderflow-snap
+          path: ${{ steps.snapcraft.outputs.snap }}

@@ -26,9 +26,6 @@ parts:
   renderflow:
     plugin: rust
     source: .
-    override-install: |
-      craftctl default
-      mkdir -p "$SNAPCRAFT_PART_INSTALL/bin"
-      if [ -f "$SNAPCRAFT_PART_INSTALL/renderflow" ]; then
-        mv "$SNAPCRAFT_PART_INSTALL/renderflow" "$SNAPCRAFT_PART_INSTALL/bin/renderflow"
-      fi
+    rust-channel: "1.94"
+    organize:
+      renderflow: bin/renderflow
