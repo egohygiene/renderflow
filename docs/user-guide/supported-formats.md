@@ -1,8 +1,9 @@
 # Supported Formats
 
 !!! info
-    This page is generated from `src/input_format.rs`, `src/graph/format.rs`,
-    `src/audio/format.rs`, and `src/image/format.rs` by
+    This page is generated from `crates/renderflow-core/src/input_format.rs`,
+    `crates/renderflow-core/src/graph/format.rs`, `crates/renderflow-core/src/audio/format.rs`,
+    and `crates/renderflow-core/src/image/format.rs` by
     `scripts/generate_supported_formats_doc.py`. Do not edit it by hand.
 
 Renderflow recognizes format identifiers in four places:
@@ -44,7 +45,28 @@ These are the canonical node names used in transform YAML files and graph output
 | `jpeg` |
 | `png` |
 | `tiff` |
+| `webp` |
+| `gif` |
+| `bmp` |
+| `avif` |
+| `svg` |
 | `cbz` |
+| `mp4` |
+| `mov` |
+| `mkv` |
+| `webm` |
+| `avi` |
+| `json` |
+| `yaml` |
+| `toml` |
+| `csv` |
+| `tsv` |
+| `xml` |
+| `zip` |
+| `tar.gz` |
+| `tar.xz` |
+| `srt` |
+| `vtt` |
 
 ## Audio format identifiers
 

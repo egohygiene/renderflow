@@ -6,6 +6,7 @@
 mod adapters;
 pub mod ai;
 pub mod app;
+pub mod artifact;
 mod assets;
 mod audio;
 pub mod cache;
