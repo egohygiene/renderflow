@@ -24,7 +24,7 @@ pub use transform_edge::TransformEdge;
 use crate::optimization::OptimizationMode;
 use petgraph::graph::{DiGraph, NodeIndex};
 use petgraph::visit::EdgeRef;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 /// A directed graph of document format transformations.
 ///
@@ -121,6 +121,34 @@ impl TransformGraph {
             .edges_directed(node_idx, Direction::Incoming)
             .map(|e| e.weight())
             .collect()
+    }
+
+    /// Return stable provider IDs referenced by graph edges.
+    pub fn provider_ids(&self) -> Vec<String> {
+        let mut ids: Vec<String> = self
+            .graph
+            .edge_references()
+            .filter_map(|edge| edge.weight().provider_id.clone())
+            .collect();
+        ids.sort();
+        ids.dedup();
+        ids
+    }
+
+    /// Clone the graph while excluding edges whose declared provider is unavailable.
+    /// Legacy edges without provider identity remain available for compatibility.
+    pub fn filtered_by_available_providers(&self, available: &HashSet<String>) -> Self {
+        let mut filtered = Self::new();
+        for edge in self.graph.edge_references().map(|edge| edge.weight()) {
+            if edge
+                .provider_id
+                .as_ref()
+                .is_none_or(|provider| available.contains(provider))
+            {
+                filtered.add_transform(edge.clone());
+            }
+        }
+        filtered
     }
 
     /// Return `true` when at least one direct transformation from `from` to

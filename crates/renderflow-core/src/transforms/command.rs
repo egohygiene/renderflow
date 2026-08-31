@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 
 use super::Transform;
 use crate::process::{
-    is_explicit_shell_invocation, ProcessExpectedOutput, ProcessExecutor, ProcessInput,
+    is_explicit_shell_invocation, ProcessExecutor, ProcessExpectedOutput, ProcessInput,
     ProcessOutputMode, ProcessRequest, DEFAULT_CAPTURE_LIMIT_BYTES, DEFAULT_PROCESS_TIMEOUT,
 };
 

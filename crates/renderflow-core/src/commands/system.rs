@@ -1,43 +1,7 @@
 use anyhow::{bail, Result};
 use std::{env, path::PathBuf};
 
-use crate::process::{ProcessExecutor, ToolProbeStatus};
-
-struct ToolCheck {
-    name: &'static str,
-    required: bool,
-}
-
-// `pandoc` is required for core document rendering, while `tectonic` (PDF)
-// and `ffmpeg` (media conversions) are optional unless those outputs are used.
-const TOOL_CHECKS: [ToolCheck; 3] = [
-    ToolCheck {
-        name: "pandoc",
-        required: true,
-    },
-    ToolCheck {
-        name: "tectonic",
-        required: false,
-    },
-    ToolCheck {
-        name: "ffmpeg",
-        required: false,
-    },
-];
-
-fn probe_tool_version(name: &str) -> Result<String, String> {
-    let probe = ProcessExecutor::new().probe_version(name);
-    match probe.status {
-        ToolProbeStatus::Available => Ok(probe
-            .version_line
-            .unwrap_or_else(|| "available".to_string())),
-        ToolProbeStatus::Missing => Err(format!("missing ({name} not found in PATH)")),
-        ToolProbeStatus::TimedOut => Err(format!("installed but version probe timed out ({name} --version)")),
-        ToolProbeStatus::Failed => Err(probe
-            .diagnostic
-            .unwrap_or_else(|| format!("installed but failed to execute ({name} --version)"))),
-    }
-}
+use crate::toolchain::{ToolRegistry, ToolSupportTier};
 
 pub fn run_version() {
     println!("renderflow {}", env!("CARGO_PKG_VERSION"));
@@ -58,36 +22,49 @@ pub fn run_env() {
 }
 
 pub fn run_doctor(strict: bool) -> Result<()> {
+    let registry = ToolRegistry::builtins();
+    let inventory = registry.assess_all_current();
+
     println!("Renderflow Doctor");
     println!("-----------------");
     println!("renderflow: {}", env!("CARGO_PKG_VERSION"));
     println!("platform: {} {}", env::consts::OS, env::consts::ARCH);
+    println!("tool registry: {}", registry.schema());
+    println!();
 
-    let mut missing = 0usize;
-
-    for check in TOOL_CHECKS {
-        match probe_tool_version(check.name) {
-            Ok(version) => println!("[ok] {}: {version}", check.name),
-            Err(reason) => {
-                if check.required {
-                    missing += 1;
-                    println!("[missing|required] {}: {reason}", check.name);
-                } else {
-                    println!("[missing|optional] {}: {reason}", check.name);
-                }
-            }
+    let mut required_failures = 0usize;
+    for tool in &inventory.tools {
+        if tool.support_tier == ToolSupportTier::Required && !tool.is_available() {
+            required_failures += 1;
         }
+        let detail = tool
+            .version_line
+            .as_deref()
+            .or(tool.diagnostic.as_deref())
+            .unwrap_or("no additional detail");
+        println!(
+            "[{}|{}] {}: {}",
+            tool.status.as_str(),
+            tool.support_tier.as_str(),
+            tool.id,
+            detail
+        );
     }
 
-    if strict && missing > 0 {
-        bail!("doctor found {missing} required dependency issue(s)");
+    if strict && required_failures > 0 {
+        bail!("doctor found {required_failures} required toolchain issue(s)");
     }
 
-    if missing == 0 {
-        println!("Doctor completed: required dependencies look healthy.");
+    if required_failures == 0 {
+        println!(
+            "
+Doctor completed: required toolchain providers look healthy."
+        );
     } else {
-        println!("Doctor completed with warnings. Install missing required tools and retry.");
+        println!(
+            "
+Doctor completed with required-provider warnings."
+        );
     }
-
     Ok(())
 }

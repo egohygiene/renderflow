@@ -216,7 +216,9 @@ impl ArtifactStore {
                 artifact.id()
             )
         })?;
-        temporary.flush().context("Failed to flush final artifact")?;
+        temporary
+            .flush()
+            .context("Failed to flush final artifact")?;
         temporary
             .as_file()
             .sync_all()
@@ -293,9 +295,8 @@ mod tests {
     fn identical_payloads_share_content_storage() {
         let directory = tempfile::tempdir().unwrap();
         let store = ArtifactStore::new(directory.path()).unwrap();
-        let descriptor = || {
-            ArtifactDescriptor::for_format(Format::Png, ArtifactStorageClass::Intermediate)
-        };
+        let descriptor =
+            || ArtifactDescriptor::for_format(Format::Png, ArtifactStorageClass::Intermediate);
         let first = store.put_bytes(b"\x89PNG\x00", descriptor()).unwrap();
         let second = store.put_bytes(b"\x89PNG\x00", descriptor()).unwrap();
         assert_eq!(first.id(), second.id());

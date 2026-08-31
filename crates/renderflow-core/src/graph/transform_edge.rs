@@ -22,6 +22,10 @@ pub struct TransformEdge {
     pub quality: f32,
     /// Whether this transformation consumes a single input or a collection.
     pub input_kind: InputKind,
+    /// Stable provider/tool identifier selected for this edge, when known.
+    pub provider_id: Option<String>,
+    /// Stable machine-readable capability identifier for this edge, when known.
+    pub capability_id: Option<String>,
 }
 
 impl TransformEdge {
@@ -41,6 +45,8 @@ impl TransformEdge {
             cost,
             quality: quality.clamp(0.0, 1.0),
             input_kind: InputKind::Single,
+            provider_id: None,
+            capability_id: None,
         }
     }
 
@@ -68,7 +74,20 @@ impl TransformEdge {
             cost,
             quality: quality.clamp(0.0, 1.0),
             input_kind,
+            provider_id: None,
+            capability_id: None,
         }
+    }
+
+    /// Attach stable provider and capability identity used by planning/evidence.
+    pub fn with_provider(
+        mut self,
+        provider_id: impl Into<String>,
+        capability_id: impl Into<String>,
+    ) -> Self {
+        self.provider_id = Some(provider_id.into());
+        self.capability_id = Some(capability_id.into());
+        self
     }
 }
 

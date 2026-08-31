@@ -183,6 +183,15 @@ impl ExternalTool {
     pub fn as_str(self) -> &'static str {
         self.executable_name()
     }
+
+    /// Return the stable provider ID used by the runtime tool registry.
+    pub fn stable_id(self) -> &'static str {
+        match self {
+            Self::Pandoc => "tool.pandoc",
+            Self::Tectonic => "tool.tectonic",
+            Self::Ffmpeg => "tool.ffmpeg",
+        }
+    }
 }
 
 impl std::fmt::Display for ExternalTool {

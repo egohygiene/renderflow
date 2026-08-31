@@ -3,6 +3,7 @@ use std::collections::HashSet;
 
 use super::{Format, InputKind, MultiTargetDag, TransformEdge};
 use crate::optimization::OptimizationMode;
+use crate::toolchain::ToolchainSnapshot;
 
 // ── Node types ─────────────────────────────────────────────────────────────
 
@@ -60,6 +61,12 @@ pub struct PlanEdge {
     pub input_kind: String,
     /// Semantic classification of this edge.
     pub edge_type: EdgeType,
+    /// Stable provider/tool identifier selected for this edge.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provider_id: Option<String>,
+    /// Stable capability identifier implemented by the selected provider.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub capability_id: Option<String>,
 }
 
 impl PlanEdge {
@@ -82,6 +89,8 @@ impl PlanEdge {
                 InputKind::Collection => "collection".to_string(),
             },
             edge_type,
+            provider_id: e.provider_id.clone(),
+            capability_id: e.capability_id.clone(),
         }
     }
 }
@@ -206,6 +215,9 @@ pub struct ExecutionPlan {
     pub metadata: ExecutionMetadata,
     /// Planner observations and explanations.
     pub diagnostics: Vec<PlanDiagnostic>,
+    /// Reproducible evidence for providers selected by this exact plan.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub toolchain: Option<ToolchainSnapshot>,
 }
 
 impl ExecutionPlan {
@@ -313,7 +325,33 @@ impl ExecutionPlan {
             waves,
             metadata,
             diagnostics,
+            toolchain: None,
         }
+    }
+
+    /// Attach selected-provider evidence and a deterministic toolchain fingerprint.
+    pub fn attach_toolchain(&mut self, snapshot: ToolchainSnapshot) {
+        let selected = snapshot
+            .selected_tools
+            .iter()
+            .map(|tool| tool.id.to_string())
+            .collect::<Vec<_>>()
+            .join(", ");
+        self.diagnostics.push(PlanDiagnostic::info(format!(
+            "Toolchain fingerprint {} selected provider(s): {}.",
+            snapshot.fingerprint,
+            if selected.is_empty() {
+                "(none)"
+            } else {
+                &selected
+            }
+        )));
+        self.toolchain = Some(snapshot);
+    }
+
+    /// Surface an unavailable/unsupported provider observation in plan diagnostics.
+    pub fn add_tool_diagnostic(&mut self, message: impl Into<String>) {
+        self.diagnostics.push(PlanDiagnostic::warning(message));
     }
 
     // ── private helpers ────────────────────────────────────────────────────

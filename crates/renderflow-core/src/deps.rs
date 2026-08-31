@@ -1,12 +1,27 @@
 use anyhow::Result;
 
 use crate::error::RenderError;
-use crate::process::ProcessExecutor;
+use crate::toolchain::{CapabilityId, ToolRegistry};
 
 /// Check whether a tool is available in the system PATH using the canonical
 /// bounded version-probe path.
 fn tool_available(name: &str) -> bool {
-    ProcessExecutor::new().probe_version(name).is_available()
+    let mut registry = ToolRegistry::builtins();
+    let id = registry.canonical_id_for_executable(name);
+    if !registry.contains(&id) {
+        let capability =
+            CapabilityId::new("probe.availability").expect("static capability identifier is valid");
+        if registry
+            .ensure_command_provider(id.clone(), name.to_string(), capability)
+            .is_err()
+        {
+            return false;
+        }
+    }
+    registry
+        .assess_ids_current([id.as_str()])
+        .get(id.as_str())
+        .is_some_and(|tool| tool.is_available())
 }
 
 /// Verify that `pandoc` is installed and available in PATH.

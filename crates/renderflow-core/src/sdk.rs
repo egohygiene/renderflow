@@ -8,10 +8,10 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::commands;
-use crate::config::{load_config, load_config_for_graph};
-use crate::graph::{ExecutionPlan, Format};
+use crate::config::load_config;
+use crate::graph::ExecutionPlan;
 use crate::optimization::OptimizationMode;
-use crate::transforms::yaml_loader::build_graph_and_executor_from_yaml;
+use crate::toolchain::ToolchainSnapshot;
 
 #[derive(Debug, Error)]
 pub enum RenderflowError {
@@ -172,6 +172,8 @@ pub struct ExecutionResult {
     pub reused_cached_outputs: Vec<String>,
     pub skipped_transforms: Vec<String>,
     pub diagnostics: DiagnosticReport,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub toolchain: Option<ToolchainSnapshot>,
 }
 
 #[derive(Default)]
@@ -262,58 +264,17 @@ impl Engine {
     pub fn plan(&self, request: PlanRequest) -> Result<ExecutionPlan, RenderflowError> {
         self.ensure_not_cancelled()?;
         self.emit(ProgressStage::Planning, "Constructing execution plan");
-
-        let config = load_config_for_graph(request.config_path.to_str().ok_or_else(|| {
+        let config_path = request.config_path.to_str().ok_or_else(|| {
             RenderflowError::Planning(anyhow::anyhow!("Config path contains non-UTF8 characters"))
-        })?)
-        .map_err(RenderflowError::Planning)?;
-
-        let transforms_path = config.transforms.as_deref().ok_or_else(|| {
-            RenderflowError::Planning(anyhow::anyhow!(
-                "Planning requires a `transforms` key in the config file"
-            ))
         })?;
-
-        let (graph, _executor) = build_graph_and_executor_from_yaml(transforms_path)
-            .map_err(RenderflowError::Planning)?;
-
-        let opt_mode = request.optimization.unwrap_or(config.optimization);
-        let source_format: Format = config
-            .input_format()
-            .to_string()
-            .parse()
-            .map_err(|err| RenderflowError::Planning(anyhow::anyhow!("{}", err)))?;
-
-        let targets: Vec<Format> = if let Some(target) = request.target {
-            vec![target
-                .parse::<Format>()
-                .map_err(|err| RenderflowError::Planning(anyhow::anyhow!("{}", err)))?]
-        } else {
-            let reachable = graph.reachable_from(source_format);
-            if reachable.is_empty() {
-                return Err(RenderflowError::Planning(anyhow::anyhow!(
-                    "No output formats are reachable from '{}'",
-                    source_format
-                )));
-            }
-            reachable
-        };
-
-        let dag = graph
-            .build_multi_target_dag_with_mode(source_format, &targets, opt_mode)
-            .ok_or_else(|| {
-                RenderflowError::Planning(anyhow::anyhow!(
-                    "Could not build an execution plan for one or more targets"
-                ))
-            })?;
-
+        let (plan, _targets) = commands::graph::load_plan(
+            config_path,
+            request.target.as_deref(),
+            request.optimization,
+        )
+        .map_err(RenderflowError::Planning)?;
         self.emit(ProgressStage::Completed, "Planning complete");
-        Ok(ExecutionPlan::from_dag(
-            &dag,
-            source_format,
-            &targets,
-            opt_mode,
-        ))
+        Ok(plan)
     }
 
     pub fn execute(&self, request: ExecutionRequest) -> Result<ExecutionResult, RenderflowError> {
@@ -325,6 +286,18 @@ impl Engine {
         })?;
 
         let config = load_config(config_path).map_err(RenderflowError::Execution)?;
+
+        let toolchain = if request.target.is_some() || request.all_targets {
+            let (plan, _targets) = commands::graph::load_plan(
+                config_path,
+                request.target.as_deref(),
+                request.optimization,
+            )
+            .map_err(RenderflowError::Execution)?;
+            plan.toolchain
+        } else {
+            None
+        };
 
         if let Some(target) = request.target.as_deref() {
             commands::graph_build::run_target(
@@ -365,6 +338,7 @@ impl Engine {
                 warnings: Vec::new(),
                 recoverable_failures: Vec::new(),
             },
+            toolchain,
         })
     }
 }

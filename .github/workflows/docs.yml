@@ -8,10 +8,13 @@ on:
       - 'docs/**'
       - 'mkdocs.yml'
       - 'scripts/generate_supported_formats_doc.py'
-      - 'src/audio/format.rs'
-      - 'src/graph/format.rs'
-      - 'src/image/format.rs'
-      - 'src/input_format.rs'
+      - 'scripts/generate_tool_registry_doc.py'
+      - 'crates/renderflow-core/data/tool-registry.yaml'
+      - 'crates/renderflow-core/src/audio/format.rs'
+      - 'crates/renderflow-core/src/graph/format.rs'
+      - 'crates/renderflow-core/src/image/format.rs'
+      - 'crates/renderflow-core/src/input_format.rs'
+      - 'crates/renderflow-core/src/toolchain.rs'
   push:
     branches:
       - main
@@ -23,10 +26,13 @@ on:
       - 'docs/**'
       - 'mkdocs.yml'
       - 'scripts/generate_supported_formats_doc.py'
-      - 'src/audio/format.rs'
-      - 'src/graph/format.rs'
-      - 'src/image/format.rs'
-      - 'src/input_format.rs'
+      - 'scripts/generate_tool_registry_doc.py'
+      - 'crates/renderflow-core/data/tool-registry.yaml'
+      - 'crates/renderflow-core/src/audio/format.rs'
+      - 'crates/renderflow-core/src/graph/format.rs'
+      - 'crates/renderflow-core/src/image/format.rs'
+      - 'crates/renderflow-core/src/input_format.rs'
+      - 'crates/renderflow-core/src/toolchain.rs'
   workflow_dispatch:
 
 permissions:
@@ -55,13 +61,15 @@ jobs:
       - name: Install MkDocs Material
         run: |
           python -m pip install --upgrade pip
-          pip install mkdocs-material mike
+          pip install mkdocs-material mike pyyaml
 
       - name: Regenerate generated docs
-        run: python scripts/generate_supported_formats_doc.py
+        run: |
+          python scripts/generate_supported_formats_doc.py
+          python scripts/generate_tool_registry_doc.py
 
       - name: Verify generated docs are committed
-        run: git diff --exit-code -- docs/user-guide/supported-formats.md
+        run: git diff --exit-code -- docs/user-guide/supported-formats.md docs/user-guide/tool-registry.md
 
       - name: Build docs
         run: mkdocs build --strict
@@ -91,10 +99,12 @@ jobs:
       - name: Install MkDocs Material
         run: |
           python -m pip install --upgrade pip
-          pip install mkdocs-material mike
+          pip install mkdocs-material mike pyyaml
 
       - name: Regenerate generated docs
-        run: python scripts/generate_supported_formats_doc.py
+        run: |
+          python scripts/generate_supported_formats_doc.py
+          python scripts/generate_tool_registry_doc.py
 
       - name: Configure Pages
         uses: actions/configure-pages@v5

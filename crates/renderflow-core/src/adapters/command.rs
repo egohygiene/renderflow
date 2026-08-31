@@ -50,7 +50,11 @@ pub fn run_command(program: &str, args: &[&str]) -> Result<()> {
     }
 
     result.ensure_success()?;
-    info!(program = program, duration_ms = result.duration_ms(), "Command completed successfully");
+    info!(
+        program = program,
+        duration_ms = result.duration_ms(),
+        "Command completed successfully"
+    );
     Ok(())
 }
 

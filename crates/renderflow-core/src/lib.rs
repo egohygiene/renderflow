@@ -28,6 +28,7 @@ pub mod process;
 mod sdk;
 pub mod strategies;
 mod template;
+pub mod toolchain;
 pub mod transforms;
 
 pub use sdk::{
