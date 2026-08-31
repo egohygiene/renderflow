@@ -8,7 +8,7 @@ use anyhow::{Context, Result};
 use tracing::{debug, info};
 
 use crate::process::{
-    is_explicit_shell_invocation, ProcessExpectedOutput, ProcessExecutor, ProcessInput,
+    is_explicit_shell_invocation, ProcessExecutor, ProcessExpectedOutput, ProcessInput,
     ProcessOutputMode, ProcessRequest, DEFAULT_CAPTURE_LIMIT_BYTES, DEFAULT_PROCESS_TIMEOUT,
 };
 
@@ -42,7 +42,9 @@ impl AggregationRegistry {
     }
 
     pub fn get(&self, name: &str) -> Option<&dyn AggregationTransform> {
-        self.transforms.get(name).map(|transform| transform.as_ref())
+        self.transforms
+            .get(name)
+            .map(|transform| transform.as_ref())
     }
 
     pub fn apply(&self, name: &str, inputs: &[&str], output_path: &str) -> Result<()> {
@@ -266,7 +268,10 @@ mod tests {
         registry
             .apply("join", &["page1", "page2", "page3"], out.to_str().unwrap())
             .unwrap();
-        assert_eq!(std::fs::read_to_string(&out).unwrap(), "page1\npage2\npage3");
+        assert_eq!(
+            std::fs::read_to_string(&out).unwrap(),
+            "page1\npage2\npage3"
+        );
     }
 
     #[test]
@@ -297,9 +302,7 @@ mod tests {
         );
         let dir = tempfile::tempdir().unwrap();
         let out = dir.path().join("out.txt");
-        assert!(transform
-            .aggregate(&["a"], out.to_str().unwrap())
-            .is_err());
+        assert!(transform.aggregate(&["a"], out.to_str().unwrap()).is_err());
     }
 
     #[cfg(unix)]

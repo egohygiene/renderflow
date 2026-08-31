@@ -96,7 +96,9 @@ pub(crate) fn save_artifact_cache(cache: &ArtifactCache, path: &Path) -> Result<
     let mut temporary = tempfile::NamedTempFile::new_in(parent)
         .context("Failed to create artifact cache temporary file")?;
     serde_json::to_writer(&mut temporary, cache).context("Failed to serialize artifact cache")?;
-    temporary.flush().context("Failed to flush artifact cache")?;
+    temporary
+        .flush()
+        .context("Failed to flush artifact cache")?;
     temporary
         .as_file()
         .sync_all()
@@ -104,7 +106,12 @@ pub(crate) fn save_artifact_cache(cache: &ArtifactCache, path: &Path) -> Result<
     temporary
         .persist(path)
         .map_err(|error| error.error)
-        .with_context(|| format!("Failed to atomically save artifact cache '{}'", path.display()))?;
+        .with_context(|| {
+            format!(
+                "Failed to atomically save artifact cache '{}'",
+                path.display()
+            )
+        })?;
     Ok(())
 }
 

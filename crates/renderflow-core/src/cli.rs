@@ -27,6 +27,9 @@ use crate::optimization::OptimizationMode;
         renderflow version                      Print the installed version\n  \
         renderflow env                          Print installation environment details\n  \
         renderflow doctor                       Run installation diagnostics\n  \
+        renderflow tools list                    List runtime tool providers\n  \
+        renderflow tools inspect tool.ffmpeg     Inspect one runtime provider\n  \
+        renderflow capabilities                  List provider capability IDs\n  \
         renderflow my-project.yaml              Shorthand: run build on the given config"
 )]
 pub struct Cli {
@@ -198,6 +201,23 @@ pub enum Commands {
         subcommand: GraphCommands,
     },
 
+    /// Inspect the runtime external-tool/provider registry.
+    #[command(subcommand_required = true, arg_required_else_help = true)]
+    Tools {
+        #[command(subcommand)]
+        subcommand: ToolCommands,
+    },
+
+    /// List stable provider capability IDs and their implementations.
+    Capabilities {
+        /// Output format: text (default), json, or yaml.
+        #[arg(long, default_value = "text", value_name = "FORMAT")]
+        format: String,
+        /// Optional transform YAML whose dynamic providers should be included.
+        #[arg(long, value_name = "FILE")]
+        transforms: Option<String>,
+    },
+
     /// Print the installed Renderflow version
     Version,
 
@@ -236,6 +256,32 @@ pub enum PluginCommands {
     /// actionable issues.
     #[command(after_help = "Examples:\n  renderflow plugin doctor")]
     Doctor,
+}
+
+/// Subcommands for `renderflow tools`.
+#[derive(Subcommand)]
+pub enum ToolCommands {
+    /// List registered providers and live availability/version state.
+    List {
+        /// Output format: text (default), json, or yaml.
+        #[arg(long, default_value = "text", value_name = "FORMAT")]
+        format: String,
+        /// Optional transform YAML whose dynamic providers should be included.
+        #[arg(long, value_name = "FILE")]
+        transforms: Option<String>,
+    },
+
+    /// Inspect one stable provider ID.
+    Inspect {
+        /// Stable provider/tool identifier, for example `tool.ffmpeg`.
+        id: String,
+        /// Output format: text (default), json, or yaml.
+        #[arg(long, default_value = "text", value_name = "FORMAT")]
+        format: String,
+        /// Optional transform YAML whose dynamic providers should be included.
+        #[arg(long, value_name = "FILE")]
+        transforms: Option<String>,
+    },
 }
 
 /// Subcommands for `renderflow ai`.

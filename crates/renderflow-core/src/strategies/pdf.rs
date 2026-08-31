@@ -3,8 +3,8 @@ use std::path::Path;
 use tracing::info;
 
 use crate::adapters::command::run_command;
-use crate::process::{ProcessExecutor, ToolProbeStatus};
 use crate::strategies::{OutputStrategy, PandocArgs, RenderContext};
+use crate::toolchain::ToolRegistry;
 
 /// Renders a document to PDF format using pandoc with the tectonic PDF engine.
 pub struct PdfStrategy {
@@ -23,26 +23,20 @@ impl PdfStrategy {
     /// Returns an error if the tectonic PDF engine is not installed or cannot
     /// be version-probed through the canonical process executor.
     fn check_tectonic() -> Result<()> {
-        let probe = ProcessExecutor::new().probe_version("tectonic");
-        match probe.status {
-            ToolProbeStatus::Available => Ok(()),
-            ToolProbeStatus::Missing => anyhow::bail!(
-                "PDF rendering failed: `tectonic` is not installed.\n\n\
+        let registry = ToolRegistry::builtins();
+        let inventory = registry.assess_ids_current(["tool.tectonic"]);
+        if !inventory
+            .get("tool.tectonic")
+            .is_some_and(|tool| tool.is_available())
+        {
+            anyhow::bail!(
+                "PDF rendering failed: `tectonic` is not installed or is incompatible.\n\n\
                  Fix:\n\
                  - Install tectonic: https://tectonic-typesetting.github.io/en-US/\n\
                  - Or configure a different PDF engine"
-            ),
-            ToolProbeStatus::TimedOut => anyhow::bail!(
-                "PDF rendering failed: `tectonic --version` timed out. \
-                 Verify the tectonic installation before retrying."
-            ),
-            ToolProbeStatus::Failed => anyhow::bail!(
-                "PDF rendering failed: tectonic is installed but its version probe failed: {}",
-                probe
-                    .diagnostic
-                    .unwrap_or_else(|| "unknown process failure".to_string())
-            ),
+            );
         }
+        Ok(())
     }
 }
 
@@ -122,7 +116,10 @@ mod tests {
     }
 
     fn tectonic_available() -> bool {
-        ProcessExecutor::new().probe_version("tectonic").is_available()
+        ToolRegistry::builtins()
+            .assess_ids_current(["tool.tectonic"])
+            .get("tool.tectonic")
+            .is_some_and(|tool| tool.is_available())
     }
 
     #[test]

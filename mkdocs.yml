@@ -67,6 +67,7 @@ nav:
   - User Guide:
       - Configuration: user-guide/configuration.md
       - Supported Formats: user-guide/supported-formats.md
+      - Tool Registry: user-guide/tool-registry.md
       - Pipelines: user-guide/pipelines.md
       - Transforms: user-guide/transforms.md
       - Optimization: user-guide/optimization.md
@@ -117,6 +118,7 @@ nav:
       - graph: cli-reference/graph.md
       - plugin: cli-reference/plugin.md
       - ai: cli-reference/ai.md
+      - tools & capabilities: cli-reference/tools.md
   - Transform Reference:
       - Overview: transform-reference/index.md
       - Emoji: transform-reference/emoji.md

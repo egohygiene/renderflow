@@ -8,9 +8,9 @@ use tracing::{debug, warn};
 
 use super::{Format, MultiTargetDag, TransformEdge};
 use crate::artifact::{
-    compute_artifact_node_hash, load_artifact_cache, save_artifact_cache, Artifact,
-    ArtifactCache, ArtifactCollection, ArtifactDescriptor, ArtifactStorageClass, ArtifactStore,
-    ArtifactTransform, TextTransformAdapter,
+    compute_artifact_node_hash, load_artifact_cache, save_artifact_cache, Artifact, ArtifactCache,
+    ArtifactCollection, ArtifactDescriptor, ArtifactStorageClass, ArtifactStore, ArtifactTransform,
+    TextTransformAdapter,
 };
 use crate::transforms::aggregation::AggregationTransform;
 use crate::transforms::Transform;
@@ -27,6 +27,8 @@ pub struct DagExecutor {
     aggregation_transforms: HashMap<(Format, Format), Arc<dyn AggregationTransform>>,
     /// Optional artifact-native DAG cache path.
     cache_path: Option<PathBuf>,
+    /// Selected-provider fingerprint used to reject incompatible cache entries.
+    toolchain_fingerprint: Option<String>,
 }
 
 impl DagExecutor {
@@ -36,6 +38,7 @@ impl DagExecutor {
             single_transforms: HashMap::new(),
             aggregation_transforms: HashMap::new(),
             cache_path: None,
+            toolchain_fingerprint: None,
         }
     }
 
@@ -48,6 +51,12 @@ impl DagExecutor {
         self
     }
 
+    /// Attach a selected-provider fingerprint to cache compatibility.
+    pub fn with_toolchain_fingerprint(mut self, fingerprint: impl Into<String>) -> Self {
+        self.toolchain_fingerprint = Some(fingerprint.into());
+        self
+    }
+
     /// Register an existing UTF-8 text transform through the compatibility adapter.
     pub fn register_single(
         &mut self,
@@ -55,10 +64,8 @@ impl DagExecutor {
         to: Format,
         transform: Arc<dyn Transform + Send + Sync>,
     ) -> &mut Self {
-        self.single_transforms.insert(
-            (from, to),
-            Arc::new(TextTransformAdapter::new(transform)),
-        );
+        self.single_transforms
+            .insert((from, to), Arc::new(TextTransformAdapter::new(transform)));
         self
     }
 
@@ -302,9 +309,12 @@ impl DagExecutor {
                     edge.to
                 )
             })?;
-        let cache_identity = transform.cache_identity();
-        let cache_key =
-            compute_artifact_node_hash(input, edge.from, edge.to, &cache_identity);
+        let mut cache_identity = transform.cache_identity();
+        if let Some(fingerprint) = &self.toolchain_fingerprint {
+            cache_identity.push_str("\0toolchain=");
+            cache_identity.push_str(fingerprint);
+        }
+        let cache_key = compute_artifact_node_hash(input, edge.from, edge.to, &cache_identity);
 
         if let Some(cache_mutex) = cache {
             if let Ok(guard) = cache_mutex.lock() {
@@ -490,11 +500,8 @@ mod tests {
             let mut reader = store.open(input)?;
             store.put_reader(
                 &mut reader,
-                ArtifactDescriptor::for_format(
-                    output_format,
-                    ArtifactStorageClass::Intermediate,
-                )
-                .with_source(input.id().clone()),
+                ArtifactDescriptor::for_format(output_format, ArtifactStorageClass::Intermediate)
+                    .with_source(input.id().clone()),
             )
         }
     }
@@ -522,11 +529,8 @@ mod tests {
             let mut reader = store.open(input)?;
             store.put_reader(
                 &mut reader,
-                ArtifactDescriptor::for_format(
-                    output_format,
-                    ArtifactStorageClass::Intermediate,
-                )
-                .with_source(input.id().clone()),
+                ArtifactDescriptor::for_format(output_format, ArtifactStorageClass::Intermediate)
+                    .with_source(input.id().clone()),
             )
         }
     }
@@ -563,11 +567,7 @@ mod tests {
     fn one_edge(from: Format, to: Format, input_kind: InputKind) -> MultiTargetDag {
         let mut graph = TransformGraph::new();
         graph.add_transform(TransformEdge::with_input_kind(
-            from,
-            to,
-            1.0,
-            1.0,
-            input_kind,
+            from, to, 1.0, 1.0, input_kind,
         ));
         graph
             .build_multi_target_dag(from, &[to])
@@ -602,11 +602,7 @@ mod tests {
             )
             .unwrap();
         let mut executor = DagExecutor::new();
-        executor.register_artifact(
-            Format::Png,
-            Format::Webp,
-            Arc::new(BinaryCopyTransform),
-        );
+        executor.register_artifact(Format::Png, Format::Webp, Arc::new(BinaryCopyTransform));
 
         let results = executor
             .execute_artifact(&dag, Format::Png, source.clone(), &store)
@@ -635,11 +631,7 @@ mod tests {
             )
             .unwrap();
         let mut executor = DagExecutor::new();
-        executor.register_aggregation(
-            Format::Png,
-            Format::Pdf,
-            Arc::new(OrderedJoinAggregation),
-        );
+        executor.register_aggregation(Format::Png, Format::Pdf, Arc::new(OrderedJoinAggregation));
 
         let results = executor
             .execute_artifacts(
@@ -651,10 +643,7 @@ mod tests {
             .unwrap();
         let output = results[&Format::Pdf].clone().into_one().unwrap();
         assert_eq!(store.read_bytes(&output).unwrap(), b"page-one|page-two");
-        assert_eq!(
-            output.sources(),
-            &[first.id().clone(), second.id().clone()]
-        );
+        assert_eq!(output.sources(), &[first.id().clone(), second.id().clone()]);
     }
 
     #[test]
@@ -700,19 +689,11 @@ mod tests {
             )
             .unwrap();
         let mut executor = DagExecutor::new();
-        executor.register_aggregation(
-            Format::Png,
-            Format::Pdf,
-            Arc::new(FailingAggregation),
-        );
+        executor.register_aggregation(Format::Png, Format::Pdf, Arc::new(FailingAggregation));
 
         let before = count_artifact_objects(&store);
-        let result = executor.execute_artifacts(
-            &dag,
-            Format::Png,
-            ArtifactCollection::one(source),
-            &store,
-        );
+        let result =
+            executor.execute_artifacts(&dag, Format::Png, ArtifactCollection::one(source), &store);
         assert!(result.is_err());
         assert_eq!(before, count_artifact_objects(&store));
     }

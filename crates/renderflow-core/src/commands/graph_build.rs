@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{fs, path::Path};
 
 use anyhow::{Context, Result};
 use tracing::{debug, info};
@@ -8,7 +8,8 @@ use crate::config::load_config_for_graph;
 use crate::files::ensure_output_dir;
 use crate::graph::Format;
 use crate::optimization::OptimizationMode;
-use crate::transforms::yaml_loader::build_graph_and_executor_from_yaml;
+use crate::toolchain::filter_graph_for_current_toolchain;
+use crate::transforms::yaml_loader::build_graph_executor_and_tools_from_yaml;
 
 /// Run graph-based execution targeting a single output format.
 pub fn run_target(
@@ -46,7 +47,7 @@ fn run_impl(
     optimization: Option<OptimizationMode>,
 ) -> Result<()> {
     if dry_run {
-        info!("Dry-run mode enabled — no files will be created and no commands will be executed");
+        info!("Dry-run mode enabled — no files or transform commands will be produced; bounded tool probes may run for planning");
     }
     info!("Running graph-based build pipeline");
 
@@ -60,8 +61,14 @@ fn run_impl(
         )
     })?;
 
-    let (graph, executor) = build_graph_and_executor_from_yaml(transforms_path)?;
-    info!("Loaded transform graph from '{}'", transforms_path);
+    let (raw_graph, executor, tool_registry) =
+        build_graph_executor_and_tools_from_yaml(transforms_path)?;
+    let (graph, tool_inventory, tool_context) =
+        filter_graph_for_current_toolchain(&raw_graph, &tool_registry);
+    info!(
+        "Loaded tool-aware transform graph from '{}'",
+        transforms_path
+    );
 
     let opt_mode = optimization.unwrap_or(config.optimization);
     info!(optimization = %opt_mode, "Using optimization mode");
@@ -101,10 +108,14 @@ fn run_impl(
         .ok_or_else(|| {
             anyhow::anyhow!(
                 "Could not build an execution plan: one or more target formats \
-                 are not reachable from '{}' in the transform graph",
-                source_format
+                 are not reachable from '{}' after provider availability filtering. Blocked providers: {}",
+                source_format,
+                tool_inventory.blocked_summaries().join("; ")
             )
         })?;
+
+    let toolchain = tool_registry.fingerprint_for_dag(&tool_inventory, &dag, &tool_context)?;
+    info!(fingerprint = %toolchain.fingerprint, providers = toolchain.selected_tools.len(), "Resolved execution toolchain");
 
     debug!("Execution plan (DAG tree):\n{}", dag.to_tree(source_format));
 
@@ -139,7 +150,14 @@ fn run_impl(
         .unwrap_or_else(|| Path::new("."));
     let state_dir = state_parent.join(".renderflow");
     let artifact_store = ArtifactStore::new(state_dir.join("artifacts"))?;
-    let executor = executor.with_cache(state_dir.join("dag-cache.json"));
+    fs::create_dir_all(&state_dir)?;
+    fs::write(
+        state_dir.join("toolchain.json"),
+        serde_json::to_vec_pretty(&toolchain)?,
+    )?;
+    let executor = executor
+        .with_cache(state_dir.join("dag-cache.json"))
+        .with_toolchain_fingerprint(toolchain.fingerprint.clone());
 
     let source_artifact = artifact_store.import_path(
         &config.input,

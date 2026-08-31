@@ -18,6 +18,9 @@ impl PlanRenderer for TextRenderer {
         let _ = writeln!(out, "Source:       {}", plan.source);
         let _ = writeln!(out, "Targets:      {}", plan.targets.join(", "));
         let _ = writeln!(out, "Optimization: {}", plan.optimization);
+        if let Some(toolchain) = &plan.toolchain {
+            let _ = writeln!(out, "Toolchain:    {}", toolchain.fingerprint);
+        }
 
         // ── nodes ──────────────────────────────────────────────────────────
         let _ = writeln!(out);
@@ -36,13 +39,19 @@ impl PlanRenderer for TextRenderer {
         let _ = writeln!(out, "Edges ({}):", plan.metadata.total_edges);
         let max_from = plan.edges.iter().map(|e| e.from.len()).max().unwrap_or(0);
         for e in &plan.edges {
+            let provider = e
+                .provider_id
+                .as_deref()
+                .map(|value| format!(", provider: {value}"))
+                .unwrap_or_default();
             let _ = writeln!(
                 out,
-                "  {:<width$} ──► {}  [cost: {:.2}, quality: {:.2}]",
+                "  {:<width$} ──► {}  [cost: {:.2}, quality: {:.2}{}]",
                 e.from,
                 e.to,
                 e.cost,
                 e.quality,
+                provider,
                 width = max_from
             );
         }

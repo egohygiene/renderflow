@@ -1,4 +1,5 @@
 use super::{Format, InputKind, TransformEdge};
+use crate::toolchain::{canonical_tool_id_for_hint, transform_capability_id};
 
 /// A pluggable definition of a format-to-format transformation.
 ///
@@ -103,7 +104,10 @@ impl TransformDefinition {
     /// Convert this definition into a [`TransformEdge`] for use in a
     /// [`TransformGraph`](super::TransformGraph).
     pub fn to_edge(&self) -> TransformEdge {
+        let provider = canonical_tool_id_for_hint(&self.label);
+        let capability = transform_capability_id(self.from, self.to);
         TransformEdge::with_input_kind(self.from, self.to, self.cost, self.quality, self.input_kind)
+            .with_provider(provider.to_string(), capability.to_string())
     }
 }
 

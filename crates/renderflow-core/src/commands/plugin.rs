@@ -1,6 +1,6 @@
 use anyhow::Result;
 
-use crate::process::ProcessExecutor;
+use crate::toolchain::{CapabilityId, ToolRegistry};
 use crate::transforms::plugin::{PluginCapabilities, PluginMetadata, PluginRegistry};
 
 // ── list ──────────────────────────────────────────────────────────────────────
@@ -173,7 +173,22 @@ pub fn run_doctor(registry: &PluginRegistry) -> Result<()> {
 
 /// Return `true` when `tool` can be found and successfully version-probed.
 fn tool_is_available(tool: &str) -> bool {
-    ProcessExecutor::new().probe_version(tool).is_available()
+    let mut registry = ToolRegistry::builtins();
+    let id = registry.canonical_id_for_executable(tool);
+    if !registry.contains(&id) {
+        let capability = CapabilityId::new("plugin.required_tool")
+            .expect("static capability identifier is valid");
+        if registry
+            .ensure_command_provider(id.clone(), tool.to_string(), capability)
+            .is_err()
+        {
+            return false;
+        }
+    }
+    registry
+        .assess_ids_current([id.as_str()])
+        .get(id.as_str())
+        .is_some_and(|availability| availability.is_available())
 }
 
 #[cfg(test)]

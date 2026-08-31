@@ -12,6 +12,7 @@ use super::{
     Transform, TransformRegistry,
 };
 use crate::ai::providers::{OllamaProvider, OpenAiProvider};
+use crate::toolchain::{transform_capability_id, ToolId, ToolRegistry};
 
 /// Top-level structure of a YAML transform configuration file.
 ///
@@ -62,6 +63,9 @@ pub struct YamlTransformDef {
     /// those fields is set.
     #[serde(default)]
     pub program: Option<String>,
+    /// Optional stable provider ID. When omitted, Renderflow infers one from program/plugin/AI.
+    #[serde(default)]
+    pub provider: Option<String>,
     /// Arguments passed to the program.
     ///
     /// Use `{input}` as a placeholder for a temporary file that contains the
@@ -175,6 +179,11 @@ impl YamlTransformDef {
     pub fn validate(&self) -> Result<()> {
         if self.name.trim().is_empty() {
             anyhow::bail!("transform 'name' must not be empty");
+        }
+        if let Some(provider) = &self.provider {
+            ToolId::new(provider.clone()).with_context(|| {
+                format!("transform '{}': invalid stable provider id", self.name)
+            })?;
         }
         match (&self.ai, &self.plugin, &self.program) {
             // ai takes precedence – validate the backend name.
@@ -364,6 +373,36 @@ impl YamlTransformDef {
             .unwrap_or(false)
     }
 
+    /// Resolve the stable provider ID used by planning/toolchain evidence.
+    pub fn provider_id(&self, registry: &ToolRegistry) -> Result<ToolId> {
+        if let Some(provider) = &self.provider {
+            return ToolId::new(provider.clone());
+        }
+        if let Some(program) = &self.program {
+            return Ok(registry.canonical_id_for_executable(program));
+        }
+        if let Some(plugin) = &self.plugin {
+            let component = plugin
+                .chars()
+                .map(|character| {
+                    if character.is_ascii_alphanumeric() || matches!(character, '_' | '-') {
+                        character.to_ascii_lowercase()
+                    } else {
+                        '-'
+                    }
+                })
+                .collect::<String>();
+            return ToolId::new(format!("tool.plugin.{component}"));
+        }
+        if let Some(ai) = &self.ai {
+            return ToolId::new(format!("tool.ai.{}", ai.to_ascii_lowercase()));
+        }
+        anyhow::bail!(
+            "transform '{}': cannot resolve provider identity",
+            self.name
+        )
+    }
+
     /// Build a [`CommandAggregationTransform`] from this definition.
     ///
     /// Only valid when `program` is set; call [`validate`](Self::validate)
@@ -540,34 +579,75 @@ pub fn load_aggregation_transforms_from_yaml(path: &str) -> Result<AggregationRe
 /// * the file cannot be read,
 /// * the YAML is malformed,
 /// * any transform definition fails validation.
-pub fn build_graph_and_executor_from_yaml(
-    path: &str,
-) -> Result<(crate::graph::TransformGraph, crate::graph::DagExecutor)> {
+pub fn load_tool_registry_from_yaml(path: &str) -> Result<ToolRegistry> {
     let content = fs::read_to_string(path)
         .with_context(|| format!("Failed to read transform config: {}", path))?;
-    build_graph_and_executor_from_str(&content)
-        .with_context(|| format!("Failed to build graph and executor from: {}", path))
+    parse_tool_registry_from_str(&content)
+        .with_context(|| format!("Failed to load tool registry from: {}", path))
 }
 
-/// Build a [`TransformGraph`] and a [`DagExecutor`] from a YAML string.
-///
-/// See [`build_graph_and_executor_from_yaml`] for details.
-pub fn build_graph_and_executor_from_str(
+/// Build the runtime provider registry implied by a transform YAML document.
+pub fn parse_tool_registry_from_str(yaml: &str) -> Result<ToolRegistry> {
+    let config: YamlTransformConfig =
+        serde_yaml_ng::from_str(yaml).context("Failed to parse YAML transform config")?;
+    let mut registry = ToolRegistry::builtins();
+
+    for def in &config.transforms {
+        def.validate()?;
+        let from: crate::graph::Format = def.from.parse()?;
+        let to: crate::graph::Format = def.to.parse()?;
+        let capability = transform_capability_id(from, to);
+        let provider = def.provider_id(&registry)?;
+
+        if let Some(program) = &def.program {
+            registry.ensure_command_provider(provider, program.clone(), capability)?;
+        } else {
+            let provider_name = def
+                .plugin
+                .as_deref()
+                .or(def.ai.as_deref())
+                .unwrap_or(def.name.as_str());
+            registry.ensure_virtual_provider(provider, provider_name, capability)?;
+        }
+    }
+
+    Ok(registry)
+}
+
+/// Build graph, executor, and canonical runtime tool registry from a YAML file.
+pub fn build_graph_executor_and_tools_from_yaml(
+    path: &str,
+) -> Result<(
+    crate::graph::TransformGraph,
+    crate::graph::DagExecutor,
+    ToolRegistry,
+)> {
+    let content = fs::read_to_string(path)
+        .with_context(|| format!("Failed to read transform config: {}", path))?;
+    build_graph_executor_and_tools_from_str(&content)
+        .with_context(|| format!("Failed to build graph/executor/tools from: {}", path))
+}
+
+/// Build graph, executor, and canonical runtime tool registry from YAML text.
+pub fn build_graph_executor_and_tools_from_str(
     yaml: &str,
-) -> Result<(crate::graph::TransformGraph, crate::graph::DagExecutor)> {
+) -> Result<(
+    crate::graph::TransformGraph,
+    crate::graph::DagExecutor,
+    ToolRegistry,
+)> {
     use std::sync::Arc;
 
     use crate::graph::{DagExecutor, Format, InputKind, TransformEdge, TransformGraph};
 
     let config: YamlTransformConfig =
         serde_yaml_ng::from_str(yaml).context("Failed to parse YAML transform config")?;
-
+    let tool_registry = parse_tool_registry_from_str(yaml)?;
     let mut graph = TransformGraph::new();
     let mut executor = DagExecutor::new();
 
     for def in &config.transforms {
         def.validate()?;
-
         let from: Format = def
             .from
             .parse()
@@ -576,24 +656,27 @@ pub fn build_graph_and_executor_from_str(
             .to
             .parse()
             .with_context(|| format!("transform '{}': invalid 'to' format", def.name))?;
-
         let input_kind = if def.is_collection() {
             InputKind::Collection
         } else {
             InputKind::Single
         };
+        let provider = def.provider_id(&tool_registry)?;
+        let capability = transform_capability_id(from, to);
 
-        graph.add_transform(TransformEdge::with_input_kind(
-            from,
-            to,
-            def.cost,
-            def.quality,
-            input_kind,
-        ));
+        graph.add_transform(
+            TransformEdge::with_input_kind(from, to, def.cost, def.quality, input_kind)
+                .with_provider(provider.to_string(), capability.to_string()),
+        );
 
         if def.is_collection() {
             let agg = Arc::new(def.to_aggregation_transform()?);
             executor.register_aggregation(from, to, agg);
+        } else if def.plugin.is_some() {
+            anyhow::bail!(
+                "transform '{}': graph execution requires plugin registration through an embedding registry",
+                def.name
+            );
         } else {
             let transform: Arc<dyn Transform + Send + Sync> = if def.ai.is_some() {
                 Arc::new(def.to_ai_transform()?)
@@ -604,6 +687,22 @@ pub fn build_graph_and_executor_from_str(
         }
     }
 
+    Ok((graph, executor, tool_registry))
+}
+
+/// Compatibility wrapper returning only graph and executor.
+pub fn build_graph_and_executor_from_yaml(
+    path: &str,
+) -> Result<(crate::graph::TransformGraph, crate::graph::DagExecutor)> {
+    let (graph, executor, _tools) = build_graph_executor_and_tools_from_yaml(path)?;
+    Ok((graph, executor))
+}
+
+/// Compatibility wrapper returning only graph and executor.
+pub fn build_graph_and_executor_from_str(
+    yaml: &str,
+) -> Result<(crate::graph::TransformGraph, crate::graph::DagExecutor)> {
+    let (graph, executor, _tools) = build_graph_executor_and_tools_from_str(yaml)?;
     Ok((graph, executor))
 }
 

@@ -1,0 +1,161 @@
+schema: renderflow.tool-registry/v1
+
+tools:
+  - id: tool.pandoc
+    name: Pandoc
+    discovery:
+      kind: executable
+      candidates: [pandoc]
+      version_args: [--version]
+    version:
+      min_inclusive: "2.0.0"
+    operating_systems: [linux, macos, windows]
+    capabilities:
+      - document.convert
+      - document.generate
+    input_media_types:
+      - text/markdown
+      - text/html
+      - text/x-rst
+      - application/epub+zip
+      - application/x-tex
+    output_media_types:
+      - text/html
+      - application/pdf
+      - application/vnd.openxmlformats-officedocument.wordprocessingml.document
+      - application/epub+zip
+      - application/x-tex
+    determinism: configuration_dependent
+    locality: local
+    fidelity: path_dependent
+    support_tier: required
+    license_notes: "See the Pandoc upstream license for redistribution terms."
+    distribution_notes: "Typically installed through the host package manager or official Pandoc release artifacts."
+
+  - id: tool.tectonic
+    name: Tectonic
+    discovery:
+      kind: executable
+      candidates: [tectonic]
+      version_args: [--version]
+    operating_systems: [linux, macos, windows]
+    capabilities:
+      - pdf.typeset
+      - latex.compile
+    input_media_types:
+      - application/x-tex
+      - text/x-tex
+    output_media_types:
+      - application/pdf
+    determinism: configuration_dependent
+    locality: network_optional
+    fidelity: path_dependent
+    support_tier: optional
+    license_notes: "See the Tectonic upstream license for redistribution terms."
+    distribution_notes: "Optional unless a selected PDF path uses Tectonic."
+
+  - id: tool.ffmpeg
+    name: FFmpeg
+    discovery:
+      kind: executable
+      candidates: [ffmpeg]
+      version_args: [--version]
+    version:
+      min_inclusive: "4.0.0"
+    operating_systems: [linux, macos, windows]
+    capabilities:
+      - media.convert
+      - audio.convert
+      - image.convert
+      - video.convert
+    input_media_types:
+      - audio/*
+      - image/*
+      - video/*
+    output_media_types:
+      - audio/*
+      - image/*
+      - video/*
+    determinism: configuration_dependent
+    locality: local
+    fidelity: path_dependent
+    support_tier: optional
+    license_notes: "FFmpeg licensing is build-dependent; consult the exact distributed build."
+    distribution_notes: "Used by Renderflow audio, image, and future video adapters."
+
+  - id: tool.wkhtmltopdf
+    name: wkhtmltopdf
+    discovery:
+      kind: executable
+      candidates: [wkhtmltopdf]
+      version_args: [--version]
+    operating_systems: [linux, macos, windows]
+    capabilities:
+      - html.render.pdf
+    input_media_types: [text/html]
+    output_media_types: [application/pdf]
+    determinism: configuration_dependent
+    locality: local
+    fidelity: partial_loss
+    support_tier: experimental
+    license_notes: "Consult upstream wkhtmltopdf licensing and bundled Qt terms."
+    distribution_notes: "Alternative HTML-to-PDF provider; not required by the default document pipeline."
+
+  - id: tool.zip
+    name: Info-ZIP compatible zip
+    discovery:
+      kind: executable
+      candidates: [zip]
+      version_args: [--version]
+    operating_systems: [linux, macos, windows]
+    capabilities:
+      - archive.zip.create
+      - comic.cbz.create
+    output_media_types:
+      - application/zip
+      - application/vnd.comicbook+zip
+    determinism: configuration_dependent
+    locality: local
+    fidelity: lossless
+    support_tier: experimental
+    license_notes: "License depends on the compatible zip implementation selected on PATH."
+    distribution_notes: "Used by command-backed CBZ aggregation when configured."
+
+  - id: tool.img2pdf
+    name: img2pdf
+    discovery:
+      kind: executable
+      candidates: [img2pdf]
+      version_args: [--version]
+    operating_systems: [linux, macos, windows]
+    capabilities:
+      - image.aggregate.pdf
+    input_media_types: [image/*]
+    output_media_types: [application/pdf]
+    determinism: deterministic
+    locality: local
+    fidelity: lossless
+    support_tier: experimental
+    license_notes: "Consult the img2pdf upstream license for redistribution terms."
+    distribution_notes: "Used by lossless image-to-PDF aggregation when configured."
+
+  - id: tool.ghostscript
+    name: Ghostscript
+    discovery:
+      kind: executable
+      candidates: [gs]
+      version_args: [--version]
+    operating_systems: [linux, macos, windows]
+    capabilities:
+      - pdf.process
+      - tiff.aggregate.press_pdf
+    input_media_types:
+      - image/tiff
+      - application/pdf
+    output_media_types: [application/pdf]
+    determinism: configuration_dependent
+    locality: local
+    fidelity: path_dependent
+    support_tier: experimental
+    license_notes: "Ghostscript is available under AGPL/commercial licensing; review distribution obligations."
+    distribution_notes: "Used by press-oriented TIFF/PDF command adapters when configured."

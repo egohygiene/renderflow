@@ -6,4 +6,5 @@ pub mod graph_build;
 pub mod inspect;
 pub mod plugin;
 pub mod system;
+pub mod tools;
 pub mod watch;

@@ -124,10 +124,7 @@ impl fmt::Debug for ProcessInput {
         match self {
             Self::Null => f.write_str("Null"),
             Self::Inherit => f.write_str("Inherit"),
-            Self::Bytes(bytes) => f
-                .debug_struct("Bytes")
-                .field("len", &bytes.len())
-                .finish(),
+            Self::Bytes(bytes) => f.debug_struct("Bytes").field("len", &bytes.len()).finish(),
         }
     }
 }
@@ -237,7 +234,8 @@ impl ProcessEnvironment {
     }
 
     pub fn allow_sensitive(mut self, name: impl Into<String>) -> Self {
-        self.allow_sensitive.insert(normalize_env_name(&name.into()));
+        self.allow_sensitive
+            .insert(normalize_env_name(&name.into()));
         self
     }
 
@@ -259,11 +257,7 @@ impl ProcessEnvironment {
         self
     }
 
-    pub fn set_sensitive(
-        mut self,
-        name: impl Into<String>,
-        value: impl Into<String>,
-    ) -> Self {
+    pub fn set_sensitive(mut self, name: impl Into<String>, value: impl Into<String>) -> Self {
         let name = name.into();
         self.overrides.insert(
             normalize_env_name(&name),
@@ -389,7 +383,10 @@ impl fmt::Debug for ProcessRequest {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("ProcessRequest")
             .field("executable", &self.executable)
-            .field("args", &safe_argument_display(&self.args, &Redactor::default()))
+            .field(
+                "args",
+                &safe_argument_display(&self.args, &Redactor::default()),
+            )
             .field("invocation_kind", &self.invocation_kind)
             .field("working_directory", &self.working_directory)
             .field("stdin", &self.stdin)
@@ -451,8 +448,11 @@ impl ProcessRequest {
         I: IntoIterator<Item = S>,
         S: Into<String>,
     {
-        self.args
-            .extend(values.into_iter().map(|value| ProcessArgument::plain(value)));
+        self.args.extend(
+            values
+                .into_iter()
+                .map(|value| ProcessArgument::plain(value)),
+        );
         self
     }
 
@@ -682,26 +682,29 @@ impl ProcessExecutor {
                 .is_some_and(ProcessCancellationToken::is_cancelled)
             {
                 terminate_process_tree(&mut child, request.tree_mode).map_err(|error| {
-                    ProcessError::Io(redactor.redact(&format!(
-                        "failed to terminate cancelled process: {error}"
-                    )))
+                    ProcessError::Io(
+                        redactor.redact(&format!("failed to terminate cancelled process: {error}")),
+                    )
                 })?;
                 break ProcessTermination::Cancelled;
             }
 
-            if request.timeout.is_some_and(|timeout| started.elapsed() >= timeout) {
+            if request
+                .timeout
+                .is_some_and(|timeout| started.elapsed() >= timeout)
+            {
                 terminate_process_tree(&mut child, request.tree_mode).map_err(|error| {
-                    ProcessError::Io(redactor.redact(&format!(
-                        "failed to terminate timed-out process: {error}"
-                    )))
+                    ProcessError::Io(
+                        redactor.redact(&format!("failed to terminate timed-out process: {error}")),
+                    )
                 })?;
                 break ProcessTermination::TimedOut;
             }
 
             match child.try_wait().map_err(|error| {
-                ProcessError::Io(redactor.redact(&format!(
-                    "failed while waiting for process: {error}"
-                )))
+                ProcessError::Io(
+                    redactor.redact(&format!("failed while waiting for process: {error}")),
+                )
             })? {
                 Some(status) => break termination_from_status(status),
                 None => thread::sleep(POLL_INTERVAL),
@@ -715,9 +718,9 @@ impl ProcessExecutor {
                     debug!(error = %redactor.redact(&error.to_string()), "stdin writer ended after process termination");
                 }
                 Ok(Err(error)) => {
-                    return Err(ProcessError::Io(redactor.redact(&format!(
-                        "failed to write process stdin: {error}"
-                    ))));
+                    return Err(ProcessError::Io(
+                        redactor.redact(&format!("failed to write process stdin: {error}")),
+                    ));
                 }
                 Err(_) if !termination.is_success() => {}
                 Err(_) => {
@@ -777,8 +780,17 @@ impl ProcessExecutor {
 
     /// Probe `<tool> --version` using the same bounded process policy.
     pub fn probe_version(&self, executable: &str) -> ToolProbeEvidence {
+        self.probe_version_with_args(executable, &["--version".to_string()])
+    }
+
+    /// Probe a tool version using an explicit argv declaration from the tool registry.
+    pub fn probe_version_with_args(
+        &self,
+        executable: &str,
+        version_args: &[String],
+    ) -> ToolProbeEvidence {
         let request = ProcessRequest::direct(executable)
-            .arg("--version")
+            .args(version_args.iter().cloned())
             .timeout(PROBE_TIMEOUT)
             .capture_limit(PROBE_CAPTURE_LIMIT_BYTES);
 
@@ -882,7 +894,8 @@ impl CapturedOutput {
         if self.truncated {
             format!(
                 "{text}\n[capture truncated: retained {} of {} bytes]",
-                self.bytes.len(), self.total_bytes
+                self.bytes.len(),
+                self.total_bytes
             )
         } else {
             text.to_string()
@@ -960,7 +973,10 @@ impl ProcessResult {
                 format!("Command `{}` exited with code {code}", self.command_display)
             }
             ProcessTermination::Signaled => {
-                format!("Command `{}` was terminated by a signal", self.command_display)
+                format!(
+                    "Command `{}` was terminated by a signal",
+                    self.command_display
+                )
             }
             ProcessTermination::TimedOut => {
                 format!("Command `{}` timed out", self.command_display)
@@ -1093,12 +1109,18 @@ impl ProcessExpectedOutput {
     fn validate(&self, before: &OutputSnapshot) -> Option<String> {
         let after = OutputSnapshot::capture(&self.path);
         if !after.exists {
-            return Some(format!("expected output '{}' was not produced", self.path.display()));
+            return Some(format!(
+                "expected output '{}' was not produced",
+                self.path.display()
+            ));
         }
         match self.kind {
             ExpectedOutputKind::Any => {}
             ExpectedOutputKind::File if !after.is_file => {
-                return Some(format!("expected output '{}' is not a file", self.path.display()));
+                return Some(format!(
+                    "expected output '{}' is not a file",
+                    self.path.display()
+                ));
             }
             ExpectedOutputKind::Directory if !after.is_directory => {
                 return Some(format!(
@@ -1109,7 +1131,10 @@ impl ProcessExpectedOutput {
             _ => {}
         }
         if self.require_non_empty && after.is_file && after.len == Some(0) {
-            return Some(format!("expected output '{}' is empty", self.path.display()));
+            return Some(format!(
+                "expected output '{}' is empty",
+                self.path.display()
+            ));
         }
         if self.require_change && &after == before {
             return Some(format!(
@@ -1139,7 +1164,8 @@ impl Redactor {
     {
         self.secrets
             .extend(values.into_iter().filter(|value| !value.is_empty()));
-        self.secrets.sort_by_key(|value| std::cmp::Reverse(value.len()));
+        self.secrets
+            .sort_by_key(|value| std::cmp::Reverse(value.len()));
         self.secrets.dedup();
     }
 
@@ -1159,7 +1185,10 @@ struct BoundedBytes {
     truncated: bool,
 }
 
-fn spawn_bounded_reader<R>(reader: R, max_bytes: usize) -> thread::JoinHandle<io::Result<BoundedBytes>>
+fn spawn_bounded_reader<R>(
+    reader: R,
+    max_bytes: usize,
+) -> thread::JoinHandle<io::Result<BoundedBytes>>
 where
     R: Read + Send + 'static,
 {
@@ -1351,8 +1380,7 @@ pub(crate) fn is_explicit_shell_invocation(executable: &str, args: &[String]) ->
         .to_ascii_lowercase();
     let is_shell = matches!(
         basename.as_str(),
-        "sh"
-            | "bash"
+        "sh" | "bash"
             | "zsh"
             | "dash"
             | "ksh"
@@ -1542,8 +1570,7 @@ mod tests {
         let output = directory.path().join("missing.out");
         let error = ProcessExecutor::new()
             .execute_checked(
-                ProcessRequest::direct("true")
-                    .expect_output(ProcessExpectedOutput::file(&output)),
+                ProcessRequest::direct("true").expect_output(ProcessExpectedOutput::file(&output)),
             )
             .unwrap_err();
         assert!(error.to_string().contains("was not produced"));

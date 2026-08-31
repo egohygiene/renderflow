@@ -2,7 +2,7 @@ use anyhow::{bail, Result};
 use clap::Parser;
 use tracing::info;
 
-use crate::cli::{AiCommands, Cli, Commands, GraphCommands, PluginCommands};
+use crate::cli::{AiCommands, Cli, Commands, GraphCommands, PluginCommands, ToolCommands};
 use crate::{commands, transforms};
 
 /// Initialize logging for a Renderflow CLI run.
@@ -133,6 +133,19 @@ pub fn run_cli(cli: Cli) -> Result<()> {
                 optimization,
             } => commands::graph::run_stats(&config, target.as_deref(), optimization)?,
         },
+        Some(Commands::Tools { subcommand }) => match subcommand {
+            ToolCommands::List { format, transforms } => {
+                commands::tools::run_list(transforms.as_deref(), &format)?
+            }
+            ToolCommands::Inspect {
+                id,
+                format,
+                transforms,
+            } => commands::tools::run_inspect(&id, transforms.as_deref(), &format)?,
+        },
+        Some(Commands::Capabilities { format, transforms }) => {
+            commands::tools::run_capabilities(transforms.as_deref(), &format)?
+        }
         Some(Commands::Version) => commands::system::run_version(),
         Some(Commands::Env) => commands::system::run_env(),
         Some(Commands::Doctor { strict }) => commands::system::run_doctor(strict)?,

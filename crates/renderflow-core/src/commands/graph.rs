@@ -8,13 +8,14 @@ use crate::graph::execution_plan::ExecutionPlan;
 use crate::graph::renderers::renderer_for;
 use crate::graph::{Format, MultiTargetDag};
 use crate::optimization::OptimizationMode;
-use crate::transforms::yaml_loader::build_graph_and_executor_from_yaml;
+use crate::toolchain::filter_graph_for_current_toolchain;
+use crate::transforms::yaml_loader::build_graph_executor_and_tools_from_yaml;
 
 // ── helpers ─────────────────────────────────────────────────────────────────
 
 /// Load the config, build the transform graph, compute the DAG, and return an
 /// [`ExecutionPlan`].
-fn load_plan(
+pub(crate) fn load_plan(
     config_path: &str,
     target: Option<&str>,
     optimization: Option<OptimizationMode>,
@@ -29,8 +30,14 @@ fn load_plan(
         )
     })?;
 
-    let (graph, _executor) = build_graph_and_executor_from_yaml(transforms_path)?;
-    info!("Loaded transform graph from '{}'", transforms_path);
+    let (raw_graph, _executor, tool_registry) =
+        build_graph_executor_and_tools_from_yaml(transforms_path)?;
+    let (graph, tool_inventory, tool_context) =
+        filter_graph_for_current_toolchain(&raw_graph, &tool_registry);
+    info!(
+        "Loaded tool-aware transform graph from '{}'",
+        transforms_path
+    );
 
     let opt_mode = optimization.unwrap_or(config.optimization);
 
@@ -61,12 +68,18 @@ fn load_plan(
         .ok_or_else(|| {
             anyhow::anyhow!(
                 "Could not build an execution plan: one or more target formats \
-                 are not reachable from '{}' in the transform graph",
-                source_format
+                 are not reachable from '{}' after provider availability filtering. Blocked providers: {}",
+                source_format,
+                tool_inventory.blocked_summaries().join("; ")
             )
         })?;
 
-    let plan = ExecutionPlan::from_dag(&dag, source_format, &targets, opt_mode);
+    let mut plan = ExecutionPlan::from_dag(&dag, source_format, &targets, opt_mode);
+    let toolchain = tool_registry.fingerprint_for_dag(&tool_inventory, &dag, &tool_context)?;
+    plan.attach_toolchain(toolchain);
+    for diagnostic in tool_inventory.blocked_summaries() {
+        plan.add_tool_diagnostic(format!("Provider excluded from planning: {diagnostic}"));
+    }
     Ok((plan, targets))
 }
 
