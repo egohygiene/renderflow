@@ -1,9 +1,9 @@
 use anyhow::{Context, Result};
-use std::io::ErrorKind;
 use std::path::Path;
 use tracing::info;
 
 use crate::adapters::command::run_command;
+use crate::process::{ProcessExecutor, ToolProbeStatus};
 use crate::strategies::{OutputStrategy, PandocArgs, RenderContext};
 
 /// Renders a document to PDF format using pandoc with the tectonic PDF engine.
@@ -20,21 +20,28 @@ impl PdfStrategy {
         }
     }
 
-    /// Returns an error if the tectonic PDF engine is not installed.
+    /// Returns an error if the tectonic PDF engine is not installed or cannot
+    /// be version-probed through the canonical process executor.
     fn check_tectonic() -> Result<()> {
-        match std::process::Command::new("tectonic")
-            .arg("--version")
-            .output()
-        {
-            Err(e) if e.kind() == ErrorKind::NotFound => {
-                anyhow::bail!(
-                    "PDF rendering failed: `tectonic` is not installed.\n\n\
-                     Fix:\n\
-                     - Install tectonic: https://tectonic-typesetting.github.io/en-US/\n\
-                     - Or configure a different PDF engine"
-                );
-            }
-            _ => Ok(()),
+        let probe = ProcessExecutor::new().probe_version("tectonic");
+        match probe.status {
+            ToolProbeStatus::Available => Ok(()),
+            ToolProbeStatus::Missing => anyhow::bail!(
+                "PDF rendering failed: `tectonic` is not installed.\n\n\
+                 Fix:\n\
+                 - Install tectonic: https://tectonic-typesetting.github.io/en-US/\n\
+                 - Or configure a different PDF engine"
+            ),
+            ToolProbeStatus::TimedOut => anyhow::bail!(
+                "PDF rendering failed: `tectonic --version` timed out. \
+                 Verify the tectonic installation before retrying."
+            ),
+            ToolProbeStatus::Failed => anyhow::bail!(
+                "PDF rendering failed: tectonic is installed but its version probe failed: {}",
+                probe
+                    .diagnostic
+                    .unwrap_or_else(|| "unknown process failure".to_string())
+            ),
         }
     }
 }
@@ -49,13 +56,11 @@ impl OutputStrategy for PdfStrategy {
 
         Self::check_tectonic()?;
 
-        // Resolve the optional template to a file path within the template directory.
         let template_path = if let Some(ref name) = self.template {
             let path = Path::new(&self.template_dir).join(name);
             if !path.exists() {
                 anyhow::bail!(
-                    "Template file not found: '{}'. \
-                     Ensure the template exists in the configured template directory.",
+                    "Template file not found: '{}'. Ensure the template exists in the configured template directory.",
                     path.display()
                 );
             }
@@ -86,12 +91,11 @@ impl OutputStrategy for PdfStrategy {
         let args_refs: Vec<&str> = args.iter().map(String::as_str).collect();
 
         run_command("pandoc", &args_refs)
-        .with_context(|| format!(
-            "Failed to render PDF output '{}'. \
-             Check that pandoc and tectonic are installed (`pandoc --version`, `tectonic --version`) \
-             and that the input file '{}' is valid Markdown.",
-            ctx.output_path, ctx.input_path
-        ))?;
+            .with_context(|| format!(
+                "Failed to render PDF output '{}'. Check that pandoc and tectonic are installed \
+                 (`pandoc --version`, `tectonic --version`) and that the input file '{}' is valid Markdown.",
+                ctx.output_path, ctx.input_path
+            ))?;
         info!(output = %ctx.output_path, "PDF rendering completed successfully");
         Ok(())
     }
@@ -117,13 +121,8 @@ mod tests {
         }
     }
 
-    /// Returns `true` if the `tectonic` binary is available in PATH.
     fn tectonic_available() -> bool {
-        std::process::Command::new("tectonic")
-            .arg("--version")
-            .output()
-            .map(|o| o.status.success())
-            .unwrap_or(false)
+        ProcessExecutor::new().probe_version("tectonic").is_available()
     }
 
     #[test]
@@ -134,7 +133,6 @@ mod tests {
         let result = strategy.render(&ctx);
         assert!(result.is_err());
         let msg = format!("{:#}", result.unwrap_err());
-        // The error is either a missing-tectonic error or a pandoc render error.
         assert!(
             msg.contains("tectonic") || msg.contains("Failed to render PDF output"),
             "error should describe what failed: {}",
@@ -145,15 +143,14 @@ mod tests {
     #[test]
     fn test_check_tectonic_returns_clear_error_when_missing() {
         if tectonic_available() {
-            // Nothing to test when tectonic is present.
             return;
         }
         let result = PdfStrategy::check_tectonic();
         assert!(result.is_err());
         let msg = result.unwrap_err().to_string();
         assert!(
-            msg.contains("tectonic") && msg.contains("not installed"),
-            "error should explain that tectonic is not installed: {}",
+            msg.contains("tectonic"),
+            "error should explain the tectonic problem: {}",
             msg
         );
     }
@@ -166,8 +163,6 @@ mod tests {
 
     #[test]
     fn test_pdf_strategy_no_template_does_not_check_template_dir() {
-        // When no template is configured the template_dir is never accessed,
-        // so a non-existent directory must not cause an error at construction time.
         let strategy = PdfStrategy::new(None, "/nonexistent/dir".to_string());
         assert!(strategy.template.is_none());
     }
@@ -185,14 +180,10 @@ mod tests {
         assert_eq!(ctx.input_format, InputFormat::Rst);
     }
 
-    /// Verifies that `dry_run = true` causes the strategy to skip pandoc and
-    /// tectonic checks entirely and return `Ok(())`.
     #[test]
     fn test_pdf_strategy_dry_run_skips_execution() {
         let vars = HashMap::new();
         let strategy = PdfStrategy::new(None, "templates".to_string());
-        // Use a non-existent input path; real pandoc/tectonic calls would fail,
-        // but dry-run must succeed without invoking any external tools.
         let ctx = RenderContext {
             input_path: "/nonexistent/input.md",
             input_format: InputFormat::Markdown,
@@ -200,15 +191,9 @@ mod tests {
             variables: &vars,
             dry_run: true,
         };
-        let result = strategy.render(&ctx);
-        assert!(
-            result.is_ok(),
-            "dry-run should succeed without invoking pandoc or tectonic: {:?}",
-            result
-        );
+        assert!(strategy.render(&ctx).is_ok());
     }
 
-    /// Verifies that `dry_run = true` skips even template validation.
     #[test]
     fn test_pdf_strategy_dry_run_with_missing_template_skips_execution() {
         let vars = HashMap::new();
@@ -223,12 +208,7 @@ mod tests {
             variables: &vars,
             dry_run: true,
         };
-        let result = strategy.render(&ctx);
-        assert!(
-            result.is_ok(),
-            "dry-run should succeed even with a missing template: {:?}",
-            result
-        );
+        assert!(strategy.render(&ctx).is_ok());
     }
 
     #[test]
@@ -239,10 +219,8 @@ mod tests {
 
         let mut input = NamedTempFile::new().unwrap();
         writeln!(input, "# Hello\n\nThis is a test.").unwrap();
-
         let output = NamedTempFile::new().unwrap();
         let output_path = output.path().with_extension("pdf");
-
         let vars = HashMap::new();
         let strategy = PdfStrategy::new(None, "templates".to_string());
         let ctx = RenderContext {
@@ -252,8 +230,7 @@ mod tests {
             variables: &vars,
             dry_run: false,
         };
-        let result = strategy.render(&ctx);
-        assert!(result.is_ok());
+        assert!(strategy.render(&ctx).is_ok());
         assert!(output_path.exists());
     }
 }

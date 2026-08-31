@@ -1,18 +1,13 @@
 use anyhow::Result;
-use std::process::Command;
 
+use crate::process::ProcessExecutor;
 use crate::transforms::plugin::{PluginCapabilities, PluginMetadata, PluginRegistry};
+
 // ── list ──────────────────────────────────────────────────────────────────────
 
 /// Run `renderflow plugin list`.
 ///
-/// Prints a summary table of every plugin in `registry`:
-///
-/// ```text
-/// Registered plugins (2):
-///   upper       1.0.0   A test plugin
-///   lower       0.5.0   Converts text to lowercase
-/// ```
+/// Prints a summary table of every plugin in `registry`.
 pub fn run_list(registry: &PluginRegistry) -> Result<()> {
     let mut names: Vec<&str> = registry.plugin_names();
     names.sort();
@@ -40,9 +35,6 @@ pub fn run_list(registry: &PluginRegistry) -> Result<()> {
 // ── info ──────────────────────────────────────────────────────────────────────
 
 /// Run `renderflow plugin info <name>`.
-///
-/// Prints the full [`PluginMetadata`] for the named plugin, or returns an
-/// error when the plugin is not registered.
 pub fn run_info(registry: &PluginRegistry, name: &str) -> Result<()> {
     let info = registry
         .plugin_info(name)
@@ -109,9 +101,6 @@ fn print_capabilities(caps: &PluginCapabilities) {
 // ── validate ─────────────────────────────────────────────────────────────────
 
 /// Run `renderflow plugin validate`.
-///
-/// Validates all plugin metadata in `registry` and prints a report.
-/// Returns an error when any validation issue is found.
 pub fn run_validate(registry: &PluginRegistry) -> Result<()> {
     let issues = registry.validate_all();
 
@@ -132,12 +121,8 @@ pub fn run_validate(registry: &PluginRegistry) -> Result<()> {
 
 /// Run `renderflow plugin doctor`.
 ///
-/// Runs diagnostics on every registered plugin:
-/// * Validates metadata.
-/// * Checks that required external tools are present on `PATH`.
-///
-/// Prints a report and returns `Ok(())` even when issues are found (so the
-/// caller can decide whether to treat the output as advisory or fatal).
+/// Validates metadata and probes required external tools through Renderflow's
+/// canonical bounded process executor.
 pub fn run_doctor(registry: &PluginRegistry) -> Result<()> {
     let mut names: Vec<&str> = registry.plugin_names();
     names.sort();
@@ -154,13 +139,11 @@ pub fn run_doctor(registry: &PluginRegistry) -> Result<()> {
     for name in &names {
         let mut issues: Vec<String> = Vec::new();
 
-        // 1. Metadata validation.
         if let Some(meta) = registry.metadata(name) {
             if let Err(e) = meta.validate() {
                 issues.push(format!("invalid metadata: {}", e));
             }
 
-            // 2. Required tools check.
             for tool in &meta.required_tools {
                 if !tool_is_available(tool) {
                     issues.push(format!("required tool '{}' was not found on PATH", tool));
@@ -188,13 +171,9 @@ pub fn run_doctor(registry: &PluginRegistry) -> Result<()> {
     Ok(())
 }
 
-/// Return `true` when `tool` can be found on the system `PATH`.
+/// Return `true` when `tool` can be found and successfully version-probed.
 fn tool_is_available(tool: &str) -> bool {
-    Command::new(tool)
-        .arg("--version")
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false)
+    ProcessExecutor::new().probe_version(tool).is_available()
 }
 
 #[cfg(test)]
@@ -220,8 +199,6 @@ mod tests {
             .with_author("Tester")
     }
 
-    // ── run_list ──────────────────────────────────────────────────────────────
-
     #[test]
     fn test_list_empty_registry_succeeds() {
         let registry = PluginRegistry::new();
@@ -243,8 +220,6 @@ mod tests {
         registry.register(Arc::new(DummyPlugin("bare")));
         assert!(run_list(&registry).is_ok());
     }
-
-    // ── run_info ──────────────────────────────────────────────────────────────
 
     #[test]
     fn test_info_known_plugin_succeeds() {
@@ -270,8 +245,6 @@ mod tests {
         assert!(run_info(&registry, "bare").is_ok());
     }
 
-    // ── run_validate ──────────────────────────────────────────────────────────
-
     #[test]
     fn test_validate_empty_registry_succeeds() {
         let registry = PluginRegistry::new();
@@ -286,8 +259,6 @@ mod tests {
             .unwrap();
         assert!(run_validate(&registry).is_ok());
     }
-
-    // ── run_doctor ────────────────────────────────────────────────────────────
 
     #[test]
     fn test_doctor_empty_registry_succeeds() {
@@ -312,11 +283,8 @@ mod tests {
         registry
             .register_with_metadata(Arc::new(DummyPlugin("needs-tool")), meta)
             .unwrap();
-        // doctor returns Ok even when tools are missing (advisory output only)
         assert!(run_doctor(&registry).is_ok());
     }
-
-    // ── tool_is_available ─────────────────────────────────────────────────────
 
     #[test]
     fn test_tool_is_available_returns_false_for_nonexistent() {

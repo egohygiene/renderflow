@@ -1,5 +1,7 @@
 use anyhow::{bail, Result};
-use std::{env, path::PathBuf, process::Command};
+use std::{env, path::PathBuf};
+
+use crate::process::{ProcessExecutor, ToolProbeStatus};
 
 struct ToolCheck {
     name: &'static str,
@@ -24,23 +26,19 @@ const TOOL_CHECKS: [ToolCheck; 3] = [
 ];
 
 fn probe_tool_version(name: &str) -> Result<String, String> {
-    Command::new(name)
-        .arg("--version")
-        .output()
-        .map_err(|_| format!("missing ({name} not found in PATH)"))
-        .and_then(|output| {
-            if output.status.success() {
-                let stdout = String::from_utf8_lossy(&output.stdout);
-                let stderr = String::from_utf8_lossy(&output.stderr);
-                let line = stdout.lines().next().or_else(|| stderr.lines().next());
-                Ok(line.unwrap_or("available").trim().to_string())
-            } else {
-                Err(format!(
-                    "installed but failed to execute ({name} --version)"
-                ))
-            }
-        })
+    let probe = ProcessExecutor::new().probe_version(name);
+    match probe.status {
+        ToolProbeStatus::Available => Ok(probe
+            .version_line
+            .unwrap_or_else(|| "available".to_string())),
+        ToolProbeStatus::Missing => Err(format!("missing ({name} not found in PATH)")),
+        ToolProbeStatus::TimedOut => Err(format!("installed but version probe timed out ({name} --version)")),
+        ToolProbeStatus::Failed => Err(probe
+            .diagnostic
+            .unwrap_or_else(|| format!("installed but failed to execute ({name} --version)"))),
+    }
 }
+
 pub fn run_version() {
     println!("renderflow {}", env!("CARGO_PKG_VERSION"));
 }

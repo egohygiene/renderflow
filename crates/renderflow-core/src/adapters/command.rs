@@ -1,65 +1,56 @@
-use anyhow::{bail, Result};
-use std::io::ErrorKind;
-use std::process::Command;
+use anyhow::Result;
 use tracing::{error, info};
 
+use crate::process::{
+    is_explicit_shell_invocation, ProcessExecutor, ProcessRequest, DEFAULT_CAPTURE_LIMIT_BYTES,
+    DEFAULT_PROCESS_TIMEOUT,
+};
+
+/// Run one external command through Renderflow's canonical bounded process executor.
+///
+/// `program` is executed directly with the provided argv. If the caller
+/// explicitly names a shell program and supplies a shell-evaluation flag such as
+/// `-c`, the request is classified as an explicit shell invocation so the wider
+/// trust boundary remains visible in process diagnostics.
 pub fn run_command(program: &str, args: &[&str]) -> Result<()> {
-    info!(program = program, args = ?args, "Running command");
+    let owned_args: Vec<String> = args.iter().map(|value| (*value).to_string()).collect();
+    let request = if is_explicit_shell_invocation(program, &owned_args) {
+        ProcessRequest::shell(program)
+    } else {
+        ProcessRequest::direct(program)
+    }
+    .args(owned_args)
+    .timeout(DEFAULT_PROCESS_TIMEOUT)
+    .capture_limit(DEFAULT_CAPTURE_LIMIT_BYTES);
 
-    let output = Command::new(program).args(args).output().map_err(|e| {
-        if e.kind() == ErrorKind::NotFound {
-            anyhow::anyhow!(
-                "`{}` was not found. Make sure it is installed and available in your PATH.",
-                program
-            )
-        } else {
-            anyhow::anyhow!("Failed to launch `{}`: {}", program, e)
-        }
-    })?;
+    let result = ProcessExecutor::new().execute(request)?;
 
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let stderr = String::from_utf8_lossy(&output.stderr);
-
-    if !stdout.is_empty() {
-        info!(stdout = %stdout.trim_end(), "Command stdout");
+    if !result.stdout().redacted_text().is_empty() {
+        info!(
+            stdout = %result.stdout().redacted_text().trim_end(),
+            truncated = result.stdout().truncated(),
+            "Command stdout"
+        );
     }
 
-    if !stderr.is_empty() {
-        if output.status.success() {
-            info!(stderr = %stderr.trim_end(), "Command stderr");
+    if !result.stderr().redacted_text().is_empty() {
+        if result.is_success() {
+            info!(
+                stderr = %result.stderr().redacted_text().trim_end(),
+                truncated = result.stderr().truncated(),
+                "Command stderr"
+            );
         } else {
-            error!(stderr = %stderr.trim_end(), "Command stderr");
-        }
-    }
-
-    if !output.status.success() {
-        let stderr_hint = if stderr.trim().is_empty() {
-            String::new()
-        } else {
-            format!("\nStderr: {}", stderr.trim_end())
-        };
-        match output.status.code() {
-            Some(code) => {
-                error!(program = program, exit_code = code, "Command failed");
-                bail!(
-                    "Command `{}` failed with exit code {}{}",
-                    program,
-                    code,
-                    stderr_hint
-                );
-            }
-            None => {
-                error!(program = program, "Command terminated by signal");
-                bail!(
-                    "Command `{}` was terminated by a signal{}",
-                    program,
-                    stderr_hint
-                );
-            }
+            error!(
+                stderr = %result.stderr().redacted_text().trim_end(),
+                truncated = result.stderr().truncated(),
+                "Command stderr"
+            );
         }
     }
 
-    info!(program = program, "Command completed successfully");
+    result.ensure_success()?;
+    info!(program = program, duration_ms = result.duration_ms(), "Command completed successfully");
     Ok(())
 }
 
@@ -79,13 +70,14 @@ mod tests {
         assert!(result.is_ok(), "echo with multiple args should succeed");
     }
 
+    #[cfg(unix)]
     #[test]
     fn test_failure() {
         let result = run_command("false", &[]);
         assert!(result.is_err(), "false should fail");
         let err = result.unwrap_err().to_string();
         assert!(
-            err.contains("failed with exit code"),
+            err.contains("exited with code"),
             "error message should mention exit code"
         );
     }
@@ -105,10 +97,10 @@ mod tests {
         );
     }
 
+    #[cfg(unix)]
     #[test]
     fn test_failure_error_includes_stderr() {
-        // `sh -c` lets us write to stderr and exit non-zero in a portable way.
-        let result = run_command("sh", &["-c", "echo 'some error output' >&2; exit 1"]);
+        let result = run_command("sh", &["-c", "printf '%s' 'some error output' >&2; exit 1"]);
         assert!(result.is_err(), "command should fail");
         let err = result.unwrap_err().to_string();
         assert!(
