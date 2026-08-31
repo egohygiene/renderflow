@@ -1,9 +1,9 @@
-use std::fs;
 use std::path::Path;
 
 use anyhow::{Context, Result};
 use tracing::{debug, info};
 
+use crate::artifact::{ArtifactDescriptor, ArtifactStorageClass, ArtifactStore};
 use crate::config::load_config_for_graph;
 use crate::files::ensure_output_dir;
 use crate::graph::Format;
@@ -11,20 +11,6 @@ use crate::optimization::OptimizationMode;
 use crate::transforms::yaml_loader::build_graph_and_executor_from_yaml;
 
 /// Run graph-based execution targeting a single output format.
-///
-/// The transform graph is resolved automatically from the `transforms` YAML
-/// file referenced in `config_path`.  The shortest path (according to
-/// `optimization`) from the detected source format to `target` is found,
-/// and every intermediate and final format is produced.
-///
-/// # Errors
-///
-/// Returns an error when:
-/// * the config file cannot be read or parsed,
-/// * no `transforms` key is present in the config,
-/// * `target` is not a recognised format,
-/// * `target` is not reachable from the source format,
-/// * any transform in the execution plan fails.
 pub fn run_target(
     config_path: &str,
     target: &str,
@@ -44,18 +30,6 @@ pub fn run_target(
 }
 
 /// Run graph-based execution targeting all formats reachable from the source.
-///
-/// The transform graph is resolved automatically from the `transforms` YAML
-/// file referenced in `config_path`.  Every format reachable from the source
-/// format is produced in dependency order.
-///
-/// # Errors
-///
-/// Returns an error when:
-/// * the config file cannot be read or parsed,
-/// * no `transforms` key is present in the config,
-/// * no output formats are reachable from the source format,
-/// * any transform in the execution plan fails.
 pub fn run_all(
     config_path: &str,
     dry_run: bool,
@@ -65,9 +39,6 @@ pub fn run_all(
 }
 
 /// Shared implementation for `run_target` and `run_all`.
-///
-/// `explicit_targets` is `Some(vec)` for `--target` mode and `None` for
-/// `--all` mode (targets are discovered dynamically from the graph).
 fn run_impl(
     config_path: &str,
     explicit_targets: Option<Vec<Format>>,
@@ -95,7 +66,6 @@ fn run_impl(
     let opt_mode = optimization.unwrap_or(config.optimization);
     info!(optimization = %opt_mode, "Using optimization mode");
 
-    // Derive the source format from the config's input field.
     let source_format: Format = config.input_format().to_string().parse().with_context(|| {
         format!(
             "Could not map input format '{}' to a known graph format",
@@ -103,11 +73,9 @@ fn run_impl(
         )
     })?;
 
-    // Determine which formats to build.
     let targets: Vec<Format> = match explicit_targets {
-        Some(t) => t,
+        Some(targets) => targets,
         None => {
-            // --all: discover every format reachable from the source.
             let reachable = graph.reachable_from(source_format);
             if reachable.is_empty() {
                 anyhow::bail!(
@@ -120,7 +88,7 @@ fn run_impl(
                 reachable.len(),
                 reachable
                     .iter()
-                    .map(|f| f.to_string())
+                    .map(|format| format.to_string())
                     .collect::<Vec<_>>()
                     .join(", ")
             );
@@ -128,7 +96,6 @@ fn run_impl(
         }
     };
 
-    // Build the minimal DAG that covers all targets.
     let dag = graph
         .build_multi_target_dag_with_mode(source_format, &targets, opt_mode)
         .ok_or_else(|| {
@@ -139,12 +106,11 @@ fn run_impl(
             )
         })?;
 
-    // Emit the execution plan when debug logging is enabled.
     debug!("Execution plan (DAG tree):\n{}", dag.to_tree(source_format));
 
     let input_stem = Path::new(&config.input)
         .file_stem()
-        .and_then(|s| s.to_str())
+        .and_then(|stem| stem.to_str())
         .unwrap_or("document");
 
     let output_dir = if dry_run {
@@ -166,26 +132,54 @@ fn run_impl(
         ensure_output_dir(&config.output_dir)?
     };
 
-    let executor = executor.with_cache(output_dir.join(".renderflow-dag-cache.json"));
+    // Keep intermediate/cache state outside the final output directory itself.
+    let state_parent = output_dir
+        .parent()
+        .filter(|path| !path.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
+    let state_dir = state_parent.join(".renderflow");
+    let artifact_store = ArtifactStore::new(state_dir.join("artifacts"))?;
+    let executor = executor.with_cache(state_dir.join("dag-cache.json"));
 
-    // Read and execute.
-    let content = fs::read_to_string(&config.input)
-        .with_context(|| format!("Failed to read input file: {}", config.input))?;
+    let source_artifact = artifact_store.import_path(
+        &config.input,
+        ArtifactDescriptor::for_format(source_format, ArtifactStorageClass::Source),
+    )?;
 
-    info!("Executing graph-based pipeline");
+    info!(
+        artifact = %source_artifact.id(),
+        digest = %source_artifact.digest(),
+        bytes = source_artifact.size_bytes(),
+        "Executing graph-based pipeline from binary-safe source artifact"
+    );
     let results = executor
-        .execute(&dag, source_format, content)
+        .execute_artifact(&dag, source_format, source_artifact, &artifact_store)
         .context("Graph execution failed")?;
 
-    // Write each produced format to disk (skip the source format).
-    for (format, output_content) in &results {
+    for (format, artifact) in &results {
         if *format == source_format {
             continue;
         }
         let output_path = output_dir.join(format!("{}.{}", input_stem, format));
-        fs::write(&output_path, output_content)
-            .with_context(|| format!("Failed to write output to '{}'", output_path.display()))?;
-        info!("✔ Output written to: {}", output_path.display());
+        let terminal_artifact = artifact
+            .clone()
+            .with_storage_class(ArtifactStorageClass::Terminal);
+        artifact_store
+            .materialize(&terminal_artifact, &output_path)
+            .with_context(|| {
+                format!(
+                    "Failed to materialize '{}' output to '{}'",
+                    format,
+                    output_path.display()
+                )
+            })?;
+        info!(
+            artifact = %terminal_artifact.id(),
+            digest = %terminal_artifact.digest(),
+            bytes = terminal_artifact.size_bytes(),
+            "✔ Output written to: {}",
+            output_path.display()
+        );
     }
 
     Ok(())

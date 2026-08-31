@@ -7,6 +7,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+SOURCE_ROOT = ROOT / "crates" / "renderflow-core" / "src"
 DOC_PATH = ROOT / "docs" / "user-guide" / "supported-formats.md"
 
 
@@ -105,10 +106,10 @@ def render_table(headers: list[str], rows: list[list[str]]) -> list[str]:
 
 
 def main() -> None:
-    input_text = read(ROOT / "src" / "input_format.rs")
-    graph_text = read(ROOT / "src" / "graph" / "format.rs")
-    audio_text = read(ROOT / "src" / "audio" / "format.rs")
-    image_text = read(ROOT / "src" / "image" / "format.rs")
+    input_text = read(SOURCE_ROOT / "input_format.rs")
+    graph_text = read(SOURCE_ROOT / "graph" / "format.rs")
+    audio_text = read(SOURCE_ROOT / "audio" / "format.rs")
+    image_text = read(SOURCE_ROOT / "image" / "format.rs")
 
     input_extensions = extract_input_extensions(input_text)
 
@@ -180,8 +181,9 @@ def main() -> None:
         "# Supported Formats",
         "",
         "!!! info",
-        "    This page is generated from `src/input_format.rs`, `src/graph/format.rs`,",
-        "    `src/audio/format.rs`, and `src/image/format.rs` by",
+        "    This page is generated from `crates/renderflow-core/src/input_format.rs`,",
+        "    `crates/renderflow-core/src/graph/format.rs`, `crates/renderflow-core/src/audio/format.rs`,",
+        "    and `crates/renderflow-core/src/image/format.rs` by",
         "    `scripts/generate_supported_formats_doc.py`. Do not edit it by hand.",
         "",
         "Renderflow recognizes format identifiers in four places:",
