@@ -137,6 +137,11 @@ pub fn run_cli(cli: Cli) -> Result<()> {
                 format,
                 transforms,
             } => commands::tools::run_inspect(&id, transforms.as_deref(), &format)?,
+            ToolCommands::Variants {
+                id,
+                models_dir,
+                format,
+            } => commands::tools::run_variants(&id, models_dir.as_deref(), &format)?,
         },
         Some(Commands::Capabilities { format, transforms }) => {
             commands::tools::run_capabilities(transforms.as_deref(), &format)?

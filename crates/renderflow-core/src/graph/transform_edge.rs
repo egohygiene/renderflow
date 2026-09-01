@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use super::{Format, InputKind};
 
 /// Metadata attached to a directed edge in the [`TransformGraph`](super::TransformGraph).
@@ -26,6 +28,10 @@ pub struct TransformEdge {
     pub provider_id: Option<String>,
     /// Stable machine-readable capability identifier for this edge, when known.
     pub capability_id: Option<String>,
+    /// Stable provider-specific transform/model variant identity, when known.
+    pub variant_id: Option<String>,
+    /// Deterministically ordered evidence that affects this variant's reproducibility.
+    pub evidence: BTreeMap<String, String>,
 }
 
 impl TransformEdge {
@@ -47,6 +53,8 @@ impl TransformEdge {
             input_kind: InputKind::Single,
             provider_id: None,
             capability_id: None,
+            variant_id: None,
+            evidence: BTreeMap::new(),
         }
     }
 
@@ -76,6 +84,8 @@ impl TransformEdge {
             input_kind,
             provider_id: None,
             capability_id: None,
+            variant_id: None,
+            evidence: BTreeMap::new(),
         }
     }
 
@@ -87,6 +97,21 @@ impl TransformEdge {
     ) -> Self {
         self.provider_id = Some(provider_id.into());
         self.capability_id = Some(capability_id.into());
+        self
+    }
+
+    pub fn with_variant(mut self, variant_id: impl Into<String>) -> Self {
+        self.variant_id = Some(variant_id.into());
+        self
+    }
+
+    pub fn with_evidence(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+        self.evidence.insert(key.into(), value.into());
+        self
+    }
+
+    pub fn with_evidence_map(mut self, evidence: BTreeMap<String, String>) -> Self {
+        self.evidence = evidence;
         self
     }
 }

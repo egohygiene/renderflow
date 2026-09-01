@@ -3,6 +3,7 @@ use std::collections::BTreeMap;
 use anyhow::{Context, Result};
 use serde::Serialize;
 
+use crate::super_resolution::{UpscaylModelCatalog, UPSCAYL_TOOL_ID};
 use crate::toolchain::{ToolAvailability, ToolDescriptor, ToolRegistry};
 use crate::transforms::yaml_loader::load_tool_registry_from_yaml;
 
@@ -137,6 +138,48 @@ pub fn run_inspect(id: &str, transforms: Option<&str>, format: &str) -> Result<(
     }
     if let Some(diagnostic) = &availability.diagnostic {
         println!("Diagnostic: {diagnostic}");
+    }
+    Ok(())
+}
+
+pub fn run_variants(id: &str, models_dir: Option<&str>, format: &str) -> Result<()> {
+    if id != UPSCAYL_TOOL_ID {
+        anyhow::bail!("tool provider '{id}' does not expose a registered variant catalog");
+    }
+    let catalog = match models_dir {
+        Some(path) => UpscaylModelCatalog::discover(path)
+            .with_context(|| format!("failed to discover Upscayl models from '{path}'"))?,
+        None => UpscaylModelCatalog::builtins(),
+    };
+    let format = StructuredFormat::parse(format)?;
+    if format != StructuredFormat::Text {
+        return emit_serialized(&catalog, format);
+    }
+
+    println!("Tool variants: {id}");
+    println!("===============================");
+    for model in &catalog.models {
+        let digest = model.model_digest.as_deref().unwrap_or("-");
+        let scale = model
+            .native_scale
+            .map(|value| format!("x{value}"))
+            .unwrap_or_else(|| "unknown".to_string());
+        println!(
+            "{:<52} {:<24} {:<8} {:<12} {:<10} {}",
+            model.variant_id,
+            model.model_name,
+            scale,
+            model.commercial_use.as_str(),
+            if model.is_materialized() {
+                "ready"
+            } else {
+                "catalog"
+            },
+            digest
+        );
+    }
+    for diagnostic in &catalog.diagnostics {
+        println!("diagnostic [{}]: {}", diagnostic.code, diagnostic.message);
     }
     Ok(())
 }

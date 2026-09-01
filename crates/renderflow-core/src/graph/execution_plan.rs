@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 
 use super::{Format, InputKind, MultiTargetDag, TransformEdge};
 use crate::optimization::OptimizationMode;
@@ -67,6 +67,12 @@ pub struct PlanEdge {
     /// Stable capability identifier implemented by the selected provider.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub capability_id: Option<String>,
+    /// Stable provider-specific transform/model variant identity.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub variant_id: Option<String>,
+    /// Variant-specific reproducibility evidence.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub evidence: BTreeMap<String, String>,
 }
 
 impl PlanEdge {
@@ -91,6 +97,8 @@ impl PlanEdge {
             edge_type,
             provider_id: e.provider_id.clone(),
             capability_id: e.capability_id.clone(),
+            variant_id: e.variant_id.clone(),
+            evidence: e.evidence.clone(),
         }
     }
 }
@@ -642,6 +650,43 @@ mod tests {
         );
         assert_eq!(plan.waves.len(), 1);
         assert_eq!(plan.metadata.execution_depth, 1);
+    }
+
+    #[test]
+    fn test_plan_preserves_provider_variant_evidence() {
+        let mut graph = TransformGraph::new();
+        graph.add_transform(
+            TransformEdge::new(Format::Png, Format::Webp, 1.0, 0.9)
+                .with_provider("tool.upscayl-ncnn", "image.super_resolution")
+                .with_variant("variant.upscayl-ncnn.digital-art-4x")
+                .with_evidence("model_digest", "sha256:model"),
+        );
+        let dag = graph
+            .build_multi_target_dag(Format::Png, &[Format::Webp])
+            .unwrap();
+        let plan = ExecutionPlan::from_dag(
+            &dag,
+            Format::Png,
+            &[Format::Webp],
+            OptimizationMode::Balanced,
+        );
+
+        assert_eq!(plan.edges.len(), 1);
+        let edge = &plan.edges[0];
+        assert_eq!(edge.provider_id.as_deref(), Some("tool.upscayl-ncnn"));
+        assert_eq!(
+            edge.capability_id.as_deref(),
+            Some("image.super_resolution")
+        );
+        assert_eq!(
+            edge.variant_id.as_deref(),
+            Some("variant.upscayl-ncnn.digital-art-4x")
+        );
+        assert_eq!(
+            edge.evidence.get("model_digest").map(String::as_str),
+            Some("sha256:model")
+        );
+        assert_eq!(plan.waves[0].edges[0].variant_id, edge.variant_id);
     }
 
     #[test]

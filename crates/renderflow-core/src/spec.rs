@@ -73,6 +73,8 @@ pub struct SelectorSet {
     pub transforms: Vec<String>,
     #[serde(default)]
     pub profiles: Vec<String>,
+    #[serde(default)]
+    pub variants: Vec<String>,
 }
 
 impl SelectorSet {
@@ -82,6 +84,7 @@ impl SelectorSet {
             && self.capabilities.is_empty()
             && self.transforms.is_empty()
             && self.profiles.is_empty()
+            && self.variants.is_empty()
     }
 }
 
@@ -100,6 +103,8 @@ pub struct TargetSpec {
     pub capability: Option<String>,
     #[serde(default)]
     pub transform: Option<String>,
+    #[serde(default)]
+    pub variant: Option<String>,
     #[serde(default)]
     pub preset: Option<String>,
     #[serde(default)]
@@ -496,6 +501,8 @@ impl SpecV2 {
         }
 
         validate_targets(&self.targets.exact, "$.targets.exact", &mut diagnostics);
+        validate_selector_variants(&self.targets.include, "$.targets.include", &mut diagnostics);
+        validate_selector_variants(&self.targets.exclude, "$.targets.exclude", &mut diagnostics);
 
         for (index, profile_name) in self.targets.profiles.iter().enumerate() {
             if !self.profiles.contains_key(profile_name) {
@@ -526,6 +533,16 @@ impl SpecV2 {
             validate_targets(
                 &profile.targets,
                 &format!("{base}.targets"),
+                &mut diagnostics,
+            );
+            validate_selector_variants(
+                &profile.include,
+                &format!("{base}.include"),
+                &mut diagnostics,
+            );
+            validate_selector_variants(
+                &profile.exclude,
+                &format!("{base}.exclude"),
                 &mut diagnostics,
             );
         }
@@ -608,6 +625,15 @@ fn validate_targets(targets: &[TargetSpec], base: &str, diagnostics: &mut Vec<Sp
                 "target must select by format, family, capability, transform, or profile",
             ));
         }
+        if let Some(variant) = &target.variant {
+            if !is_stable_id(variant) {
+                diagnostics.push(SpecDiagnostic::new(
+                    format!("{path}.variant"),
+                    "target.variant.invalid",
+                    "variant id must use only ASCII letters, digits, '.', '_', or '-'",
+                ));
+            }
+        }
         if let Some(id) = &target.id {
             if !is_stable_id(id) {
                 diagnostics.push(SpecDiagnostic::new(
@@ -623,6 +649,22 @@ fn validate_targets(targets: &[TargetSpec], base: &str, diagnostics: &mut Vec<Sp
                     format!("target id '{id}' is declared more than once in this target list"),
                 ));
             }
+        }
+    }
+}
+
+fn validate_selector_variants(
+    selector: &SelectorSet,
+    base: &str,
+    diagnostics: &mut Vec<SpecDiagnostic>,
+) {
+    for (index, variant) in selector.variants.iter().enumerate() {
+        if !is_stable_id(variant) {
+            diagnostics.push(SpecDiagnostic::new(
+                format!("{base}.variants[{index}]"),
+                "selector.variant.invalid",
+                "variant id must use only ASCII letters, digits, '.', '_', or '-'",
+            ));
         }
     }
 }
@@ -851,6 +893,7 @@ pub(crate) fn migrate_v1_config(config: &Config) -> SpecV2 {
             family: None,
             capability: None,
             transform: None,
+            variant: None,
             preset: output.profile.clone(),
             template: output.template.clone(),
         })
@@ -949,7 +992,8 @@ pub fn json_schema() -> Value {
                     "families": {"type": "array", "items": {"type": "string"}, "default": []},
                     "capabilities": {"type": "array", "items": {"type": "string"}, "default": []},
                     "transforms": {"type": "array", "items": {"type": "string"}, "default": []},
-                    "profiles": {"type": "array", "items": {"$ref": "#/$defs/stableId"}, "default": []}
+                    "profiles": {"type": "array", "items": {"$ref": "#/$defs/stableId"}, "default": []},
+                    "variants": {"type": "array", "items": {"$ref": "#/$defs/stableId"}, "default": []}
                 }
             },
             "target": {
@@ -962,6 +1006,7 @@ pub fn json_schema() -> Value {
                     "family": {"type": ["string", "null"]},
                     "capability": {"type": ["string", "null"]},
                     "transform": {"type": ["string", "null"]},
+                    "variant": {"anyOf": [{"$ref": "#/$defs/stableId"}, {"type": "null"}]},
                     "preset": {"type": ["string", "null"]},
                     "template": {"type": ["string", "null"]}
                 },

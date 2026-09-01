@@ -1,0 +1,58 @@
+schema: renderflow.upscayl-models/v1
+
+models:
+  - variant_id: variant.upscayl-ncnn.upscayl-standard-4x
+    model_name: upscayl-standard-4x
+    display_name: Standard
+    native_scale: 4
+    commercial_use: unknown
+    description: General-purpose Upscayl super-resolution model.
+    license_notes: "Model-specific usage terms are not asserted by Renderflow; verify the model license before commercial publication."
+
+  - variant_id: variant.upscayl-ncnn.upscayl-lite-4x
+    model_name: upscayl-lite-4x
+    display_name: Lite
+    native_scale: 4
+    commercial_use: unknown
+    description: Lighter-weight general-purpose Upscayl super-resolution model.
+    license_notes: "Model-specific usage terms are not asserted by Renderflow; verify the model license before commercial publication."
+
+  - variant_id: variant.upscayl-ncnn.high-fidelity-4x
+    model_name: high-fidelity-4x
+    display_name: High Fidelity
+    native_scale: 4
+    commercial_use: unknown
+    description: Upscayl model oriented toward preserving source appearance and detail.
+    license_notes: "Model-specific usage terms are not asserted by Renderflow; verify the model license before commercial publication."
+
+  - variant_id: variant.upscayl-ncnn.remacri-4x
+    model_name: remacri-4x
+    display_name: Remacri
+    native_scale: 4
+    commercial_use: prohibited
+    description: Remacri model distributed in the Upscayl default model set.
+    license_notes: "Upscayl currently labels this model Non-Commercial. Do not select it for commercial publication without separately establishing permission."
+
+  - variant_id: variant.upscayl-ncnn.ultramix-balanced-4x
+    model_name: ultramix-balanced-4x
+    display_name: Ultramix Balanced
+    native_scale: 4
+    commercial_use: prohibited
+    description: Balanced Ultramix model distributed in the Upscayl default model set.
+    license_notes: "Upscayl currently labels this model Non-Commercial. Do not select it for commercial publication without separately establishing permission."
+
+  - variant_id: variant.upscayl-ncnn.ultrasharp-4x
+    model_name: ultrasharp-4x
+    display_name: Ultrasharp
+    native_scale: 4
+    commercial_use: prohibited
+    description: Sharpness-oriented model distributed in the Upscayl default model set.
+    license_notes: "Upscayl currently labels this model Non-Commercial. Do not select it for commercial publication without separately establishing permission."
+
+  - variant_id: variant.upscayl-ncnn.digital-art-4x
+    model_name: digital-art-4x
+    display_name: Digital Art
+    native_scale: 4
+    commercial_use: unknown
+    description: Upscayl model oriented toward illustrations and digital artwork.
+    license_notes: "Model-specific usage terms are not asserted by Renderflow; verify the model license before commercial publication."

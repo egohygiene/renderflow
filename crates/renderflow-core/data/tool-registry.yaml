@@ -159,3 +159,22 @@ tools:
     support_tier: experimental
     license_notes: "Ghostscript is available under AGPL/commercial licensing; review distribution obligations."
     distribution_notes: "Used by press-oriented TIFF/PDF command adapters when configured."
+
+
+  - id: tool.upscayl-ncnn
+    name: Upscayl NCNN
+    discovery:
+      kind: executable
+      candidates: [upscayl-ncnn, upscayl-bin]
+      version_args: [-h]
+    operating_systems: [linux, macos, windows]
+    capabilities:
+      - image.super_resolution
+    input_media_types: [image/*]
+    output_media_types: [image/*]
+    determinism: configuration_dependent
+    locality: local
+    fidelity: lossy
+    support_tier: experimental
+    license_notes: "The Upscayl NCNN backend is AGPL-3.0; model licensing is separate and recorded per model variant."
+    distribution_notes: "Requires compatible Vulkan/GPU runtime and NCNN .param/.bin model pairs; packaged desktop distributions may expose the executable as upscayl-bin."
