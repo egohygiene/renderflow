@@ -34,6 +34,16 @@ cli = replace_once(
 )
 cli_path.write_text(cli, encoding="utf-8")
 
+integration_path = Path("tests/graph_integration_test.rs")
+integration = integration_path.read_text(encoding="utf-8")
+integration = replace_once(
+    integration,
+    '''    let config = format!(\n        "input: \\\"{}\\\"\\noutput_dir: \\\"{}\\\"\\ntransforms: \\\"{}\\\"\\n",\n        input_path.display(),\n        output_dir.display(),\n        transforms_path.display(),\n    );''',
+    '''    // The integration suite intentionally exercises the explicit v1 compatibility path.\n    // Keep the fixture valid under the canonical loader; CLI target overrides still choose\n    // the exact/all-reachable execution set used by each test.\n    let config = format!(\n        "outputs:\\n  - type: html\\ninput: \\\"{}\\\"\\noutput_dir: \\\"{}\\\"\\ntransforms: \\\"{}\\\"\\n",\n        input_path.display(),\n        output_dir.display(),\n        transforms_path.display(),\n    );''',
+    "graph integration v1 fixture",
+)
+integration_path.write_text(integration, encoding="utf-8")
+
 bench_path = Path("crates/renderflow-core/benches/cache.rs")
 bench = bench_path.read_text(encoding="utf-8")
 bench = replace_once(
