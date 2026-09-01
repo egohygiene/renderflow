@@ -77,15 +77,14 @@ pub enum Commands {
         #[arg(long, value_name = "MODE")]
         optimization: Option<OptimizationMode>,
 
-        /// Build only the specified output format using graph-based path resolution.
-        /// The format must be reachable from the input format via the configured transforms.
-        /// Requires a 'transforms' key in the config file.
-        /// Cannot be combined with --all.
+        /// Build only the specified output format using the canonical capability graph.
+        /// Built-in document/image/audio capabilities and optional configured transforms are
+        /// resolved through the same planner. Cannot be combined with --all.
         #[arg(long, value_name = "FORMAT", conflicts_with = "all")]
         target: Option<String>,
 
-        /// Build all reachable output formats using graph-based path resolution.
-        /// Requires a 'transforms' key in the config file.
+        /// Build all policy-allowed output formats reachable through the canonical capability graph.
+        /// Built-in capabilities and optional configured transforms participate equally.
         /// Cannot be combined with --target.
         #[arg(long, conflicts_with = "target")]
         all: bool,

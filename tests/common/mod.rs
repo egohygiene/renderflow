@@ -55,3 +55,22 @@ transforms:\n  \
         .expect("failed to write config");
     (config_file, dir)
 }
+
+
+/// Create a minimal Renderflow v2 config for canonical planner CLI tests.
+#[allow(dead_code)]
+pub fn v2_config_file() -> (NamedTempFile, tempfile::TempDir) {
+    let dir = tempfile::tempdir().expect("failed to create temp dir");
+    let input_path = dir.path().join("input.md");
+    fs::write(&input_path, "# Test\n").expect("failed to write input file");
+    let output_dir = dir.path().join("dist-v2");
+    let config_content = format!(
+        "schema: renderflow/v2\nsources:\n  - id: source.main\n    role: manuscript\n    path: \"{}\"\n    format: markdown\ntargets:\n  exact:\n    - id: target.html\n      role: web\n      format: html\noutput:\n  bundle_root: \"{}\"\n  naming_template: \"{{target.role}}.{{ext}}\"\n  collision: error\n",
+        input_path.display(),
+        output_dir.display()
+    );
+    let mut file = NamedTempFile::new_in(dir.path()).expect("failed to create v2 temp config");
+    file.write_all(config_content.as_bytes())
+        .expect("failed to write v2 temp config");
+    (file, dir)
+}

@@ -3,84 +3,31 @@ use std::fs;
 use anyhow::{Context, Result};
 use tracing::info;
 
-use crate::config::load_config_for_graph;
 use crate::graph::execution_plan::ExecutionPlan;
 use crate::graph::renderers::renderer_for;
-use crate::graph::{Format, MultiTargetDag};
+use crate::graph::Format;
 use crate::optimization::OptimizationMode;
-use crate::toolchain::filter_graph_for_current_toolchain;
-use crate::transforms::yaml_loader::build_graph_executor_and_tools_from_yaml;
+use crate::planning::{resolve, PlanningRequest};
 
 // ── helpers ─────────────────────────────────────────────────────────────────
 
-/// Load the config, build the transform graph, compute the DAG, and return an
-/// [`ExecutionPlan`].
+/// Resolve the exact same canonical plan consumed by build execution.
 pub(crate) fn load_plan(
     config_path: &str,
     target: Option<&str>,
     optimization: Option<OptimizationMode>,
 ) -> Result<(ExecutionPlan, Vec<Format>)> {
-    let config = load_config_for_graph(config_path)?;
-    info!("Loaded config from '{}'", config_path);
-
-    let transforms_path = config.transforms.as_deref().ok_or_else(|| {
-        anyhow::anyhow!(
-            "This subcommand requires a 'transforms' key in the config file \
-             pointing to a YAML transform configuration"
-        )
-    })?;
-
-    let (raw_graph, _executor, tool_registry) =
-        build_graph_executor_and_tools_from_yaml(transforms_path)?;
-    let (graph, tool_inventory, tool_context) =
-        filter_graph_for_current_toolchain(&raw_graph, &tool_registry);
-    info!(
-        "Loaded tool-aware transform graph from '{}'",
-        transforms_path
-    );
-
-    let opt_mode = optimization.unwrap_or(config.optimization);
-
-    let source_format: Format = config.input_format().to_string().parse().with_context(|| {
-        format!(
-            "Could not map input format '{}' to a known graph format",
-            config.input_format()
-        )
-    })?;
-
-    let targets: Vec<Format> = if let Some(t) = target {
-        vec![t
-            .parse::<Format>()
-            .with_context(|| format!("'{}' is not a valid target format", t))?]
-    } else {
-        let reachable = graph.reachable_from(source_format);
-        if reachable.is_empty() {
-            anyhow::bail!(
-                "No output formats are reachable from '{}' in the transform graph",
-                source_format
-            );
-        }
-        reachable
-    };
-
-    let dag: MultiTargetDag = graph
-        .build_multi_target_dag_with_mode(source_format, &targets, opt_mode)
-        .ok_or_else(|| {
-            anyhow::anyhow!(
-                "Could not build an execution plan: one or more target formats \
-                 are not reachable from '{}' after provider availability filtering. Blocked providers: {}",
-                source_format,
-                tool_inventory.blocked_summaries().join("; ")
-            )
-        })?;
-
-    let mut plan = ExecutionPlan::from_dag(&dag, source_format, &targets, opt_mode);
-    let toolchain = tool_registry.fingerprint_for_dag(&tool_inventory, &dag, &tool_context)?;
-    plan.attach_toolchain(toolchain);
-    for diagnostic in tool_inventory.blocked_summaries() {
-        plan.add_tool_diagnostic(format!("Provider excluded from planning: {diagnostic}"));
+    let mut request = PlanningRequest::from_path(config_path);
+    if let Some(optimization) = optimization {
+        request = request.with_optimization(optimization);
     }
-    Ok((plan, targets))
+    if let Some(target) = target {
+        request = request.with_target(target);
+    }
+
+    let resolved = resolve(request)?;
+    info!("Resolved canonical execution plan from '{}'", config_path);
+    Ok((resolved.plan().clone(), resolved.target_formats()))
 }
 
 /// Emit `output` to `export` path (if provided) or to stdout.

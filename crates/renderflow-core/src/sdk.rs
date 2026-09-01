@@ -7,10 +7,12 @@ use std::sync::{
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::commands;
-use crate::config::load_config;
 use crate::graph::ExecutionPlan;
 use crate::optimization::OptimizationMode;
+use crate::planning::{
+    execute as execute_resolved_plan, resolve as resolve_planning_request, PlanningRequest,
+    ResolvedExecution,
+};
 use crate::toolchain::ToolchainSnapshot;
 
 #[derive(Debug, Error)]
@@ -130,6 +132,7 @@ impl ExecutionRequest {
 
     pub fn with_target(mut self, target: impl Into<String>) -> Self {
         self.target = Some(target.into());
+        self.all_targets = false;
         self
     }
 
@@ -237,109 +240,99 @@ impl Engine {
 
     pub fn inspect(&self, request: InspectionRequest) -> Result<ArtifactProfile, RenderflowError> {
         self.ensure_not_cancelled()?;
-        self.emit(ProgressStage::Inspecting, "Loading configuration");
-
-        let config = load_config(request.config_path.to_str().ok_or_else(|| {
-            RenderflowError::Configuration(anyhow::anyhow!(
-                "Config path contains non-UTF8 characters"
-            ))
-        })?)
-        .map_err(RenderflowError::Configuration)?;
-
-        self.emit(ProgressStage::Completed, "Inspection complete");
-
-        Ok(ArtifactProfile {
-            input_path: config.input.clone(),
-            input_format: config.input_format().to_string(),
-            output_dir: config.output_dir.clone(),
-            targets: config
-                .outputs
+        self.emit(
+            ProgressStage::Inspecting,
+            "Resolving canonical execution context",
+        );
+        let resolved = resolve_planning_request(PlanningRequest::from_path(&request.config_path))
+            .map_err(RenderflowError::Configuration)?;
+        let profile = ArtifactProfile {
+            input_path: resolved.source_path().display().to_string(),
+            input_format: resolved.source_format().to_string(),
+            output_dir: resolved.spec().output.bundle_root.clone(),
+            targets: resolved
+                .target_formats()
                 .iter()
-                .map(|output| output.output_type.to_string())
+                .map(ToString::to_string)
                 .collect(),
-            transforms_path: config.transforms.clone(),
-        })
+            transforms_path: resolved.spec().transforms.clone(),
+        };
+        self.emit(ProgressStage::Completed, "Inspection complete");
+        Ok(profile)
     }
 
     pub fn plan(&self, request: PlanRequest) -> Result<ExecutionPlan, RenderflowError> {
         self.ensure_not_cancelled()?;
-        self.emit(ProgressStage::Planning, "Constructing execution plan");
-        let config_path = request.config_path.to_str().ok_or_else(|| {
-            RenderflowError::Planning(anyhow::anyhow!("Config path contains non-UTF8 characters"))
-        })?;
-        let (plan, _targets) = commands::graph::load_plan(
-            config_path,
-            request.target.as_deref(),
-            request.optimization,
-        )
-        .map_err(RenderflowError::Planning)?;
+        self.emit(
+            ProgressStage::Planning,
+            "Constructing canonical execution plan",
+        );
+        let mut planning = PlanningRequest::from_path(&request.config_path);
+        if let Some(target) = request.target {
+            planning = planning.with_target(target);
+        }
+        if let Some(optimization) = request.optimization {
+            planning = planning.with_optimization(optimization);
+        }
+        let resolved = resolve_planning_request(planning).map_err(RenderflowError::Planning)?;
+        let plan = resolved.plan().clone();
         self.emit(ProgressStage::Completed, "Planning complete");
         Ok(plan)
     }
 
-    pub fn execute(&self, request: ExecutionRequest) -> Result<ExecutionResult, RenderflowError> {
+    /// Resolve an execution request into the frozen plan/runtime object that
+    /// [`Engine::execute_resolved`] consumes without re-planning.
+    pub fn resolve_execution(
+        &self,
+        request: ExecutionRequest,
+    ) -> Result<ResolvedExecution, RenderflowError> {
         self.ensure_not_cancelled()?;
-        self.emit(ProgressStage::Executing, "Executing renderflow pipeline");
-
-        let config_path = request.config_path.to_str().ok_or_else(|| {
-            RenderflowError::Execution(anyhow::anyhow!("Config path contains non-UTF8 characters"))
-        })?;
-
-        let config = load_config(config_path).map_err(RenderflowError::Execution)?;
-
-        let toolchain = if request.target.is_some() || request.all_targets {
-            let (plan, _targets) = commands::graph::load_plan(
-                config_path,
-                request.target.as_deref(),
-                request.optimization,
-            )
-            .map_err(RenderflowError::Execution)?;
-            plan.toolchain
-        } else {
-            None
-        };
-
-        if let Some(target) = request.target.as_deref() {
-            commands::graph_build::run_target(
-                config_path,
-                target,
-                request.dry_run,
-                request.optimization,
-            )
-            .map_err(RenderflowError::Execution)?;
+        self.emit(ProgressStage::Planning, "Resolving execution request");
+        let mut planning = PlanningRequest::from_path(&request.config_path);
+        if let Some(target) = request.target {
+            planning = planning.with_target(target);
         } else if request.all_targets {
-            commands::graph_build::run_all(config_path, request.dry_run, request.optimization)
-                .map_err(RenderflowError::Execution)?;
-        } else {
-            commands::build::run(config_path, request.dry_run, request.optimization)
-                .map_err(RenderflowError::Execution)?;
+            planning = planning.with_all_reachable();
         }
+        if let Some(optimization) = request.optimization {
+            planning = planning.with_optimization(optimization);
+        }
+        resolve_planning_request(planning).map_err(RenderflowError::Planning)
+    }
 
+    /// Execute an already-resolved plan without implicit re-planning.
+    pub fn execute_resolved(
+        &self,
+        resolved: ResolvedExecution,
+        dry_run: bool,
+    ) -> Result<ExecutionResult, RenderflowError> {
+        self.ensure_not_cancelled()?;
+        self.emit(
+            ProgressStage::Executing,
+            "Executing resolved renderflow plan",
+        );
+        let result =
+            execute_resolved_plan(resolved, dry_run).map_err(RenderflowError::Execution)?;
         self.emit(ProgressStage::Completed, "Execution complete");
-
-        let outputs = if let Some(target) = request.target {
-            vec![target]
-        } else {
-            config
-                .outputs
-                .iter()
-                .map(|output| output.output_type.to_string())
-                .collect()
-        };
-
         Ok(ExecutionResult {
             manifest: ArtifactManifest {
-                output_dir: config.output_dir,
-                outputs,
+                output_dir: result.output_dir,
+                outputs: result.outputs,
             },
             reused_cached_outputs: Vec::new(),
             skipped_transforms: Vec::new(),
             diagnostics: DiagnosticReport {
-                warnings: Vec::new(),
+                warnings: result.diagnostics,
                 recoverable_failures: Vec::new(),
             },
-            toolchain,
+            toolchain: result.toolchain,
         })
+    }
+
+    pub fn execute(&self, request: ExecutionRequest) -> Result<ExecutionResult, RenderflowError> {
+        let dry_run = request.dry_run;
+        let resolved = self.resolve_execution(request)?;
+        self.execute_resolved(resolved, dry_run)
     }
 }
 
@@ -363,5 +356,15 @@ mod tests {
 
         assert!(request.target.is_none());
         assert!(request.all_targets);
+    }
+
+    #[test]
+    fn execution_request_with_target_clears_all_targets() {
+        let request = ExecutionRequest::from_path("renderflow.yaml")
+            .with_all_targets()
+            .with_target("html");
+
+        assert_eq!(request.target.as_deref(), Some("html"));
+        assert!(!request.all_targets);
     }
 }

@@ -1,0 +1,45 @@
+name: canonical planner final fix
+
+on:
+  push:
+    branches:
+      - feat/canonical-planner-354
+
+permissions:
+  contents: write
+
+jobs:
+  validate-and-persist:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: feat/canonical-planner-354
+          fetch-depth: 0
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.94"
+          components: rustfmt,clippy
+
+      - name: Apply CLI regression fixes
+        run: python scripts/canonical_planner_cli_test_fix_tmp.py
+
+      - name: Format and validate exact repository test surface
+        run: |
+          cargo fmt --all
+          cargo fmt --all -- --check
+          cargo clippy --workspace --all-targets -- -D warnings
+          cargo test --workspace --all-targets
+
+      - name: Persist validated tests
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add crates/renderflow-core/benches/cache.rs crates/renderflow-core/tests/canonical_planner.rs tests/common/mod.rs tests/cli_tests.rs tests/graph_integration_test.rs
+          git diff --cached --quiet && exit 0
+          git commit --message "test(planner): align integration coverage with canonical specs"
+          git push origin HEAD:feat/canonical-planner-354

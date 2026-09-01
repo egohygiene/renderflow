@@ -123,13 +123,37 @@ impl TransformGraph {
             .collect()
     }
 
-    /// Return stable provider IDs referenced by graph edges.
-    pub fn provider_ids(&self) -> Vec<String> {
-        let mut ids: Vec<String> = self
-            .graph
+    /// Return every transform edge in registration order.
+    pub fn all_edges(&self) -> Vec<&TransformEdge> {
+        self.graph
             .edge_references()
-            .filter_map(|edge| edge.weight().provider_id.clone())
-            .collect();
+            .map(|edge| edge.weight())
+            .collect()
+    }
+
+    /// Clone the graph while retaining only edges accepted by `predicate`.
+    pub fn filtered_by<F>(&self, predicate: F) -> Self
+    where
+        F: Fn(&TransformEdge) -> bool,
+    {
+        let mut filtered = Self::new();
+        for edge in self.graph.edge_references().map(|edge| edge.weight()) {
+            if predicate(edge) {
+                filtered.add_transform(edge.clone());
+            }
+        }
+        filtered
+    }
+
+    /// Return stable provider IDs referenced by graph edges, including secondary requirements.
+    pub fn provider_ids(&self) -> Vec<String> {
+        let mut ids = Vec::new();
+        for edge in self.graph.edge_references().map(|edge| edge.weight()) {
+            if let Some(provider) = &edge.provider_id {
+                ids.push(provider.clone());
+            }
+            ids.extend(edge.required_provider_ids.iter().cloned());
+        }
         ids.sort();
         ids.dedup();
         ids
@@ -140,11 +164,15 @@ impl TransformGraph {
     pub fn filtered_by_available_providers(&self, available: &HashSet<String>) -> Self {
         let mut filtered = Self::new();
         for edge in self.graph.edge_references().map(|edge| edge.weight()) {
-            if edge
+            let primary_available = edge
                 .provider_id
                 .as_ref()
-                .is_none_or(|provider| available.contains(provider))
-            {
+                .is_none_or(|provider| available.contains(provider));
+            let requirements_available = edge
+                .required_provider_ids
+                .iter()
+                .all(|provider| available.contains(provider));
+            if primary_available && requirements_available {
                 filtered.add_transform(edge.clone());
             }
         }

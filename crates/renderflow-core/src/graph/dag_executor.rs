@@ -29,6 +29,8 @@ pub struct DagExecutor {
     cache_path: Option<PathBuf>,
     /// Selected-provider fingerprint used to reject incompatible cache entries.
     toolchain_fingerprint: Option<String>,
+    /// Optional per-execution parallelism bound from the canonical execution policy.
+    max_parallel: Option<usize>,
 }
 
 impl DagExecutor {
@@ -39,6 +41,7 @@ impl DagExecutor {
             aggregation_transforms: HashMap::new(),
             cache_path: None,
             toolchain_fingerprint: None,
+            max_parallel: None,
         }
     }
 
@@ -54,6 +57,12 @@ impl DagExecutor {
     /// Attach a selected-provider fingerprint to cache compatibility.
     pub fn with_toolchain_fingerprint(mut self, fingerprint: impl Into<String>) -> Self {
         self.toolchain_fingerprint = Some(fingerprint.into());
+        self
+    }
+
+    /// Bound parallel transform execution for this executor instance.
+    pub fn with_max_parallel(mut self, max_parallel: usize) -> Self {
+        self.max_parallel = Some(max_parallel.max(1));
         self
     }
 
@@ -209,6 +218,16 @@ impl DagExecutor {
             .as_deref()
             .map(|path| Mutex::new(load_artifact_cache(path)));
 
+        let thread_pool = self
+            .max_parallel
+            .map(|threads| {
+                rayon::ThreadPoolBuilder::new()
+                    .num_threads(threads)
+                    .build()
+                    .context("Failed to create bounded DAG execution thread pool")
+            })
+            .transpose()?;
+
         let mut available: HashMap<Format, ArtifactCollection> = HashMap::new();
         available.insert(source_format, initial_artifacts);
         let mut remaining: Vec<&TransformEdge> = dag.execution_order();
@@ -229,10 +248,16 @@ impl DagExecutor {
             }
 
             debug!(wave_size = wave.len(), "Executing artifact DAG wave");
-            let wave_results: Result<Vec<(Format, ArtifactCollection)>> = wave
-                .into_par_iter()
-                .map(|edge| self.execute_edge(edge, &available, store, cache.as_ref()))
-                .collect();
+            let execute_wave = || {
+                wave.into_par_iter()
+                    .map(|edge| self.execute_edge(edge, &available, store, cache.as_ref()))
+                    .collect::<Result<Vec<(Format, ArtifactCollection)>>>()
+            };
+            let wave_results = if let Some(pool) = &thread_pool {
+                pool.install(execute_wave)
+            } else {
+                execute_wave()
+            };
 
             for (format, artifacts) in wave_results? {
                 available.insert(format, artifacts);
