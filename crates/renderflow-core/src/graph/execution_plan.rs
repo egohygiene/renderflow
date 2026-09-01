@@ -67,6 +67,9 @@ pub struct PlanEdge {
     /// Stable capability identifier implemented by the selected provider.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub capability_id: Option<String>,
+    /// Secondary providers required by the selected transform.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub required_provider_ids: Vec<String>,
     /// Stable provider-specific transform/model variant identity.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub variant_id: Option<String>,
@@ -97,6 +100,7 @@ impl PlanEdge {
             edge_type,
             provider_id: e.provider_id.clone(),
             capability_id: e.capability_id.clone(),
+            required_provider_ids: e.required_provider_ids.clone(),
             variant_id: e.variant_id.clone(),
             evidence: e.evidence.clone(),
         }
@@ -254,7 +258,10 @@ impl ExecutionPlan {
 
         let mut node_labels: Vec<String> =
             dag.graph.node_weights().map(|f| f.to_string()).collect();
+        node_labels.push(source.to_string());
+        node_labels.extend(targets.iter().map(|target| target.to_string()));
         node_labels.sort();
+        node_labels.dedup();
 
         let nodes: Vec<PlanNode> = node_labels
             .iter()
