@@ -1,0 +1,80 @@
+schema: renderflow/v2
+
+sources:
+  - id: source.cover
+    role: cover
+    path: assets/cover.png
+    media_type: image/png
+    detect: true
+
+  - id: source.body
+    role: manuscript
+    path: examples/input.md
+    format: markdown
+    detect: true
+
+  - id: source.publication
+    role: publication
+    kind: collection
+    members:
+      - source.cover
+      - source.body
+
+profiles:
+  publication.web:
+    description: Browser-ready publication derivatives
+    targets:
+      - id: target.web
+        role: web
+        format: html
+  publication.archive:
+    description: Long-lived local archival derivatives
+    targets:
+      - id: target.pdf
+        role: archival
+        format: pdf
+
+targets:
+  profiles:
+    - publication.web
+  all_reachable: true
+  include:
+    families:
+      - document
+      - image
+  exclude:
+    capabilities:
+      - ai.generate
+  intermediates: cache_only
+
+execution:
+  optimization: balanced
+  max_parallel: 4
+  budgets:
+    max_output_bytes: 1073741824
+    max_storage_bytes: 2147483648
+    max_artifacts: 500
+    max_depth: 8
+  tools:
+    deny: []
+  transforms:
+    deny: []
+  requirements:
+    deterministic: true
+    local_only: true
+    offline: true
+  network: deny
+  ai: deny
+  validation:
+    required: true
+  minimum_fidelity: 0.9
+
+output:
+  bundle_root: dist
+  naming_template: "{source.id}/{target.role}.{ext}"
+  collision: error
+
+variables:
+  project: renderflow
+
+transforms: transforms.yaml

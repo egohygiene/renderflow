@@ -1,0 +1,13 @@
+schema: renderflow/v2
+sources:
+  - id: source.main
+    path: input.md
+targets:
+  exact:
+    - format: html
+execution:
+  max_parallel: 0
+  minimum_fidelity: 1.5
+  tools:
+    allow: [tool.pandoc]
+    deny: [tool.pandoc]

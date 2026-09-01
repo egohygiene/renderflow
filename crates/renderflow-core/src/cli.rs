@@ -30,6 +30,8 @@ use crate::optimization::OptimizationMode;
         renderflow tools list                    List runtime tool providers\n  \
         renderflow tools inspect tool.ffmpeg     Inspect one runtime provider\n  \
         renderflow capabilities                  List provider capability IDs\n  \
+        renderflow spec validate                 Validate v1/v2 execution specifications\n  \
+        renderflow spec migrate                  Migrate unversioned v1 config to v2\n  \
         renderflow my-project.yaml              Shorthand: run build on the given config"
 )]
 pub struct Cli {
@@ -218,6 +220,13 @@ pub enum Commands {
         transforms: Option<String>,
     },
 
+    /// Validate, migrate, and export the Renderflow execution specification.
+    #[command(subcommand_required = true, arg_required_else_help = true)]
+    Spec {
+        #[command(subcommand)]
+        subcommand: SpecCommands,
+    },
+
     /// Print the installed Renderflow version
     Version,
 
@@ -229,6 +238,34 @@ pub enum Commands {
         /// Exit with non-zero status when required dependencies are missing
         #[arg(long)]
         strict: bool,
+    },
+}
+
+/// Subcommands for `renderflow spec`.
+#[derive(Subcommand)]
+pub enum SpecCommands {
+    /// Validate an unversioned v1 config or a versioned v2 spec.
+    Validate {
+        #[arg(long, default_value = "renderflow.yaml", value_name = "FILE")]
+        config: String,
+        #[arg(long, default_value = "text", value_name = "FORMAT")]
+        format: String,
+    },
+
+    /// Migrate an unversioned v1 config to the v2 execution specification.
+    Migrate {
+        #[arg(long, default_value = "renderflow.yaml", value_name = "FILE")]
+        config: String,
+        #[arg(long, short = 'o', value_name = "FILE")]
+        output: Option<String>,
+    },
+
+    /// Emit the canonical v2 JSON Schema used by the runtime.
+    Schema {
+        #[arg(long, default_value = "json", value_name = "FORMAT")]
+        format: String,
+        #[arg(long, short = 'o', value_name = "FILE")]
+        output: Option<String>,
     },
 }
 

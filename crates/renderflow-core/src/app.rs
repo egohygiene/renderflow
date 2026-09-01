@@ -2,7 +2,9 @@ use anyhow::{bail, Result};
 use clap::Parser;
 use tracing::info;
 
-use crate::cli::{AiCommands, Cli, Commands, GraphCommands, PluginCommands, ToolCommands};
+use crate::cli::{
+    AiCommands, Cli, Commands, GraphCommands, PluginCommands, SpecCommands, ToolCommands,
+};
 use crate::{commands, transforms};
 
 /// Initialize logging for a Renderflow CLI run.
@@ -47,22 +49,15 @@ pub fn run_cli(cli: Cli) -> Result<()> {
             target,
             all,
             export,
-        }) => {
-            commands::inspect::run(
-                &config,
-                &output_format,
-                target.as_deref(),
-                all,
-                export.as_deref(),
-                None, // optimization: use the mode from the config file
-            )?
-        }
+        }) => commands::inspect::run(
+            &config,
+            &output_format,
+            target.as_deref(),
+            all,
+            export.as_deref(),
+            None,
+        )?,
         Some(Commands::Plugin { subcommand }) => {
-            // The plugin registry is empty at the top-level CLI entry point.
-            // Third-party plugins are registered programmatically before
-            // calling renderflow as a library.  The CLI commands are
-            // primarily useful when renderflow is embedded in a larger
-            // application that populates the registry before dispatching.
             let registry = transforms::plugin::PluginRegistry::new();
             match subcommand {
                 PluginCommands::List => commands::plugin::run_list(&registry)?,
@@ -146,6 +141,17 @@ pub fn run_cli(cli: Cli) -> Result<()> {
         Some(Commands::Capabilities { format, transforms }) => {
             commands::tools::run_capabilities(transforms.as_deref(), &format)?
         }
+        Some(Commands::Spec { subcommand }) => match subcommand {
+            SpecCommands::Validate { config, format } => {
+                commands::spec::run_validate(&config, &format)?
+            }
+            SpecCommands::Migrate { config, output } => {
+                commands::spec::run_migrate(&config, output.as_deref())?
+            }
+            SpecCommands::Schema { format, output } => {
+                commands::spec::run_schema(&format, output.as_deref())?
+            }
+        },
         Some(Commands::Version) => commands::system::run_version(),
         Some(Commands::Env) => commands::system::run_env(),
         Some(Commands::Doctor { strict }) => commands::system::run_doctor(strict)?,

@@ -5,6 +5,7 @@ pub mod graph;
 pub mod graph_build;
 pub mod inspect;
 pub mod plugin;
+pub mod spec;
 pub mod system;
 pub mod tools;
 pub mod watch;

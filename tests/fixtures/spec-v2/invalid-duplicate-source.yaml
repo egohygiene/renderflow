@@ -1,0 +1,9 @@
+schema: renderflow/v2
+sources:
+  - id: source.main
+    path: first.md
+  - id: source.main
+    path: second.md
+targets:
+  exact:
+    - format: html
