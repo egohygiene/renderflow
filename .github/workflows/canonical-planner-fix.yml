@@ -39,7 +39,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add crates/renderflow-core/benches/cache.rs crates/renderflow-core/tests/canonical_planner.rs tests/common/mod.rs tests/cli_tests.rs
+          git add crates/renderflow-core/benches/cache.rs crates/renderflow-core/tests/canonical_planner.rs tests/common/mod.rs tests/cli_tests.rs tests/graph_integration_test.rs
           git diff --cached --quiet && exit 0
-          git commit --message "test(planner): align CLI coverage with canonical specs"
+          git commit --message "test(planner): align integration coverage with canonical specs"
           git push origin HEAD:feat/canonical-planner-354
