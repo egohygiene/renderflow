@@ -69,6 +69,8 @@ nav:
       - Spec v2 Reference: user-guide/spec-v2-reference.md
       - Supported Formats: user-guide/supported-formats.md
       - Tool Registry: user-guide/tool-registry.md
+      - Super Resolution: user-guide/super-resolution.md
+      - Upscayl Models: user-guide/upscayl-models.md
       - Pipelines: user-guide/pipelines.md
       - Transforms: user-guide/transforms.md
       - Optimization: user-guide/optimization.md

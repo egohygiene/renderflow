@@ -240,6 +240,13 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "variants": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/stableId"
+          },
+          "type": "array"
         }
       },
       "type": "object"
@@ -388,6 +395,16 @@
           "type": [
             "string",
             "null"
+          ]
+        },
+        "variant": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/stableId"
+            },
+            {
+              "type": "null"
+            }
           ]
         }
       },

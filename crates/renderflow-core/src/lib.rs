@@ -28,6 +28,7 @@ pub mod process;
 mod sdk;
 pub mod spec;
 pub mod strategies;
+pub mod super_resolution;
 mod template;
 pub mod toolchain;
 pub mod transforms;

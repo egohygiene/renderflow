@@ -319,6 +319,18 @@ pub enum ToolCommands {
         #[arg(long, value_name = "FILE")]
         transforms: Option<String>,
     },
+
+    /// List stable provider variants/models and optional runtime material evidence.
+    Variants {
+        /// Stable provider/tool identifier, for example `tool.upscayl-ncnn`.
+        id: String,
+        /// Optional provider model/material directory used for runtime discovery.
+        #[arg(long, value_name = "DIR")]
+        models_dir: Option<String>,
+        /// Output format: text (default), json, or yaml.
+        #[arg(long, default_value = "text", value_name = "FORMAT")]
+        format: String,
+    },
 }
 
 /// Subcommands for `renderflow ai`.

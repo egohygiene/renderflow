@@ -21,6 +21,16 @@ renderflow tools inspect tool.pandoc --format json
 
 Inspection includes discovery strategy, live availability state, selected executable, installed version evidence, determinism/locality/fidelity metadata, capability IDs, fallbacks, and diagnostics.
 
+## List provider variants
+
+```bash
+renderflow tools variants tool.upscayl-ncnn
+renderflow tools variants tool.upscayl-ncnn --models-dir /path/to/models
+renderflow tools variants tool.upscayl-ncnn --models-dir /path/to/models --format json
+```
+
+The generic variant surface exposes stable provider-specific model/variant identities. When runtime material is supplied, structured output can include checksums and discovery diagnostics without changing the canonical built-in catalog.
+
 ## List capabilities
 
 ```bash
@@ -32,6 +42,6 @@ Capability IDs and provider IDs are stable machine-readable identifiers. Human-r
 
 ## Toolchain fingerprints
 
-Graph planning fingerprints only providers selected by the final DAG. The fingerprint includes the selected provider IDs, compatible installed versions, relevant executable identity, provider capability metadata, and the target OS/architecture. It does **not** hash the entire host environment.
+Graph planning fingerprints only providers selected by the final DAG. The fingerprint includes the selected provider IDs, compatible installed versions, relevant executable identity, provider capability metadata, selected variant/model evidence when present, and the target OS/architecture. It does **not** hash the entire host environment.
 
 Graph execution uses that fingerprint in artifact-cache compatibility and writes the selected toolchain evidence into Renderflow state for reproducibility/provenance consumers.

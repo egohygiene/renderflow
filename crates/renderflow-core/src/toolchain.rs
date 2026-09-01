@@ -408,6 +408,10 @@ impl ToolRuntimeContext {
         self.runtime_services.insert(service.into());
         self
     }
+
+    pub fn has_runtime_service(&self, service: &str) -> bool {
+        self.runtime_services.contains(service)
+    }
 }
 
 /// Probe seam used by tests and embedders to avoid arbitrary host-state dependencies.
@@ -520,6 +524,14 @@ impl ToolInventory {
     }
 }
 
+/// Evidence for one selected provider variant/model included in a toolchain fingerprint.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SelectedToolVariantEvidence {
+    pub id: String,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub attributes: BTreeMap<String, String>,
+}
+
 /// Evidence for a selected provider included in a toolchain fingerprint.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SelectedToolEvidence {
@@ -529,6 +541,8 @@ pub struct SelectedToolEvidence {
     pub capabilities: Vec<CapabilityId>,
     pub determinism: ToolDeterminism,
     pub locality: ToolLocality,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub variants: Vec<SelectedToolVariantEvidence>,
 }
 
 /// Reproducibility evidence derived only from providers selected by a plan/run.
@@ -766,6 +780,20 @@ impl ToolRegistry {
         I: IntoIterator<Item = S>,
         S: AsRef<str>,
     {
+        self.fingerprint_selected_with_variants(inventory, ids, &BTreeMap::new(), context)
+    }
+
+    pub fn fingerprint_selected_with_variants<I, S>(
+        &self,
+        inventory: &ToolInventory,
+        ids: I,
+        variants: &BTreeMap<String, Vec<SelectedToolVariantEvidence>>,
+        context: &ToolRuntimeContext,
+    ) -> Result<ToolchainSnapshot>
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<str>,
+    {
         let ids: BTreeSet<String> = ids.into_iter().map(|id| id.as_ref().to_string()).collect();
         let mut selected_tools = Vec::with_capacity(ids.len());
         for id in ids {
@@ -782,6 +810,13 @@ impl ToolRegistry {
             let descriptor = self
                 .get(&id)
                 .ok_or_else(|| anyhow::anyhow!("tool '{}' is not registered", id))?;
+            let mut selected_variants = variants.get(&id).cloned().unwrap_or_default();
+            selected_variants.sort_by(|left, right| {
+                left.id
+                    .cmp(&right.id)
+                    .then_with(|| left.attributes.cmp(&right.attributes))
+            });
+            selected_variants.dedup();
             selected_tools.push(SelectedToolEvidence {
                 id: descriptor.id.clone(),
                 executable: availability.selected_executable.clone(),
@@ -792,6 +827,7 @@ impl ToolRegistry {
                 capabilities: descriptor.capabilities.clone(),
                 determinism: descriptor.determinism,
                 locality: descriptor.locality,
+                variants: selected_variants,
             });
         }
         selected_tools.sort_by(|left, right| left.id.cmp(&right.id));
@@ -820,11 +856,25 @@ impl ToolRegistry {
         dag: &MultiTargetDag,
         context: &ToolRuntimeContext,
     ) -> Result<ToolchainSnapshot> {
-        self.fingerprint_selected(
+        let mut variants: BTreeMap<String, Vec<SelectedToolVariantEvidence>> = BTreeMap::new();
+        for edge in dag.all_edges() {
+            if let (Some(provider_id), Some(variant_id)) =
+                (edge.provider_id.as_deref(), edge.variant_id.as_deref())
+            {
+                variants.entry(provider_id.to_string()).or_default().push(
+                    SelectedToolVariantEvidence {
+                        id: variant_id.to_string(),
+                        attributes: edge.evidence.clone(),
+                    },
+                );
+            }
+        }
+        self.fingerprint_selected_with_variants(
             inventory,
             dag.all_edges()
                 .iter()
                 .filter_map(|edge| edge.provider_id.as_deref()),
+            &variants,
             context,
         )
     }
@@ -1077,6 +1127,7 @@ pub fn canonical_tool_id_for_hint(hint: &str) -> ToolId {
         "zip" => "tool.zip".to_string(),
         "img2pdf" => "tool.img2pdf".to_string(),
         "gs" | "ghostscript" => "tool.ghostscript".to_string(),
+        "upscayl-ncnn" | "upscayl-bin" => "tool.upscayl-ncnn".to_string(),
         value => format!("tool.command.{}", slug(value)),
     };
     ToolId::new(canonical).expect("canonicalized tool id is valid")
@@ -1340,6 +1391,39 @@ mod tests {
             .unwrap();
         assert_eq!(first.fingerprint, second.fingerprint);
         assert_ne!(first.fingerprint, only_a.fingerprint);
+    }
+
+    #[test]
+    fn selected_variant_material_changes_toolchain_fingerprint() {
+        let mut registry = ToolRegistry::new();
+        registry.register(test_descriptor("tool.a", "a")).unwrap();
+        let probe = FakeProbe::default().with("a", ProcessProbeStatus::Available, Some("a 1.2.3"));
+        let context = ToolRuntimeContext::for_platform("linux", "x86_64");
+        let inventory = registry.assess_all_with(&probe, &context);
+
+        let mut first_variants = BTreeMap::new();
+        first_variants.insert(
+            "tool.a".to_string(),
+            vec![SelectedToolVariantEvidence {
+                id: "variant.a".to_string(),
+                attributes: BTreeMap::from([(
+                    "model_digest".to_string(),
+                    "sha256:first".to_string(),
+                )]),
+            }],
+        );
+        let mut second_variants = first_variants.clone();
+        second_variants.get_mut("tool.a").unwrap()[0]
+            .attributes
+            .insert("model_digest".to_string(), "sha256:second".to_string());
+
+        let first = registry
+            .fingerprint_selected_with_variants(&inventory, ["tool.a"], &first_variants, &context)
+            .unwrap();
+        let second = registry
+            .fingerprint_selected_with_variants(&inventory, ["tool.a"], &second_variants, &context)
+            .unwrap();
+        assert_ne!(first.fingerprint, second.fingerprint);
     }
 
     #[test]

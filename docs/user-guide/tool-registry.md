@@ -22,6 +22,7 @@ without editing this built-in catalog.
 | `tool.img2pdf` | img2pdf | executable: `img2pdf` | experimental | deterministic | local |
 | `tool.pandoc` | Pandoc | executable: `pandoc` | required | configuration_dependent | local |
 | `tool.tectonic` | Tectonic | executable: `tectonic` | optional | configuration_dependent | network_optional |
+| `tool.upscayl-ncnn` | Upscayl NCNN | executable: `upscayl-ncnn`, `upscayl-bin` | experimental | configuration_dependent | local |
 | `tool.wkhtmltopdf` | wkhtmltopdf | executable: `wkhtmltopdf` | experimental | configuration_dependent | local |
 | `tool.zip` | Info-ZIP compatible zip | executable: `zip` | experimental | configuration_dependent | local |
 
@@ -40,6 +41,7 @@ without editing this built-in catalog.
 | `document.generate` | `tool.pandoc` |
 | `latex.compile` | `tool.tectonic` |
 | `pdf.typeset` | `tool.tectonic` |
+| `image.super_resolution` | `tool.upscayl-ncnn` |
 | `html.render.pdf` | `tool.wkhtmltopdf` |
 | `archive.zip.create` | `tool.zip` |
 | `comic.cbz.create` | `tool.zip` |

@@ -10,14 +10,17 @@ on:
       - 'scripts/generate_supported_formats_doc.py'
       - 'scripts/generate_tool_registry_doc.py'
       - 'scripts/generate_spec_v2_reference.py'
+      - 'scripts/generate_upscayl_models_doc.py'
       - 'schemas/renderflow-v2.schema.json'
       - 'examples/renderflow-v2.yaml'
       - 'crates/renderflow-core/data/tool-registry.yaml'
+      - 'crates/renderflow-core/data/upscayl-models.yaml'
       - 'crates/renderflow-core/src/audio/format.rs'
       - 'crates/renderflow-core/src/graph/format.rs'
       - 'crates/renderflow-core/src/image/format.rs'
       - 'crates/renderflow-core/src/input_format.rs'
       - 'crates/renderflow-core/src/spec.rs'
+      - 'crates/renderflow-core/src/super_resolution.rs'
       - 'crates/renderflow-core/src/commands/spec.rs'
       - 'crates/renderflow-core/src/toolchain.rs'
   push:
@@ -33,14 +36,17 @@ on:
       - 'scripts/generate_supported_formats_doc.py'
       - 'scripts/generate_tool_registry_doc.py'
       - 'scripts/generate_spec_v2_reference.py'
+      - 'scripts/generate_upscayl_models_doc.py'
       - 'schemas/renderflow-v2.schema.json'
       - 'examples/renderflow-v2.yaml'
       - 'crates/renderflow-core/data/tool-registry.yaml'
+      - 'crates/renderflow-core/data/upscayl-models.yaml'
       - 'crates/renderflow-core/src/audio/format.rs'
       - 'crates/renderflow-core/src/graph/format.rs'
       - 'crates/renderflow-core/src/image/format.rs'
       - 'crates/renderflow-core/src/input_format.rs'
       - 'crates/renderflow-core/src/spec.rs'
+      - 'crates/renderflow-core/src/super_resolution.rs'
       - 'crates/renderflow-core/src/commands/spec.rs'
       - 'crates/renderflow-core/src/toolchain.rs'
   workflow_dispatch:
@@ -82,6 +88,7 @@ jobs:
         run: |
           python scripts/generate_supported_formats_doc.py
           python scripts/generate_tool_registry_doc.py
+          python scripts/generate_upscayl_models_doc.py
           cargo run --quiet -p renderflow-cli -- spec schema --format json --output schemas/renderflow-v2.schema.json
           python scripts/generate_spec_v2_reference.py
 
@@ -90,6 +97,7 @@ jobs:
           git diff --exit-code -- \
             docs/user-guide/supported-formats.md \
             docs/user-guide/tool-registry.md \
+            docs/user-guide/upscayl-models.md \
             docs/user-guide/spec-v2-reference.md \
             schemas/renderflow-v2.schema.json
 
@@ -132,6 +140,7 @@ jobs:
         run: |
           python scripts/generate_supported_formats_doc.py
           python scripts/generate_tool_registry_doc.py
+          python scripts/generate_upscayl_models_doc.py
           cargo run --quiet -p renderflow-cli -- spec schema --format json --output schemas/renderflow-v2.schema.json
           python scripts/generate_spec_v2_reference.py
 
