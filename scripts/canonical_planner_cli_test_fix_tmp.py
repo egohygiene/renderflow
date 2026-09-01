@@ -33,3 +33,13 @@ cli = replace_once(
     "graph plan without transforms test",
 )
 cli_path.write_text(cli, encoding="utf-8")
+
+bench_path = Path("crates/renderflow-core/benches/cache.rs")
+bench = bench_path.read_text(encoding="utf-8")
+bench = replace_once(
+    bench,
+    "            || TransformCache::default(),",
+    "            TransformCache::default,",
+    "TransformCache benchmark constructor",
+)
+bench_path.write_text(bench, encoding="utf-8")
