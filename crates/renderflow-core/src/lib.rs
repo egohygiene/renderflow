@@ -26,6 +26,7 @@ pub mod optimization;
 mod pipeline;
 pub mod process;
 mod sdk;
+pub mod spec;
 pub mod strategies;
 mod template;
 pub mod toolchain;

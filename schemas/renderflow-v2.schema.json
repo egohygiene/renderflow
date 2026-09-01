@@ -1,0 +1,503 @@
+{
+  "$defs": {
+    "allowDeny": {
+      "additionalProperties": false,
+      "properties": {
+        "allow": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "deny": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "budgets": {
+      "additionalProperties": false,
+      "properties": {
+        "max_artifacts": {
+          "minimum": 1,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "max_depth": {
+          "minimum": 1,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "max_output_bytes": {
+          "minimum": 1,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "max_storage_bytes": {
+          "minimum": 1,
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "executionPolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "ai": {
+          "default": "deny",
+          "enum": [
+            "deny",
+            "local_only",
+            "allow"
+          ]
+        },
+        "budgets": {
+          "$ref": "#/$defs/budgets"
+        },
+        "max_parallel": {
+          "default": 1,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "minimum_fidelity": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "network": {
+          "default": "deny",
+          "enum": [
+            "deny",
+            "allow"
+          ]
+        },
+        "optimization": {
+          "default": "balanced",
+          "enum": [
+            "speed",
+            "quality",
+            "balanced",
+            "pareto"
+          ]
+        },
+        "publication_policy": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "redaction_policy": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "requirements": {
+          "$ref": "#/$defs/requirements"
+        },
+        "retry_policy": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "timeout_policy": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "tools": {
+          "$ref": "#/$defs/allowDeny"
+        },
+        "transforms": {
+          "$ref": "#/$defs/allowDeny"
+        },
+        "validation": {
+          "$ref": "#/$defs/validation"
+        }
+      },
+      "type": "object"
+    },
+    "outputLayout": {
+      "additionalProperties": false,
+      "properties": {
+        "bundle_root": {
+          "default": "dist",
+          "minLength": 1,
+          "type": "string"
+        },
+        "collision": {
+          "default": "error",
+          "enum": [
+            "error",
+            "replace",
+            "dedupe"
+          ]
+        },
+        "naming_template": {
+          "default": "{source.id}/{target.role}.{ext}",
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "profile": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "exclude": {
+          "$ref": "#/$defs/selectorSet"
+        },
+        "include": {
+          "$ref": "#/$defs/selectorSet"
+        },
+        "targets": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/target"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "requirements": {
+      "additionalProperties": false,
+      "properties": {
+        "deterministic": {
+          "default": false,
+          "type": "boolean"
+        },
+        "local_only": {
+          "default": false,
+          "type": "boolean"
+        },
+        "offline": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "selectorSet": {
+      "additionalProperties": false,
+      "properties": {
+        "capabilities": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "families": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "formats": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "profiles": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/stableId"
+          },
+          "type": "array"
+        },
+        "transforms": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "source": {
+      "additionalProperties": false,
+      "properties": {
+        "detect": {
+          "default": true,
+          "type": "boolean"
+        },
+        "format": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "id": {
+          "$ref": "#/$defs/stableId"
+        },
+        "immutable": {
+          "const": true,
+          "default": true
+        },
+        "kind": {
+          "default": "artifact",
+          "enum": [
+            "artifact",
+            "collection"
+          ]
+        },
+        "media_type": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "members": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/stableId"
+          },
+          "type": "array"
+        },
+        "path": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "role": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "uri": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "stableId": {
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9._-]+$",
+      "type": "string"
+    },
+    "target": {
+      "additionalProperties": false,
+      "anyOf": [
+        {
+          "required": [
+            "format"
+          ]
+        },
+        {
+          "required": [
+            "family"
+          ]
+        },
+        {
+          "required": [
+            "capability"
+          ]
+        },
+        {
+          "required": [
+            "transform"
+          ]
+        }
+      ],
+      "properties": {
+        "capability": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "family": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "format": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/stableId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "preset": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "role": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "template": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "transform": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "targetSelection": {
+      "additionalProperties": false,
+      "properties": {
+        "all_reachable": {
+          "default": false,
+          "type": "boolean"
+        },
+        "exact": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/target"
+          },
+          "type": "array"
+        },
+        "exclude": {
+          "$ref": "#/$defs/selectorSet"
+        },
+        "include": {
+          "$ref": "#/$defs/selectorSet"
+        },
+        "intermediates": {
+          "default": "cache_only",
+          "enum": [
+            "cache_only",
+            "retain"
+          ]
+        },
+        "profiles": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/stableId"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "validation": {
+      "additionalProperties": false,
+      "properties": {
+        "required": {
+          "default": true,
+          "type": "boolean"
+        },
+        "validators": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    }
+  },
+  "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-v2.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Declarative source, derivative target, execution policy, and output-layout intent consumed by the Renderflow planner.",
+  "properties": {
+    "execution": {
+      "$ref": "#/$defs/executionPolicy"
+    },
+    "output": {
+      "$ref": "#/$defs/outputLayout"
+    },
+    "profiles": {
+      "additionalProperties": {
+        "$ref": "#/$defs/profile"
+      },
+      "default": {},
+      "type": "object"
+    },
+    "schema": {
+      "const": "renderflow/v2"
+    },
+    "sources": {
+      "items": {
+        "$ref": "#/$defs/source"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "targets": {
+      "$ref": "#/$defs/targetSelection"
+    },
+    "transforms": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "variables": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "default": {},
+      "type": "object"
+    }
+  },
+  "required": [
+    "schema",
+    "sources",
+    "targets"
+  ],
+  "title": "Renderflow execution specification v2",
+  "type": "object"
+}

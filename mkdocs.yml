@@ -66,6 +66,7 @@ nav:
       - CLI Overview: getting-started/cli-overview.md
   - User Guide:
       - Configuration: user-guide/configuration.md
+      - Spec v2 Reference: user-guide/spec-v2-reference.md
       - Supported Formats: user-guide/supported-formats.md
       - Tool Registry: user-guide/tool-registry.md
       - Pipelines: user-guide/pipelines.md
@@ -119,6 +120,7 @@ nav:
       - plugin: cli-reference/plugin.md
       - ai: cli-reference/ai.md
       - tools & capabilities: cli-reference/tools.md
+      - spec: cli-reference/spec.md
   - Transform Reference:
       - Overview: transform-reference/index.md
       - Emoji: transform-reference/emoji.md

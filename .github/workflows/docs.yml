@@ -9,11 +9,16 @@ on:
       - 'mkdocs.yml'
       - 'scripts/generate_supported_formats_doc.py'
       - 'scripts/generate_tool_registry_doc.py'
+      - 'scripts/generate_spec_v2_reference.py'
+      - 'schemas/renderflow-v2.schema.json'
+      - 'examples/renderflow-v2.yaml'
       - 'crates/renderflow-core/data/tool-registry.yaml'
       - 'crates/renderflow-core/src/audio/format.rs'
       - 'crates/renderflow-core/src/graph/format.rs'
       - 'crates/renderflow-core/src/image/format.rs'
       - 'crates/renderflow-core/src/input_format.rs'
+      - 'crates/renderflow-core/src/spec.rs'
+      - 'crates/renderflow-core/src/commands/spec.rs'
       - 'crates/renderflow-core/src/toolchain.rs'
   push:
     branches:
@@ -27,11 +32,16 @@ on:
       - 'mkdocs.yml'
       - 'scripts/generate_supported_formats_doc.py'
       - 'scripts/generate_tool_registry_doc.py'
+      - 'scripts/generate_spec_v2_reference.py'
+      - 'schemas/renderflow-v2.schema.json'
+      - 'examples/renderflow-v2.yaml'
       - 'crates/renderflow-core/data/tool-registry.yaml'
       - 'crates/renderflow-core/src/audio/format.rs'
       - 'crates/renderflow-core/src/graph/format.rs'
       - 'crates/renderflow-core/src/image/format.rs'
       - 'crates/renderflow-core/src/input_format.rs'
+      - 'crates/renderflow-core/src/spec.rs'
+      - 'crates/renderflow-core/src/commands/spec.rs'
       - 'crates/renderflow-core/src/toolchain.rs'
   workflow_dispatch:
 
@@ -53,6 +63,11 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.94"
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -63,13 +78,20 @@ jobs:
           python -m pip install --upgrade pip
           pip install mkdocs-material mike pyyaml
 
-      - name: Regenerate generated docs
+      - name: Regenerate generated docs and schemas
         run: |
           python scripts/generate_supported_formats_doc.py
           python scripts/generate_tool_registry_doc.py
+          cargo run --quiet -p renderflow-cli -- spec schema --format json --output schemas/renderflow-v2.schema.json
+          python scripts/generate_spec_v2_reference.py
 
-      - name: Verify generated docs are committed
-        run: git diff --exit-code -- docs/user-guide/supported-formats.md docs/user-guide/tool-registry.md
+      - name: Verify generated docs and schemas are committed
+        run: |
+          git diff --exit-code -- \
+            docs/user-guide/supported-formats.md \
+            docs/user-guide/tool-registry.md \
+            docs/user-guide/spec-v2-reference.md \
+            schemas/renderflow-v2.schema.json
 
       - name: Build docs
         run: mkdocs build --strict
@@ -91,6 +113,11 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.94"
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -101,10 +128,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install mkdocs-material mike pyyaml
 
-      - name: Regenerate generated docs
+      - name: Regenerate generated docs and schemas
         run: |
           python scripts/generate_supported_formats_doc.py
           python scripts/generate_tool_registry_doc.py
+          cargo run --quiet -p renderflow-cli -- spec schema --format json --output schemas/renderflow-v2.schema.json
+          python scripts/generate_spec_v2_reference.py
 
       - name: Configure Pages
         uses: actions/configure-pages@v5

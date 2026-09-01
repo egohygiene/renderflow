@@ -1,0 +1,24 @@
+schema: renderflow/v2
+sources:
+  - id: source.cover
+    role: cover
+    path: cover.png
+  - id: source.body
+    role: manuscript
+    path: body.md
+    format: markdown
+  - id: source.publication
+    role: publication
+    kind: collection
+    members: [source.cover, source.body]
+targets:
+  all_reachable: true
+  include:
+    families: [document, image]
+execution:
+  max_parallel: 2
+  network: deny
+  ai: deny
+output:
+  bundle_root: dist
+  collision: error

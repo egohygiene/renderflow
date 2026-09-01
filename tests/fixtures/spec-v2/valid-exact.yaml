@@ -1,0 +1,26 @@
+schema: renderflow/v2
+sources:
+  - id: source.main
+    path: input.md
+    format: markdown
+profiles:
+  publication.web:
+    targets:
+      - id: profile.web
+        role: web
+        format: html
+targets:
+  exact:
+    - id: target.pdf
+      role: print
+      format: pdf
+    - id: target.html
+      role: web
+      capability: document.generate
+  profiles: [publication.web]
+execution:
+  optimization: quality
+  network: deny
+  ai: deny
+output:
+  naming_template: "{source.id}/{target.role}.{ext}"
