@@ -666,7 +666,8 @@ pub fn build_graph_executor_and_tools_from_str(
 
         graph.add_transform(
             TransformEdge::with_input_kind(from, to, def.cost, def.quality, input_kind)
-                .with_provider(provider.to_string(), capability.to_string()),
+                .with_provider(provider.to_string(), capability.to_string())
+                .with_evidence("transform_id", def.name.clone()),
         );
 
         if def.is_collection() {

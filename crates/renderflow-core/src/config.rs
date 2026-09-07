@@ -137,14 +137,13 @@ impl Config {
         }
         InputFormat::from_extension(&self.input).unwrap_or_default()
     }
-    pub fn validate(&self) -> Result<()> {
+    pub(crate) fn validate_structure(&self) -> Result<()> {
         if self.input.trim().is_empty() {
             anyhow::bail!("Config validation failed: 'input' must not be empty");
         }
         if self.outputs.is_empty() {
             anyhow::bail!("Config validation failed: 'outputs' must contain at least one entry");
         }
-        // Collect all unsupported types so the user sees every problem at once.
         let bad: Vec<String> = self
             .outputs
             .iter()
@@ -159,6 +158,11 @@ impl Config {
         if !bad.is_empty() {
             anyhow::bail!("{}", bad.join("\n"));
         }
+        Ok(())
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        self.validate_structure()?;
 
         // When the input file is audio, validate that all outputs are also audio.
         // Skip the pandoc-based compatibility check for audio pipelines entirely.
@@ -259,19 +263,6 @@ pub fn load_config(path: &str) -> Result<Config> {
         .with_context(|| format!("Failed to parse YAML config: {}", path))?;
     config.validate()?;
     Ok(config)
-}
-
-/// Load a config file without requiring the `outputs` key to be present.
-///
-/// Unlike [`load_config`], this function skips the full
-/// [`Config::validate`] call.  It is intended for graph-based execution
-/// modes (`--target`, `--all`) where output formats are resolved from the
-/// transform graph rather than from a static `outputs` list.
-pub fn load_config_for_graph(path: &str) -> Result<Config> {
-    let content = fs::read_to_string(path)
-        .with_context(|| format!("Failed to read config file: {}", path))?;
-    serde_yaml_ng::from_str(&content)
-        .with_context(|| format!("Failed to parse YAML config: {}", path))
 }
 
 #[cfg(test)]

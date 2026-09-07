@@ -3,10 +3,9 @@ use notify_debouncer_mini::{new_debouncer, notify::RecursiveMode};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc;
 use std::time::Duration;
-use tracing::{debug, error, info, warn};
+use tracing::{error, info, warn};
 
 use crate::config::load_config;
-use crate::incremental::{hash_file, load_dependency_map};
 
 use super::build;
 
@@ -48,12 +47,6 @@ pub fn run(config_path: &str, debounce_ms: u64) -> Result<()> {
             Ok(events) => {
                 for event in &events {
                     info!("File changed → rebuilding... ({})", event.path.display());
-
-                    // Use the dependency map to log which outputs are affected by
-                    // this specific file change.  This gives the user (and
-                    // developers) visibility into the incremental build decisions
-                    // without changing the current full-rebuild strategy.
-                    log_affected_outputs(config_path, &event.path);
                 }
                 if let Err(e) = build::run_resilient(config_path) {
                     error!("Build failed: {:#}", e);
@@ -66,39 +59,6 @@ pub fn run(config_path: &str, debounce_ms: u64) -> Result<()> {
     }
 
     Ok(())
-}
-
-/// Log which outputs in the dependency map are affected by a change to `changed_path`.
-///
-/// This is best-effort: if the config cannot be loaded or the dependency map
-/// cannot be found, the function silently returns.
-fn log_affected_outputs(config_path: &str, changed_path: &Path) {
-    let Ok(config) = load_config(config_path) else {
-        return;
-    };
-    let output_dir = PathBuf::from(&config.output_dir);
-    let dep_map_path = output_dir.join(".renderflow-deps.json");
-    let dep_map = load_dependency_map(&dep_map_path);
-
-    let changed_str = changed_path.to_string_lossy();
-    // Hash the changed file to compare with recorded hashes.  If the file
-    // cannot be read (e.g. it was deleted) we use an empty string so that
-    // every recorded hash will differ, correctly marking all dependents stale.
-    let current_hash = hash_file(changed_path).unwrap_or_default();
-    let affected = dep_map.outputs_affected_by(&changed_str, &current_hash);
-
-    if affected.is_empty() {
-        debug!(
-            changed = %changed_str,
-            "No tracked outputs depend on this file (or dependency map is empty)"
-        );
-    } else {
-        debug!(
-            changed = %changed_str,
-            affected_outputs = ?affected,
-            "Outputs affected by this file change (per dependency map)"
-        );
-    }
 }
 
 /// Collect extra paths to watch beyond the config file itself.
@@ -209,26 +169,5 @@ mod tests {
                 p.display()
             );
         }
-    }
-
-    // ── log_affected_outputs (smoke test — best-effort, no panic) ─────────────
-
-    #[test]
-    fn test_log_affected_outputs_does_not_panic_for_missing_config() {
-        // Should return silently without panicking.
-        log_affected_outputs("/nonexistent/renderflow.yaml", Path::new("/some/file.md"));
-    }
-
-    #[test]
-    fn test_log_affected_outputs_does_not_panic_with_valid_config_no_dep_map() {
-        let dir = tempfile::tempdir().expect("tempdir failed");
-        let input_path = dir.path().join("doc.md");
-        fs::write(&input_path, "# Hello\n").expect("write failed");
-        let output_dir = dir.path().join("dist");
-        let config =
-            config_with_input(&input_path.to_string_lossy(), &output_dir.to_string_lossy());
-
-        // No .renderflow-deps.json exists — the function should handle this gracefully.
-        log_affected_outputs(config.path().to_str().unwrap(), &input_path);
     }
 }

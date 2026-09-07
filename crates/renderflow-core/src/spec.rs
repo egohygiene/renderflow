@@ -762,7 +762,7 @@ pub fn validate_spec_str(content: &str) -> SpecValidationReport {
 
 fn validate_v1_compat(content: &str) -> SpecValidationReport {
     match serde_yaml_ng::from_str::<Config>(content) {
-        Ok(config) => match config.validate() {
+        Ok(config) => match config.validate_structure() {
             Ok(()) => {
                 let migrated = migrate_v1_config(&config);
                 let diagnostics = migrated.validate();
@@ -866,7 +866,7 @@ pub fn migrate_v1_str(content: &str) -> Result<SpecV2> {
     }
 
     let config: Config = serde_yaml_ng::from_str(content).context("failed to parse v1 config")?;
-    config.validate()?;
+    config.validate_structure()?;
     let migrated = migrate_v1_config(&config);
     let diagnostics = migrated.validate();
     if !diagnostics.is_empty() {
@@ -879,6 +879,14 @@ pub fn migrate_v1_str(content: &str) -> Result<SpecV2> {
         anyhow::bail!("migrated v2 spec is invalid:\n{report}");
     }
     Ok(migrated)
+}
+
+fn legacy_source_format(config: &Config) -> String {
+    std::path::Path::new(&config.input)
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .map(|extension| extension.to_ascii_lowercase())
+        .unwrap_or_else(|| config.input_format().to_string())
 }
 
 pub(crate) fn migrate_v1_config(config: &Config) -> SpecV2 {
@@ -912,7 +920,7 @@ pub(crate) fn migrate_v1_config(config: &Config) -> SpecV2 {
             uri: None,
             members: Vec::new(),
             media_type: None,
-            format: Some(config.input_format().to_string()),
+            format: Some(legacy_source_format(config)),
             detect: config.input_format.is_none(),
             immutable: true,
         }],

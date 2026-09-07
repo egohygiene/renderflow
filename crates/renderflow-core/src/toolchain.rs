@@ -871,9 +871,12 @@ impl ToolRegistry {
         }
         self.fingerprint_selected_with_variants(
             inventory,
-            dag.all_edges()
-                .iter()
-                .filter_map(|edge| edge.provider_id.as_deref()),
+            dag.all_edges().iter().flat_map(|edge| {
+                edge.provider_id
+                    .iter()
+                    .map(String::as_str)
+                    .chain(edge.required_provider_ids.iter().map(String::as_str))
+            }),
             &variants,
             context,
         )

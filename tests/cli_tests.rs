@@ -349,12 +349,39 @@ fn test_dry_run_output_labeled() {
         .expect("failed to execute renderflow");
 
     assert!(output.status.success(), "dry-run should exit with code 0");
-    // Log messages (including [DRY RUN] prefixes) go to stderr.
+    let plan: serde_json::Value = serde_json::from_slice(&output.stdout)
+        .expect("dry-run stdout should be the canonical ExecutionPlan JSON");
+    assert_eq!(plan["source"], "markdown");
+    assert_eq!(plan["targets"], serde_json::json!(["html"]));
+    // Human-readable plan/output labels remain on stderr.
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
         stderr.contains("[DRY RUN]"),
         "dry-run output should contain [DRY RUN] label, got stderr: {stderr}"
     );
+}
+
+
+#[test]
+fn test_v2_dry_run_serializes_canonical_plan() {
+    let (config, _dir) = common::v2_config_file();
+    let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
+        .arg("build")
+        .arg("--dry-run")
+        .arg("--config")
+        .arg(config.path())
+        .output()
+        .expect("failed to execute renderflow");
+
+    assert!(
+        output.status.success(),
+        "v2 dry-run should succeed, stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let plan: serde_json::Value = serde_json::from_slice(&output.stdout)
+        .expect("v2 dry-run stdout should be canonical ExecutionPlan JSON");
+    assert_eq!(plan["source"], "markdown");
+    assert_eq!(plan["targets"], serde_json::json!(["html"]));
 }
 
 #[test]
@@ -455,52 +482,49 @@ fn test_all_with_missing_config_exits_with_error() {
 }
 
 #[test]
-fn test_target_without_transforms_exits_with_error() {
-    // A valid config with no 'transforms' key should cause graph-based execution to fail
-    // with a descriptive error when --target is used.
+fn test_target_without_transforms_uses_builtin_capability_registry() {
     let (f, _dir) = common::valid_config_file();
     let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
         .arg("build")
         .arg("--config")
         .arg(f.path())
         .arg("--target")
-        .arg("pdf")
+        .arg("html")
+        .arg("--dry-run")
         .output()
         .expect("failed to execute renderflow");
 
     assert!(
-        !output.status.success(),
-        "--target without a 'transforms' key in config should fail"
+        output.status.success(),
+        "--target should use built-in capabilities without a transforms file: {}",
+        String::from_utf8_lossy(&output.stderr)
     );
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(
-        stderr.contains("transforms"),
-        "error should mention 'transforms', got: {stderr}"
-    );
+    let plan: serde_json::Value = serde_json::from_slice(&output.stdout)
+        .expect("target dry-run should emit canonical plan JSON");
+    assert_eq!(plan["targets"], serde_json::json!(["html"]));
 }
 
 #[test]
-fn test_all_without_transforms_exits_with_error() {
-    // A valid config with no 'transforms' key should cause graph-based execution to fail
-    // with a descriptive error when --all is used.
+fn test_all_without_transforms_uses_builtin_capability_registry() {
     let (f, _dir) = common::valid_config_file();
     let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
         .arg("build")
         .arg("--config")
         .arg(f.path())
         .arg("--all")
+        .arg("--dry-run")
         .output()
         .expect("failed to execute renderflow");
 
     assert!(
-        !output.status.success(),
-        "--all without a 'transforms' key in config should fail"
+        output.status.success(),
+        "--all should use built-in capabilities without a transforms file: {}",
+        String::from_utf8_lossy(&output.stderr)
     );
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(
-        stderr.contains("transforms"),
-        "error should mention 'transforms', got: {stderr}"
-    );
+    let plan: serde_json::Value = serde_json::from_slice(&output.stdout)
+        .expect("all-reachable dry-run should emit canonical plan JSON");
+    assert_eq!(plan["source"], "markdown");
+    assert!(plan["targets"].as_array().is_some_and(|targets| !targets.is_empty()));
 }
 
 #[test]

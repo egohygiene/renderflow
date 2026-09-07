@@ -28,6 +28,8 @@ pub struct TransformEdge {
     pub provider_id: Option<String>,
     /// Stable machine-readable capability identifier for this edge, when known.
     pub capability_id: Option<String>,
+    /// Additional provider/tool identifiers required by this transform.
+    pub required_provider_ids: Vec<String>,
     /// Stable provider-specific transform/model variant identity, when known.
     pub variant_id: Option<String>,
     /// Deterministically ordered evidence that affects this variant's reproducibility.
@@ -53,6 +55,7 @@ impl TransformEdge {
             input_kind: InputKind::Single,
             provider_id: None,
             capability_id: None,
+            required_provider_ids: Vec::new(),
             variant_id: None,
             evidence: BTreeMap::new(),
         }
@@ -84,6 +87,7 @@ impl TransformEdge {
             input_kind,
             provider_id: None,
             capability_id: None,
+            required_provider_ids: Vec::new(),
             variant_id: None,
             evidence: BTreeMap::new(),
         }
@@ -97,6 +101,15 @@ impl TransformEdge {
     ) -> Self {
         self.provider_id = Some(provider_id.into());
         self.capability_id = Some(capability_id.into());
+        self
+    }
+
+    pub fn with_required_provider(mut self, provider_id: impl Into<String>) -> Self {
+        let provider_id = provider_id.into();
+        if !self.required_provider_ids.contains(&provider_id) {
+            self.required_provider_ids.push(provider_id);
+            self.required_provider_ids.sort();
+        }
         self
     }
 
