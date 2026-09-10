@@ -1,5 +1,9 @@
 # Developing a Plugin
 
+This page documents the legacy UTF-8 plugin API. New plugins should use the
+[artifact-native Transform v2 SDK](v2-sdk.md). The legacy API remains available
+through `LegacyTextPluginAdapter` during migration.
+
 ## 1. Implement `PluginExecutor`
 
 ```rust

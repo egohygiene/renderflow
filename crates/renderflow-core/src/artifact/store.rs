@@ -158,6 +158,39 @@ impl ArtifactStore {
             .unwrap_or(false)
     }
 
+    /// Verify that a stored payload still matches its recorded size and digest.
+    ///
+    /// Plugin and adapter boundaries use this after execution to prove that an
+    /// immutable input was not modified through a borrowed filesystem path.
+    pub fn verify(&self, artifact: &Artifact) -> Result<()> {
+        let mut file = self.open(artifact)?;
+        let mut hasher = Sha256::new();
+        let mut size_bytes = 0_u64;
+        let mut buffer = [0_u8; COPY_BUFFER_BYTES];
+
+        loop {
+            let read = file
+                .read(&mut buffer)
+                .context("Failed while verifying artifact payload")?;
+            if read == 0 {
+                break;
+            }
+            hasher.update(&buffer[..read]);
+            size_bytes = size_bytes
+                .checked_add(read as u64)
+                .context("Artifact size overflowed u64 during verification")?;
+        }
+
+        let digest = format!("{:x}", hasher.finalize());
+        if size_bytes != artifact.size_bytes() || digest != artifact.digest().value() {
+            anyhow::bail!(
+                "artifact '{}' failed immutable payload verification",
+                artifact.id()
+            );
+        }
+        Ok(())
+    }
+
     /// Open the artifact payload for streaming reads.
     pub fn open(&self, artifact: &Artifact) -> Result<File> {
         let path = self.payload_path(artifact)?;

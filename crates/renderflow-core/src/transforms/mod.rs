@@ -3,6 +3,7 @@ pub mod ai;
 mod command;
 mod emoji;
 pub mod plugin;
+pub mod plugin_v2;
 mod registry;
 mod syntax_highlight;
 mod transform;
