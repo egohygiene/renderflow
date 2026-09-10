@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-intake-v1.schema.json",
+  "title": "Renderflow universal intake report v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "source", "profile", "discovered", "diagnostics", "budget_usage"],
+  "properties": {
+    "schema_version": { "const": "renderflow.intake/v1" },
+    "source": { "$ref": "#/$defs/artifact" },
+    "profile": { "$ref": "#/$defs/profile" },
+    "discovered": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["artifact", "parent_artifact_id", "logical_path", "depth"],
+        "properties": {
+          "artifact": { "$ref": "#/$defs/artifact" },
+          "parent_artifact_id": { "type": "string" },
+          "logical_path": { "type": "string" },
+          "depth": { "type": "integer", "minimum": 1 }
+        }
+      }
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["severity", "code", "message"],
+        "properties": {
+          "severity": { "enum": ["info", "warning", "rejected"] },
+          "code": { "type": "string" },
+          "message": { "type": "string" },
+          "artifact_path": { "type": "string" }
+        }
+      }
+    },
+    "budget_usage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifacts", "extracted_bytes", "deepest_level"],
+      "properties": {
+        "artifacts": { "type": "integer", "minimum": 1 },
+        "extracted_bytes": { "type": "integer", "minimum": 0 },
+        "deepest_level": { "type": "integer", "minimum": 0 }
+      }
+    }
+  },
+  "$defs": {
+    "artifact": {
+      "type": "object",
+      "required": ["id", "format", "media_type", "digest", "size_bytes", "payload", "metadata", "sources", "storage_class"]
+    },
+    "provenance_value": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "origin", "provider_id"],
+      "properties": {
+        "value": true,
+        "origin": { "enum": ["source_reported", "provider_observed", "inferred"] },
+        "provider_id": { "type": "string" }
+      }
+    },
+    "signal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "value", "confidence", "provider_id"],
+      "properties": {
+        "kind": { "enum": ["declared_format", "extension", "magic", "media_type", "structural"] },
+        "value": { "type": "string" },
+        "format": { "type": "string" },
+        "confidence": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "provider_id": { "type": "string" }
+      }
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["media_type", "confidence", "metadata", "available_operations", "signals", "conflicts"],
+      "properties": {
+        "format": { "type": "string" },
+        "media_type": { "type": "string" },
+        "confidence": { "enum": ["unknown", "low", "medium", "high"] },
+        "container_format": { "type": "string" },
+        "stream_formats": { "type": "array", "items": { "type": "string" } },
+        "families": { "type": "array", "items": { "type": "string" } },
+        "metadata": { "type": "object", "additionalProperties": { "$ref": "#/$defs/provenance_value" } },
+        "available_operations": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "signals": { "type": "array", "items": { "$ref": "#/$defs/signal" } },
+        "conflicts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["formats", "signal_kinds", "resolution"],
+            "properties": {
+              "formats": { "type": "array", "items": { "type": "string" }, "minItems": 2 },
+              "signal_kinds": { "type": "array", "items": { "enum": ["declared_format", "extension", "magic", "media_type", "structural"] } },
+              "resolution": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

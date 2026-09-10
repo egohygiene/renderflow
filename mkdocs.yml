@@ -81,6 +81,7 @@ nav:
       - Troubleshooting: user-guide/troubleshooting.md
       - FAQ: user-guide/faq.md
   - Architecture:
+      - Universal Intake: universal-intake.md
       - Overview: architecture/overview.md
       - Knowledge Base:
           - Identity:

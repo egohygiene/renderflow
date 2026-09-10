@@ -28,6 +28,7 @@ use crate::graph::{
     DagExecutionReport, DagExecutor, DiagnosticLevel, ExecutionPlan, Format, MultiTargetDag,
     TransformEdge, TransformGraph,
 };
+use crate::intake::{IntakeEngine, IntakeRequest, ResolvedArtifactProfile};
 use crate::optimization::OptimizationMode;
 use crate::spec::{
     load_spec, AiPolicy, CollisionPolicy, RejectedLossClass, SelectorSet, SourceKind, SourceSpec,
@@ -120,6 +121,7 @@ pub struct ResolvedExecution {
     source: SourceSpec,
     source_path: PathBuf,
     source_format: Format,
+    source_profile: ResolvedArtifactProfile,
     targets: Vec<ResolvedTarget>,
     dag: MultiTargetDag,
     executor: DagExecutor,
@@ -225,7 +227,23 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
             source_path.display()
         );
     }
-    let source_format = resolve_source_format(&source, &source_path)?;
+    // Universal intake establishes immutable byte identity and multi-signal
+    // evidence before the graph is selected. The temporary CAS is only a
+    // planning staging area; execution imports the same bytes into its durable
+    // run store and verifies the digest through normal artifact handling.
+    let intake_staging = tempfile::tempdir().context("failed to create intake staging store")?;
+    let intake_store = ArtifactStore::new(intake_staging.path())?;
+    let mut intake_request = IntakeRequest::from_path(&source_path);
+    if let Some(format) = &source.format {
+        intake_request = intake_request.with_format(format.clone());
+    }
+    if let Some(media_type) = &source.media_type {
+        intake_request = intake_request.with_media_type(media_type.clone());
+    }
+    let source_intake = IntakeEngine::new()
+        .intake(&intake_request, &intake_store)
+        .context("failed to establish source artifact identity before planning")?;
+    let source_format = resolve_source_format(&source, &source_path, &source_intake.profile)?;
 
     let (mut graph, mut executor, mut tool_registry) =
         if let Some(transforms_path) = &spec.transforms {
@@ -284,6 +302,14 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
     )?;
 
     let mut plan = ExecutionPlan::from_dag(&dag, source_format, &target_formats, optimization);
+    plan.attach_source_artifact(&source_intake);
+    if !source_intake.profile.conflicts.is_empty() {
+        plan.add_tool_diagnostic(format!(
+            "source intake reported {} conflicting format signal set(s); '{}' was selected",
+            source_intake.profile.conflicts.len(),
+            source_format
+        ));
+    }
     if source_version == SourceSpecVersion::V1 {
         plan.add_tool_diagnostic(
             "v1 configuration normalized into renderflow/v2 before canonical planning",
@@ -341,6 +367,7 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
         source,
         source_path,
         source_format,
+        source_profile: source_intake.profile,
         targets,
         dag,
         executor,
@@ -438,7 +465,12 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
     let source_artifact = match store.import_path(
         &resolved.source_path,
         ArtifactDescriptor::for_format(resolved.source_format, ArtifactStorageClass::Source)
-            .with_metadata("renderflow.source_id", resolved.source.id.clone()),
+            .with_metadata("renderflow.source_id", resolved.source.id.clone())
+            .with_metadata("renderflow.intake.schema", crate::intake::INTAKE_SCHEMA_V1)
+            .with_metadata(
+                "renderflow.intake.profile",
+                serde_json::to_value(&resolved.source_profile)?,
+            ),
     ) {
         Ok(artifact) => artifact,
         Err(error) => {
@@ -453,6 +485,24 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
             )
         }
     };
+    if resolved
+        .plan
+        .source_artifact
+        .as_ref()
+        .is_some_and(|planned| planned.digest != source_artifact.digest().to_string())
+    {
+        return failed_execution_result(
+            &resolved,
+            &output_root,
+            started_at_unix_ms,
+            vec![source_artifact_evidence(&resolved, &source_artifact)],
+            Vec::new(),
+            "execution.source_changed_after_intake",
+            anyhow::anyhow!(
+                "source bytes changed after intake and before transform execution; re-plan the run"
+            ),
+        );
+    }
 
     let executor = std::mem::take(&mut resolved.executor);
     let checkpoint_context = CheckpointContext {
@@ -1142,24 +1192,28 @@ fn resolve_path_relative_to_config(config_path: &Path, value: &str) -> PathBuf {
     }
 }
 
-fn resolve_source_format(source: &SourceSpec, path: &Path) -> Result<Format> {
+fn resolve_source_format(
+    source: &SourceSpec,
+    path: &Path,
+    profile: &ResolvedArtifactProfile,
+) -> Result<Format> {
     if let Some(format) = &source.format {
         return format
             .parse()
             .with_context(|| format!("unknown source format '{format}' for '{}'", source.id));
     }
-    let extension = path
-        .extension()
-        .and_then(|extension| extension.to_str())
+    profile
+        .format
+        .as_deref()
         .ok_or_else(|| {
             anyhow::anyhow!(
-                "source '{}' has no format and no detectable extension",
-                source.id
+                "source '{}' is inspectable but its format is unknown; declare a format or install an intake provider for '{}'",
+                source.id,
+                path.display()
             )
-        })?;
-    extension
+        })?
         .parse()
-        .with_context(|| format!("cannot infer a Renderflow format from extension '.{extension}'"))
+        .with_context(|| "intake selected a format unavailable to the built-in graph")
 }
 
 fn register_builtin_strategy_edges(

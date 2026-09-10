@@ -53,6 +53,7 @@ itertools = "0.14"
 petgraph = "0.8"
 
 tempfile = "3"
+zip = { version = "2.4", default-features = false, features = ["deflate"] }
 
 ureq = { version = "2", features = ["json"] }
 

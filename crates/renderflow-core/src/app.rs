@@ -44,19 +44,47 @@ pub fn run_cli(cli: Cli) -> Result<()> {
         Some(Commands::Watch { config, debounce }) => commands::watch::run(&config, debounce)?,
         Some(Commands::Audit) => commands::audit::run()?,
         Some(Commands::Inspect {
+            input,
             config,
             output_format,
             target,
             all,
             export,
-        }) => commands::inspect::run(
-            &config,
-            &output_format,
-            target.as_deref(),
-            all,
-            export.as_deref(),
-            None,
-        )?,
+            media_type,
+            extract,
+            recursive,
+            store,
+            max_depth,
+            max_artifacts,
+            max_extracted_bytes,
+            max_expansion_ratio,
+        }) => {
+            if let Some(input) = input {
+                commands::inspect::run_artifact(
+                    &input,
+                    media_type.as_deref(),
+                    extract,
+                    recursive,
+                    &store,
+                    crate::intake::IntakeBudgets {
+                        max_depth,
+                        max_artifacts,
+                        max_extracted_bytes,
+                        max_expansion_ratio,
+                    },
+                    export.as_deref(),
+                )?;
+            } else {
+                commands::inspect::run(
+                    &config,
+                    &output_format,
+                    target.as_deref(),
+                    all,
+                    export.as_deref(),
+                    None,
+                )?;
+            }
+        }
         Some(Commands::Plugin { subcommand }) => {
             let registry = transforms::plugin::PluginRegistry::new();
             match subcommand {

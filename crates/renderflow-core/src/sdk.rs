@@ -13,6 +13,7 @@ use crate::evidence::{
     sha256_serialized, ArtifactManifest, DiagnosticSeverity, ExecutionDiagnostic, RunManifest,
 };
 use crate::graph::ExecutionPlan;
+use crate::intake::{IntakeEngine, IntakeReport, IntakeRequest};
 use crate::optimization::OptimizationMode;
 use crate::planning::{
     cancelled as cancelled_execution, execute as execute_resolved_plan,
@@ -192,6 +193,7 @@ pub struct ProviderCapabilities {
     pub progress_event_schema: String,
     pub checkpoint_schema: String,
     pub artifact_contract: String,
+    pub intake_schema: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -404,6 +406,38 @@ impl Engine {
         Ok(profile)
     }
 
+    /// Inspect arbitrary input bytes and optionally extract first-class child artifacts.
+    pub fn inspect_artifact(
+        &self,
+        request: IntakeRequest,
+        store_root: impl AsRef<Path>,
+    ) -> Result<IntakeReport, RenderflowError> {
+        self.ensure_not_cancelled()?;
+        self.emit(ProgressStage::Inspecting, "Inspecting source artifact");
+        let store = ArtifactStore::new(store_root.as_ref().to_path_buf())
+            .map_err(RenderflowError::Execution)?;
+        let report = IntakeEngine::new()
+            .intake(&request, &store)
+            .map_err(RenderflowError::Execution)?;
+        if let Some(reporter) = &self.reporter {
+            reporter.on_event(&ProgressEvent {
+                schema_version: PROGRESS_EVENT_V1.to_string(),
+                stage: ProgressStage::Completed,
+                message: "Artifact inspection complete".to_string(),
+                run_id: None,
+                step_id: None,
+                artifact_ids: report
+                    .artifact_collection()
+                    .iter()
+                    .map(|artifact| artifact.id().to_string())
+                    .collect(),
+                state: Some("complete".to_string()),
+                diagnostics: Vec::new(),
+            });
+        }
+        Ok(report)
+    }
+
     pub fn plan(&self, request: PlanRequest) -> Result<ExecutionPlan, RenderflowError> {
         self.ensure_not_cancelled()?;
         self.emit(
@@ -536,6 +570,8 @@ impl Engine {
             provider_version: env!("CARGO_PKG_VERSION").to_string(),
             operations: vec![
                 "inspect_capabilities".to_string(),
+                "inspect_artifact".to_string(),
+                "extract_artifacts".to_string(),
                 "plan".to_string(),
                 "run".to_string(),
                 "assess".to_string(),
@@ -545,6 +581,7 @@ impl Engine {
             progress_event_schema: PROGRESS_EVENT_V1.to_string(),
             checkpoint_schema: crate::checkpoint::CHECKPOINT_SCHEMA_V1.to_string(),
             artifact_contract: crate::evidence::FLOW_ARTIFACT_SCHEMA_V1.to_string(),
+            intake_schema: crate::intake::INTAKE_SCHEMA_V1.to_string(),
         }
     }
 

@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashSet};
 
 use super::{Format, InputKind, MultiTargetDag, TransformEdge};
+use crate::intake::{IntakeReport, ResolvedArtifactProfile};
 use crate::optimization::OptimizationMode;
 use crate::toolchain::ToolchainSnapshot;
 
@@ -144,6 +145,26 @@ pub struct ExecutionMetadata {
     pub output_count: usize,
 }
 
+/// Content identity and resolved intake evidence frozen before path planning.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PlanSourceArtifact {
+    pub artifact_id: String,
+    pub digest: String,
+    pub size_bytes: u64,
+    pub profile: ResolvedArtifactProfile,
+}
+
+impl From<&IntakeReport> for PlanSourceArtifact {
+    fn from(report: &IntakeReport) -> Self {
+        Self {
+            artifact_id: report.source.id().to_string(),
+            digest: report.source.digest().to_string(),
+            size_bytes: report.source.size_bytes(),
+            profile: report.profile.clone(),
+        }
+    }
+}
+
 // ── DiagnosticLevel ─────────────────────────────────────────────────────────
 
 /// Severity of a planning diagnostic.
@@ -227,6 +248,9 @@ pub struct ExecutionPlan {
     pub metadata: ExecutionMetadata,
     /// Planner observations and explanations.
     pub diagnostics: Vec<PlanDiagnostic>,
+    /// Source identity and multi-signal evidence established before planning.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_artifact: Option<PlanSourceArtifact>,
     /// Reproducible evidence for providers selected by this exact plan.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub toolchain: Option<ToolchainSnapshot>,
@@ -340,6 +364,7 @@ impl ExecutionPlan {
             waves,
             metadata,
             diagnostics,
+            source_artifact: None,
             toolchain: None,
         }
     }
@@ -362,6 +387,11 @@ impl ExecutionPlan {
             }
         )));
         self.toolchain = Some(snapshot);
+    }
+
+    /// Attach graph-consumable source identity from universal intake.
+    pub fn attach_source_artifact(&mut self, report: &IntakeReport) {
+        self.source_artifact = Some(PlanSourceArtifact::from(report));
     }
 
     /// Surface an unavailable/unsupported provider observation in plan diagnostics.
