@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-checkpoints-v1.schema.json",
+  "title": "Renderflow checkpoints v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "checksum", "payload"],
+  "properties": {
+    "schema_version": { "const": "renderflow.checkpoints/v1" },
+    "checksum": { "$ref": "#/$defs/digest" },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["context", "entries"],
+      "properties": {
+        "context": { "$ref": "#/$defs/context" },
+        "entries": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/checkpoint" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "value"],
+      "properties": {
+        "algorithm": { "const": "sha256" },
+        "value": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    },
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["execution_plan_digest", "source_spec_digest"],
+      "properties": {
+        "execution_plan_digest": { "$ref": "#/$defs/digest" },
+        "source_spec_digest": { "$ref": "#/$defs/digest" },
+        "toolchain_fingerprint": { "type": "string" }
+      }
+    },
+    "artifact_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_id", "digest", "size_bytes"],
+      "properties": {
+        "artifact_id": { "type": "string", "minLength": 1 },
+        "digest": { "$ref": "#/$defs/digest" },
+        "size_bytes": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "required": ["id", "format", "media_type", "digest", "size_bytes", "payload", "sources", "storage_class"],
+      "properties": {
+        "id": { "type": "string" },
+        "format": { "type": "string" },
+        "media_type": { "type": "string" },
+        "digest": { "$ref": "#/$defs/digest" },
+        "size_bytes": { "type": "integer", "minimum": 0 },
+        "payload": { "type": "object" },
+        "metadata": { "type": "object" },
+        "sources": { "type": "array", "items": { "type": "string" } },
+        "storage_class": { "type": "string" }
+      }
+    },
+    "checkpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "checkpoint_key", "step_id", "input_artifacts", "transform",
+        "transform_version", "configuration_digest", "outputs", "validation", "fidelity",
+        "completed_at_unix_ms"
+      ],
+      "properties": {
+        "checkpoint_key": { "type": "string", "pattern": "^checkpoint:sha256:[a-f0-9]{64}$" },
+        "step_id": { "type": "string" },
+        "input_artifacts": { "type": "array", "items": { "$ref": "#/$defs/artifact_ref" } },
+        "transform": { "type": "string" },
+        "transform_version": { "type": "string" },
+        "provider_id": { "type": "string" },
+        "configuration_digest": { "$ref": "#/$defs/digest" },
+        "toolchain_fingerprint": { "type": "string" },
+        "outputs": { "type": "array", "items": { "$ref": "#/$defs/artifact" } },
+        "validation": { "enum": ["valid", "valid_with_warnings", "invalid", "unavailable", "skipped", "not_requested"] },
+        "validation_evidence": { "type": "array", "items": { "type": "object" } },
+        "fidelity": { "enum": ["lossless", "partial", "lossy", "path_dependent", "unknown"] },
+        "completed_at_unix_ms": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

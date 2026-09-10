@@ -12,6 +12,7 @@ pub mod artifact;
 mod assets;
 mod audio;
 pub mod cache;
+pub mod checkpoint;
 pub mod cli;
 mod commands;
 mod compat;
@@ -38,5 +39,6 @@ pub use evidence::{ArtifactManifest, RunManifest};
 pub use sdk::{
     ArtifactProfile, CancellationToken, DiagnosticReport, Engine, EngineBuilder, ExecutionRequest,
     ExecutionResult, InspectionRequest, PlanRequest, ProgressEvent, ProgressReporter,
-    ProgressStage, RenderflowError,
+    ProgressStage, ProviderCapabilities, ProviderPlan, RenderflowError, RenderflowProvider,
+    SavedRunAssessment,
 };

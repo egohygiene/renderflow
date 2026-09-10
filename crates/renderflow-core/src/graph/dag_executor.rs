@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
@@ -13,6 +14,10 @@ use crate::artifact::{
     ArtifactCollection, ArtifactCollectionTransform, ArtifactDescriptor, ArtifactStorageClass,
     ArtifactStore, ArtifactTransform, TextTransformAdapter,
 };
+use crate::checkpoint::{
+    checkpoint_key, CheckpointArtifactRef, CheckpointContext, CheckpointRequirement,
+    CheckpointStore, RecoveryAction, StepCheckpoint,
+};
 use crate::evidence::{
     redact_sensitive_text, sha256_text, unix_time_ms, CacheDisposition, DiagnosticSeverity,
     ExecutionDiagnostic, FidelityDeclaration, StepEvidence, StepState, ValidationState,
@@ -23,6 +28,7 @@ use crate::transforms::plugin_v2::{
     PluginV2CollectionAdapter,
 };
 use crate::transforms::Transform;
+use crate::validation::ValidationRegistry;
 
 /// Executes a [`MultiTargetDag`] using file-backed, binary-safe artifacts.
 ///
@@ -42,6 +48,10 @@ pub struct DagExecutor {
     toolchain_fingerprint: Option<String>,
     /// Optional per-execution parallelism bound from the canonical execution policy.
     max_parallel: Option<usize>,
+    checkpoint_path: Option<PathBuf>,
+    checkpoint_context: Option<CheckpointContext>,
+    resume_checkpoints: bool,
+    cancellation: Option<Arc<AtomicBool>>,
 }
 
 /// Artifact outputs and step evidence from one DAG execution.
@@ -209,6 +219,18 @@ fn skipped_step(edge: &TransformEdge, reason: &str) -> StepEvidence {
     }
 }
 
+fn cancelled_step(edge: &TransformEdge) -> StepEvidence {
+    let mut step = skipped_step(edge, "execution cancelled before transform started");
+    step.state = StepState::Cancelled;
+    step.diagnostics.push(ExecutionDiagnostic {
+        severity: DiagnosticSeverity::Cancelled,
+        code: "execution.step_cancelled".to_string(),
+        message: format!("Cancelled transform {} → {}", edge.from, edge.to),
+        step_id: Some(step.step_id.clone()),
+    });
+    step
+}
+
 impl DagExecutor {
     /// Create an empty executor with no transforms registered.
     pub fn new() -> Self {
@@ -219,6 +241,10 @@ impl DagExecutor {
             cache_path: None,
             toolchain_fingerprint: None,
             max_parallel: None,
+            checkpoint_path: None,
+            checkpoint_context: None,
+            resume_checkpoints: false,
+            cancellation: None,
         }
     }
 
@@ -240,6 +266,25 @@ impl DagExecutor {
     /// Bound parallel transform execution for this executor instance.
     pub fn with_max_parallel(mut self, max_parallel: usize) -> Self {
         self.max_parallel = Some(max_parallel.max(1));
+        self
+    }
+
+    /// Persist validated node completion and optionally reuse compatible work.
+    pub fn with_checkpoints(
+        mut self,
+        path: impl Into<PathBuf>,
+        context: CheckpointContext,
+        resume: bool,
+    ) -> Self {
+        self.checkpoint_path = Some(path.into());
+        self.checkpoint_context = Some(context);
+        self.resume_checkpoints = resume;
+        self
+    }
+
+    /// Check cancellation between bounded DAG execution waves.
+    pub fn with_cancellation_flag(mut self, cancellation: Arc<AtomicBool>) -> Self {
+        self.cancellation = Some(cancellation);
         self
     }
 
@@ -491,6 +536,14 @@ impl DagExecutor {
             .cache_path
             .as_deref()
             .map(|path| Mutex::new(load_artifact_cache(path)));
+        let checkpoints = match (&self.checkpoint_path, &self.checkpoint_context) {
+            (Some(path), Some(context)) => {
+                let mut store = CheckpointStore::open(path, context.clone())?;
+                store.adopt_context(context.clone());
+                Some(Mutex::new(store))
+            }
+            _ => None,
+        };
 
         let thread_pool = self
             .max_parallel
@@ -509,6 +562,18 @@ impl DagExecutor {
         let mut diagnostics = Vec::new();
 
         loop {
+            if self
+                .cancellation
+                .as_ref()
+                .is_some_and(|flag| flag.load(Ordering::SeqCst))
+            {
+                for edge in &remaining {
+                    let step = cancelled_step(edge);
+                    diagnostics.extend(step.diagnostics.iter().cloned());
+                    steps.push(step);
+                }
+                break;
+            }
             let (wave, next_remaining): (Vec<_>, Vec<_>) = remaining
                 .into_iter()
                 .partition(|edge| available.contains_key(&edge.from));
@@ -544,7 +609,13 @@ impl DagExecutor {
                         let started = Instant::now();
                         (
                             edge,
-                            self.execute_edge(edge, &available, store, cache.as_ref()),
+                            self.execute_edge(
+                                edge,
+                                &available,
+                                store,
+                                cache.as_ref(),
+                                checkpoints.as_ref(),
+                            ),
                             started_at_unix_ms,
                             u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX),
                         )
@@ -621,6 +692,7 @@ impl DagExecutor {
         available: &HashMap<Format, ArtifactCollection>,
         store: &ArtifactStore,
         cache: Option<&Mutex<ArtifactCache>>,
+        checkpoints: Option<&Mutex<CheckpointStore>>,
     ) -> Result<ExecutedEdge> {
         let started_at_unix_ms = unix_time_ms();
         let started = Instant::now();
@@ -635,6 +707,45 @@ impl DagExecutor {
             .iter()
             .map(|artifact| artifact.id().to_string())
             .collect::<Vec<_>>();
+        let requirement = self.checkpoint_requirement(edge, inputs)?;
+        let checkpointable = self.edge_checkpointable(edge);
+        if self.resume_checkpoints && checkpointable {
+            if let Some(checkpoints) = checkpoints {
+                if let Ok(guard) = checkpoints.lock() {
+                    let decision = guard.assess(&requirement, store);
+                    if decision.action == RecoveryAction::Reuse {
+                        if let Some(checkpoint) = guard.checkpoint(&requirement.checkpoint_key) {
+                            return Ok(ExecutedEdge {
+                                format: edge.to,
+                                artifacts: guard
+                                    .outputs(&requirement.checkpoint_key)
+                                    .expect("compatible checkpoint carries outputs"),
+                                evidence: StepEvidence {
+                                    step_id: requirement.step_id.clone(),
+                                    transform: requirement.transform.clone(),
+                                    transform_version: requirement.transform_version.clone(),
+                                    capability: edge.capability_id.clone(),
+                                    provider: edge.provider_id.clone(),
+                                    input_artifacts,
+                                    output_artifacts: decision.artifact_ids,
+                                    configuration_digest: requirement.configuration_digest.clone(),
+                                    started_at_unix_ms,
+                                    completed_at_unix_ms: unix_time_ms(),
+                                    duration_ms: u64::try_from(started.elapsed().as_millis())
+                                        .unwrap_or(u64::MAX),
+                                    state: StepState::Reused,
+                                    cache: CacheDisposition::Hit,
+                                    validation: checkpoint.validation,
+                                    fidelity: checkpoint.fidelity,
+                                    skip_reason: Some("compatible checkpoint reused".to_string()),
+                                    diagnostics: Vec::new(),
+                                },
+                            });
+                        }
+                    }
+                }
+            }
+        }
         let (artifacts, transform, transform_version, configuration_digest, cache, fidelity) =
             if edge.input_kind.is_single() {
                 let input = inputs.clone().into_one().with_context(|| {
@@ -653,13 +764,13 @@ impl DagExecutor {
                     outcome.fidelity,
                 )
             } else {
-                let (output, transform, transform_version, fidelity) =
+                let (output, transform, transform_version, configuration_digest, fidelity) =
                     self.execute_collection_edge(edge, inputs, store)?;
                 (
                     ArtifactCollection::one(output),
-                    transform.clone(),
+                    transform,
                     transform_version,
-                    sha256_text(&transform),
+                    configuration_digest,
                     CacheDisposition::NotApplicable,
                     fidelity,
                 )
@@ -670,6 +781,42 @@ impl DagExecutor {
             .map(|artifact| artifact.id().to_string())
             .collect();
         let fidelity = fidelity.unwrap_or_else(|| edge_fidelity(edge));
+        let mut checkpoint_validation = ValidationState::Valid;
+        let mut checkpoint_validation_evidence = Vec::new();
+        let validators = ValidationRegistry::builtins();
+        for artifact in artifacts.iter() {
+            let outcome = validators.validate_in_store(artifact, edge.to, &[], store);
+            checkpoint_validation_evidence.extend(outcome.validators);
+            checkpoint_validation = match (checkpoint_validation, outcome.state) {
+                (_, ValidationState::Invalid) => ValidationState::Invalid,
+                (ValidationState::Invalid, _) => ValidationState::Invalid,
+                (_, ValidationState::Unavailable) => ValidationState::Unavailable,
+                (ValidationState::Unavailable, _) => ValidationState::Unavailable,
+                (_, ValidationState::ValidWithWarnings) => ValidationState::ValidWithWarnings,
+                (state, _) => state,
+            };
+        }
+        if checkpointable
+            && matches!(
+                checkpoint_validation,
+                ValidationState::Valid | ValidationState::ValidWithWarnings
+            )
+        {
+            if let Some(checkpoints) = checkpoints {
+                let checkpoint = StepCheckpoint {
+                    requirement: requirement.clone(),
+                    outputs: artifacts.iter().cloned().collect(),
+                    validation: checkpoint_validation,
+                    validation_evidence: checkpoint_validation_evidence.clone(),
+                    fidelity,
+                    completed_at_unix_ms,
+                };
+                checkpoints
+                    .lock()
+                    .map_err(|_| anyhow::anyhow!("checkpoint store mutex was poisoned"))?
+                    .record(checkpoint)?;
+            }
+        }
         Ok(ExecutedEdge {
             format: edge.to,
             artifacts,
@@ -691,12 +838,85 @@ impl DagExecutor {
                     StepState::Complete
                 },
                 cache,
-                validation: ValidationState::Valid,
+                validation: checkpoint_validation,
                 fidelity,
                 skip_reason: None,
                 diagnostics: Vec::new(),
             },
         })
+    }
+
+    fn checkpoint_requirement(
+        &self,
+        edge: &TransformEdge,
+        inputs: &ArtifactCollection,
+    ) -> Result<CheckpointRequirement> {
+        let (transform, transform_version, configuration_identity) =
+            if let Some(transform) = self.single_transforms.get(&(edge.from, edge.to)) {
+                (
+                    transform.name().to_string(),
+                    transform.version().to_string(),
+                    transform.cache_identity(),
+                )
+            } else if let Some(transform) = self.collection_transforms.get(&(edge.from, edge.to)) {
+                (
+                    transform.name().to_string(),
+                    transform.version().to_string(),
+                    transform.cache_identity(),
+                )
+            } else if let Some(transform) = self.aggregation_transforms.get(&(edge.from, edge.to)) {
+                (
+                    transform.name().to_string(),
+                    "unstable-v1".to_string(),
+                    transform.name().to_string(),
+                )
+            } else {
+                anyhow::bail!(
+                    "No transform registered for {:?} → {:?}",
+                    edge.from,
+                    edge.to
+                );
+            };
+        let mut configuration_identity = configuration_identity;
+        if let Some(fingerprint) = &self.toolchain_fingerprint {
+            configuration_identity.push_str("\0toolchain=");
+            configuration_identity.push_str(fingerprint);
+        }
+        let configuration_digest = sha256_text(&configuration_identity);
+        let input_artifacts = inputs
+            .iter()
+            .map(CheckpointArtifactRef::from)
+            .collect::<Vec<_>>();
+        let toolchain_fingerprint = self.toolchain_fingerprint.clone();
+        let key = checkpoint_key(&(
+            &input_artifacts,
+            edge.from.to_string(),
+            edge.to.to_string(),
+            &transform,
+            &transform_version,
+            &configuration_digest,
+            &toolchain_fingerprint,
+        ))?;
+        Ok(CheckpointRequirement {
+            checkpoint_key: key,
+            step_id: format!("step:{}-to-{}", edge.from, edge.to),
+            input_artifacts,
+            transform,
+            transform_version,
+            provider_id: edge.provider_id.clone(),
+            configuration_digest,
+            toolchain_fingerprint,
+        })
+    }
+
+    fn edge_checkpointable(&self, edge: &TransformEdge) -> bool {
+        self.single_transforms
+            .get(&(edge.from, edge.to))
+            .is_some_and(|transform| transform.cacheable())
+            || self
+                .collection_transforms
+                .get(&(edge.from, edge.to))
+                .is_some_and(|transform| transform.cacheable())
     }
 
     fn execute_single_edge(
@@ -727,7 +947,7 @@ impl DagExecutor {
             if let Some(cache_mutex) = cache {
                 if let Ok(guard) = cache_mutex.lock() {
                     if let Some(cached) = guard.get(&cache_key) {
-                        if store.contains(cached) {
+                        if store.contains(cached) && store.verify(cached).is_ok() {
                             debug!(
                                 from = ?edge.from,
                                 to = ?edge.to,
@@ -792,7 +1012,13 @@ impl DagExecutor {
         edge: &TransformEdge,
         inputs: &ArtifactCollection,
         store: &ArtifactStore,
-    ) -> Result<(Artifact, String, String, Option<FidelityDeclaration>)> {
+    ) -> Result<(
+        Artifact,
+        String,
+        String,
+        crate::evidence::DigestEvidence,
+        Option<FidelityDeclaration>,
+    )> {
         if let Some(transform) = self.collection_transforms.get(&(edge.from, edge.to)) {
             let output = transform.apply(inputs, edge.to, store).with_context(|| {
                 format!(
@@ -803,10 +1029,16 @@ impl DagExecutor {
                 )
             })?;
             self.validate_output_format(edge, &output)?;
+            let mut identity = transform.cache_identity();
+            if let Some(fingerprint) = &self.toolchain_fingerprint {
+                identity.push_str("\0toolchain=");
+                identity.push_str(fingerprint);
+            }
             return Ok((
                 output,
                 transform.name().to_string(),
                 transform.version().to_string(),
+                sha256_text(&identity),
                 transform.fidelity(),
             ));
         }
@@ -879,6 +1111,7 @@ impl DagExecutor {
             output,
             transform.name().to_string(),
             "unstable-v1".to_string(),
+            sha256_text(transform.name()),
             None,
         ))
     }

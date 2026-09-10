@@ -8,7 +8,7 @@ use std::collections::{BTreeSet, HashMap, HashSet};
 use std::fs;
 use std::io::Write;
 use std::path::{Component, Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{atomic::AtomicBool, Arc};
 
 use anyhow::{Context, Result};
 
@@ -16,6 +16,7 @@ use crate::adapters::strategy::{
     document_input_format, output_type_for_format, StrategyArtifactTransform,
 };
 use crate::artifact::{Artifact, ArtifactDescriptor, ArtifactStorageClass, ArtifactStore};
+use crate::checkpoint::CheckpointContext;
 use crate::evidence::{
     redact_sensitive_text, run_id, sha256_serialized, unix_time_ms, ArtifactEvidence,
     ArtifactManifest, ArtifactRole, DiagnosticSeverity, ExecutionDiagnostic, FidelityDeclaration,
@@ -123,6 +124,8 @@ pub struct ResolvedExecution {
     dag: MultiTargetDag,
     executor: DagExecutor,
     tool_registry: ToolRegistry,
+    resume_checkpoints: bool,
+    cancellation: Option<Arc<AtomicBool>>,
 }
 
 impl ResolvedExecution {
@@ -160,6 +163,16 @@ impl ResolvedExecution {
 
     pub fn predicted_output_paths(&self) -> Result<Vec<PathBuf>> {
         render_output_paths(self)
+    }
+
+    pub(crate) fn with_resume(mut self, resume: bool) -> Self {
+        self.resume_checkpoints = resume;
+        self
+    }
+
+    pub(crate) fn with_cancellation_flag(mut self, cancellation: Arc<AtomicBool>) -> Self {
+        self.cancellation = Some(cancellation);
+        self
     }
 }
 
@@ -332,6 +345,8 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
         dag,
         executor,
         tool_registry,
+        resume_checkpoints: false,
+        cancellation: None,
     })
 }
 
@@ -440,9 +455,26 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
     };
 
     let executor = std::mem::take(&mut resolved.executor);
+    let checkpoint_context = CheckpointContext {
+        execution_plan_digest: sha256_serialized(&resolved.plan)?,
+        source_spec_digest: sha256_serialized(&resolved.spec)?,
+        toolchain_fingerprint: resolved
+            .plan
+            .toolchain
+            .as_ref()
+            .map(|snapshot| snapshot.fingerprint.clone()),
+    };
     let mut executor = executor
         .with_cache(state_dir.join("canonical-cache.json"))
+        .with_checkpoints(
+            state_dir.join("checkpoints.json"),
+            checkpoint_context,
+            resolved.resume_checkpoints,
+        )
         .with_max_parallel(resolved.spec.execution.max_parallel);
+    if let Some(cancellation) = &resolved.cancellation {
+        executor = executor.with_cancellation_flag(cancellation.clone());
+    }
     if let Some(snapshot) = &resolved.plan.toolchain {
         executor = executor.with_toolchain_fingerprint(snapshot.fingerprint.clone());
         if let Err(error) = fs::write(
@@ -641,8 +673,14 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
         .steps
         .iter()
         .any(|step| step.state == StepState::Failed);
+    let has_cancelled_step = report
+        .steps
+        .iter()
+        .any(|step| step.state == StepState::Cancelled);
     let has_failure = target_failures || has_failed_step;
-    let state = if has_failure && actual_outputs.is_empty() {
+    let state = if has_cancelled_step {
+        RunState::Cancelled
+    } else if has_failure && actual_outputs.is_empty() {
         RunState::Failed
     } else if has_failure {
         RunState::Partial

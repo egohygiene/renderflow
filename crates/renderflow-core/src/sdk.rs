@@ -7,7 +7,11 @@ use std::sync::{
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::evidence::{ArtifactManifest, DiagnosticSeverity, RunManifest};
+use crate::artifact::{ArtifactDescriptor, ArtifactStorageClass, ArtifactStore};
+use crate::checkpoint::{CheckpointContext, CheckpointStore, RecoveryAction, RecoveryDecision};
+use crate::evidence::{
+    sha256_serialized, ArtifactManifest, DiagnosticSeverity, ExecutionDiagnostic, RunManifest,
+};
 use crate::graph::ExecutionPlan;
 use crate::optimization::OptimizationMode;
 use crate::planning::{
@@ -15,6 +19,9 @@ use crate::planning::{
     resolve as resolve_planning_request, PlanningRequest, ResolvedExecution,
 };
 use crate::toolchain::ToolchainSnapshot;
+
+pub const PROVIDER_CONTRACT_V1: &str = "renderflow.provider/v1";
+pub const PROGRESS_EVENT_V1: &str = "renderflow.progress/v1";
 
 #[derive(Debug, Error)]
 pub enum RenderflowError {
@@ -33,14 +40,28 @@ pub enum RenderflowError {
 pub enum ProgressStage {
     Inspecting,
     Planning,
+    Assessing,
+    Resuming,
     Executing,
+    Cancelled,
     Completed,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ProgressEvent {
+    pub schema_version: String,
     pub stage: ProgressStage,
     pub message: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub run_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub step_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub artifact_ids: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub state: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub diagnostics: Vec<ExecutionDiagnostic>,
 }
 
 pub trait ProgressReporter: Send + Sync {
@@ -63,6 +84,10 @@ impl CancellationToken {
 
     pub fn is_cancelled(&self) -> bool {
         self.cancelled.load(Ordering::SeqCst)
+    }
+
+    pub(crate) fn flag(&self) -> Arc<AtomicBool> {
+        self.cancelled.clone()
     }
 }
 
@@ -106,13 +131,15 @@ impl PlanRequest {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExecutionRequest {
     pub config_path: PathBuf,
     pub dry_run: bool,
     pub target: Option<String>,
     pub all_targets: bool,
     pub optimization: Option<OptimizationMode>,
+    #[serde(default)]
+    pub resume: bool,
 }
 
 impl ExecutionRequest {
@@ -123,6 +150,7 @@ impl ExecutionRequest {
             target: None,
             all_targets: false,
             optimization: None,
+            resume: false,
         }
     }
 
@@ -147,6 +175,54 @@ impl ExecutionRequest {
         self.optimization = Some(optimization);
         self
     }
+
+    pub fn with_resume(mut self, resume: bool) -> Self {
+        self.resume = resume;
+        self
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct ProviderCapabilities {
+    pub schema_version: String,
+    pub provider_id: String,
+    pub provider_version: String,
+    pub operations: Vec<String>,
+    pub progress_event_schema: String,
+    pub checkpoint_schema: String,
+    pub artifact_contract: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ProviderPlan {
+    pub schema_version: String,
+    pub plan: ExecutionPlan,
+    pub digest: crate::evidence::DigestEvidence,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct SavedRunAssessment {
+    pub schema_version: String,
+    pub checkpoint_path: String,
+    pub overall: RecoveryDecision,
+    pub decisions: Vec<RecoveryDecision>,
+}
+
+pub trait RenderflowProvider {
+    fn inspect_capabilities(&self) -> ProviderCapabilities;
+    fn plan_request(&self, request: PlanRequest) -> Result<ProviderPlan, RenderflowError>;
+    fn run_plan(&self, request: ExecutionRequest) -> Result<ExecutionResult, RenderflowError>;
+    fn assess_saved_run(
+        &self,
+        request: ExecutionRequest,
+    ) -> Result<SavedRunAssessment, RenderflowError>;
+    fn resume_saved_run(
+        &self,
+        request: ExecutionRequest,
+    ) -> Result<ExecutionResult, RenderflowError>;
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -236,8 +312,60 @@ impl Engine {
     fn emit(&self, stage: ProgressStage, message: impl Into<String>) {
         if let Some(reporter) = &self.reporter {
             reporter.on_event(&ProgressEvent {
+                schema_version: PROGRESS_EVENT_V1.to_string(),
                 stage,
                 message: message.into(),
+                run_id: None,
+                step_id: None,
+                artifact_ids: Vec::new(),
+                state: None,
+                diagnostics: Vec::new(),
+            });
+        }
+    }
+
+    fn emit_step_events(&self, manifest: &RunManifest) {
+        let Some(reporter) = &self.reporter else {
+            return;
+        };
+        for step in &manifest.steps {
+            reporter.on_event(&ProgressEvent {
+                schema_version: PROGRESS_EVENT_V1.to_string(),
+                stage: if step.state == crate::evidence::StepState::Cancelled {
+                    ProgressStage::Cancelled
+                } else {
+                    ProgressStage::Executing
+                },
+                message: format!("Transform '{}' is {:?}", step.transform, step.state),
+                run_id: Some(manifest.run_id.clone()),
+                step_id: Some(step.step_id.clone()),
+                artifact_ids: step.output_artifacts.clone(),
+                state: Some(format!("{:?}", step.state).to_lowercase()),
+                diagnostics: step.diagnostics.clone(),
+            });
+        }
+    }
+
+    fn emit_completed(&self, manifest: &RunManifest) {
+        if let Some(reporter) = &self.reporter {
+            reporter.on_event(&ProgressEvent {
+                schema_version: PROGRESS_EVENT_V1.to_string(),
+                stage: if manifest.state == crate::evidence::RunState::Cancelled {
+                    ProgressStage::Cancelled
+                } else {
+                    ProgressStage::Completed
+                },
+                message: format!("Renderflow run is {:?}", manifest.state),
+                run_id: Some(manifest.run_id.clone()),
+                step_id: None,
+                artifact_ids: manifest
+                    .artifact_manifest
+                    .artifacts
+                    .iter()
+                    .map(|artifact| artifact.artifact_id.clone())
+                    .collect(),
+                state: Some(format!("{:?}", manifest.state).to_lowercase()),
+                diagnostics: manifest.diagnostics.clone(),
             });
         }
     }
@@ -312,7 +440,12 @@ impl Engine {
         if let Some(optimization) = request.optimization {
             planning = planning.with_optimization(optimization);
         }
-        resolve_planning_request(planning).map_err(RenderflowError::Planning)
+        let mut resolved = resolve_planning_request(planning).map_err(RenderflowError::Planning)?;
+        resolved = resolved.with_resume(request.resume);
+        if let Some(cancellation) = &self.cancellation_token {
+            resolved = resolved.with_cancellation_flag(cancellation.flag());
+        }
+        Ok(resolved)
     }
 
     /// Execute an already-resolved plan without implicit re-planning.
@@ -334,7 +467,8 @@ impl Engine {
         } else {
             execute_resolved_plan(resolved, dry_run).map_err(RenderflowError::Execution)?
         };
-        self.emit(ProgressStage::Completed, "Execution complete");
+        self.emit_step_events(&result.run_manifest);
+        self.emit_completed(&result.run_manifest);
         let info = result
             .run_manifest
             .diagnostics
@@ -393,6 +527,214 @@ impl Engine {
         let dry_run = request.dry_run;
         let resolved = self.resolve_execution(request)?;
         self.execute_resolved(resolved, dry_run)
+    }
+
+    pub fn provider_capabilities(&self) -> ProviderCapabilities {
+        ProviderCapabilities {
+            schema_version: PROVIDER_CONTRACT_V1.to_string(),
+            provider_id: "provider.renderflow".to_string(),
+            provider_version: env!("CARGO_PKG_VERSION").to_string(),
+            operations: vec![
+                "inspect_capabilities".to_string(),
+                "plan".to_string(),
+                "run".to_string(),
+                "assess".to_string(),
+                "resume".to_string(),
+                "invalidate".to_string(),
+            ],
+            progress_event_schema: PROGRESS_EVENT_V1.to_string(),
+            checkpoint_schema: crate::checkpoint::CHECKPOINT_SCHEMA_V1.to_string(),
+            artifact_contract: crate::evidence::FLOW_ARTIFACT_SCHEMA_V1.to_string(),
+        }
+    }
+
+    pub fn provider_plan(&self, request: PlanRequest) -> Result<ProviderPlan, RenderflowError> {
+        let plan = self.plan(request)?;
+        let digest = sha256_serialized(&plan).map_err(RenderflowError::Planning)?;
+        Ok(ProviderPlan {
+            schema_version: PROVIDER_CONTRACT_V1.to_string(),
+            plan,
+            digest,
+        })
+    }
+
+    pub fn assess_resume(
+        &self,
+        request: ExecutionRequest,
+    ) -> Result<SavedRunAssessment, RenderflowError> {
+        self.emit(
+            ProgressStage::Assessing,
+            "Assessing saved Renderflow checkpoints",
+        );
+        let resolved = self.resolve_execution(request)?;
+        let (checkpoint_path, artifact_root, context) =
+            checkpoint_state(&resolved).map_err(RenderflowError::Execution)?;
+        if !checkpoint_path.exists() {
+            let overall = RecoveryDecision {
+                action: RecoveryAction::Recompute,
+                reason_code: "checkpoint.file_missing".to_string(),
+                message: "No saved checkpoint file exists".to_string(),
+                checkpoint_key: None,
+                artifact_ids: Vec::new(),
+            };
+            return Ok(SavedRunAssessment {
+                schema_version: PROVIDER_CONTRACT_V1.to_string(),
+                checkpoint_path: checkpoint_path.display().to_string(),
+                overall: overall.clone(),
+                decisions: vec![overall],
+            });
+        }
+        let checkpoints = match CheckpointStore::open(&checkpoint_path, context.clone()) {
+            Ok(checkpoints) => checkpoints,
+            Err(error) => {
+                let overall = CheckpointStore::corruption_decision(&error);
+                return Ok(SavedRunAssessment {
+                    schema_version: PROVIDER_CONTRACT_V1.to_string(),
+                    checkpoint_path: checkpoint_path.display().to_string(),
+                    overall: overall.clone(),
+                    decisions: vec![overall],
+                });
+            }
+        };
+        let context_decision = checkpoints.context_decision(&context);
+        let store = ArtifactStore::new(artifact_root).map_err(RenderflowError::Execution)?;
+        let current_source = store
+            .import_path(
+                resolved.source_path(),
+                ArtifactDescriptor::for_format(
+                    resolved.source_format(),
+                    ArtifactStorageClass::Source,
+                ),
+            )
+            .map_err(RenderflowError::Execution)?;
+        let mut decisions = checkpoints.decisions_for_source(current_source.id().as_str(), &store);
+        if decisions.is_empty() {
+            decisions.push(RecoveryDecision {
+                action: RecoveryAction::Recompute,
+                reason_code: "checkpoint.empty".to_string(),
+                message: "Checkpoint file contains no completed nodes".to_string(),
+                checkpoint_key: None,
+                artifact_ids: Vec::new(),
+            });
+        }
+        let overall = if context_decision.action != RecoveryAction::Reuse {
+            context_decision
+        } else if decisions
+            .iter()
+            .all(|decision| decision.action == RecoveryAction::Reuse)
+        {
+            RecoveryDecision {
+                action: RecoveryAction::Reuse,
+                reason_code: "checkpoint.run_compatible".to_string(),
+                message: "Saved run is compatible and resumable".to_string(),
+                checkpoint_key: None,
+                artifact_ids: decisions
+                    .iter()
+                    .flat_map(|decision| decision.artifact_ids.iter().cloned())
+                    .collect(),
+            }
+        } else {
+            RecoveryDecision {
+                action: RecoveryAction::Recompute,
+                reason_code: "checkpoint.partial_recompute".to_string(),
+                message: "Some saved work must be recomputed".to_string(),
+                checkpoint_key: None,
+                artifact_ids: Vec::new(),
+            }
+        };
+        Ok(SavedRunAssessment {
+            schema_version: PROVIDER_CONTRACT_V1.to_string(),
+            checkpoint_path: checkpoint_path.display().to_string(),
+            overall,
+            decisions,
+        })
+    }
+
+    pub fn resume(&self, request: ExecutionRequest) -> Result<ExecutionResult, RenderflowError> {
+        self.emit(
+            ProgressStage::Resuming,
+            "Resuming compatible Renderflow work",
+        );
+        self.execute(request.with_resume(true))
+    }
+
+    pub fn invalidate_checkpoints(
+        &self,
+        request: ExecutionRequest,
+        step_id: Option<&str>,
+    ) -> Result<usize, RenderflowError> {
+        let resolved = self.resolve_execution(request)?;
+        let (checkpoint_path, _, context) =
+            checkpoint_state(&resolved).map_err(RenderflowError::Execution)?;
+        match step_id {
+            Some(step_id) => {
+                let mut checkpoints = CheckpointStore::open(checkpoint_path, context)
+                    .map_err(RenderflowError::Execution)?;
+                checkpoints
+                    .invalidate_step(step_id)
+                    .map_err(RenderflowError::Execution)
+            }
+            None => {
+                let removed = CheckpointStore::open(&checkpoint_path, context.clone())
+                    .map(|checkpoints| checkpoints.len())
+                    .unwrap_or(0);
+                CheckpointStore::reset(checkpoint_path, context)
+                    .map(|_| removed)
+                    .map_err(RenderflowError::Execution)
+            }
+        }
+    }
+}
+
+fn checkpoint_state(
+    resolved: &ResolvedExecution,
+) -> anyhow::Result<(PathBuf, PathBuf, CheckpointContext)> {
+    let output_root = PathBuf::from(&resolved.spec().output.bundle_root);
+    let state_parent = output_root
+        .parent()
+        .filter(|path| !path.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
+    let state_dir = state_parent.join(".renderflow");
+    Ok((
+        state_dir.join("checkpoints.json"),
+        state_dir.join("artifacts"),
+        CheckpointContext {
+            execution_plan_digest: sha256_serialized(resolved.plan())?,
+            source_spec_digest: sha256_serialized(resolved.spec())?,
+            toolchain_fingerprint: resolved
+                .plan()
+                .toolchain
+                .as_ref()
+                .map(|snapshot| snapshot.fingerprint.clone()),
+        },
+    ))
+}
+
+impl RenderflowProvider for Engine {
+    fn inspect_capabilities(&self) -> ProviderCapabilities {
+        self.provider_capabilities()
+    }
+
+    fn plan_request(&self, request: PlanRequest) -> Result<ProviderPlan, RenderflowError> {
+        self.provider_plan(request)
+    }
+
+    fn run_plan(&self, request: ExecutionRequest) -> Result<ExecutionResult, RenderflowError> {
+        self.execute(request)
+    }
+
+    fn assess_saved_run(
+        &self,
+        request: ExecutionRequest,
+    ) -> Result<SavedRunAssessment, RenderflowError> {
+        self.assess_resume(request)
+    }
+
+    fn resume_saved_run(
+        &self,
+        request: ExecutionRequest,
+    ) -> Result<ExecutionResult, RenderflowError> {
+        self.resume(request)
     }
 }
 

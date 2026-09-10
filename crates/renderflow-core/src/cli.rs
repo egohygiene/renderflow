@@ -70,6 +70,10 @@ pub enum Commands {
         #[arg(long)]
         dry_run: bool,
 
+        /// Resume from compatible validated node checkpoints.
+        #[arg(long)]
+        resume: bool,
+
         /// Optimization mode: controls how transformation paths are selected.
         /// Overrides the value set in the config file when provided.
         /// Choices: speed (minimise cost), quality (maximise quality), balanced (default),
