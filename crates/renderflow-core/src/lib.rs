@@ -3,6 +3,8 @@
 //! Exposes the core subsystems for use by benchmarks, tests, and external
 //! integrations.  The binary entrypoint lives in `main.rs`.
 
+#![recursion_limit = "256"]
+
 mod adapters;
 pub mod ai;
 pub mod app;
@@ -30,6 +32,7 @@ pub mod strategies;
 pub mod super_resolution;
 pub mod toolchain;
 pub mod transforms;
+pub mod validation;
 
 pub use evidence::{ArtifactManifest, RunManifest};
 pub use sdk::{

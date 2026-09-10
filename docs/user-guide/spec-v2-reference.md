@@ -59,6 +59,7 @@ Spec v2 describes source intent, derivative selection, execution policy, and det
 | `optimization` | `speed` / `quality` / `balanced` / `pareto` | no | `"balanced"` |
 | `publication_policy` | `string` / `null` | no | — |
 | `redaction_policy` | `string` / `null` | no | — |
+| `reject_loss_classes` | `array` | no | `[]` |
 | `requirements` | `requirements` | no | — |
 | `retry_policy` | `string` / `null` | no | — |
 | `timeout_policy` | `string` / `null` | no | — |
@@ -150,7 +151,12 @@ execution:
   ai: deny
   validation:
     required: true
+    failure_mode: branch_local
+    allow_unavailable: false
   minimum_fidelity: 0.9
+  reject_loss_classes:
+    - lossy
+    - unknown
 
 output:
   bundle_root: dist

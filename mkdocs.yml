@@ -111,6 +111,7 @@ nav:
           - Graph Engine: architecture/graph-engine.md
           - DAG Execution: architecture/dag-execution.md
           - Execution Evidence: execution-evidence.md
+          - Artifact Validation: user-guide/artifact-validation.md
           - Plugin Architecture: architecture/plugin-architecture.md
           - Execution Plans: architecture/execution-plans.md
   - CLI Reference:

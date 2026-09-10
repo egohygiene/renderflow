@@ -29,8 +29,8 @@ use crate::graph::{
 };
 use crate::optimization::OptimizationMode;
 use crate::spec::{
-    load_spec, AiPolicy, CollisionPolicy, SelectorSet, SourceKind, SourceSpec, SourceSpecVersion,
-    SpecV2, TargetSelection, TargetSpec,
+    load_spec, AiPolicy, CollisionPolicy, RejectedLossClass, SelectorSet, SourceKind, SourceSpec,
+    SourceSpecVersion, SpecV2, TargetSelection, TargetSpec, ValidationFailureMode,
 };
 use crate::super_resolution::{select_upscayl_variants, UpscaylModelCatalog};
 use crate::toolchain::{
@@ -38,6 +38,7 @@ use crate::toolchain::{
     ToolRuntimeContext, ToolchainSnapshot,
 };
 use crate::transforms::yaml_loader::build_graph_executor_and_tools_from_yaml;
+use crate::validation::{ArtifactValidationOutcome, ValidationRegistry};
 
 const BUILTIN_ADAPTER_EVIDENCE: &str = "builtin.strategy";
 
@@ -484,8 +485,11 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
     let mut diagnostics = plan_diagnostics(&resolved);
     diagnostics.append(&mut report.diagnostics);
     let mut output_locators = HashMap::<String, String>::new();
+    let mut validation_outcomes = HashMap::<String, ArtifactValidationOutcome>::new();
+    let mut blocked_artifacts = HashSet::<String>::new();
     let mut actual_outputs = Vec::new();
     let mut target_failures = false;
+    let mut fatal_validation_failure = false;
 
     if let Err(error) = validate_post_execution_budgets(&resolved, &report.artifacts) {
         target_failures = true;
@@ -497,7 +501,8 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
         });
     }
 
-    for (target, destination) in resolved.targets.iter().zip(predicted.iter()) {
+    let validation_registry = ValidationRegistry::builtins();
+    for target in &resolved.targets {
         let Some(artifact) = report.artifacts.get(&target.format) else {
             target_failures = true;
             diagnostics.push(ExecutionDiagnostic {
@@ -511,14 +516,95 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
             });
             continue;
         };
-        if resolved.spec.execution.validation.required && artifact.size_bytes() == 0 {
-            target_failures = true;
+
+        let outcome = if resolved.spec.execution.validation.required {
+            validation_registry.validate_in_store(
+                artifact,
+                target.format,
+                &resolved.spec.execution.validation.validators,
+                &store,
+            )
+        } else {
+            ArtifactValidationOutcome {
+                state: ValidationState::Skipped,
+                validators: Vec::new(),
+            }
+        };
+        let step_id = producing_step_id(artifact, &report.steps);
+        if let Some(step) = report.steps.iter_mut().find(|step| {
+            step.output_artifacts
+                .iter()
+                .any(|artifact_id| artifact_id == artifact.id().as_str())
+        }) {
+            step.validation = outcome.state;
+        }
+        for validator in &outcome.validators {
+            for validator_diagnostic in &validator.diagnostics {
+                let blocking = validator.state == ValidationState::Invalid
+                    || (validator.state == ValidationState::Unavailable
+                        && !resolved.spec.execution.validation.allow_unavailable);
+                diagnostics.push(ExecutionDiagnostic {
+                    severity: if blocking {
+                        match resolved.spec.execution.validation.failure_mode {
+                            ValidationFailureMode::Fatal => DiagnosticSeverity::FatalFailure,
+                            ValidationFailureMode::BranchLocal => {
+                                DiagnosticSeverity::RecoverableFailure
+                            }
+                        }
+                    } else {
+                        DiagnosticSeverity::Warning
+                    },
+                    code: validator_diagnostic.code.clone(),
+                    message: format!(
+                        "{} (validator {}@{}, provider {})",
+                        validator_diagnostic.message,
+                        validator.validator_id,
+                        validator.validator_version,
+                        validator.provider
+                    ),
+                    step_id: step_id.clone(),
+                });
+            }
+        }
+        let validation_blocked = outcome.state == ValidationState::Invalid
+            || (outcome.state == ValidationState::Unavailable
+                && !resolved.spec.execution.validation.allow_unavailable);
+        let fidelity = producing_fidelity(artifact, &report.steps);
+        let fidelity_blocked = resolved
+            .spec
+            .execution
+            .reject_loss_classes
+            .iter()
+            .any(|class| rejects_fidelity(*class, fidelity));
+        if fidelity_blocked {
             diagnostics.push(ExecutionDiagnostic {
-                severity: DiagnosticSeverity::FatalFailure,
-                code: "validation.empty_artifact".to_string(),
-                message: format!("Target '{}' produced an empty artifact", target.format),
-                step_id: producing_step_id(artifact, &report.steps),
+                severity: match resolved.spec.execution.validation.failure_mode {
+                    ValidationFailureMode::Fatal => DiagnosticSeverity::FatalFailure,
+                    ValidationFailureMode::BranchLocal => DiagnosticSeverity::RecoverableFailure,
+                },
+                code: "fidelity.rejected_loss_class".to_string(),
+                message: format!(
+                    "Target '{}' has rejected fidelity class '{:?}'",
+                    target.format, fidelity
+                )
+                .to_lowercase(),
+                step_id,
             });
+        }
+        if validation_blocked || fidelity_blocked {
+            target_failures = true;
+            blocked_artifacts.insert(artifact.id().to_string());
+            fatal_validation_failure |=
+                resolved.spec.execution.validation.failure_mode == ValidationFailureMode::Fatal;
+        }
+        validation_outcomes.insert(artifact.id().to_string(), outcome);
+    }
+
+    for (target, destination) in resolved.targets.iter().zip(predicted.iter()) {
+        let Some(artifact) = report.artifacts.get(&target.format) else {
+            continue;
+        };
+        if fatal_validation_failure || blocked_artifacts.contains(artifact.id().as_str()) {
             continue;
         }
         if target_failures
@@ -549,6 +635,7 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
         &report,
         &output_locators,
         &diagnostics,
+        &validation_outcomes,
     );
     let has_failed_step = report
         .steps
@@ -812,6 +899,7 @@ fn artifact_evidence(
     report: &DagExecutionReport,
     output_locators: &HashMap<String, String>,
     diagnostics: &[ExecutionDiagnostic],
+    validation_outcomes: &HashMap<String, ArtifactValidationOutcome>,
 ) -> Vec<ArtifactEvidence> {
     let mut evidence = vec![source_artifact_evidence(resolved, source)];
     let mut artifacts = report.artifacts.iter().collect::<Vec<_>>();
@@ -842,19 +930,10 @@ fn artifact_evidence(
                 .iter()
                 .any(|artifact_id| artifact_id == artifact.id().as_str())
         });
-        let invalid = producing_step.is_some_and(|step| {
-            diagnostics.iter().any(|diagnostic| {
-                diagnostic.code.starts_with("validation.")
-                    && diagnostic.step_id.as_deref() == Some(step.step_id.as_str())
-            })
-        });
-        let validation = if invalid {
-            ValidationState::Invalid
-        } else if resolved.spec.execution.validation.required && target.is_some() {
-            ValidationState::Valid
-        } else {
-            ValidationState::NotRequested
-        };
+        let outcome = validation_outcomes.get(artifact.id().as_str());
+        let validation = outcome
+            .map(|outcome| outcome.state)
+            .unwrap_or(ValidationState::NotRequested);
         let producer = producing_step
             .map(|step| ProducerEvidence {
                 system: "renderflow".to_string(),
@@ -874,6 +953,9 @@ fn artifact_evidence(
         let mut artifact_evidence = ArtifactEvidence::from_artifact(
             artifact, role, lifecycle, locator, producer, validation, fidelity,
         );
+        artifact_evidence.validation_evidence = outcome
+            .map(|outcome| outcome.validators.clone())
+            .unwrap_or_default();
         if let Some(step) = producing_step {
             artifact_evidence.warnings = diagnostics
                 .iter()
@@ -914,6 +996,32 @@ fn producing_step_id(artifact: &Artifact, steps: &[StepEvidence]) -> Option<Stri
                 .any(|artifact_id| artifact_id == artifact.id().as_str())
         })
         .map(|step| step.step_id.clone())
+}
+
+fn producing_fidelity(artifact: &Artifact, steps: &[StepEvidence]) -> FidelityDeclaration {
+    steps
+        .iter()
+        .find(|step| {
+            step.output_artifacts
+                .iter()
+                .any(|artifact_id| artifact_id == artifact.id().as_str())
+        })
+        .map(|step| step.fidelity)
+        .unwrap_or(FidelityDeclaration::Unknown)
+}
+
+fn rejects_fidelity(class: RejectedLossClass, fidelity: FidelityDeclaration) -> bool {
+    matches!(
+        (class, fidelity),
+        (RejectedLossClass::Lossless, FidelityDeclaration::Lossless)
+            | (RejectedLossClass::Partial, FidelityDeclaration::Partial)
+            | (RejectedLossClass::Lossy, FidelityDeclaration::Lossy)
+            | (
+                RejectedLossClass::PathDependent,
+                FidelityDeclaration::PathDependent
+            )
+            | (RejectedLossClass::Unknown, FidelityDeclaration::Unknown)
+    )
 }
 
 fn enrich_step_versions(steps: &mut [StepEvidence], toolchain: Option<&ToolchainSnapshot>) {

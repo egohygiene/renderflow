@@ -105,6 +105,10 @@
             "not_requested"
           ]
         },
+        "validation_evidence": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/validator_evidence" }
+        },
         "fidelity": {
           "enum": ["lossless", "partial", "lossy", "path_dependent", "unknown"]
         },
@@ -130,6 +134,32 @@
         "artifacts": {
           "type": "array",
           "items": { "$ref": "#/$defs/artifact" }
+        }
+      }
+    },
+    "validation_diagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "message"],
+      "properties": {
+        "code": { "type": "string", "minLength": 1 },
+        "message": { "type": "string" }
+      }
+    },
+    "validator_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["validator_id", "validator_version", "provider", "state"],
+      "properties": {
+        "validator_id": { "type": "string", "minLength": 1 },
+        "validator_version": { "type": "string", "minLength": 1 },
+        "provider": { "type": "string", "minLength": 1 },
+        "state": {
+          "enum": ["valid", "valid_with_warnings", "invalid", "unavailable", "skipped", "not_requested"]
+        },
+        "diagnostics": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/validation_diagnostic" }
         }
       }
     },

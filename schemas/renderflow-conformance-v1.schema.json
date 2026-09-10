@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-conformance-v1.schema.json",
+  "title": "Renderflow artifact capability conformance matrix v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "engine_version", "formats"],
+  "properties": {
+    "schema_version": { "const": "renderflow.conformance/v1" },
+    "engine_version": { "type": "string", "minLength": 1 },
+    "formats": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "format", "name", "families", "declared_capabilities",
+          "executor_implemented", "required_provider_ids", "validator_ids",
+          "fixture_ids", "supported_platforms", "deterministic_validation",
+          "loss_profile", "support_status"
+        ],
+        "properties": {
+          "format": { "type": "string", "minLength": 1 },
+          "name": { "type": "string", "minLength": 1 },
+          "families": { "type": "array", "items": { "type": "string" } },
+          "declared_capabilities": { "type": "array", "items": { "type": "string" } },
+          "executor_implemented": { "type": "boolean" },
+          "required_provider_ids": { "type": "array", "items": { "type": "string" } },
+          "validator_ids": { "type": "array", "items": { "type": "string" } },
+          "fixture_ids": { "type": "array", "items": { "type": "string" } },
+          "supported_platforms": { "type": "array", "items": { "type": "string" } },
+          "deterministic_validation": { "type": "boolean" },
+          "loss_profile": { "type": "string" },
+          "support_status": {
+            "enum": ["implemented", "experimental", "unavailable", "planned"]
+          }
+        }
+      }
+    }
+  }
+}

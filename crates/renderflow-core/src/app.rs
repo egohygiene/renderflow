@@ -137,9 +137,11 @@ pub fn run_cli(cli: Cli) -> Result<()> {
                 format,
             } => commands::tools::run_variants(&id, models_dir.as_deref(), &format)?,
         },
-        Some(Commands::Capabilities { format, transforms }) => {
-            commands::tools::run_capabilities(transforms.as_deref(), &format)?
-        }
+        Some(Commands::Capabilities {
+            format,
+            transforms,
+            matrix,
+        }) => commands::tools::run_capabilities(transforms.as_deref(), &format, matrix)?,
         Some(Commands::Spec { subcommand }) => match subcommand {
             SpecCommands::Validate { config, format } => {
                 commands::spec::run_validate(&config, &format)?
