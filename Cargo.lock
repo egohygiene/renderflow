@@ -1364,7 +1364,9 @@ dependencies = [
 name = "renderflow-plugin-sdk"
 version = "0.2.1"
 dependencies = [
+ "anyhow",
  "renderflow",
+ "serde_json",
 ]
 
 [[package]]

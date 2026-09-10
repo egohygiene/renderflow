@@ -2,7 +2,10 @@ use std::sync::Arc;
 
 use anyhow::{Context, Result};
 
-use super::{Artifact, ArtifactDescriptor, ArtifactStorageClass, ArtifactStore};
+use super::{
+    Artifact, ArtifactCollection, ArtifactDescriptor, ArtifactStorageClass, ArtifactStore,
+};
+use crate::evidence::FidelityDeclaration;
 use crate::graph::Format;
 use crate::transforms::Transform;
 
@@ -26,10 +29,49 @@ pub trait ArtifactTransform: Send + Sync {
         self.name().to_string()
     }
 
+    /// Version reported in execution evidence.
+    fn version(&self) -> &str {
+        "unstable-v1"
+    }
+
+    /// Whether the executor may reuse and persist content-addressed results.
+    fn cacheable(&self) -> bool {
+        true
+    }
+
+    /// Declared fidelity behavior, when supplied by a versioned transform.
+    fn fidelity(&self) -> Option<FidelityDeclaration> {
+        None
+    }
+
     /// Produce one artifact in `output_format` from `input`.
     fn apply(
         &self,
         input: &Artifact,
+        output_format: Format,
+        store: &ArtifactStore,
+    ) -> Result<Artifact>;
+}
+
+/// Artifact-native transform that consumes an ordered collection.
+pub trait ArtifactCollectionTransform: Send + Sync {
+    /// Stable transform identifier.
+    fn name(&self) -> &str;
+
+    /// Version reported in execution evidence.
+    fn version(&self) -> &str {
+        "unstable-v1"
+    }
+
+    /// Declared fidelity behavior, when supplied by a versioned transform.
+    fn fidelity(&self) -> Option<FidelityDeclaration> {
+        None
+    }
+
+    /// Produce one artifact from an ordered input collection.
+    fn apply(
+        &self,
+        inputs: &ArtifactCollection,
         output_format: Format,
         store: &ArtifactStore,
     ) -> Result<Artifact>;

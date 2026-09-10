@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-plugin-v2alpha1.schema.json",
+  "title": "Renderflow Plugin Transform Descriptor v2alpha1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract",
+    "id",
+    "version",
+    "capability_id",
+    "input_kind",
+    "input_formats",
+    "output_formats",
+    "determinism",
+    "cache_policy",
+    "loss_profile",
+    "required_provider_ids"
+  ],
+  "properties": {
+    "contract": { "const": "renderflow.plugin/v2alpha1" },
+    "id": { "type": "string", "minLength": 1 },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?$"
+    },
+    "capability_id": { "type": "string", "minLength": 1 },
+    "input_kind": { "enum": ["single", "ordered_collection"] },
+    "input_formats": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "output_formats": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "determinism": {
+      "enum": ["deterministic", "environment_dependent", "nondeterministic"]
+    },
+    "cache_policy": { "enum": ["content_addressed", "disabled"] },
+    "loss_profile": {
+      "enum": ["lossless", "partial", "lossy", "path_dependent"]
+    },
+    "required_provider_ids": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    }
+  }
+}

@@ -10,14 +10,18 @@ use tracing::{debug, warn};
 use super::{Format, MultiTargetDag, TransformEdge};
 use crate::artifact::{
     compute_artifact_node_hash, load_artifact_cache, save_artifact_cache, Artifact, ArtifactCache,
-    ArtifactCollection, ArtifactDescriptor, ArtifactStorageClass, ArtifactStore, ArtifactTransform,
-    TextTransformAdapter,
+    ArtifactCollection, ArtifactCollectionTransform, ArtifactDescriptor, ArtifactStorageClass,
+    ArtifactStore, ArtifactTransform, TextTransformAdapter,
 };
 use crate::evidence::{
     redact_sensitive_text, sha256_text, unix_time_ms, CacheDisposition, DiagnosticSeverity,
     ExecutionDiagnostic, FidelityDeclaration, StepEvidence, StepState, ValidationState,
 };
 use crate::transforms::aggregation::AggregationTransform;
+use crate::transforms::plugin_v2::{
+    PluginInputKind, PluginRuntimeOptions, PluginTransformV2, PluginV2ArtifactAdapter,
+    PluginV2CollectionAdapter,
+};
 use crate::transforms::Transform;
 
 /// Executes a [`MultiTargetDag`] using file-backed, binary-safe artifacts.
@@ -30,6 +34,8 @@ pub struct DagExecutor {
     single_transforms: HashMap<(Format, Format), Arc<dyn ArtifactTransform>>,
     /// Collection-input transforms keyed by `(from, to)` format pair.
     aggregation_transforms: HashMap<(Format, Format), Arc<dyn AggregationTransform>>,
+    /// Artifact-native ordered-collection transforms.
+    collection_transforms: HashMap<(Format, Format), Arc<dyn ArtifactCollectionTransform>>,
     /// Optional artifact-native DAG cache path.
     cache_path: Option<PathBuf>,
     /// Selected-provider fingerprint used to reject incompatible cache entries.
@@ -74,8 +80,10 @@ struct ExecutedEdge {
 struct SingleEdgeOutcome {
     artifact: Artifact,
     transform: String,
+    transform_version: String,
     configuration_digest: crate::evidence::DigestEvidence,
     cache: CacheDisposition,
+    fidelity: Option<FidelityDeclaration>,
 }
 
 fn ensure_steps_succeeded(steps: &[StepEvidence]) -> Result<()> {
@@ -207,6 +215,7 @@ impl DagExecutor {
         Self {
             single_transforms: HashMap::new(),
             aggregation_transforms: HashMap::new(),
+            collection_transforms: HashMap::new(),
             cache_path: None,
             toolchain_fingerprint: None,
             max_parallel: None,
@@ -249,7 +258,7 @@ impl DagExecutor {
     /// Register a text transform with configuration-aware cache identity.
     ///
     /// Embedders that know configuration affecting transform output can use this
-    /// seam while the versioned Transform v2 contract is developed in #357.
+    /// seam for legacy transforms that have not migrated to the v2 plugin SDK.
     pub fn register_single_with_identity(
         &mut self,
         from: Format,
@@ -276,6 +285,74 @@ impl DagExecutor {
     ) -> &mut Self {
         self.single_transforms.insert((from, to), transform);
         self
+    }
+
+    /// Register a versioned artifact-native plugin on a canonical graph edge.
+    pub fn register_plugin_v2(
+        &mut self,
+        from: Format,
+        to: Format,
+        transform: Arc<dyn PluginTransformV2>,
+        options: PluginRuntimeOptions,
+    ) -> Result<&mut Self> {
+        if self.single_transforms.contains_key(&(from, to))
+            || self.collection_transforms.contains_key(&(from, to))
+            || self.aggregation_transforms.contains_key(&(from, to))
+        {
+            anyhow::bail!(
+                "a transform is already registered for '{}' to '{}'; use replace_plugin_v2 for an explicit replacement",
+                from,
+                to
+            );
+        }
+        self.install_plugin_v2(from, to, transform, options)
+    }
+
+    /// Explicitly replace the transform assigned to a canonical graph edge.
+    pub fn replace_plugin_v2(
+        &mut self,
+        from: Format,
+        to: Format,
+        transform: Arc<dyn PluginTransformV2>,
+        options: PluginRuntimeOptions,
+    ) -> Result<&mut Self> {
+        match transform.descriptor().input_kind {
+            PluginInputKind::Single => {
+                let adapter = PluginV2ArtifactAdapter::new(transform, options)?;
+                self.collection_transforms.remove(&(from, to));
+                self.aggregation_transforms.remove(&(from, to));
+                self.single_transforms.insert((from, to), Arc::new(adapter));
+            }
+            PluginInputKind::OrderedCollection => {
+                let adapter = PluginV2CollectionAdapter::new(transform, options)?;
+                self.single_transforms.remove(&(from, to));
+                self.aggregation_transforms.remove(&(from, to));
+                self.collection_transforms
+                    .insert((from, to), Arc::new(adapter));
+            }
+        }
+        Ok(self)
+    }
+
+    fn install_plugin_v2(
+        &mut self,
+        from: Format,
+        to: Format,
+        transform: Arc<dyn PluginTransformV2>,
+        options: PluginRuntimeOptions,
+    ) -> Result<&mut Self> {
+        match transform.descriptor().input_kind {
+            PluginInputKind::Single => {
+                let adapter = PluginV2ArtifactAdapter::new(transform, options)?;
+                self.single_transforms.insert((from, to), Arc::new(adapter));
+            }
+            PluginInputKind::OrderedCollection => {
+                let adapter = PluginV2CollectionAdapter::new(transform, options)?;
+                self.collection_transforms
+                    .insert((from, to), Arc::new(adapter));
+            }
+        }
+        Ok(self)
     }
 
     /// Register a collection-input transform for the `from → to` edge.
@@ -558,48 +635,48 @@ impl DagExecutor {
             .iter()
             .map(|artifact| artifact.id().to_string())
             .collect::<Vec<_>>();
-        let (artifacts, transform, configuration_digest, cache) = if edge.input_kind.is_single() {
-            let input = inputs.clone().into_one().with_context(|| {
-                format!(
-                    "Single transform {:?} → {:?} requires exactly one artifact",
-                    edge.from, edge.to
+        let (artifacts, transform, transform_version, configuration_digest, cache, fidelity) =
+            if edge.input_kind.is_single() {
+                let input = inputs.clone().into_one().with_context(|| {
+                    format!(
+                        "Single transform {:?} → {:?} requires exactly one artifact",
+                        edge.from, edge.to
+                    )
+                })?;
+                let outcome = self.execute_single_edge(edge, &input, store, cache)?;
+                (
+                    ArtifactCollection::one(outcome.artifact),
+                    outcome.transform,
+                    outcome.transform_version,
+                    outcome.configuration_digest,
+                    outcome.cache,
+                    outcome.fidelity,
                 )
-            })?;
-            let outcome = self.execute_single_edge(edge, &input, store, cache)?;
-            (
-                ArtifactCollection::one(outcome.artifact),
-                outcome.transform,
-                outcome.configuration_digest,
-                outcome.cache,
-            )
-        } else {
-            let (output, transform) = self.execute_collection_edge(edge, inputs, store)?;
-            (
-                ArtifactCollection::one(output),
-                transform.clone(),
-                sha256_text(&transform),
-                CacheDisposition::NotApplicable,
-            )
-        };
+            } else {
+                let (output, transform, transform_version, fidelity) =
+                    self.execute_collection_edge(edge, inputs, store)?;
+                (
+                    ArtifactCollection::one(output),
+                    transform.clone(),
+                    transform_version,
+                    sha256_text(&transform),
+                    CacheDisposition::NotApplicable,
+                    fidelity,
+                )
+            };
         let completed_at_unix_ms = unix_time_ms();
         let output_artifacts = artifacts
             .iter()
             .map(|artifact| artifact.id().to_string())
             .collect();
-        let fidelity = if edge.input_kind.is_collection() {
-            FidelityDeclaration::PathDependent
-        } else if (edge.quality - 1.0).abs() < f32::EPSILON {
-            FidelityDeclaration::Lossless
-        } else {
-            FidelityDeclaration::Lossy
-        };
+        let fidelity = fidelity.unwrap_or_else(|| edge_fidelity(edge));
         Ok(ExecutedEdge {
             format: edge.to,
             artifacts,
             evidence: StepEvidence {
                 step_id: format!("step:{}-to-{}", edge.from, edge.to),
                 transform,
-                transform_version: "unstable-v1".to_string(),
+                transform_version,
                 capability: edge.capability_id.clone(),
                 provider: edge.provider_id.clone(),
                 input_artifacts,
@@ -646,24 +723,28 @@ impl DagExecutor {
         }
         let cache_key = compute_artifact_node_hash(input, edge.from, edge.to, &cache_identity);
 
-        if let Some(cache_mutex) = cache {
-            if let Ok(guard) = cache_mutex.lock() {
-                if let Some(cached) = guard.get(&cache_key) {
-                    if store.contains(cached) {
-                        debug!(
-                            from = ?edge.from,
-                            to = ?edge.to,
-                            artifact = %cached.id(),
-                            "Artifact cache hit; skipping transform"
-                        );
-                        return Ok(SingleEdgeOutcome {
-                            artifact: cached
-                                .clone()
-                                .with_storage_class(ArtifactStorageClass::Cached),
-                            transform: transform.name().to_string(),
-                            configuration_digest: sha256_text(&cache_identity),
-                            cache: CacheDisposition::Hit,
-                        });
+        if transform.cacheable() {
+            if let Some(cache_mutex) = cache {
+                if let Ok(guard) = cache_mutex.lock() {
+                    if let Some(cached) = guard.get(&cache_key) {
+                        if store.contains(cached) {
+                            debug!(
+                                from = ?edge.from,
+                                to = ?edge.to,
+                                artifact = %cached.id(),
+                                "Artifact cache hit; skipping transform"
+                            );
+                            return Ok(SingleEdgeOutcome {
+                                artifact: cached
+                                    .clone()
+                                    .with_storage_class(ArtifactStorageClass::Cached),
+                                transform: transform.name().to_string(),
+                                transform_version: transform.version().to_string(),
+                                configuration_digest: sha256_text(&cache_identity),
+                                cache: CacheDisposition::Hit,
+                                fidelity: transform.fidelity(),
+                            });
+                        }
                     }
                 }
             }
@@ -685,16 +766,24 @@ impl DagExecutor {
         })?;
         self.validate_output_format(edge, &output)?;
 
-        if let Some(cache_mutex) = cache {
-            if let Ok(mut guard) = cache_mutex.lock() {
-                guard.insert(cache_key, output.clone());
+        if transform.cacheable() {
+            if let Some(cache_mutex) = cache {
+                if let Ok(mut guard) = cache_mutex.lock() {
+                    guard.insert(cache_key, output.clone());
+                }
             }
         }
         Ok(SingleEdgeOutcome {
             artifact: output,
             transform: transform.name().to_string(),
+            transform_version: transform.version().to_string(),
             configuration_digest: sha256_text(&cache_identity),
-            cache: CacheDisposition::Miss,
+            cache: if transform.cacheable() {
+                CacheDisposition::Miss
+            } else {
+                CacheDisposition::NotApplicable
+            },
+            fidelity: transform.fidelity(),
         })
     }
 
@@ -703,13 +792,31 @@ impl DagExecutor {
         edge: &TransformEdge,
         inputs: &ArtifactCollection,
         store: &ArtifactStore,
-    ) -> Result<(Artifact, String)> {
+    ) -> Result<(Artifact, String, String, Option<FidelityDeclaration>)> {
+        if let Some(transform) = self.collection_transforms.get(&(edge.from, edge.to)) {
+            let output = transform.apply(inputs, edge.to, store).with_context(|| {
+                format!(
+                    "Collection plugin {:?} → {:?} ({}) failed",
+                    edge.from,
+                    edge.to,
+                    transform.name()
+                )
+            })?;
+            self.validate_output_format(edge, &output)?;
+            return Ok((
+                output,
+                transform.name().to_string(),
+                transform.version().to_string(),
+                transform.fidelity(),
+            ));
+        }
+
         let transform = self
             .aggregation_transforms
             .get(&(edge.from, edge.to))
             .ok_or_else(|| {
                 anyhow::anyhow!(
-                    "No aggregation transform registered for {:?} → {:?}",
+                    "No collection transform registered for {:?} → {:?}",
                     edge.from,
                     edge.to
                 )
@@ -768,7 +875,12 @@ impl DagExecutor {
                 .with_metadata("renderflow.transform", transform.name()),
         )?;
         self.validate_output_format(edge, &output)?;
-        Ok((output, transform.name().to_string()))
+        Ok((
+            output,
+            transform.name().to_string(),
+            "unstable-v1".to_string(),
+            None,
+        ))
     }
 
     fn validate_output_format(&self, edge: &TransformEdge, output: &Artifact) -> Result<()> {

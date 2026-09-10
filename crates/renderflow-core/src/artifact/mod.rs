@@ -17,4 +17,4 @@ pub use model::{
     ArtifactStorageClass, CanonicalFormat, DigestAlgorithm, MediaType,
 };
 pub use store::ArtifactStore;
-pub use transform::{ArtifactTransform, TextTransformAdapter};
+pub use transform::{ArtifactCollectionTransform, ArtifactTransform, TextTransformAdapter};
