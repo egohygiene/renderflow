@@ -2,7 +2,7 @@
 
 Renderflow exposes a versioned Rust provider seam for orchestration systems such as Flow. Renderflow owns transform execution and artifact validation; the caller remains responsible for cross-provider orchestration and recovery policy.
 
-`RenderflowProvider` exposes structured operations for capability inspection, planning, execution, checkpoint assessment, and resume. `Engine::inspect_artifact` adds arbitrary-file inspection and provider-driven extraction through `renderflow.intake/v1`; the capability response advertises that schema and the `inspect_artifact` / `extract_artifacts` operations. The provider contract uses `renderflow.provider/v1`; progress callbacks use `renderflow.progress/v1`. Consumers must use these serialized models rather than human stdout or stderr.
+`RenderflowProvider` exposes structured operations for capability inspection, planning, execution, checkpoint assessment, and resume. `Engine::inspect_artifact` adds arbitrary-file inspection and provider-driven extraction through `renderflow.intake/v1`; the capability response advertises that schema and the `inspect_artifact` / `extract_artifacts` operations. Publication-aware providers also advertise `publication_hygiene` and `renderflow.hygiene/v1`. The provider contract uses `renderflow.provider/v1`; progress callbacks use `renderflow.progress/v1`. Consumers must use these serialized models rather than human stdout or stderr.
 
 ```rust
 use renderflow::{EngineBuilder, ExecutionRequest, RenderflowProvider};
@@ -39,5 +39,6 @@ Progress events include their schema version and, when available, run ID, step I
 - `schemas/renderflow-provider-v1.schema.json` describes provider results and events.
 - `schemas/renderflow-checkpoints-v1.schema.json` describes durable checkpoint state.
 - `schemas/renderflow-intake-v1.schema.json` describes universal input identity, detection, inspection, and extracted-child evidence.
+- `schemas/renderflow-hygiene-v1.schema.json` describes non-destructive publication-hygiene decisions and safe findings.
 - `schemas/renderflow-run-v1.schema.json` describes authoritative run evidence.
 - `RunManifest::flow_artifacts_v1()` projects outputs into `flow.artifact/v1` without importing Flow source.

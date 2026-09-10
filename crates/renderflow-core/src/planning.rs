@@ -28,11 +28,13 @@ use crate::graph::{
     DagExecutionReport, DagExecutor, DiagnosticLevel, ExecutionPlan, Format, MultiTargetDag,
     TransformEdge, TransformGraph,
 };
+use crate::hygiene::{HygieneEngine, HygieneEvidence};
 use crate::intake::{IntakeEngine, IntakeRequest, ResolvedArtifactProfile};
 use crate::optimization::OptimizationMode;
 use crate::spec::{
-    load_spec, AiPolicy, CollisionPolicy, RejectedLossClass, SelectorSet, SourceKind, SourceSpec,
-    SourceSpecVersion, SpecV2, TargetSelection, TargetSpec, ValidationFailureMode,
+    load_spec, AiPolicy, CollisionPolicy, HygienePolicy, RejectedLossClass, SelectorSet,
+    SourceKind, SourceSpec, SourceSpecVersion, SpecV2, TargetSelection, TargetSpec,
+    ValidationFailureMode,
 };
 use crate::super_resolution::{select_upscayl_variants, UpscaylModelCatalog};
 use crate::toolchain::{
@@ -199,6 +201,35 @@ impl CanonicalExecutionResult {
             RunState::Planned | RunState::Complete
         )
     }
+}
+
+fn effective_hygiene_policy(spec: &SpecV2) -> Result<Option<(String, HygienePolicy)>> {
+    let policy_id = if let Some(policy_id) = &spec.execution.hygiene_policy {
+        Some(policy_id.clone())
+    } else {
+        let profile_policies = spec
+            .targets
+            .profiles
+            .iter()
+            .filter_map(|profile_id| spec.profiles.get(profile_id))
+            .filter_map(|profile| profile.hygiene_policy.as_deref())
+            .collect::<HashSet<_>>();
+        match profile_policies.len() {
+            0 => None,
+            1 => profile_policies.iter().next().map(|value| (*value).to_string()),
+            _ => anyhow::bail!(
+                "selected derivative profiles declare conflicting hygiene policies; set execution.hygiene_policy explicitly"
+            ),
+        }
+    };
+    policy_id
+        .map(|policy_id| {
+            let policy = spec.hygiene.get(&policy_id).cloned().with_context(|| {
+                format!("hygiene policy '{policy_id}' is not declared in the specification")
+            })?;
+            Ok((policy_id, policy))
+        })
+        .transpose()
 }
 
 pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
@@ -566,11 +597,75 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
 
     let mut diagnostics = plan_diagnostics(&resolved);
     diagnostics.append(&mut report.diagnostics);
+    let mut hygiene_evidence = HashMap::<String, HygieneEvidence>::new();
+    let mut hygiene_blocked = HashSet::<String>::new();
+    let mut hygiene_failures = false;
+    if let Some((policy_id, policy)) = effective_hygiene_policy(&resolved.spec)? {
+        let engine = HygieneEngine::new();
+        let mut target_formats = resolved
+            .targets
+            .iter()
+            .map(|target| target.format)
+            .collect::<Vec<_>>();
+        target_formats.sort_by_key(ToString::to_string);
+        target_formats.dedup();
+        for format in target_formats {
+            let Some(candidate) = report.artifacts.get(&format).cloned() else {
+                continue;
+            };
+            let started = unix_time_ms();
+            let outcome = engine.apply(&policy_id, &policy, &candidate, &store)?;
+            let completed = unix_time_ms();
+            let step_id = format!("hygiene:{policy_id}:{format}");
+            for finding in &outcome.evidence.findings {
+                diagnostics.push(ExecutionDiagnostic {
+                    severity: if finding.blocking {
+                        DiagnosticSeverity::RecoverableFailure
+                    } else {
+                        DiagnosticSeverity::Warning
+                    },
+                    code: finding.code.clone(),
+                    message: finding.message.clone(),
+                    step_id: Some(step_id.clone()),
+                });
+            }
+            if !outcome.releasable() {
+                hygiene_failures = true;
+                hygiene_blocked.insert(outcome.artifact.id().to_string());
+            }
+            let changed = !outcome.evidence.changed_field_classes.is_empty();
+            report.steps.push(StepEvidence {
+                step_id,
+                transform: "publication.hygiene".to_string(),
+                transform_version: env!("CARGO_PKG_VERSION").to_string(),
+                capability: Some("artifact.publication-hygiene".to_string()),
+                provider: Some("renderflow.core-hygiene".to_string()),
+                input_artifacts: vec![candidate.id().to_string()],
+                output_artifacts: vec![outcome.artifact.id().to_string()],
+                configuration_digest: sha256_serialized(&policy)?,
+                started_at_unix_ms: started,
+                completed_at_unix_ms: completed,
+                duration_ms: completed.saturating_sub(started),
+                state: StepState::Complete,
+                cache: crate::evidence::CacheDisposition::Miss,
+                validation: ValidationState::NotRequested,
+                fidelity: if changed {
+                    FidelityDeclaration::Partial
+                } else {
+                    FidelityDeclaration::Lossless
+                },
+                skip_reason: None,
+                diagnostics: Vec::new(),
+            });
+            hygiene_evidence.insert(outcome.artifact.id().to_string(), outcome.evidence.clone());
+            report.artifacts.insert(format, outcome.artifact);
+        }
+    }
     let mut output_locators = HashMap::<String, String>::new();
     let mut validation_outcomes = HashMap::<String, ArtifactValidationOutcome>::new();
-    let mut blocked_artifacts = HashSet::<String>::new();
+    let mut blocked_artifacts = hygiene_blocked;
     let mut actual_outputs = Vec::new();
-    let mut target_failures = false;
+    let mut target_failures = hygiene_failures;
     let mut fatal_validation_failure = false;
 
     if let Err(error) = validate_post_execution_budgets(&resolved, &report.artifacts) {
@@ -718,6 +813,7 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
         &output_locators,
         &diagnostics,
         &validation_outcomes,
+        &hygiene_evidence,
     );
     let has_failed_step = report
         .steps
@@ -988,6 +1084,7 @@ fn artifact_evidence(
     output_locators: &HashMap<String, String>,
     diagnostics: &[ExecutionDiagnostic],
     validation_outcomes: &HashMap<String, ArtifactValidationOutcome>,
+    hygiene_evidence: &HashMap<String, HygieneEvidence>,
 ) -> Vec<ArtifactEvidence> {
     let mut evidence = vec![source_artifact_evidence(resolved, source)];
     let mut artifacts = report.artifacts.iter().collect::<Vec<_>>();
@@ -1044,6 +1141,7 @@ fn artifact_evidence(
         artifact_evidence.validation_evidence = outcome
             .map(|outcome| outcome.validators.clone())
             .unwrap_or_default();
+        artifact_evidence.hygiene = hygiene_evidence.get(artifact.id().as_str()).cloned();
         if let Some(step) = producing_step {
             artifact_evidence.warnings = diagnostics
                 .iter()
@@ -1887,6 +1985,7 @@ mod tests {
                 immutable: true,
             }],
             profiles: BTreeMap::new(),
+            hygiene: BTreeMap::new(),
             targets: TargetSelection::default(),
             execution: ExecutionPolicy::default(),
             output: OutputLayout::default(),

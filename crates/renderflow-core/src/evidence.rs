@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use crate::artifact::{Artifact, ArtifactStorageClass};
+use crate::hygiene::HygieneEvidence;
 use crate::toolchain::ToolchainSnapshot;
 
 pub const RUN_MANIFEST_SCHEMA_V1: &str = "renderflow.run/v1";
@@ -160,6 +161,8 @@ pub struct ArtifactEvidence {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub validation_evidence: Vec<ValidatorEvidence>,
     pub fidelity: FidelityDeclaration,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hygiene: Option<HygieneEvidence>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub warnings: Vec<String>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -201,6 +204,7 @@ impl ArtifactEvidence {
             validation,
             validation_evidence: Vec::new(),
             fidelity,
+            hygiene: None,
             warnings: Vec::new(),
             metadata: artifact
                 .metadata()
@@ -552,6 +556,7 @@ mod tests {
             validation: ValidationState::Valid,
             validation_evidence: Vec::new(),
             fidelity: FidelityDeclaration::Lossless,
+            hygiene: None,
             warnings: Vec::new(),
             metadata: BTreeMap::new(),
         };

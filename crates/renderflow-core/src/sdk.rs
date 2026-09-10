@@ -194,6 +194,7 @@ pub struct ProviderCapabilities {
     pub checkpoint_schema: String,
     pub artifact_contract: String,
     pub intake_schema: String,
+    pub hygiene_schema: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -572,6 +573,7 @@ impl Engine {
                 "inspect_capabilities".to_string(),
                 "inspect_artifact".to_string(),
                 "extract_artifacts".to_string(),
+                "publication_hygiene".to_string(),
                 "plan".to_string(),
                 "run".to_string(),
                 "assess".to_string(),
@@ -582,6 +584,7 @@ impl Engine {
             checkpoint_schema: crate::checkpoint::CHECKPOINT_SCHEMA_V1.to_string(),
             artifact_contract: crate::evidence::FLOW_ARTIFACT_SCHEMA_V1.to_string(),
             intake_schema: crate::intake::INTAKE_SCHEMA_V1.to_string(),
+            hygiene_schema: crate::hygiene::HYGIENE_EVIDENCE_SCHEMA_V1.to_string(),
         }
     }
 

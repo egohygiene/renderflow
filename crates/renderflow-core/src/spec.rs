@@ -156,6 +156,140 @@ pub struct DerivativeProfile {
     pub include: SelectorSet,
     #[serde(default)]
     pub exclude: SelectorSet,
+    /// Named publication-hygiene policy applied to artifacts selected by this profile.
+    #[serde(default)]
+    pub hygiene_policy: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PublicationAudience {
+    #[default]
+    Candidate,
+    Private,
+    Public,
+    Commercial,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RedactionDeterminism {
+    #[default]
+    Deterministic,
+    Probabilistic,
+}
+
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MetadataHygienePolicy {
+    /// Metadata keys intentionally retained in publication artifacts.
+    #[serde(default)]
+    pub allow: Vec<String>,
+    /// Metadata keys or field classes removed from publication artifacts.
+    #[serde(default)]
+    pub deny: Vec<String>,
+    /// Remove all non-allowlisted metadata rather than only explicit deny entries.
+    #[serde(default)]
+    pub allowlist_only: bool,
+}
+
+fn default_hygiene_enabled() -> bool {
+    true
+}
+
+fn default_block() -> bool {
+    true
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SecretHygienePolicy {
+    #[serde(default = "default_hygiene_enabled")]
+    pub enabled: bool,
+    #[serde(default = "default_block")]
+    pub block: bool,
+    /// Additional literal markers. Values are never included in diagnostics or evidence.
+    #[serde(default)]
+    pub markers: Vec<String>,
+}
+
+impl Default for SecretHygienePolicy {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            block: true,
+            markers: Vec::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ProtectedReferencePolicy {
+    /// Brand, franchise, company, creator, or work names requiring review.
+    #[serde(default)]
+    pub terms: Vec<String>,
+    #[serde(default = "default_block")]
+    pub block: bool,
+    #[serde(default)]
+    pub case_sensitive: bool,
+}
+
+impl Default for ProtectedReferencePolicy {
+    fn default() -> Self {
+        Self {
+            terms: Vec::new(),
+            block: true,
+            case_sensitive: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ContentRedactionPolicy {
+    /// Provider-neutral redaction provider identifier.
+    pub provider: String,
+    #[serde(default)]
+    pub determinism: RedactionDeterminism,
+    #[serde(default)]
+    pub classes: Vec<String>,
+    /// Explicit human approval for this exact policy configuration.
+    #[serde(default)]
+    pub reviewed: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RightsHygienePolicy {
+    #[serde(default)]
+    pub required: bool,
+    #[serde(default)]
+    pub license: Option<String>,
+    #[serde(default)]
+    pub rights_holder: Option<String>,
+    #[serde(default)]
+    pub approval_reference: Option<String>,
+    /// Records an explicit rights review; it is not a legal conclusion by Renderflow.
+    #[serde(default)]
+    pub reviewed: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HygienePolicy {
+    #[serde(default)]
+    pub audience: PublicationAudience,
+    #[serde(default)]
+    pub metadata: MetadataHygienePolicy,
+    #[serde(default)]
+    pub secrets: SecretHygienePolicy,
+    #[serde(default)]
+    pub protected_references: ProtectedReferencePolicy,
+    #[serde(default)]
+    pub redaction: Option<ContentRedactionPolicy>,
+    #[serde(default)]
+    pub rights: RightsHygienePolicy,
 }
 
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
@@ -283,6 +417,9 @@ pub struct ExecutionPolicy {
     pub publication_policy: Option<String>,
     #[serde(default)]
     pub redaction_policy: Option<String>,
+    /// Named hygiene policy applied to the complete selected publication bundle.
+    #[serde(default)]
+    pub hygiene_policy: Option<String>,
 }
 
 impl Default for ExecutionPolicy {
@@ -303,6 +440,7 @@ impl Default for ExecutionPolicy {
             reject_loss_classes: Vec::new(),
             publication_policy: None,
             redaction_policy: None,
+            hygiene_policy: None,
         }
     }
 }
@@ -344,6 +482,8 @@ pub struct SpecV2 {
     pub sources: Vec<SourceSpec>,
     #[serde(default)]
     pub profiles: BTreeMap<String, DerivativeProfile>,
+    #[serde(default)]
+    pub hygiene: BTreeMap<String, HygienePolicy>,
     pub targets: TargetSelection,
     #[serde(default)]
     pub execution: ExecutionPolicy,
@@ -540,6 +680,22 @@ impl SpecV2 {
                 ));
             }
         }
+        if self.execution.hygiene_policy.is_none() {
+            let selected_hygiene = self
+                .targets
+                .profiles
+                .iter()
+                .filter_map(|profile_name| self.profiles.get(profile_name))
+                .filter_map(|profile| profile.hygiene_policy.as_deref())
+                .collect::<BTreeSet<_>>();
+            if selected_hygiene.len() > 1 {
+                diagnostics.push(SpecDiagnostic::new(
+                    "$.targets.profiles",
+                    "hygiene.policy.conflict",
+                    "selected profiles use different hygiene policies; choose one with execution.hygiene_policy",
+                ));
+            }
+        }
 
         for (profile_name, profile) in &self.profiles {
             let base = format!("$.profiles.{profile_name}");
@@ -572,6 +728,70 @@ impl SpecV2 {
                 &format!("{base}.exclude"),
                 &mut diagnostics,
             );
+            if let Some(policy) = &profile.hygiene_policy {
+                if !self.hygiene.contains_key(policy) {
+                    diagnostics.push(SpecDiagnostic::new(
+                        format!("{base}.hygiene_policy"),
+                        "hygiene.policy.unknown",
+                        format!("hygiene policy '{policy}' is not declared in $.hygiene"),
+                    ));
+                }
+            }
+        }
+
+        if let Some(policy) = &self.execution.hygiene_policy {
+            if !self.hygiene.contains_key(policy) {
+                diagnostics.push(SpecDiagnostic::new(
+                    "$.execution.hygiene_policy",
+                    "hygiene.policy.unknown",
+                    format!("hygiene policy '{policy}' is not declared in $.hygiene"),
+                ));
+            }
+        }
+
+        for (policy_name, policy) in &self.hygiene {
+            let base = format!("$.hygiene.{policy_name}");
+            if !is_stable_id(policy_name) {
+                diagnostics.push(SpecDiagnostic::new(
+                    base.clone(),
+                    "hygiene.id.invalid",
+                    "hygiene policy names must use only ASCII letters, digits, '.', '_', or '-'",
+                ));
+            }
+            validate_non_empty_values(
+                &policy.metadata.allow,
+                &format!("{base}.metadata.allow"),
+                &mut diagnostics,
+            );
+            validate_non_empty_values(
+                &policy.metadata.deny,
+                &format!("{base}.metadata.deny"),
+                &mut diagnostics,
+            );
+            validate_non_empty_values(
+                &policy.secrets.markers,
+                &format!("{base}.secrets.markers"),
+                &mut diagnostics,
+            );
+            validate_non_empty_values(
+                &policy.protected_references.terms,
+                &format!("{base}.protected_references.terms"),
+                &mut diagnostics,
+            );
+            if let Some(redaction) = &policy.redaction {
+                if redaction.provider.trim().is_empty() {
+                    diagnostics.push(SpecDiagnostic::new(
+                        format!("{base}.redaction.provider"),
+                        "hygiene.redaction.provider_empty",
+                        "a configured redaction policy requires a provider id",
+                    ));
+                }
+                validate_non_empty_values(
+                    &redaction.classes,
+                    &format!("{base}.redaction.classes"),
+                    &mut diagnostics,
+                );
+            }
         }
 
         if self.execution.max_parallel == 0 {
@@ -722,6 +942,18 @@ fn validate_allow_deny(
                 format!("{base}.deny[{index}]"),
                 "policy.allow_deny.conflict",
                 format!("'{denied}' appears in both allow and deny lists"),
+            ));
+        }
+    }
+}
+
+fn validate_non_empty_values(values: &[String], path: &str, diagnostics: &mut Vec<SpecDiagnostic>) {
+    for (index, value) in values.iter().enumerate() {
+        if value.trim().is_empty() {
+            diagnostics.push(SpecDiagnostic::new(
+                format!("{path}[{index}]"),
+                "hygiene.value.empty",
+                "hygiene policy values must not be empty",
             ));
         }
     }
@@ -952,6 +1184,7 @@ pub(crate) fn migrate_v1_config(config: &Config) -> SpecV2 {
             immutable: true,
         }],
         profiles: BTreeMap::new(),
+        hygiene: BTreeMap::new(),
         targets: TargetSelection {
             exact,
             profiles: Vec::new(),
@@ -988,6 +1221,11 @@ pub fn json_schema() -> Value {
             "profiles": {
                 "type": "object",
                 "additionalProperties": {"$ref": "#/$defs/profile"},
+                "default": {}
+            },
+            "hygiene": {
+                "type": "object",
+                "additionalProperties": {"$ref": "#/$defs/hygienePolicy"},
                 "default": {}
             },
             "targets": {"$ref": "#/$defs/targetSelection"},
@@ -1071,7 +1309,63 @@ pub fn json_schema() -> Value {
                     "description": {"type": ["string", "null"]},
                     "targets": {"type": "array", "items": {"$ref": "#/$defs/target"}, "default": []},
                     "include": {"$ref": "#/$defs/selectorSet"},
-                    "exclude": {"$ref": "#/$defs/selectorSet"}
+                    "exclude": {"$ref": "#/$defs/selectorSet"},
+                    "hygiene_policy": {"anyOf": [{"$ref": "#/$defs/stableId"}, {"type": "null"}]}
+                }
+            },
+            "hygienePolicy": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "audience": {"enum": ["candidate", "private", "public", "commercial"], "default": "candidate"},
+                    "metadata": {"$ref": "#/$defs/metadataHygiene"},
+                    "secrets": {"$ref": "#/$defs/secretHygiene"},
+                    "protected_references": {"$ref": "#/$defs/protectedReferences"},
+                    "redaction": {"anyOf": [{"$ref": "#/$defs/contentRedaction"}, {"type": "null"}]},
+                    "rights": {"$ref": "#/$defs/rightsHygiene"}
+                }
+            },
+            "metadataHygiene": {
+                "type": "object", "additionalProperties": false,
+                "properties": {
+                    "allow": {"type": "array", "items": {"type": "string", "minLength": 1}, "default": []},
+                    "deny": {"type": "array", "items": {"type": "string", "minLength": 1}, "default": []},
+                    "allowlist_only": {"type": "boolean", "default": false}
+                }
+            },
+            "secretHygiene": {
+                "type": "object", "additionalProperties": false,
+                "properties": {
+                    "enabled": {"type": "boolean", "default": true},
+                    "block": {"type": "boolean", "default": true},
+                    "markers": {"type": "array", "items": {"type": "string", "minLength": 1}, "default": []}
+                }
+            },
+            "protectedReferences": {
+                "type": "object", "additionalProperties": false,
+                "properties": {
+                    "terms": {"type": "array", "items": {"type": "string", "minLength": 1}, "default": []},
+                    "block": {"type": "boolean", "default": true},
+                    "case_sensitive": {"type": "boolean", "default": false}
+                }
+            },
+            "contentRedaction": {
+                "type": "object", "additionalProperties": false, "required": ["provider"],
+                "properties": {
+                    "provider": {"type": "string", "minLength": 1},
+                    "determinism": {"enum": ["deterministic", "probabilistic"], "default": "deterministic"},
+                    "classes": {"type": "array", "items": {"type": "string", "minLength": 1}, "default": []},
+                    "reviewed": {"type": "boolean", "default": false}
+                }
+            },
+            "rightsHygiene": {
+                "type": "object", "additionalProperties": false,
+                "properties": {
+                    "required": {"type": "boolean", "default": false},
+                    "license": {"type": ["string", "null"]},
+                    "rights_holder": {"type": ["string", "null"]},
+                    "approval_reference": {"type": ["string", "null"]},
+                    "reviewed": {"type": "boolean", "default": false}
                 }
             },
             "allowDeny": {
@@ -1134,7 +1428,8 @@ pub fn json_schema() -> Value {
                         "default": []
                     },
                     "publication_policy": {"type": ["string", "null"]},
-                    "redaction_policy": {"type": ["string", "null"]}
+                    "redaction_policy": {"type": ["string", "null"]},
+                    "hygiene_policy": {"anyOf": [{"$ref": "#/$defs/stableId"}, {"type": "null"}]}
                 }
             },
             "outputLayout": {

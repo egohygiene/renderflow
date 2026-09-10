@@ -1,0 +1,45 @@
+schema: renderflow/v2
+sources:
+  - id: source.manuscript
+    role: manuscript
+    path: manuscript.md
+    format: markdown
+profiles:
+  publication.reviewed:
+    description: Public derivatives with deterministic hygiene and rights gates
+    hygiene_policy: public-release
+    targets:
+      - id: target.web
+        role: web
+        format: html
+hygiene:
+  public-release:
+    audience: public
+    metadata:
+      allow:
+        - dc.title
+        - dc.creator
+      deny:
+        - exif
+        - xmp
+        - iptc
+        - geolocation
+        - filesystem.*
+    secrets:
+      enabled: true
+      block: true
+    protected_references:
+      terms:
+        - Example Franchise
+      block: true
+    rights:
+      required: true
+      license: All rights reserved
+      rights_holder: Example Publisher LLC
+      approval_reference: rights-review-example
+      reviewed: true
+targets:
+  profiles:
+    - publication.reviewed
+output:
+  bundle_root: dist

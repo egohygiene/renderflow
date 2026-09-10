@@ -1121,6 +1121,7 @@ mod tests {
                 immutable: true,
             }],
             profiles: BTreeMap::new(),
+            hygiene: BTreeMap::new(),
             targets: TargetSelection::default(),
             execution: ExecutionPolicy {
                 ai: AiPolicy::LocalOnly,

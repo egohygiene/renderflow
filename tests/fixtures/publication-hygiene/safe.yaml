@@ -1,0 +1,29 @@
+schema: renderflow/v2
+sources:
+  - id: source.safe
+    path: source-safe.md
+    format: markdown
+hygiene:
+  fixture-policy:
+    audience: public
+    metadata:
+      allowlist_only: true
+      allow:
+        - renderflow.source_id
+    protected_references:
+      terms:
+        - Example Franchise
+    rights:
+      required: true
+      license: All rights reserved
+      approval_reference: fixture-review
+      reviewed: true
+targets:
+  exact:
+    - id: target.safe
+      role: reviewed
+      format: markdown
+execution:
+  hygiene_policy: fixture-policy
+output:
+  bundle_root: /tmp/renderflow-hygiene-safe

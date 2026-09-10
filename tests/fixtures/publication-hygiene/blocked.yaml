@@ -1,0 +1,25 @@
+schema: renderflow/v2
+sources:
+  - id: source.blocked
+    path: source-blocked.md
+    format: markdown
+hygiene:
+  fixture-policy:
+    audience: commercial
+    secrets:
+      markers:
+        - FIXTURE-CREDENTIAL-MARKER
+    protected_references:
+      terms:
+        - Example Franchise
+    rights:
+      required: true
+targets:
+  exact:
+    - id: target.blocked
+      role: blocked
+      format: markdown
+execution:
+  hygiene_policy: fixture-policy
+output:
+  bundle_root: /tmp/renderflow-hygiene-blocked
