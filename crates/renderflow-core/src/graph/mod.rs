@@ -10,10 +10,10 @@ mod pathfinding;
 pub mod renderers;
 mod transform_edge;
 
-pub use dag_executor::DagExecutor;
+pub use dag_executor::{DagExecutionReport, DagExecutor};
 pub use definition::TransformDefinition;
 pub use definition_registry::TransformDefinitionRegistry;
-pub use execution_plan::ExecutionPlan;
+pub use execution_plan::{DiagnosticLevel, ExecutionPlan};
 pub use format::Format;
 pub use input_kind::InputKind;
 pub use multi_target::MultiTargetDag;

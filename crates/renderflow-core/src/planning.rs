@@ -6,6 +6,7 @@
 
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::fs;
+use std::io::Write;
 use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;
 
@@ -14,10 +15,17 @@ use anyhow::{Context, Result};
 use crate::adapters::strategy::{
     document_input_format, output_type_for_format, StrategyArtifactTransform,
 };
-use crate::artifact::{ArtifactDescriptor, ArtifactStorageClass, ArtifactStore};
+use crate::artifact::{Artifact, ArtifactDescriptor, ArtifactStorageClass, ArtifactStore};
+use crate::evidence::{
+    redact_sensitive_text, run_id, sha256_serialized, unix_time_ms, ArtifactEvidence,
+    ArtifactManifest, ArtifactRole, DiagnosticSeverity, ExecutionDiagnostic, FidelityDeclaration,
+    ProducerEvidence, RunManifest, RunState, StepEvidence, StepState, ValidationState,
+    ARTIFACT_MANIFEST_SCHEMA_V1, RUN_MANIFEST_SCHEMA_V1,
+};
 use crate::graph::capability::{FormatCapabilityRegistry, FormatFamily};
 use crate::graph::{
-    DagExecutor, ExecutionPlan, Format, MultiTargetDag, TransformEdge, TransformGraph,
+    DagExecutionReport, DagExecutor, DiagnosticLevel, ExecutionPlan, Format, MultiTargetDag,
+    TransformEdge, TransformGraph,
 };
 use crate::optimization::OptimizationMode;
 use crate::spec::{
@@ -162,6 +170,19 @@ pub struct CanonicalExecutionResult {
     pub outputs: Vec<String>,
     pub diagnostics: Vec<String>,
     pub toolchain: Option<ToolchainSnapshot>,
+    /// Authoritative evidence derived from the actual executor outcome.
+    pub run_manifest: RunManifest,
+    /// Persisted run-manifest path. Dry runs are side-effect free and return `None`.
+    pub manifest_path: Option<String>,
+}
+
+impl CanonicalExecutionResult {
+    pub fn is_success(&self) -> bool {
+        matches!(
+            self.run_manifest.state,
+            RunState::Planned | RunState::Complete
+        )
+    }
 }
 
 pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
@@ -314,15 +335,25 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
 }
 
 pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<CanonicalExecutionResult> {
+    let started_at_unix_ms = unix_time_ms();
     let predicted = resolved.predicted_output_paths()?;
     if dry_run {
-        return Ok(CanonicalExecutionResult {
-            plan: resolved.plan.clone(),
-            output_dir: resolved.spec.output.bundle_root.clone(),
-            outputs: predicted
+        let run_manifest = build_run_manifest(
+            &resolved,
+            started_at_unix_ms,
+            RunState::Planned,
+            predicted
                 .iter()
                 .map(|path| path.display().to_string())
                 .collect(),
+            Vec::new(),
+            Vec::new(),
+            plan_diagnostics(&resolved),
+        )?;
+        return Ok(CanonicalExecutionResult {
+            plan: resolved.plan.clone(),
+            output_dir: resolved.spec.output.bundle_root.clone(),
+            outputs: run_manifest.artifact_manifest.outputs.clone(),
             diagnostics: resolved
                 .plan
                 .diagnostics
@@ -330,11 +361,10 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
                 .map(|diagnostic| diagnostic.message.clone())
                 .collect(),
             toolchain: resolved.plan.toolchain.clone(),
+            run_manifest,
+            manifest_path: None,
         });
     }
-
-    preflight_selected_providers(&resolved)?;
-    validate_pre_execution_budgets(&resolved)?;
 
     let output_root = PathBuf::from(&resolved.spec.output.bundle_root);
     fs::create_dir_all(&output_root).with_context(|| {
@@ -343,19 +373,70 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
             output_root.display()
         )
     })?;
+    if let Err(error) = preflight_selected_providers(&resolved)
+        .and_then(|_| validate_pre_execution_budgets(&resolved))
+    {
+        return failed_execution_result(
+            &resolved,
+            &output_root,
+            started_at_unix_ms,
+            Vec::new(),
+            Vec::new(),
+            "execution.preflight_failed",
+            error,
+        );
+    }
+
     let state_parent = output_root
         .parent()
         .filter(|path| !path.as_os_str().is_empty())
         .unwrap_or_else(|| Path::new("."));
     let state_dir = state_parent.join(".renderflow");
-    fs::create_dir_all(&state_dir)
-        .with_context(|| format!("failed to create state directory '{}'", state_dir.display()))?;
-    let store = ArtifactStore::new(state_dir.join("artifacts"))?;
-    let source_artifact = store.import_path(
+    if let Err(error) = fs::create_dir_all(&state_dir)
+        .with_context(|| format!("failed to create state directory '{}'", state_dir.display()))
+    {
+        return failed_execution_result(
+            &resolved,
+            &output_root,
+            started_at_unix_ms,
+            Vec::new(),
+            Vec::new(),
+            "execution.state_store_failed",
+            error,
+        );
+    }
+    let store = match ArtifactStore::new(state_dir.join("artifacts")) {
+        Ok(store) => store,
+        Err(error) => {
+            return failed_execution_result(
+                &resolved,
+                &output_root,
+                started_at_unix_ms,
+                Vec::new(),
+                Vec::new(),
+                "execution.artifact_store_failed",
+                error,
+            )
+        }
+    };
+    let source_artifact = match store.import_path(
         &resolved.source_path,
         ArtifactDescriptor::for_format(resolved.source_format, ArtifactStorageClass::Source)
             .with_metadata("renderflow.source_id", resolved.source.id.clone()),
-    )?;
+    ) {
+        Ok(artifact) => artifact,
+        Err(error) => {
+            return failed_execution_result(
+                &resolved,
+                &output_root,
+                started_at_unix_ms,
+                Vec::new(),
+                Vec::new(),
+                "execution.source_import_failed",
+                error,
+            )
+        }
+    };
 
     let executor = std::mem::take(&mut resolved.executor);
     let mut executor = executor
@@ -363,50 +444,491 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
         .with_max_parallel(resolved.spec.execution.max_parallel);
     if let Some(snapshot) = &resolved.plan.toolchain {
         executor = executor.with_toolchain_fingerprint(snapshot.fingerprint.clone());
-        fs::write(
+        if let Err(error) = fs::write(
             state_dir.join("toolchain.json"),
             serde_json::to_vec_pretty(snapshot)?,
-        )?;
-    }
-    let artifacts = executor.execute_artifact(
-        &resolved.dag,
-        resolved.source_format,
-        source_artifact,
-        &store,
-    )?;
-
-    validate_post_execution_budgets(&resolved, &artifacts)?;
-    for (target, destination) in resolved.targets.iter().zip(predicted.iter()) {
-        let artifact = artifacts.get(&target.format).ok_or_else(|| {
-            anyhow::anyhow!(
-                "execution plan completed without producing selected target '{}'",
-                target.format
-            )
-        })?;
-        if resolved.spec.execution.validation.required && artifact.size_bytes() == 0 {
-            anyhow::bail!(
-                "validation failed: target '{}' produced an empty artifact",
-                target.format
+        ) {
+            return failed_execution_result(
+                &resolved,
+                &output_root,
+                started_at_unix_ms,
+                vec![source_artifact_evidence(&resolved, &source_artifact)],
+                Vec::new(),
+                "execution.toolchain_evidence_failed",
+                error.into(),
             );
         }
-        store.materialize(artifact, destination)?;
     }
+    let mut report = match executor.execute_artifact_with_evidence(
+        &resolved.dag,
+        resolved.source_format,
+        source_artifact.clone(),
+        &store,
+    ) {
+        Ok(report) => report,
+        Err(error) => {
+            let source_evidence = source_artifact_evidence(&resolved, &source_artifact);
+            return failed_execution_result(
+                &resolved,
+                &output_root,
+                started_at_unix_ms,
+                vec![source_evidence],
+                Vec::new(),
+                "execution.executor_failed",
+                error,
+            );
+        }
+    };
+    enrich_step_versions(&mut report.steps, resolved.plan.toolchain.as_ref());
+
+    let mut diagnostics = plan_diagnostics(&resolved);
+    diagnostics.append(&mut report.diagnostics);
+    let mut output_locators = HashMap::<String, String>::new();
+    let mut actual_outputs = Vec::new();
+    let mut target_failures = false;
+
+    if let Err(error) = validate_post_execution_budgets(&resolved, &report.artifacts) {
+        target_failures = true;
+        diagnostics.push(ExecutionDiagnostic {
+            severity: DiagnosticSeverity::FatalFailure,
+            code: "execution.post_budget_failed".to_string(),
+            message: redact_sensitive_text(&error.to_string()),
+            step_id: None,
+        });
+    }
+
+    for (target, destination) in resolved.targets.iter().zip(predicted.iter()) {
+        let Some(artifact) = report.artifacts.get(&target.format) else {
+            target_failures = true;
+            diagnostics.push(ExecutionDiagnostic {
+                severity: DiagnosticSeverity::RecoverableFailure,
+                code: "execution.target_missing".to_string(),
+                message: format!(
+                    "Execution did not produce selected target '{}'",
+                    target.format
+                ),
+                step_id: None,
+            });
+            continue;
+        };
+        if resolved.spec.execution.validation.required && artifact.size_bytes() == 0 {
+            target_failures = true;
+            diagnostics.push(ExecutionDiagnostic {
+                severity: DiagnosticSeverity::FatalFailure,
+                code: "validation.empty_artifact".to_string(),
+                message: format!("Target '{}' produced an empty artifact", target.format),
+                step_id: producing_step_id(artifact, &report.steps),
+            });
+            continue;
+        }
+        if target_failures
+            && diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "execution.post_budget_failed")
+        {
+            continue;
+        }
+        if let Err(error) = store.materialize(artifact, destination) {
+            target_failures = true;
+            diagnostics.push(ExecutionDiagnostic {
+                severity: DiagnosticSeverity::RecoverableFailure,
+                code: "execution.materialization_failed".to_string(),
+                message: redact_sensitive_text(&error.to_string()),
+                step_id: producing_step_id(artifact, &report.steps),
+            });
+            continue;
+        }
+        let locator = bundle_locator(&output_root, destination);
+        output_locators.insert(artifact.id().to_string(), locator);
+        actual_outputs.push(destination.display().to_string());
+    }
+
+    let artifacts = artifact_evidence(
+        &resolved,
+        &source_artifact,
+        &report,
+        &output_locators,
+        &diagnostics,
+    );
+    let has_failed_step = report
+        .steps
+        .iter()
+        .any(|step| step.state == StepState::Failed);
+    let has_failure = target_failures || has_failed_step;
+    let state = if has_failure && actual_outputs.is_empty() {
+        RunState::Failed
+    } else if has_failure {
+        RunState::Partial
+    } else {
+        RunState::Complete
+    };
+    let run_manifest = build_run_manifest(
+        &resolved,
+        started_at_unix_ms,
+        state,
+        actual_outputs.clone(),
+        artifacts,
+        report.steps,
+        diagnostics,
+    )?;
+    let manifest_path = persist_run_manifest(&output_root, &run_manifest)?;
 
     Ok(CanonicalExecutionResult {
         plan: resolved.plan.clone(),
         output_dir: resolved.spec.output.bundle_root.clone(),
-        outputs: predicted
-            .iter()
-            .map(|path| path.display().to_string())
-            .collect(),
-        diagnostics: resolved
-            .plan
+        outputs: actual_outputs,
+        diagnostics: run_manifest
             .diagnostics
             .iter()
             .map(|diagnostic| diagnostic.message.clone())
             .collect(),
         toolchain: resolved.plan.toolchain.clone(),
+        run_manifest,
+        manifest_path: Some(manifest_path.display().to_string()),
     })
+}
+
+/// Record a cancellation that occurs after planning but before transform execution.
+pub fn cancelled(resolved: ResolvedExecution) -> Result<CanonicalExecutionResult> {
+    let started_at_unix_ms = unix_time_ms();
+    let output_root = PathBuf::from(&resolved.spec.output.bundle_root);
+    fs::create_dir_all(&output_root).with_context(|| {
+        format!(
+            "failed to create output directory '{}' for cancellation evidence",
+            output_root.display()
+        )
+    })?;
+    let mut diagnostics = plan_diagnostics(&resolved);
+    diagnostics.push(ExecutionDiagnostic {
+        severity: DiagnosticSeverity::Cancelled,
+        code: "execution.cancelled".to_string(),
+        message: "Execution was cancelled before transforms started".to_string(),
+        step_id: None,
+    });
+    let mut cancelled_steps = resolved
+        .plan
+        .edges
+        .iter()
+        .map(|edge| {
+            Ok(StepEvidence {
+                step_id: format!("step:{}-to-{}", edge.from, edge.to),
+                transform: edge
+                    .evidence
+                    .get("transform_id")
+                    .cloned()
+                    .unwrap_or_else(|| format!("{}-to-{}", edge.from, edge.to)),
+                transform_version: "unknown".to_string(),
+                capability: edge.capability_id.clone(),
+                provider: edge.provider_id.clone(),
+                input_artifacts: Vec::new(),
+                output_artifacts: Vec::new(),
+                configuration_digest: sha256_serialized(edge)?,
+                started_at_unix_ms,
+                completed_at_unix_ms: started_at_unix_ms,
+                duration_ms: 0,
+                state: StepState::Cancelled,
+                cache: crate::evidence::CacheDisposition::NotApplicable,
+                validation: ValidationState::Skipped,
+                fidelity: FidelityDeclaration::Unknown,
+                skip_reason: Some("execution cancelled before transform started".to_string()),
+                diagnostics: Vec::new(),
+            })
+        })
+        .collect::<Result<Vec<_>>>()?;
+    enrich_step_versions(&mut cancelled_steps, resolved.plan.toolchain.as_ref());
+    let run_manifest = build_run_manifest(
+        &resolved,
+        started_at_unix_ms,
+        RunState::Cancelled,
+        Vec::new(),
+        Vec::new(),
+        cancelled_steps,
+        diagnostics,
+    )?;
+    let manifest_path = persist_run_manifest(&output_root, &run_manifest)?;
+    Ok(canonical_result(
+        &resolved,
+        run_manifest,
+        Some(manifest_path.display().to_string()),
+        Vec::new(),
+    ))
+}
+
+fn failed_execution_result(
+    resolved: &ResolvedExecution,
+    output_root: &Path,
+    started_at_unix_ms: u64,
+    artifacts: Vec<ArtifactEvidence>,
+    steps: Vec<StepEvidence>,
+    code: &str,
+    error: anyhow::Error,
+) -> Result<CanonicalExecutionResult> {
+    let mut diagnostics = plan_diagnostics(resolved);
+    diagnostics.push(ExecutionDiagnostic {
+        severity: DiagnosticSeverity::FatalFailure,
+        code: code.to_string(),
+        message: redact_sensitive_text(&error.to_string()),
+        step_id: None,
+    });
+    let run_manifest = build_run_manifest(
+        resolved,
+        started_at_unix_ms,
+        RunState::Failed,
+        Vec::new(),
+        artifacts,
+        steps,
+        diagnostics,
+    )?;
+    let manifest_path = persist_run_manifest(output_root, &run_manifest)?;
+    Ok(canonical_result(
+        resolved,
+        run_manifest,
+        Some(manifest_path.display().to_string()),
+        Vec::new(),
+    ))
+}
+
+fn canonical_result(
+    resolved: &ResolvedExecution,
+    run_manifest: RunManifest,
+    manifest_path: Option<String>,
+    outputs: Vec<String>,
+) -> CanonicalExecutionResult {
+    CanonicalExecutionResult {
+        plan: resolved.plan.clone(),
+        output_dir: resolved.spec.output.bundle_root.clone(),
+        outputs,
+        diagnostics: run_manifest
+            .diagnostics
+            .iter()
+            .map(|diagnostic| diagnostic.message.clone())
+            .collect(),
+        toolchain: resolved.plan.toolchain.clone(),
+        run_manifest,
+        manifest_path,
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn build_run_manifest(
+    resolved: &ResolvedExecution,
+    started_at_unix_ms: u64,
+    state: RunState,
+    outputs: Vec<String>,
+    artifacts: Vec<ArtifactEvidence>,
+    steps: Vec<StepEvidence>,
+    diagnostics: Vec<ExecutionDiagnostic>,
+) -> Result<RunManifest> {
+    let execution_plan_digest = sha256_serialized(&resolved.plan)?;
+    let source_spec_digest = sha256_serialized(&resolved.spec)?;
+    let run_id = run_id(&execution_plan_digest, started_at_unix_ms);
+    Ok(RunManifest {
+        schema_version: RUN_MANIFEST_SCHEMA_V1.to_string(),
+        run_id: run_id.clone(),
+        execution_plan_digest,
+        source_spec_digest,
+        engine_version: env!("CARGO_PKG_VERSION").to_string(),
+        started_at_unix_ms,
+        completed_at_unix_ms: unix_time_ms(),
+        state,
+        artifact_manifest: ArtifactManifest {
+            schema_version: ARTIFACT_MANIFEST_SCHEMA_V1.to_string(),
+            run_id,
+            output_dir: resolved.spec.output.bundle_root.clone(),
+            outputs,
+            artifacts,
+        },
+        steps,
+        diagnostics,
+        toolchain: resolved.plan.toolchain.clone(),
+    })
+}
+
+fn persist_run_manifest(output_root: &Path, manifest: &RunManifest) -> Result<PathBuf> {
+    let destination = output_root.join("renderflow-run.json");
+    let mut temporary = tempfile::NamedTempFile::new_in(output_root).with_context(|| {
+        format!(
+            "failed to create temporary run manifest in '{}'",
+            output_root.display()
+        )
+    })?;
+    temporary
+        .write_all(&serde_json::to_vec_pretty(manifest)?)
+        .context("failed to write run manifest")?;
+    temporary.flush().context("failed to flush run manifest")?;
+    temporary
+        .as_file()
+        .sync_all()
+        .context("failed to sync run manifest")?;
+    temporary
+        .persist(&destination)
+        .map_err(|error| error.error)
+        .with_context(|| {
+            format!(
+                "failed to atomically persist run manifest '{}'",
+                destination.display()
+            )
+        })?;
+    Ok(destination)
+}
+
+fn plan_diagnostics(resolved: &ResolvedExecution) -> Vec<ExecutionDiagnostic> {
+    resolved
+        .plan
+        .diagnostics
+        .iter()
+        .map(|diagnostic| ExecutionDiagnostic {
+            severity: match &diagnostic.level {
+                DiagnosticLevel::Info => DiagnosticSeverity::Info,
+                DiagnosticLevel::Warning => DiagnosticSeverity::Warning,
+                DiagnosticLevel::Error => DiagnosticSeverity::FatalFailure,
+            },
+            code: "planning.diagnostic".to_string(),
+            message: diagnostic.message.clone(),
+            step_id: None,
+        })
+        .collect()
+}
+
+fn source_artifact_evidence(resolved: &ResolvedExecution, source: &Artifact) -> ArtifactEvidence {
+    ArtifactEvidence::from_artifact(
+        source,
+        resolved
+            .source
+            .role
+            .clone()
+            .unwrap_or_else(|| resolved.source.id.clone()),
+        ArtifactRole::Source,
+        artifact_store_locator(source),
+        ProducerEvidence::source(),
+        ValidationState::NotRequested,
+        FidelityDeclaration::Lossless,
+    )
+}
+
+fn artifact_evidence(
+    resolved: &ResolvedExecution,
+    source: &Artifact,
+    report: &DagExecutionReport,
+    output_locators: &HashMap<String, String>,
+    diagnostics: &[ExecutionDiagnostic],
+) -> Vec<ArtifactEvidence> {
+    let mut evidence = vec![source_artifact_evidence(resolved, source)];
+    let mut artifacts = report.artifacts.iter().collect::<Vec<_>>();
+    artifacts.sort_by(|(left_format, left), (right_format, right)| {
+        left_format
+            .to_string()
+            .cmp(&right_format.to_string())
+            .then_with(|| left.id().as_str().cmp(right.id().as_str()))
+    });
+    for (format, artifact) in artifacts {
+        if artifact.id() == source.id() {
+            continue;
+        }
+        let target = resolved
+            .targets
+            .iter()
+            .find(|target| target.format == *format);
+        let lifecycle = if target.is_some() {
+            ArtifactRole::Terminal
+        } else {
+            ArtifactRole::Intermediate
+        };
+        let role = target
+            .and_then(|target| target.role.clone().or_else(|| target.id.clone()))
+            .unwrap_or_else(|| artifact.format().to_string());
+        let producing_step = report.steps.iter().find(|step| {
+            step.output_artifacts
+                .iter()
+                .any(|artifact_id| artifact_id == artifact.id().as_str())
+        });
+        let invalid = producing_step.is_some_and(|step| {
+            diagnostics.iter().any(|diagnostic| {
+                diagnostic.code.starts_with("validation.")
+                    && diagnostic.step_id.as_deref() == Some(step.step_id.as_str())
+            })
+        });
+        let validation = if invalid {
+            ValidationState::Invalid
+        } else if resolved.spec.execution.validation.required && target.is_some() {
+            ValidationState::Valid
+        } else {
+            ValidationState::NotRequested
+        };
+        let producer = producing_step
+            .map(|step| ProducerEvidence {
+                system: "renderflow".to_string(),
+                transform: Some(step.transform.clone()),
+                capability: step.capability.clone(),
+                provider: step.provider.clone(),
+                version: Some(step.transform_version.clone()),
+            })
+            .unwrap_or_else(ProducerEvidence::source);
+        let fidelity = producing_step
+            .map(|step| step.fidelity)
+            .unwrap_or(FidelityDeclaration::Unknown);
+        let locator = output_locators
+            .get(artifact.id().as_str())
+            .cloned()
+            .unwrap_or_else(|| artifact_store_locator(artifact));
+        let mut artifact_evidence = ArtifactEvidence::from_artifact(
+            artifact, role, lifecycle, locator, producer, validation, fidelity,
+        );
+        if let Some(step) = producing_step {
+            artifact_evidence.warnings = diagnostics
+                .iter()
+                .filter(|diagnostic| {
+                    diagnostic.severity == DiagnosticSeverity::Warning
+                        && diagnostic.step_id.as_deref() == Some(step.step_id.as_str())
+                })
+                .map(|diagnostic| diagnostic.message.clone())
+                .collect();
+        }
+        evidence.push(artifact_evidence);
+    }
+    evidence
+}
+
+fn artifact_store_locator(artifact: &Artifact) -> String {
+    format!(
+        "artifact-store:{}",
+        artifact
+            .payload()
+            .relative_path()
+            .to_string_lossy()
+            .replace('\\', "/")
+    )
+}
+
+fn bundle_locator(output_root: &Path, destination: &Path) -> String {
+    let relative = destination.strip_prefix(output_root).unwrap_or(destination);
+    format!("bundle:{}", relative.to_string_lossy().replace('\\', "/"))
+}
+
+fn producing_step_id(artifact: &Artifact, steps: &[StepEvidence]) -> Option<String> {
+    steps
+        .iter()
+        .find(|step| {
+            step.output_artifacts
+                .iter()
+                .any(|artifact_id| artifact_id == artifact.id().as_str())
+        })
+        .map(|step| step.step_id.clone())
+}
+
+fn enrich_step_versions(steps: &mut [StepEvidence], toolchain: Option<&ToolchainSnapshot>) {
+    for step in steps {
+        let version = step.provider.as_deref().and_then(|provider| {
+            toolchain.and_then(|snapshot| {
+                snapshot
+                    .selected_tools
+                    .iter()
+                    .find(|tool| tool.id.as_str() == provider)
+                    .and_then(|tool| tool.version.clone())
+            })
+        });
+        step.transform_version = version.unwrap_or_else(|| env!("CARGO_PKG_VERSION").to_string());
+    }
 }
 
 fn apply_request_overrides(spec: &mut SpecV2, request: &PlanningRequest) -> Result<()> {

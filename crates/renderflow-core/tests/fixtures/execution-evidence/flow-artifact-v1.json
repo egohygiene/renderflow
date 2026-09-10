@@ -1,0 +1,19 @@
+{
+  "schema_version": "flow.artifact/v1",
+  "artifact_id": "artifact:sha256-abc123",
+  "role": "web",
+  "media_type": "text/html",
+  "digest": {
+    "algorithm": "sha256",
+    "value": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "size_bytes": 42,
+  "producer": {
+    "owner": "renderflow",
+    "capability_id": "document.render",
+    "provider_version": "1.2.3"
+  },
+  "sources": [
+    "artifact:sha256-source123"
+  ]
+}

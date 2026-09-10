@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
+use std::time::Instant;
 
 use anyhow::{Context, Result};
 use rayon::prelude::*;
@@ -11,6 +12,10 @@ use crate::artifact::{
     compute_artifact_node_hash, load_artifact_cache, save_artifact_cache, Artifact, ArtifactCache,
     ArtifactCollection, ArtifactDescriptor, ArtifactStorageClass, ArtifactStore, ArtifactTransform,
     TextTransformAdapter,
+};
+use crate::evidence::{
+    redact_sensitive_text, sha256_text, unix_time_ms, CacheDisposition, DiagnosticSeverity,
+    ExecutionDiagnostic, FidelityDeclaration, StepEvidence, StepState, ValidationState,
 };
 use crate::transforms::aggregation::AggregationTransform;
 use crate::transforms::Transform;
@@ -31,6 +36,169 @@ pub struct DagExecutor {
     toolchain_fingerprint: Option<String>,
     /// Optional per-execution parallelism bound from the canonical execution policy.
     max_parallel: Option<usize>,
+}
+
+/// Artifact outputs and step evidence from one DAG execution.
+pub struct DagExecutionReport {
+    pub artifacts: HashMap<Format, Artifact>,
+    pub steps: Vec<StepEvidence>,
+    pub diagnostics: Vec<ExecutionDiagnostic>,
+}
+
+impl DagExecutionReport {
+    fn into_result(self) -> Result<HashMap<Format, Artifact>> {
+        ensure_steps_succeeded(&self.steps)?;
+        Ok(self.artifacts)
+    }
+}
+
+struct CollectionExecutionReport {
+    artifacts: HashMap<Format, ArtifactCollection>,
+    steps: Vec<StepEvidence>,
+    diagnostics: Vec<ExecutionDiagnostic>,
+}
+
+impl CollectionExecutionReport {
+    fn into_result(self) -> Result<HashMap<Format, ArtifactCollection>> {
+        ensure_steps_succeeded(&self.steps)?;
+        Ok(self.artifacts)
+    }
+}
+
+struct ExecutedEdge {
+    format: Format,
+    artifacts: ArtifactCollection,
+    evidence: StepEvidence,
+}
+
+struct SingleEdgeOutcome {
+    artifact: Artifact,
+    transform: String,
+    configuration_digest: crate::evidence::DigestEvidence,
+    cache: CacheDisposition,
+}
+
+fn ensure_steps_succeeded(steps: &[StepEvidence]) -> Result<()> {
+    let has_failure = steps
+        .iter()
+        .any(|step| matches!(step.state, StepState::Failed | StepState::Cancelled));
+    if !has_failure {
+        return Ok(());
+    }
+    let failures = steps
+        .iter()
+        .filter(|step| matches!(step.state, StepState::Failed | StepState::Cancelled))
+        .flat_map(|step| {
+            step.diagnostics
+                .iter()
+                .map(|diagnostic| diagnostic.message.clone())
+        })
+        .collect::<Vec<_>>();
+    if failures.is_empty() {
+        anyhow::bail!("artifact DAG execution failed without diagnostic detail")
+    } else {
+        anyhow::bail!("artifact DAG execution failed: {}", failures.join("; "))
+    }
+}
+
+fn edge_identity(edge: &TransformEdge) -> String {
+    edge.evidence
+        .get("transform_id")
+        .cloned()
+        .unwrap_or_else(|| format!("{}-to-{}", edge.from, edge.to))
+}
+
+fn edge_configuration_digest(edge: &TransformEdge) -> crate::evidence::DigestEvidence {
+    sha256_text(&format!(
+        "{}\0{}\0{}\0{}\0{:?}",
+        edge.from,
+        edge.to,
+        edge.provider_id.as_deref().unwrap_or(""),
+        edge.variant_id.as_deref().unwrap_or(""),
+        edge.evidence
+    ))
+}
+
+fn edge_fidelity(edge: &TransformEdge) -> FidelityDeclaration {
+    if edge.input_kind.is_collection() {
+        FidelityDeclaration::PathDependent
+    } else if (edge.quality - 1.0).abs() < f32::EPSILON {
+        FidelityDeclaration::Lossless
+    } else {
+        FidelityDeclaration::Lossy
+    }
+}
+
+fn failed_step(
+    edge: &TransformEdge,
+    inputs: Option<&ArtifactCollection>,
+    error: &anyhow::Error,
+    started_at_unix_ms: u64,
+    duration_ms: u64,
+) -> StepEvidence {
+    let message = redact_sensitive_text(&error.to_string());
+    let step_id = format!("step:{}-to-{}", edge.from, edge.to);
+    StepEvidence {
+        step_id: step_id.clone(),
+        transform: edge_identity(edge),
+        transform_version: edge
+            .variant_id
+            .clone()
+            .unwrap_or_else(|| "unknown".to_string()),
+        capability: edge.capability_id.clone(),
+        provider: edge.provider_id.clone(),
+        input_artifacts: inputs
+            .into_iter()
+            .flat_map(|collection| collection.iter())
+            .map(|artifact| artifact.id().to_string())
+            .collect(),
+        output_artifacts: Vec::new(),
+        configuration_digest: edge_configuration_digest(edge),
+        started_at_unix_ms,
+        completed_at_unix_ms: unix_time_ms(),
+        duration_ms,
+        state: StepState::Failed,
+        cache: CacheDisposition::Miss,
+        validation: if message.contains("returned artifact format") {
+            ValidationState::Invalid
+        } else {
+            ValidationState::Unavailable
+        },
+        fidelity: edge_fidelity(edge),
+        skip_reason: None,
+        diagnostics: vec![ExecutionDiagnostic {
+            severity: DiagnosticSeverity::FatalFailure,
+            code: "execution.transform_failed".to_string(),
+            message,
+            step_id: Some(step_id),
+        }],
+    }
+}
+
+fn skipped_step(edge: &TransformEdge, reason: &str) -> StepEvidence {
+    let timestamp = unix_time_ms();
+    StepEvidence {
+        step_id: format!("step:{}-to-{}", edge.from, edge.to),
+        transform: edge_identity(edge),
+        transform_version: edge
+            .variant_id
+            .clone()
+            .unwrap_or_else(|| "unknown".to_string()),
+        capability: edge.capability_id.clone(),
+        provider: edge.provider_id.clone(),
+        input_artifacts: Vec::new(),
+        output_artifacts: Vec::new(),
+        configuration_digest: edge_configuration_digest(edge),
+        started_at_unix_ms: timestamp,
+        completed_at_unix_ms: timestamp,
+        duration_ms: 0,
+        state: StepState::Skipped,
+        cache: CacheDisposition::NotApplicable,
+        validation: ValidationState::Skipped,
+        fidelity: edge_fidelity(edge),
+        skip_reason: Some(reason.to_string()),
+        diagnostics: Vec::new(),
+    }
 }
 
 impl DagExecutor {
@@ -176,14 +344,27 @@ impl DagExecutor {
         initial_artifact: Artifact,
         store: &ArtifactStore,
     ) -> Result<HashMap<Format, Artifact>> {
-        let collections = self.execute_artifacts(
+        self.execute_artifact_with_evidence(dag, source_format, initial_artifact, store)?
+            .into_result()
+    }
+
+    /// Execute one artifact while retaining machine-readable step evidence.
+    pub fn execute_artifact_with_evidence(
+        &self,
+        dag: &MultiTargetDag,
+        source_format: Format,
+        initial_artifact: Artifact,
+        store: &ArtifactStore,
+    ) -> Result<DagExecutionReport> {
+        let report = self.execute_artifacts_with_evidence(
             dag,
             source_format,
             ArtifactCollection::one(initial_artifact),
             store,
         )?;
 
-        collections
+        let artifacts = report
+            .artifacts
             .into_iter()
             .map(|(format, collection)| {
                 let artifact = collection.into_one().with_context(|| {
@@ -194,7 +375,12 @@ impl DagExecutor {
                 })?;
                 Ok((format, artifact))
             })
-            .collect()
+            .collect::<Result<HashMap<_, _>>>()?;
+        Ok(DagExecutionReport {
+            artifacts,
+            steps: report.steps,
+            diagnostics: report.diagnostics,
+        })
     }
 
     /// Execute a DAG from an ordered source artifact collection.
@@ -209,6 +395,17 @@ impl DagExecutor {
         initial_artifacts: ArtifactCollection,
         store: &ArtifactStore,
     ) -> Result<HashMap<Format, ArtifactCollection>> {
+        self.execute_artifacts_with_evidence(dag, source_format, initial_artifacts, store)?
+            .into_result()
+    }
+
+    fn execute_artifacts_with_evidence(
+        &self,
+        dag: &MultiTargetDag,
+        source_format: Format,
+        initial_artifacts: ArtifactCollection,
+        store: &ArtifactStore,
+    ) -> Result<CollectionExecutionReport> {
         if initial_artifacts.is_empty() {
             anyhow::bail!("Artifact DAG execution requires at least one source artifact");
         }
@@ -231,6 +428,8 @@ impl DagExecutor {
         let mut available: HashMap<Format, ArtifactCollection> = HashMap::new();
         available.insert(source_format, initial_artifacts);
         let mut remaining: Vec<&TransformEdge> = dag.execution_order();
+        let mut steps = Vec::new();
+        let mut diagnostics = Vec::new();
 
         loop {
             let (wave, next_remaining): (Vec<_>, Vec<_>) = remaining
@@ -243,6 +442,19 @@ impl DagExecutor {
                         unreachable = next_remaining.len(),
                         "Some DAG edges could not execute because their source format was never produced"
                     );
+                    for edge in &next_remaining {
+                        let step = skipped_step(edge, "required input artifact was not produced");
+                        diagnostics.push(ExecutionDiagnostic {
+                            severity: DiagnosticSeverity::RecoverableFailure,
+                            code: "execution.step_skipped".to_string(),
+                            message: format!(
+                                "Skipped transform {} → {} because its input was unavailable",
+                                edge.from, edge.to
+                            ),
+                            step_id: Some(step.step_id.clone()),
+                        });
+                        steps.push(step);
+                    }
                 }
                 break;
             }
@@ -250,8 +462,17 @@ impl DagExecutor {
             debug!(wave_size = wave.len(), "Executing artifact DAG wave");
             let execute_wave = || {
                 wave.into_par_iter()
-                    .map(|edge| self.execute_edge(edge, &available, store, cache.as_ref()))
-                    .collect::<Result<Vec<(Format, ArtifactCollection)>>>()
+                    .map(|edge| {
+                        let started_at_unix_ms = unix_time_ms();
+                        let started = Instant::now();
+                        (
+                            edge,
+                            self.execute_edge(edge, &available, store, cache.as_ref()),
+                            started_at_unix_ms,
+                            u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX),
+                        )
+                    })
+                    .collect::<Vec<_>>()
             };
             let wave_results = if let Some(pool) = &thread_pool {
                 pool.install(execute_wave)
@@ -259,8 +480,33 @@ impl DagExecutor {
                 execute_wave()
             };
 
-            for (format, artifacts) in wave_results? {
-                available.insert(format, artifacts);
+            for (edge, outcome, started_at_unix_ms, duration_ms) in wave_results {
+                match outcome {
+                    Ok(executed) => {
+                        available.insert(executed.format, executed.artifacts);
+                        steps.push(executed.evidence);
+                    }
+                    Err(error) => {
+                        let step = failed_step(
+                            edge,
+                            available.get(&edge.from),
+                            &error,
+                            started_at_unix_ms,
+                            duration_ms,
+                        );
+                        diagnostics.push(ExecutionDiagnostic {
+                            severity: DiagnosticSeverity::FatalFailure,
+                            code: "execution.transform_failed".to_string(),
+                            message: step
+                                .diagnostics
+                                .first()
+                                .map(|diagnostic| diagnostic.message.clone())
+                                .unwrap_or_else(|| "Transform failed".to_string()),
+                            step_id: Some(step.step_id.clone()),
+                        });
+                        steps.push(step);
+                    }
+                }
             }
             remaining = next_remaining;
         }
@@ -285,7 +531,11 @@ impl DagExecutor {
             }
         }
 
-        Ok(available)
+        Ok(CollectionExecutionReport {
+            artifacts: available,
+            steps,
+            diagnostics,
+        })
     }
 
     fn execute_edge(
@@ -294,7 +544,9 @@ impl DagExecutor {
         available: &HashMap<Format, ArtifactCollection>,
         store: &ArtifactStore,
         cache: Option<&Mutex<ArtifactCache>>,
-    ) -> Result<(Format, ArtifactCollection)> {
+    ) -> Result<ExecutedEdge> {
+        let started_at_unix_ms = unix_time_ms();
+        let started = Instant::now();
         let inputs = available.get(&edge.from).ok_or_else(|| {
             anyhow::anyhow!(
                 "Source format '{}' was not available for DAG edge",
@@ -302,19 +554,72 @@ impl DagExecutor {
             )
         })?;
 
-        if edge.input_kind.is_single() {
+        let input_artifacts = inputs
+            .iter()
+            .map(|artifact| artifact.id().to_string())
+            .collect::<Vec<_>>();
+        let (artifacts, transform, configuration_digest, cache) = if edge.input_kind.is_single() {
             let input = inputs.clone().into_one().with_context(|| {
                 format!(
                     "Single transform {:?} → {:?} requires exactly one artifact",
                     edge.from, edge.to
                 )
             })?;
-            let output = self.execute_single_edge(edge, &input, store, cache)?;
-            Ok((edge.to, ArtifactCollection::one(output)))
+            let outcome = self.execute_single_edge(edge, &input, store, cache)?;
+            (
+                ArtifactCollection::one(outcome.artifact),
+                outcome.transform,
+                outcome.configuration_digest,
+                outcome.cache,
+            )
         } else {
-            let output = self.execute_collection_edge(edge, inputs, store)?;
-            Ok((edge.to, ArtifactCollection::one(output)))
-        }
+            let (output, transform) = self.execute_collection_edge(edge, inputs, store)?;
+            (
+                ArtifactCollection::one(output),
+                transform.clone(),
+                sha256_text(&transform),
+                CacheDisposition::NotApplicable,
+            )
+        };
+        let completed_at_unix_ms = unix_time_ms();
+        let output_artifacts = artifacts
+            .iter()
+            .map(|artifact| artifact.id().to_string())
+            .collect();
+        let fidelity = if edge.input_kind.is_collection() {
+            FidelityDeclaration::PathDependent
+        } else if (edge.quality - 1.0).abs() < f32::EPSILON {
+            FidelityDeclaration::Lossless
+        } else {
+            FidelityDeclaration::Lossy
+        };
+        Ok(ExecutedEdge {
+            format: edge.to,
+            artifacts,
+            evidence: StepEvidence {
+                step_id: format!("step:{}-to-{}", edge.from, edge.to),
+                transform,
+                transform_version: "unstable-v1".to_string(),
+                capability: edge.capability_id.clone(),
+                provider: edge.provider_id.clone(),
+                input_artifacts,
+                output_artifacts,
+                configuration_digest,
+                started_at_unix_ms,
+                completed_at_unix_ms,
+                duration_ms: u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX),
+                state: if cache == CacheDisposition::Hit {
+                    StepState::Reused
+                } else {
+                    StepState::Complete
+                },
+                cache,
+                validation: ValidationState::Valid,
+                fidelity,
+                skip_reason: None,
+                diagnostics: Vec::new(),
+            },
+        })
     }
 
     fn execute_single_edge(
@@ -323,7 +628,7 @@ impl DagExecutor {
         input: &Artifact,
         store: &ArtifactStore,
         cache: Option<&Mutex<ArtifactCache>>,
-    ) -> Result<Artifact> {
+    ) -> Result<SingleEdgeOutcome> {
         let transform = self
             .single_transforms
             .get(&(edge.from, edge.to))
@@ -351,9 +656,14 @@ impl DagExecutor {
                             artifact = %cached.id(),
                             "Artifact cache hit; skipping transform"
                         );
-                        return Ok(cached
-                            .clone()
-                            .with_storage_class(ArtifactStorageClass::Cached));
+                        return Ok(SingleEdgeOutcome {
+                            artifact: cached
+                                .clone()
+                                .with_storage_class(ArtifactStorageClass::Cached),
+                            transform: transform.name().to_string(),
+                            configuration_digest: sha256_text(&cache_identity),
+                            cache: CacheDisposition::Hit,
+                        });
                     }
                 }
             }
@@ -380,7 +690,12 @@ impl DagExecutor {
                 guard.insert(cache_key, output.clone());
             }
         }
-        Ok(output)
+        Ok(SingleEdgeOutcome {
+            artifact: output,
+            transform: transform.name().to_string(),
+            configuration_digest: sha256_text(&cache_identity),
+            cache: CacheDisposition::Miss,
+        })
     }
 
     fn execute_collection_edge(
@@ -388,7 +703,7 @@ impl DagExecutor {
         edge: &TransformEdge,
         inputs: &ArtifactCollection,
         store: &ArtifactStore,
-    ) -> Result<Artifact> {
+    ) -> Result<(Artifact, String)> {
         let transform = self
             .aggregation_transforms
             .get(&(edge.from, edge.to))
@@ -453,7 +768,7 @@ impl DagExecutor {
                 .with_metadata("renderflow.transform", transform.name()),
         )?;
         self.validate_output_format(edge, &output)?;
-        Ok(output)
+        Ok((output, transform.name().to_string()))
     }
 
     fn validate_output_format(&self, edge: &TransformEdge, output: &Artifact) -> Result<()> {
@@ -589,6 +904,28 @@ mod tests {
         }
     }
 
+    struct WrongFormatTransform;
+
+    impl ArtifactTransform for WrongFormatTransform {
+        fn name(&self) -> &str {
+            "wrong-format"
+        }
+
+        fn apply(
+            &self,
+            input: &Artifact,
+            _output_format: Format,
+            store: &ArtifactStore,
+        ) -> Result<Artifact> {
+            let mut reader = store.open(input)?;
+            store.put_reader(
+                &mut reader,
+                ArtifactDescriptor::for_format(Format::Png, ArtifactStorageClass::Intermediate)
+                    .with_source(input.id().clone()),
+            )
+        }
+    }
+
     fn one_edge(from: Format, to: Format, input_kind: InputKind) -> MultiTargetDag {
         let mut graph = TransformGraph::new();
         graph.add_transform(TransformEdge::with_input_kind(
@@ -700,6 +1037,105 @@ mod tests {
             .execute_artifact(&dag, Format::Png, source, &store)
             .unwrap();
         assert_eq!(executions.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn execution_evidence_reports_cache_miss_then_hit() {
+        let dag = one_edge(Format::Png, Format::Webp, InputKind::Single);
+        let directory = tempfile::tempdir().unwrap();
+        let store = ArtifactStore::new(directory.path().join("store")).unwrap();
+        let cache_path = directory.path().join("dag-cache.json");
+        let source = store
+            .put_bytes(
+                &[0, 255, 4, 5],
+                ArtifactDescriptor::for_format(Format::Png, ArtifactStorageClass::Source),
+            )
+            .unwrap();
+        let mut executor = DagExecutor::new().with_cache(&cache_path);
+        executor.register_artifact(
+            Format::Png,
+            Format::Webp,
+            Arc::new(CountingBinaryTransform {
+                executions: Arc::new(AtomicUsize::new(0)),
+            }),
+        );
+
+        let first = executor
+            .execute_artifact_with_evidence(&dag, Format::Png, source.clone(), &store)
+            .unwrap();
+        let second = executor
+            .execute_artifact_with_evidence(&dag, Format::Png, source, &store)
+            .unwrap();
+
+        assert_eq!(first.steps[0].cache, CacheDisposition::Miss);
+        assert_eq!(first.steps[0].state, StepState::Complete);
+        assert_eq!(second.steps[0].cache, CacheDisposition::Hit);
+        assert_eq!(second.steps[0].state, StepState::Reused);
+        assert!(second.diagnostics.is_empty());
+    }
+
+    #[test]
+    fn partial_execution_records_failure_and_downstream_skip() {
+        let mut graph = TransformGraph::new();
+        graph.add_transform(TransformEdge::new(Format::Png, Format::Webp, 1.0, 1.0));
+        graph.add_collection_transform(Format::Png, Format::Pdf, 1.0, 1.0);
+        graph.add_transform(TransformEdge::new(Format::Pdf, Format::Html, 1.0, 1.0));
+        let dag = graph
+            .build_multi_target_dag(Format::Png, &[Format::Webp, Format::Html])
+            .unwrap();
+        let directory = tempfile::tempdir().unwrap();
+        let store = ArtifactStore::new(directory.path().join("store")).unwrap();
+        let source = store
+            .put_bytes(
+                b"page",
+                ArtifactDescriptor::for_format(Format::Png, ArtifactStorageClass::Source),
+            )
+            .unwrap();
+        let mut executor = DagExecutor::new();
+        executor.register_artifact(Format::Png, Format::Webp, Arc::new(BinaryCopyTransform));
+        executor.register_aggregation(Format::Png, Format::Pdf, Arc::new(FailingAggregation));
+
+        let report = executor
+            .execute_artifact_with_evidence(&dag, Format::Png, source, &store)
+            .unwrap();
+
+        assert!(report.artifacts.contains_key(&Format::Webp));
+        assert!(!report.artifacts.contains_key(&Format::Html));
+        assert!(report
+            .steps
+            .iter()
+            .any(|step| step.state == StepState::Complete));
+        assert!(report
+            .steps
+            .iter()
+            .any(|step| step.state == StepState::Failed));
+        assert!(report
+            .steps
+            .iter()
+            .any(|step| step.state == StepState::Skipped));
+    }
+
+    #[test]
+    fn output_contract_validation_failure_is_structured() {
+        let dag = one_edge(Format::Png, Format::Webp, InputKind::Single);
+        let directory = tempfile::tempdir().unwrap();
+        let store = ArtifactStore::new(directory.path().join("store")).unwrap();
+        let source = store
+            .put_bytes(
+                b"image",
+                ArtifactDescriptor::for_format(Format::Png, ArtifactStorageClass::Source),
+            )
+            .unwrap();
+        let mut executor = DagExecutor::new();
+        executor.register_artifact(Format::Png, Format::Webp, Arc::new(WrongFormatTransform));
+
+        let report = executor
+            .execute_artifact_with_evidence(&dag, Format::Png, source, &store)
+            .unwrap();
+
+        assert_eq!(report.steps[0].state, StepState::Failed);
+        assert_eq!(report.steps[0].validation, ValidationState::Invalid);
+        assert_eq!(report.diagnostics[0].code, "execution.transform_failed");
     }
 
     #[test]

@@ -7,11 +7,12 @@ use std::sync::{
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+use crate::evidence::{ArtifactManifest, DiagnosticSeverity, RunManifest};
 use crate::graph::ExecutionPlan;
 use crate::optimization::OptimizationMode;
 use crate::planning::{
-    execute as execute_resolved_plan, resolve as resolve_planning_request, PlanningRequest,
-    ResolvedExecution,
+    cancelled as cancelled_execution, execute as execute_resolved_plan,
+    resolve as resolve_planning_request, PlanningRequest, ResolvedExecution,
 };
 use crate::toolchain::ToolchainSnapshot;
 
@@ -158,25 +159,39 @@ pub struct ArtifactProfile {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct ArtifactManifest {
-    pub output_dir: String,
-    pub outputs: Vec<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct DiagnosticReport {
+    #[serde(default)]
+    pub info: Vec<String>,
+    #[serde(default)]
     pub warnings: Vec<String>,
+    #[serde(default)]
     pub recoverable_failures: Vec<String>,
+    #[serde(default)]
+    pub fatal_failures: Vec<String>,
+    #[serde(default)]
+    pub cancellations: Vec<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ExecutionResult {
     pub manifest: ArtifactManifest,
+    pub run_manifest: RunManifest,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub manifest_path: Option<String>,
     pub reused_cached_outputs: Vec<String>,
     pub skipped_transforms: Vec<String>,
     pub diagnostics: DiagnosticReport,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub toolchain: Option<ToolchainSnapshot>,
+}
+
+impl ExecutionResult {
+    pub fn is_success(&self) -> bool {
+        matches!(
+            self.run_manifest.state,
+            crate::evidence::RunState::Planned | crate::evidence::RunState::Complete
+        )
+    }
 }
 
 #[derive(Default)]
@@ -306,24 +321,69 @@ impl Engine {
         resolved: ResolvedExecution,
         dry_run: bool,
     ) -> Result<ExecutionResult, RenderflowError> {
-        self.ensure_not_cancelled()?;
         self.emit(
             ProgressStage::Executing,
             "Executing resolved renderflow plan",
         );
-        let result =
-            execute_resolved_plan(resolved, dry_run).map_err(RenderflowError::Execution)?;
+        let result = if self
+            .cancellation_token
+            .as_ref()
+            .is_some_and(CancellationToken::is_cancelled)
+        {
+            cancelled_execution(resolved).map_err(RenderflowError::Execution)?
+        } else {
+            execute_resolved_plan(resolved, dry_run).map_err(RenderflowError::Execution)?
+        };
         self.emit(ProgressStage::Completed, "Execution complete");
+        let info = result
+            .run_manifest
+            .diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.severity == DiagnosticSeverity::Info)
+            .map(|diagnostic| diagnostic.message.clone())
+            .collect();
+        let warnings = result
+            .run_manifest
+            .diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.severity == DiagnosticSeverity::Warning)
+            .map(|diagnostic| diagnostic.message.clone())
+            .collect();
+        let recoverable_failures = result
+            .run_manifest
+            .diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.severity == DiagnosticSeverity::RecoverableFailure)
+            .map(|diagnostic| diagnostic.message.clone())
+            .collect();
+        let fatal_failures = result
+            .run_manifest
+            .diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.severity == DiagnosticSeverity::FatalFailure)
+            .map(|diagnostic| diagnostic.message.clone())
+            .collect();
+        let cancellations = result
+            .run_manifest
+            .diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.severity == DiagnosticSeverity::Cancelled)
+            .map(|diagnostic| diagnostic.message.clone())
+            .collect();
+        let reused_cached_outputs = result.run_manifest.cache_hits();
+        let skipped_transforms = result.run_manifest.skipped_transforms();
         Ok(ExecutionResult {
-            manifest: ArtifactManifest {
-                output_dir: result.output_dir,
-                outputs: result.outputs,
-            },
-            reused_cached_outputs: Vec::new(),
-            skipped_transforms: Vec::new(),
+            manifest: result.run_manifest.artifact_manifest.clone(),
+            run_manifest: result.run_manifest,
+            manifest_path: result.manifest_path,
+            reused_cached_outputs,
+            skipped_transforms,
             diagnostics: DiagnosticReport {
-                warnings: result.diagnostics,
-                recoverable_failures: Vec::new(),
+                info,
+                warnings,
+                recoverable_failures,
+                fatal_failures,
+                cancellations,
             },
             toolchain: result.toolchain,
         })
@@ -339,6 +399,7 @@ impl Engine {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::evidence::RunState;
 
     #[test]
     fn cancellation_token_reports_cancelled_state() {
@@ -366,5 +427,39 @@ mod tests {
 
         assert_eq!(request.target.as_deref(), Some("html"));
         assert!(!request.all_targets);
+    }
+
+    #[test]
+    fn cancellation_after_planning_returns_and_persists_structured_evidence() {
+        let directory = tempfile::tempdir().unwrap();
+        let source_path = directory.path().join("input.md");
+        let output_path = directory.path().join("dist");
+        let config_path = directory.path().join("renderflow.yaml");
+        std::fs::write(&source_path, "# fixture\n").unwrap();
+        std::fs::write(
+            &config_path,
+            format!(
+                "input: \"{}\"\noutput_dir: \"{}\"\noutputs:\n  - type: html\n",
+                source_path.display(),
+                output_path.display()
+            ),
+        )
+        .unwrap();
+
+        let cancellation = CancellationToken::new();
+        let engine = EngineBuilder::new()
+            .with_cancellation_token(cancellation.clone())
+            .build()
+            .unwrap();
+        let resolved = engine
+            .resolve_execution(ExecutionRequest::from_path(&config_path))
+            .unwrap();
+        cancellation.cancel();
+
+        let result = engine.execute_resolved(resolved, false).unwrap();
+        assert_eq!(result.run_manifest.state, RunState::Cancelled);
+        assert!(result.manifest.outputs.is_empty());
+        assert!(!result.diagnostics.cancellations.is_empty());
+        assert!(output_path.join("renderflow-run.json").is_file());
     }
 }

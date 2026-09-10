@@ -15,6 +15,7 @@ mod commands;
 mod compat;
 mod config;
 pub mod detect;
+pub mod evidence;
 pub mod error;
 pub mod graph;
 mod image;
@@ -30,8 +31,9 @@ pub mod super_resolution;
 pub mod toolchain;
 pub mod transforms;
 
+pub use evidence::{ArtifactManifest, RunManifest};
 pub use sdk::{
-    ArtifactManifest, ArtifactProfile, CancellationToken, DiagnosticReport, Engine, EngineBuilder,
-    ExecutionRequest, ExecutionResult, InspectionRequest, PlanRequest, ProgressEvent,
-    ProgressReporter, ProgressStage, RenderflowError,
+    ArtifactProfile, CancellationToken, DiagnosticReport, Engine, EngineBuilder, ExecutionRequest,
+    ExecutionResult, InspectionRequest, PlanRequest, ProgressEvent, ProgressReporter,
+    ProgressStage, RenderflowError,
 };

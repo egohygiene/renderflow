@@ -62,12 +62,30 @@ pub(crate) fn run_selection(
         // stdout is reserved for machine-readable plan evidence; tracing remains on stderr.
         println!("{}", serde_json::to_string_pretty(&result.plan)?);
     }
-    for output in &result.outputs {
+    for output in &result.run_manifest.artifact_manifest.outputs {
         if dry_run {
             info!("[DRY RUN] Planned output: {}", output);
         } else {
             info!("✔ Output written to: {}", output);
         }
+    }
+    if let Some(manifest_path) = &result.manifest_path {
+        info!(
+            run_id = %result.run_manifest.run_id,
+            state = ?result.run_manifest.state,
+            "Run evidence written to: {}",
+            manifest_path
+        );
+    }
+    if !result.is_success() {
+        anyhow::bail!(
+            "renderflow execution finished with state {:?}; inspect '{}' for structured evidence",
+            result.run_manifest.state,
+            result
+                .manifest_path
+                .as_deref()
+                .unwrap_or("renderflow-run.json")
+        );
     }
     Ok(())
 }
