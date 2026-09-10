@@ -82,6 +82,7 @@ nav:
       - FAQ: user-guide/faq.md
   - Architecture:
       - Universal Intake: universal-intake.md
+      - Publication Hygiene: publication-hygiene.md
       - Overview: architecture/overview.md
       - Knowledge Base:
           - Identity:

@@ -24,6 +24,8 @@ The artifact manifest contains source, retained intermediate, and terminal artif
 
 Terminal artifacts are validated before materialization. A required invalid artifact is never published; unavailable validation also blocks publication unless the spec explicitly allows it. When validation is disabled, the terminal state is recorded as `skipped` rather than inferred as valid.
 
+When a publication-hygiene policy is selected, the generated candidate passes through a `publication.hygiene` step before terminal validation and materialization. Artifact evidence embeds the policy/provider identity, source and sanitized artifact IDs, changed metadata field classes, safe findings, and a `passed`, `review_required`, or `blocked` decision. Blocked candidates retain an `artifact-store:` locator but never receive a `bundle:` locator. See [Publication hygiene](publication-hygiene.md).
+
 Each executed DAG edge produces step evidence with transform/capability/provider identity, input and output artifact IDs, a configuration digest, timestamps, duration, cache disposition, validation and fidelity states, and structured diagnostics. Cache hits use `state: reused`; transforms blocked by a failed dependency use `state: skipped` with a reason.
 
 The machine-readable contract is [`schemas/renderflow-run-v1.schema.json`](https://github.com/egohygiene/renderflow/blob/main/schemas/renderflow-run-v1.schema.json).
@@ -36,4 +38,4 @@ Native IDs such as `artifact:sha256:<digest>` are mapped deterministically to Fl
 
 ## Sensitive data boundary
 
-Run manifests contain digests of the resolved plan and source spec, not serialized configuration or environment variables. Step configuration is represented only by a SHA-256 digest. Artifact locators are relative `artifact-store:` or `bundle:` locators. Provider diagnostics are retained for operability, so provider implementations must not place credentials or secret values in error messages.
+Run manifests contain digests of the resolved plan and source spec, not serialized configuration or environment variables. Step configuration is represented only by a SHA-256 digest. Artifact locators are relative `artifact-store:` or `bundle:` locators. Provider diagnostics are retained for operability, so provider implementations must not place credentials or secret values in error messages. Hygiene secret findings identify only a safe credential class; the matched value is never written to evidence.

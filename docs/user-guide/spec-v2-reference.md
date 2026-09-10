@@ -13,6 +13,7 @@ Spec v2 describes source intent, derivative selection, execution policy, and det
 | Field | Type | Required | Default |
 | --- | --- | --- | --- |
 | `execution` | `executionPolicy` | no | — |
+| `hygiene` | `object` | no | `{}` |
 | `output` | `outputLayout` | no | — |
 | `profiles` | `object` | no | `{}` |
 | `schema` | `"renderflow/v2"` | yes | — |
@@ -59,6 +60,7 @@ Spec v2 describes source intent, derivative selection, execution policy, and det
 | `optimization` | `speed` / `quality` / `balanced` / `pareto` | no | `"balanced"` |
 | `publication_policy` | `string` / `null` | no | — |
 | `redaction_policy` | `string` / `null` | no | — |
+| `hygiene_policy` | `object` | no | — |
 | `reject_loss_classes` | `array` | no | `[]` |
 | `requirements` | `requirements` | no | — |
 | `retry_policy` | `string` / `null` | no | — |
