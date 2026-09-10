@@ -18,11 +18,12 @@ mod commands;
 mod compat;
 mod config;
 pub mod detect;
-pub mod evidence;
 pub mod error;
+pub mod evidence;
 pub mod graph;
 mod image;
 mod input_format;
+pub mod intake;
 pub mod optimization;
 mod pipeline;
 pub mod planning;
@@ -36,6 +37,13 @@ pub mod transforms;
 pub mod validation;
 
 pub use evidence::{ArtifactManifest, RunManifest};
+pub use intake::{
+    ArtifactIntakeProvider, DetectionConfidence, DiscoveredArtifact, EvidenceOrigin,
+    InspectionContext, IntakeBudgetUsage, IntakeBudgets, IntakeConflict, IntakeDiagnostic,
+    IntakeDiagnosticSeverity, IntakeEngine, IntakeReport, IntakeRequest, IntakeSignal,
+    IntakeSignalKind, ProvenanceValue, ProviderInspection, ResolvedArtifactProfile,
+    INTAKE_SCHEMA_V1,
+};
 pub use sdk::{
     ArtifactProfile, CancellationToken, DiagnosticReport, Engine, EngineBuilder, ExecutionRequest,
     ExecutionResult, InspectionRequest, PlanRequest, ProgressEvent, ProgressReporter,

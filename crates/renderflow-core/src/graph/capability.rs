@@ -397,8 +397,8 @@ impl FormatCapabilityRegistry {
                 media_types: &[
                     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                 ],
-                families: &[Document],
-                capabilities: vec![Detect, Convert, Generate],
+                families: &[Document, Archive],
+                capabilities: vec![Detect, Inspect, Extract, Convert, Generate],
                 // DOCX is a ZIP file — matches ZIP magic bytes.
                 magic_signatures: vec![MagicSignature::at_start(b"PK\x03\x04")],
                 loss_profile: PartialLoss,
@@ -414,7 +414,7 @@ impl FormatCapabilityRegistry {
                 extensions: &["epub"],
                 media_types: &["application/epub+zip"],
                 families: &[Document, Archive],
-                capabilities: vec![Detect, Convert],
+                capabilities: vec![Detect, Inspect, Extract, Convert],
                 // EPUB is a ZIP file — matches ZIP magic bytes.
                 magic_signatures: vec![MagicSignature::at_start(b"PK\x03\x04")],
                 loss_profile: PartialLoss,
@@ -526,7 +526,7 @@ impl FormatCapabilityRegistry {
                 extensions: &["cbz"],
                 media_types: &["application/vnd.comicbook+zip"],
                 families: &[Image, Archive],
-                capabilities: vec![Detect],
+                capabilities: vec![Detect, Inspect, Extract],
                 magic_signatures: vec![MagicSignature::at_start(b"PK\x03\x04")],
                 loss_profile: Lossless,
                 external_requirements: vec![],
@@ -1240,7 +1240,7 @@ impl FormatCapabilityRegistry {
                 extensions: &["zip"],
                 media_types: &["application/zip"],
                 families: &[Archive],
-                capabilities: vec![Detect, Inspect],
+                capabilities: vec![Detect, Inspect, Extract],
                 magic_signatures: vec![MagicSignature::at_start(b"PK\x03\x04")],
                 loss_profile: Lossless,
                 external_requirements: vec![],

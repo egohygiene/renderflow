@@ -24,7 +24,7 @@
     "capabilities": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_version", "provider_id", "provider_version", "operations", "progress_event_schema", "checkpoint_schema", "artifact_contract"],
+      "required": ["schema_version", "provider_id", "provider_version", "operations", "progress_event_schema", "checkpoint_schema", "artifact_contract", "intake_schema"],
       "properties": {
         "schema_version": { "const": "renderflow.provider/v1" },
         "provider_id": { "const": "provider.renderflow" },
@@ -32,7 +32,8 @@
         "operations": { "type": "array", "items": { "type": "string" } },
         "progress_event_schema": { "const": "renderflow.progress/v1" },
         "checkpoint_schema": { "const": "renderflow.checkpoints/v1" },
-        "artifact_contract": { "const": "flow.artifact/v1" }
+        "artifact_contract": { "const": "flow.artifact/v1" },
+        "intake_schema": { "const": "renderflow.intake/v1" }
       }
     },
     "plan": {

@@ -114,14 +114,20 @@ pub enum Commands {
             renderflow audit   Generate an audit report in the audits/ directory")]
     Audit,
 
-    /// Visualize the transformation DAG and execution plan
+    /// Inspect an input artifact or visualize a configured transformation DAG
     #[command(after_help = "Examples:\n  \
             renderflow inspect                          Show DAG tree for renderflow.yaml\n  \
             renderflow inspect --config custom.yaml    Show DAG tree for a custom config\n  \
             renderflow inspect --output-format dot     Emit Graphviz DOT output to stdout\n  \
             renderflow inspect --target pdf            Show execution plan for a single target\n  \
-            renderflow inspect --all --export dag.dot  Export full DAG to a DOT file")]
+            renderflow inspect --all --export dag.dot  Export full DAG to a DOT file\n  \
+            renderflow inspect --input file.bin        Inspect arbitrary bytes as JSON\n  \
+            renderflow inspect --input book.epub --extract --recursive  Extract safe child artifacts")]
     Inspect {
+        /// Arbitrary source file to inspect instead of a Renderflow config.
+        #[arg(long, value_name = "FILE", conflicts_with_all = ["target", "all"])]
+        input: Option<String>,
+
         /// Path to the renderflow configuration file
         #[arg(long, default_value = "renderflow.yaml", value_name = "FILE")]
         config: String,
@@ -144,6 +150,43 @@ pub enum Commands {
         /// Useful for saving DOT files for later rendering with Graphviz.
         #[arg(long, value_name = "FILE")]
         export: Option<String>,
+
+        /// Source-reported media type used as one detection signal.
+        #[arg(long, value_name = "TYPE", requires = "input")]
+        media_type: Option<String>,
+
+        /// Extract provider-declared child artifacts into the artifact store.
+        #[arg(long, requires = "input")]
+        extract: bool,
+
+        /// Recursively inspect/extract supported nested containers.
+        #[arg(long, requires = "extract")]
+        recursive: bool,
+
+        /// Artifact-store root for input inspection.
+        #[arg(
+            long,
+            default_value = ".renderflow/intake-artifacts",
+            value_name = "DIR",
+            requires = "input"
+        )]
+        store: String,
+
+        /// Maximum recursive extraction depth.
+        #[arg(long, default_value_t = 3, requires = "input")]
+        max_depth: u32,
+
+        /// Maximum source-plus-child artifact count.
+        #[arg(long, default_value_t = 1000, requires = "input")]
+        max_artifacts: u64,
+
+        /// Maximum total extracted bytes.
+        #[arg(long, default_value_t = 536_870_912, requires = "input")]
+        max_extracted_bytes: u64,
+
+        /// Maximum uncompressed/compressed ratio for one archive entry.
+        #[arg(long, default_value_t = 100.0, requires = "input")]
+        max_expansion_ratio: f64,
     },
 
     /// Manage and inspect plugins

@@ -365,15 +365,27 @@ pub struct ArtifactDescriptor {
 }
 
 impl ArtifactDescriptor {
-    /// Create a descriptor using Renderflow's canonical format/media-type mapping.
-    pub fn for_format(format: Format, storage_class: ArtifactStorageClass) -> Self {
+    /// Create a descriptor for a canonical format/media-type pair.
+    ///
+    /// This is used by intake providers for unknown and provider-defined
+    /// formats that are intentionally not forced into the built-in enum.
+    pub fn new(
+        format: CanonicalFormat,
+        media_type: MediaType,
+        storage_class: ArtifactStorageClass,
+    ) -> Self {
         Self {
-            format: format.into(),
-            media_type: MediaType::for_format(format),
+            format,
+            media_type,
             storage_class,
             metadata: BTreeMap::new(),
             sources: Vec::new(),
         }
+    }
+
+    /// Create a descriptor using Renderflow's canonical format/media-type mapping.
+    pub fn for_format(format: Format, storage_class: ArtifactStorageClass) -> Self {
+        Self::new(format.into(), MediaType::for_format(format), storage_class)
     }
 
     /// Override the media type when a provider has more precise information.
