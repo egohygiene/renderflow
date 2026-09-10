@@ -64,7 +64,7 @@ This removes the source and final-write UTF-8 assumptions from graph execution. 
 
 ## Flow boundary
 
-The kernel deliberately does not depend on `egohygiene/flow`. Its types contain the information needed to project a Renderflow artifact into Flow's artifact interchange contract later: stable ID, media type, SHA-256 digest, byte size, producer/metadata extension points, and ordered sources. Provenance-complete execution results and the concrete Flow projection are tracked separately by issues #355 and #358.
+The kernel deliberately does not depend on `egohygiene/flow`. The [execution evidence](execution-evidence.md) layer records provenance-complete native run and artifact manifests and provides an explicit projection into the currently supported `flow.artifact/v1` interchange shape.
 
 ## Migration sequence
 

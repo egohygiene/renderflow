@@ -1,0 +1,50 @@
+[
+  {
+    "name": "clean_success",
+    "run_state": "complete",
+    "step_state": "complete",
+    "cache": "miss",
+    "validation": "valid",
+    "severity": "info"
+  },
+  {
+    "name": "cache_reuse",
+    "run_state": "complete",
+    "step_state": "reused",
+    "cache": "hit",
+    "validation": "valid",
+    "severity": "info"
+  },
+  {
+    "name": "partial_failure",
+    "run_state": "partial",
+    "step_state": "skipped",
+    "cache": "not_applicable",
+    "validation": "skipped",
+    "severity": "recoverable_failure"
+  },
+  {
+    "name": "fatal_failure",
+    "run_state": "failed",
+    "step_state": "failed",
+    "cache": "miss",
+    "validation": "unavailable",
+    "severity": "fatal_failure"
+  },
+  {
+    "name": "cancellation",
+    "run_state": "cancelled",
+    "step_state": "cancelled",
+    "cache": "not_applicable",
+    "validation": "skipped",
+    "severity": "cancelled"
+  },
+  {
+    "name": "validation_failure",
+    "run_state": "failed",
+    "step_state": "failed",
+    "cache": "miss",
+    "validation": "invalid",
+    "severity": "fatal_failure"
+  }
+]

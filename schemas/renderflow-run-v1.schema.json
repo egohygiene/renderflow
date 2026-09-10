@@ -1,0 +1,214 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-run-v1.schema.json",
+  "title": "Renderflow run manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "run_id",
+    "execution_plan_digest",
+    "source_spec_digest",
+    "engine_version",
+    "started_at_unix_ms",
+    "completed_at_unix_ms",
+    "state",
+    "artifact_manifest",
+    "steps",
+    "diagnostics"
+  ],
+  "properties": {
+    "schema_version": { "const": "renderflow.run/v1" },
+    "run_id": { "type": "string", "pattern": "^run:sha256:[a-f0-9]{64}$" },
+    "execution_plan_digest": { "$ref": "#/$defs/digest" },
+    "source_spec_digest": { "$ref": "#/$defs/digest" },
+    "engine_version": { "type": "string", "minLength": 1 },
+    "started_at_unix_ms": { "type": "integer", "minimum": 0 },
+    "completed_at_unix_ms": { "type": "integer", "minimum": 0 },
+    "state": {
+      "enum": ["planned", "complete", "partial", "failed", "cancelled"]
+    },
+    "artifact_manifest": { "$ref": "#/$defs/artifact_manifest" },
+    "steps": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/step" }
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/diagnostic" }
+    },
+    "toolchain": { "type": "object" }
+  },
+  "$defs": {
+    "digest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "value"],
+      "properties": {
+        "algorithm": { "const": "sha256" },
+        "value": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    },
+    "producer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["system"],
+      "properties": {
+        "system": { "type": "string", "minLength": 1 },
+        "transform": { "type": "string", "minLength": 1 },
+        "capability": { "type": "string", "minLength": 1 },
+        "provider": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact_id",
+        "role",
+        "lifecycle",
+        "locator",
+        "format",
+        "media_type",
+        "digest",
+        "size_bytes",
+        "producer",
+        "sources",
+        "cache",
+        "validation",
+        "fidelity"
+      ],
+      "properties": {
+        "artifact_id": { "type": "string", "minLength": 1 },
+        "role": { "type": "string", "minLength": 1 },
+        "lifecycle": { "enum": ["source", "intermediate", "terminal"] },
+        "locator": { "type": "string", "minLength": 1 },
+        "format": { "type": "string", "minLength": 1 },
+        "media_type": { "type": "string", "pattern": "^[^/]+/[^/]+$" },
+        "digest": { "$ref": "#/$defs/digest" },
+        "size_bytes": { "type": "integer", "minimum": 0 },
+        "producer": { "$ref": "#/$defs/producer" },
+        "sources": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "cache": { "enum": ["source", "miss", "hit", "not_applicable"] },
+        "validation": {
+          "enum": [
+            "valid",
+            "valid_with_warnings",
+            "invalid",
+            "unavailable",
+            "skipped",
+            "not_requested"
+          ]
+        },
+        "fidelity": {
+          "enum": ["lossless", "partial", "lossy", "path_dependent", "unknown"]
+        },
+        "warnings": { "type": "array", "items": { "type": "string" } },
+        "metadata": { "type": "object" }
+      }
+    },
+    "artifact_manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "run_id",
+        "output_dir",
+        "outputs",
+        "artifacts"
+      ],
+      "properties": {
+        "schema_version": { "const": "renderflow.artifact-manifest/v1" },
+        "run_id": { "type": "string", "pattern": "^run:sha256:[a-f0-9]{64}$" },
+        "output_dir": { "type": "string" },
+        "outputs": { "type": "array", "items": { "type": "string" } },
+        "artifacts": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/artifact" }
+        }
+      }
+    },
+    "step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "step_id",
+        "transform",
+        "transform_version",
+        "input_artifacts",
+        "output_artifacts",
+        "configuration_digest",
+        "started_at_unix_ms",
+        "completed_at_unix_ms",
+        "duration_ms",
+        "state",
+        "cache",
+        "validation",
+        "fidelity"
+      ],
+      "properties": {
+        "step_id": { "type": "string", "minLength": 1 },
+        "transform": { "type": "string", "minLength": 1 },
+        "transform_version": { "type": "string", "minLength": 1 },
+        "capability": { "type": "string", "minLength": 1 },
+        "provider": { "type": "string", "minLength": 1 },
+        "input_artifacts": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "output_artifacts": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "configuration_digest": { "$ref": "#/$defs/digest" },
+        "started_at_unix_ms": { "type": "integer", "minimum": 0 },
+        "completed_at_unix_ms": { "type": "integer", "minimum": 0 },
+        "duration_ms": { "type": "integer", "minimum": 0 },
+        "state": { "enum": ["complete", "reused", "skipped", "failed", "cancelled"] },
+        "cache": { "enum": ["source", "miss", "hit", "not_applicable"] },
+        "validation": {
+          "enum": [
+            "valid",
+            "valid_with_warnings",
+            "invalid",
+            "unavailable",
+            "skipped",
+            "not_requested"
+          ]
+        },
+        "fidelity": {
+          "enum": ["lossless", "partial", "lossy", "path_dependent", "unknown"]
+        },
+        "skip_reason": { "type": "string", "minLength": 1 },
+        "diagnostics": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/diagnostic" }
+        }
+      }
+    },
+    "diagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["severity", "code", "message"],
+      "properties": {
+        "severity": {
+          "enum": [
+            "info",
+            "warning",
+            "recoverable_failure",
+            "fatal_failure",
+            "cancelled"
+          ]
+        },
+        "code": { "type": "string", "minLength": 1 },
+        "message": { "type": "string" },
+        "step_id": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}
