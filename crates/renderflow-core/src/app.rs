@@ -29,12 +29,18 @@ pub fn run_cli(cli: Cli) -> Result<()> {
         Some(Commands::Build {
             config,
             dry_run,
+            resume,
             optimization,
             target,
             all,
-        }) => {
-            commands::build::run_selection(&config, dry_run, optimization, target.as_deref(), all)?
-        }
+        }) => commands::build::run_selection(
+            &config,
+            dry_run,
+            resume,
+            optimization,
+            target.as_deref(),
+            all,
+        )?,
         Some(Commands::Watch { config, debounce }) => commands::watch::run(&config, debounce)?,
         Some(Commands::Audit) => commands::audit::run()?,
         Some(Commands::Inspect {

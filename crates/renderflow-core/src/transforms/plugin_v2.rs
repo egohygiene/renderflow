@@ -881,6 +881,15 @@ impl ArtifactCollectionTransform for PluginV2CollectionAdapter {
         &self.descriptor.version
     }
 
+    fn cache_identity(&self) -> String {
+        adapter_cache_identity(&self.descriptor, &self.runtime.config)
+    }
+
+    fn cacheable(&self) -> bool {
+        self.descriptor.cache_policy == PluginCachePolicy::ContentAddressed
+            && self.descriptor.determinism == PluginDeterminism::Deterministic
+    }
+
     fn fidelity(&self) -> Option<FidelityDeclaration> {
         Some(fidelity_declaration(self.descriptor.loss_profile))
     }

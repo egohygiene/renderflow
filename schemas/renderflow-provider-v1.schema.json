@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-provider-v1.schema.json",
+  "title": "Renderflow provider contract v1",
+  "oneOf": [
+    { "$ref": "#/$defs/capabilities" },
+    { "$ref": "#/$defs/plan" },
+    { "$ref": "#/$defs/assessment" },
+    { "$ref": "#/$defs/progress_event" }
+  ],
+  "$defs": {
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["action", "reason_code", "message"],
+      "properties": {
+        "action": { "enum": ["retry", "reuse", "recompute", "skip", "terminal_incompatibility"] },
+        "reason_code": { "type": "string" },
+        "message": { "type": "string" },
+        "checkpoint_key": { "type": "string" },
+        "artifact_ids": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "provider_id", "provider_version", "operations", "progress_event_schema", "checkpoint_schema", "artifact_contract"],
+      "properties": {
+        "schema_version": { "const": "renderflow.provider/v1" },
+        "provider_id": { "const": "provider.renderflow" },
+        "provider_version": { "type": "string" },
+        "operations": { "type": "array", "items": { "type": "string" } },
+        "progress_event_schema": { "const": "renderflow.progress/v1" },
+        "checkpoint_schema": { "const": "renderflow.checkpoints/v1" },
+        "artifact_contract": { "const": "flow.artifact/v1" }
+      }
+    },
+    "plan": {
+      "type": "object",
+      "required": ["schema_version", "plan", "digest"],
+      "properties": {
+        "schema_version": { "const": "renderflow.provider/v1" },
+        "plan": { "type": "object" },
+        "digest": { "type": "object" }
+      }
+    },
+    "assessment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "checkpoint_path", "overall", "decisions"],
+      "properties": {
+        "schema_version": { "const": "renderflow.provider/v1" },
+        "checkpoint_path": { "type": "string" },
+        "overall": { "$ref": "#/$defs/decision" },
+        "decisions": { "type": "array", "items": { "$ref": "#/$defs/decision" } }
+      }
+    },
+    "progress_event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "stage", "message"],
+      "properties": {
+        "schema_version": { "const": "renderflow.progress/v1" },
+        "stage": { "enum": ["inspecting", "planning", "assessing", "resuming", "executing", "cancelled", "completed"] },
+        "message": { "type": "string" },
+        "run_id": { "type": "string" },
+        "step_id": { "type": "string" },
+        "artifact_ids": { "type": "array", "items": { "type": "string" } },
+        "state": { "type": "string" },
+        "diagnostics": { "type": "array", "items": { "type": "object" } }
+      }
+    }
+  }
+}

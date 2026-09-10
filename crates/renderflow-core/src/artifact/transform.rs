@@ -63,6 +63,16 @@ pub trait ArtifactCollectionTransform: Send + Sync {
         "unstable-v1"
     }
 
+    /// Stable material used for checkpoint compatibility.
+    fn cache_identity(&self) -> String {
+        self.name().to_string()
+    }
+
+    /// Whether validated output may be reused from a durable checkpoint.
+    fn cacheable(&self) -> bool {
+        true
+    }
+
     /// Declared fidelity behavior, when supplied by a versioned transform.
     fn fidelity(&self) -> Option<FidelityDeclaration> {
         None

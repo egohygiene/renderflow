@@ -4,6 +4,8 @@ Every non-dry canonical build writes a versioned `renderflow-run.json` manifest 
 
 Dry runs return the same evidence type with `state: planned`, but remain side-effect free and do not persist a manifest.
 
+Validated node completion is also written immediately to the corruption-detectable checkpoint store. See [Resumable provider contract](provider-contract.md) for compatibility assessment, resume, invalidation, cancellation, and orchestration-facing APIs.
+
 ## Outcome states
 
 The top-level `state` is one of:
