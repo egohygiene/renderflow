@@ -208,6 +208,24 @@ pub enum AiPolicy {
     Allow,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ValidationFailureMode {
+    Fatal,
+    #[default]
+    BranchLocal,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RejectedLossClass {
+    Lossless,
+    Partial,
+    Lossy,
+    PathDependent,
+    Unknown,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ValidationPolicy {
@@ -215,6 +233,10 @@ pub struct ValidationPolicy {
     pub required: bool,
     #[serde(default)]
     pub validators: Vec<String>,
+    #[serde(default)]
+    pub failure_mode: ValidationFailureMode,
+    #[serde(default)]
+    pub allow_unavailable: bool,
 }
 
 impl Default for ValidationPolicy {
@@ -222,6 +244,8 @@ impl Default for ValidationPolicy {
         Self {
             required: true,
             validators: Vec::new(),
+            failure_mode: ValidationFailureMode::default(),
+            allow_unavailable: false,
         }
     }
 }
@@ -254,6 +278,8 @@ pub struct ExecutionPolicy {
     #[serde(default)]
     pub minimum_fidelity: Option<f32>,
     #[serde(default)]
+    pub reject_loss_classes: Vec<RejectedLossClass>,
+    #[serde(default)]
     pub publication_policy: Option<String>,
     #[serde(default)]
     pub redaction_policy: Option<String>,
@@ -274,6 +300,7 @@ impl Default for ExecutionPolicy {
             timeout_policy: None,
             validation: ValidationPolicy::default(),
             minimum_fidelity: None,
+            reject_loss_classes: Vec::new(),
             publication_policy: None,
             redaction_policy: None,
         }
@@ -1079,7 +1106,9 @@ pub fn json_schema() -> Value {
                 "additionalProperties": false,
                 "properties": {
                     "required": {"type": "boolean", "default": true},
-                    "validators": {"type": "array", "items": {"type": "string"}, "default": []}
+                    "validators": {"type": "array", "items": {"type": "string"}, "default": []},
+                    "failure_mode": {"enum": ["fatal", "branch_local"], "default": "branch_local"},
+                    "allow_unavailable": {"type": "boolean", "default": false}
                 }
             },
             "executionPolicy": {
@@ -1098,6 +1127,12 @@ pub fn json_schema() -> Value {
                     "timeout_policy": {"type": ["string", "null"]},
                     "validation": {"$ref": "#/$defs/validation"},
                     "minimum_fidelity": {"type": ["number", "null"], "minimum": 0.0, "maximum": 1.0},
+                    "reject_loss_classes": {
+                        "type": "array",
+                        "items": {"enum": ["lossless", "partial", "lossy", "path_dependent", "unknown"]},
+                        "uniqueItems": true,
+                        "default": []
+                    },
                     "publication_policy": {"type": ["string", "null"]},
                     "redaction_policy": {"type": ["string", "null"]}
                 }

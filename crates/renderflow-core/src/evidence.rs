@@ -52,6 +52,24 @@ pub enum ValidationState {
     NotRequested,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct ValidationDiagnostic {
+    pub code: String,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct ValidatorEvidence {
+    pub validator_id: String,
+    pub validator_version: String,
+    pub provider: String,
+    pub state: ValidationState,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub diagnostics: Vec<ValidationDiagnostic>,
+}
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum CacheDisposition {
@@ -139,6 +157,8 @@ pub struct ArtifactEvidence {
     pub sources: Vec<String>,
     pub cache: CacheDisposition,
     pub validation: ValidationState,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub validation_evidence: Vec<ValidatorEvidence>,
     pub fidelity: FidelityDeclaration,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub warnings: Vec<String>,
@@ -179,6 +199,7 @@ impl ArtifactEvidence {
             sources: artifact.sources().iter().map(ToString::to_string).collect(),
             cache,
             validation,
+            validation_evidence: Vec::new(),
             fidelity,
             warnings: Vec::new(),
             metadata: artifact
@@ -529,6 +550,7 @@ mod tests {
             sources: vec!["artifact:sha256:SOURCE123".to_string()],
             cache: CacheDisposition::Miss,
             validation: ValidationState::Valid,
+            validation_evidence: Vec::new(),
             fidelity: FidelityDeclaration::Lossless,
             warnings: Vec::new(),
             metadata: BTreeMap::new(),

@@ -109,6 +109,20 @@
             "null"
           ]
         },
+        "reject_loss_classes": {
+          "default": [],
+          "items": {
+            "enum": [
+              "lossless",
+              "partial",
+              "lossy",
+              "path_dependent",
+              "unknown"
+            ]
+          },
+          "type": "array",
+          "uniqueItems": true
+        },
         "requirements": {
           "$ref": "#/$defs/requirements"
         },
@@ -450,6 +464,17 @@
     "validation": {
       "additionalProperties": false,
       "properties": {
+        "allow_unavailable": {
+          "default": false,
+          "type": "boolean"
+        },
+        "failure_mode": {
+          "default": "branch_local",
+          "enum": [
+            "fatal",
+            "branch_local"
+          ]
+        },
         "required": {
           "default": true,
           "type": "boolean"

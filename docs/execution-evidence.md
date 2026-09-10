@@ -18,7 +18,9 @@ The CLI exits unsuccessfully for `partial`, `failed`, and `cancelled` outcomes a
 
 ## Artifact and step evidence
 
-The artifact manifest contains source, retained intermediate, and terminal artifact records. Each record includes a stable artifact ID, logical role, lifecycle, safe store or bundle locator, canonical format and media type, SHA-256 digest, size, producer identity, source lineage, cache status, validation status, and fidelity declaration.
+The artifact manifest contains source, retained intermediate, and terminal artifact records. Each record includes a stable artifact ID, logical role, lifecycle, safe store or bundle locator, canonical format and media type, SHA-256 digest, size, producer identity, source lineage, cache status, validation status, fidelity declaration, and per-validator evidence. Validator evidence identifies the implementation version and provider and carries structured diagnostics.
+
+Terminal artifacts are validated before materialization. A required invalid artifact is never published; unavailable validation also blocks publication unless the spec explicitly allows it. When validation is disabled, the terminal state is recorded as `skipped` rather than inferred as valid.
 
 Each executed DAG edge produces step evidence with transform/capability/provider identity, input and output artifact IDs, a configuration digest, timestamps, duration, cache disposition, validation and fidelity states, and structured diagnostics. Cache hits use `state: reused`; transforms blocked by a failed dependency use `state: skipped` with a reason.
 

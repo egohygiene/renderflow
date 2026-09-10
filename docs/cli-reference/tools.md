@@ -40,6 +40,15 @@ renderflow capabilities --format json
 
 Capability IDs and provider IDs are stable machine-readable identifiers. Human-readable CLI output is rendered from the same data returned by JSON/YAML modes.
 
+Use `--matrix` to emit the generated artifact capability conformance matrix:
+
+```bash
+renderflow capabilities --matrix
+renderflow capabilities --matrix --format json
+```
+
+The matrix reports implemented, experimental, unavailable, and planned support together with executor, provider, validator, fixture, platform, determinism, and loss-profile evidence.
+
 ## Toolchain fingerprints
 
 Graph planning fingerprints only providers selected by the final DAG. The fingerprint includes the selected provider IDs, compatible installed versions, relevant executable identity, provider capability metadata, selected variant/model evidence when present, and the target OS/architecture. It does **not** hash the entire host environment.

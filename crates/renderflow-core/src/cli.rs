@@ -217,6 +217,9 @@ pub enum Commands {
         /// Optional transform YAML whose dynamic providers should be included.
         #[arg(long, value_name = "FILE")]
         transforms: Option<String>,
+        /// Emit the generated artifact capability conformance matrix.
+        #[arg(long)]
+        matrix: bool,
     },
 
     /// Validate, migrate, and export the Renderflow execution specification.

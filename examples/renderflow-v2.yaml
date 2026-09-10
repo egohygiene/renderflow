@@ -67,7 +67,12 @@ execution:
   ai: deny
   validation:
     required: true
+    failure_mode: branch_local
+    allow_unavailable: false
   minimum_fidelity: 0.9
+  reject_loss_classes:
+    - lossy
+    - unknown
 
 output:
   bundle_root: dist

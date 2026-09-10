@@ -6,6 +6,7 @@ use serde::Serialize;
 use crate::super_resolution::{UpscaylModelCatalog, UPSCAYL_TOOL_ID};
 use crate::toolchain::{ToolAvailability, ToolDescriptor, ToolRegistry};
 use crate::transforms::yaml_loader::load_tool_registry_from_yaml;
+use crate::validation::CapabilityConformanceMatrix;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum StructuredFormat {
@@ -184,10 +185,40 @@ pub fn run_variants(id: &str, models_dir: Option<&str>, format: &str) -> Result<
     Ok(())
 }
 
-pub fn run_capabilities(transforms: Option<&str>, format: &str) -> Result<()> {
+pub fn run_capabilities(transforms: Option<&str>, format: &str, matrix: bool) -> Result<()> {
+    let format = StructuredFormat::parse(format)?;
+    if matrix {
+        let matrix = CapabilityConformanceMatrix::builtins();
+        if format != StructuredFormat::Text {
+            return emit_serialized(&matrix, format);
+        }
+        println!("Renderflow Artifact Capability Conformance");
+        println!("==========================================");
+        println!(
+            "{:<12} {:<14} {:<9} Validators",
+            "Format", "Status", "Executor"
+        );
+        for row in matrix.formats {
+            let status = serde_json::to_value(row.support_status)?
+                .as_str()
+                .unwrap_or("unknown")
+                .to_string();
+            println!(
+                "{:<12} {:<14} {:<9} {}",
+                row.format,
+                status,
+                if row.executor_implemented {
+                    "yes"
+                } else {
+                    "no"
+                },
+                row.validator_ids.join(", ")
+            );
+        }
+        return Ok(());
+    }
     let registry = load_registry(transforms)?;
     let capabilities: BTreeMap<String, Vec<String>> = registry.capabilities();
-    let format = StructuredFormat::parse(format)?;
 
     if format != StructuredFormat::Text {
         return emit_serialized(&capabilities, format);
