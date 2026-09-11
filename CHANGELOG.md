@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Features
+
+- Add a typed, bounded HandBrakeCLI adapter for whole-file video derivatives,
+  with progress, cancellation, provenance, Flow projection, and an explicit
+  Aniflow temporal-workflow boundary.
+
 ## [0.1.0] - 2026-03-30
 
 ### Features
@@ -44,5 +52,4 @@ All notable changes to this project will be documented in this file.
 ### Improvements
 
 - Update select_strategy to accept references instead of owned values
-
 

@@ -38,6 +38,7 @@ pub mod super_resolution;
 pub mod toolchain;
 pub mod transforms;
 pub mod validation;
+pub mod video;
 
 pub use evidence::{ArtifactManifest, RunManifest};
 pub use hygiene::{
@@ -57,4 +58,12 @@ pub use sdk::{
     ExecutionResult, InspectionRequest, PlanRequest, ProgressEvent, ProgressReporter,
     ProgressStage, ProviderCapabilities, ProviderPlan, RenderflowError, RenderflowProvider,
     SavedRunAssessment,
+};
+pub use video::{
+    execute_handbrake, execute_handbrake_with_progress, plan_handbrake,
+    HandBrakeCapabilityContract, HandBrakeLimits, HandBrakePreset, HandBrakePresetContract,
+    HandBrakeTransformPlan, HandBrakeTransformReport, HandBrakeTransformRequest,
+    HandBrakeValidation, ANIFLOW_RECONSTRUCT_CAPABILITY_ID_V1, ANIFLOW_SEGMENT_CAPABILITY_ID_V1,
+    HANDBRAKE_CAPABILITY_CONTRACT_SCHEMA_V1, HANDBRAKE_PROVIDER_ID, HANDBRAKE_TOOL_ID,
+    HANDBRAKE_TRANSFORM_CAPABILITY_ID_V1, HANDBRAKE_TRANSFORM_SCHEMA_V1,
 };

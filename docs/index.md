@@ -55,6 +55,12 @@ When a config includes `transforms: path/to/transforms.yaml`, Renderflow can bui
 - **AI transforms** support `ollama` and `openai` backends, prompt templates, cache files, artifact output, and API key resolution via environment variables.
 - **Plugins** are runtime extensions that implement the `PluginExecutor` trait and register metadata/capabilities in a `PluginRegistry`.
 
+### Whole-file video delivery
+
+The bounded [HandBrake adapter](handbrake-adapter.md) exposes typed MP4
+delivery presets through `video.transcode.whole_file`. Aniflow remains the
+owner of temporal segmentation, segment manifests, and reconstruction.
+
 ## Start here
 
 - [Installation](getting-started/installation.md)

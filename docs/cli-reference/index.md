@@ -12,6 +12,7 @@ This section documents command syntax, flags, and behavior.
 - [`plugin`](plugin.md)
 - [`ai`](ai.md)
 - [`publication`](publication.md)
+- [`video`](../handbrake-adapter.md)
 
 ## Logging flags
 

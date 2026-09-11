@@ -1,6 +1,7 @@
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 
 use crate::optimization::OptimizationMode;
+use crate::video::HandBrakePreset;
 
 /// Spec-driven document rendering engine
 #[derive(Parser)]
@@ -280,6 +281,13 @@ pub enum Commands {
         subcommand: PublicationCommands,
     },
 
+    /// Plan and execute bounded whole-file video transforms.
+    #[command(subcommand_required = true, arg_required_else_help = true)]
+    Video {
+        #[command(subcommand)]
+        subcommand: VideoCommands,
+    },
+
     /// List stable provider capability IDs and their implementations.
     Capabilities {
         /// Output format: text (default), json, or yaml.
@@ -311,6 +319,76 @@ pub enum Commands {
         /// Exit with non-zero status when required dependencies are missing
         #[arg(long)]
         strict: bool,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum VideoPresetArgument {
+    #[value(name = "fast-720p30")]
+    Fast720p30,
+    #[value(name = "fast-1080p30")]
+    Fast1080p30,
+    #[value(name = "creator-1080p60")]
+    Creator1080p60,
+    #[value(name = "production-standard")]
+    ProductionStandard,
+}
+
+impl From<VideoPresetArgument> for HandBrakePreset {
+    fn from(value: VideoPresetArgument) -> Self {
+        match value {
+            VideoPresetArgument::Fast720p30 => Self::Fast720p30,
+            VideoPresetArgument::Fast1080p30 => Self::Fast1080p30,
+            VideoPresetArgument::Creator1080p60 => Self::Creator1080p60,
+            VideoPresetArgument::ProductionStandard => Self::ProductionStandard,
+        }
+    }
+}
+
+#[derive(Subcommand)]
+pub enum VideoCommands {
+    /// Print typed presets, ownership boundaries, and interchange contracts.
+    Capabilities {
+        #[arg(long, default_value = "text", value_name = "FORMAT")]
+        format: String,
+    },
+    /// Normalize and hash a whole-file HandBrake request without executing it.
+    Plan {
+        #[arg(long, value_name = "FILE")]
+        input: String,
+        #[arg(long, value_name = "FILE")]
+        output: String,
+        #[arg(long, value_enum, default_value_t = VideoPresetArgument::Fast1080p30)]
+        preset: VideoPresetArgument,
+        #[arg(long, default_value_t = 7_200)]
+        timeout_seconds: u64,
+        #[arg(long, default_value_t = 262_144)]
+        capture_limit_bytes: usize,
+        #[arg(long, default_value_t = 1_000)]
+        progress_interval_ms: u64,
+        #[arg(long, default_value_t = 21_474_836_480)]
+        maximum_output_bytes: u64,
+        #[arg(long, default_value = "text", value_name = "FORMAT")]
+        format: String,
+    },
+    /// Execute a bounded HandBrakeCLI whole-file transform.
+    Transcode {
+        #[arg(long, value_name = "FILE")]
+        input: String,
+        #[arg(long, value_name = "FILE")]
+        output: String,
+        #[arg(long, value_enum, default_value_t = VideoPresetArgument::Fast1080p30)]
+        preset: VideoPresetArgument,
+        #[arg(long, default_value_t = 7_200)]
+        timeout_seconds: u64,
+        #[arg(long, default_value_t = 262_144)]
+        capture_limit_bytes: usize,
+        #[arg(long, default_value_t = 1_000)]
+        progress_interval_ms: u64,
+        #[arg(long, default_value_t = 21_474_836_480)]
+        maximum_output_bytes: u64,
+        #[arg(long, default_value = "text", value_name = "FORMAT")]
+        format: String,
     },
 }
 

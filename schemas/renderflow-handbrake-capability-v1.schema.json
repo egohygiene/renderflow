@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-handbrake-capability-v1.schema.json",
+  "title": "Renderflow HandBrake capability contract v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "capability_id",
+    "provider_id",
+    "tool_id",
+    "temporal_scope",
+    "owned_transforms",
+    "excluded_responsibilities",
+    "presets",
+    "progress_schema",
+    "flow_artifact_schema",
+    "aniflow_segment_capability",
+    "aniflow_reconstruct_capability"
+  ],
+  "properties": {
+    "schema_version": { "const": "renderflow.handbrake-capability/v1" },
+    "capability_id": { "const": "video.transcode.whole_file" },
+    "provider_id": { "const": "adapter.media.handbrake" },
+    "tool_id": { "const": "tool.handbrake" },
+    "temporal_scope": { "const": "whole_file" },
+    "owned_transforms": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "excluded_responsibilities": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "presets": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/preset" },
+      "minItems": 1
+    },
+    "progress_schema": { "const": "renderflow.progress/v1" },
+    "flow_artifact_schema": { "const": "flow.artifact/v1" },
+    "aniflow_segment_capability": { "const": "media.video.segment/v1" },
+    "aniflow_reconstruct_capability": { "const": "media.video.reconstruct/v1" }
+  },
+  "$defs": {
+    "preset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "handbrake_name", "purpose", "container", "whole_file_only"],
+      "properties": {
+        "id": { "enum": ["fast_720p30", "fast_1080p30", "creator_1080p60", "production_standard"] },
+        "handbrake_name": { "type": "string", "minLength": 1 },
+        "purpose": { "type": "string", "minLength": 1 },
+        "container": { "const": "mp4" },
+        "whole_file_only": { "const": true }
+      }
+    }
+  }
+}

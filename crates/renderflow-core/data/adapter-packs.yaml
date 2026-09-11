@@ -110,6 +110,30 @@ providers:
     upstream: https://ffmpeg.org/
     rationale: Existing local image/audio adapter; video and subtitle capabilities remain graph-advertised only when an executable edge exists.
 
+  - id: adapter.media.handbrake
+    runtime_tool: tool.handbrake
+    name: HandBrake bounded whole-file video adapter
+    families: [audio_video]
+    maturity: integrated
+    selection_priority: 20
+    capabilities: [video.transcode.whole_file]
+    input_media_types: [video/*]
+    output_media_types: [video/mp4]
+    determinism: configuration_dependent
+    locality: local
+    fidelity: lossy
+    execution: *bounded_local
+    configuration_schema:
+      preset: allowlisted_enum
+      timeout_seconds: bounded_integer
+      capture_limit_bytes: bounded_integer
+      progress_interval_ms: bounded_integer
+      maximum_output_bytes: bounded_integer
+    validation: [validator.core.non_empty, validator.video.mp4_file_type_box]
+    provenance: [provider_id, provider_version, argv_digest, input_digest, output_digest]
+    upstream: https://handbrake.fr/
+    rationale: HandBrakeCLI is integrated for typed whole-file delivery transforms; temporal decomposition, boundary selection, ordering, and reconstruction remain Aniflow-owned.
+
   - id: adapter.pdf.wkhtmltopdf
     runtime_tool: tool.wkhtmltopdf
     name: wkhtmltopdf compatibility adapter
@@ -393,7 +417,6 @@ evaluations:
     rationale: GUI-centric cross-platform footprint is a poor core dependency; prefer bounded FFmpeg and text-native subtitle adapters.
   - candidate: HandBrakeCLI
     families: [audio_video]
-    decision: defer
+    decision: adapt
     upstream: https://handbrake.fr/
-    rationale: "Keep video transcode ownership coordinated with Aniflow through issue #345."
-    follow_up: "#345"
+    rationale: Adopt a narrow allowlisted whole-file preset surface through renderflow.process/v1 while retaining all temporal workflow ownership in Aniflow.

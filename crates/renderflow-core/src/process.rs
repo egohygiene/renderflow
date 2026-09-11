@@ -110,6 +110,10 @@ impl ProcessCancellationToken {
     pub fn is_cancelled(&self) -> bool {
         self.cancelled.load(Ordering::SeqCst)
     }
+
+    pub(crate) fn from_shared(cancelled: Arc<AtomicBool>) -> Self {
+        Self { cancelled }
+    }
 }
 
 /// How stdin is connected to the child.

@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-handbrake-transform-v1.schema.json",
+  "title": "Renderflow HandBrake transform documents v1",
+  "oneOf": [
+    { "$ref": "#/$defs/plan" },
+    { "$ref": "#/$defs/report" }
+  ],
+  "$defs": {
+    "digest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "value"],
+      "properties": {
+        "algorithm": { "const": "sha256" },
+        "value": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    },
+    "preset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "handbrake_name", "purpose", "container", "whole_file_only"],
+      "properties": {
+        "id": { "enum": ["fast_720p30", "fast_1080p30", "creator_1080p60", "production_standard"] },
+        "handbrake_name": { "type": "string", "minLength": 1 },
+        "purpose": { "type": "string", "minLength": 1 },
+        "container": { "const": "mp4" },
+        "whole_file_only": { "const": true }
+      }
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["timeout_seconds", "capture_limit_bytes", "progress_interval_ms", "maximum_output_bytes"],
+      "properties": {
+        "timeout_seconds": { "type": "integer", "minimum": 1, "maximum": 86400 },
+        "capture_limit_bytes": { "type": "integer", "minimum": 4096, "maximum": 4194304 },
+        "progress_interval_ms": { "type": "integer", "minimum": 100, "maximum": 60000 },
+        "maximum_output_bytes": { "type": "integer", "minimum": 1, "maximum": 1099511627776 }
+      }
+    },
+    "flowArtifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "artifact_id", "role", "media_type", "digest", "size_bytes", "producer", "sources"],
+      "properties": {
+        "schema_version": { "const": "flow.artifact/v1" },
+        "artifact_id": { "type": "string", "pattern": "^artifact:sha256-[0-9a-f]{64}$" },
+        "role": { "const": "video_delivery" },
+        "media_type": { "const": "video/mp4" },
+        "digest": { "$ref": "#/$defs/digest" },
+        "size_bytes": { "type": "integer", "minimum": 1 },
+        "producer": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["owner", "capability_id", "provider_version"],
+          "properties": {
+            "owner": { "const": "renderflow" },
+            "capability_id": { "const": "video.transcode.whole_file" },
+            "provider_version": { "type": "string", "minLength": 1 }
+          }
+        },
+        "sources": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^artifact:sha256-[0-9a-f]{64}$" },
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      }
+    },
+    "plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "capability_id", "provider_id", "tool_id", "temporal_scope", "input", "input_digest", "input_size_bytes", "output", "preset", "arguments", "limits"],
+      "properties": {
+        "schema_version": { "const": "renderflow.handbrake-transform/v1" },
+        "capability_id": { "const": "video.transcode.whole_file" },
+        "provider_id": { "const": "adapter.media.handbrake" },
+        "tool_id": { "const": "tool.handbrake" },
+        "temporal_scope": { "const": "whole_file" },
+        "input": { "type": "string", "minLength": 1 },
+        "input_digest": { "$ref": "#/$defs/digest" },
+        "input_size_bytes": { "type": "integer", "minimum": 1 },
+        "output": { "type": "string", "pattern": "\\.[mM][pP]4$" },
+        "preset": { "$ref": "#/$defs/preset" },
+        "arguments": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+        "limits": { "$ref": "#/$defs/limits" }
+      }
+    },
+    "report": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "capability_id", "provider_id", "renderflow_version", "handbrake_version", "temporal_scope", "preset", "input", "input_digest", "input_size_bytes", "output", "provenance", "output_digest", "output_size_bytes", "argv_digest", "started_at_unix_ms", "completed_at_unix_ms", "duration_ms", "stdout_total_bytes", "stderr_total_bytes", "stdout_truncated", "stderr_truncated", "validation", "flow_artifact", "aniflow_segment_capability", "aniflow_reconstruct_capability"],
+      "properties": {
+        "schema_version": { "const": "renderflow.handbrake-transform/v1" },
+        "capability_id": { "const": "video.transcode.whole_file" },
+        "provider_id": { "const": "adapter.media.handbrake" },
+        "renderflow_version": { "type": "string", "minLength": 1 },
+        "handbrake_version": { "type": "string", "minLength": 1 },
+        "temporal_scope": { "const": "whole_file" },
+        "preset": { "$ref": "#/$defs/preset" },
+        "input": { "type": "string", "minLength": 1 },
+        "input_digest": { "$ref": "#/$defs/digest" },
+        "input_size_bytes": { "type": "integer", "minimum": 1 },
+        "output": { "type": "string", "pattern": "\\.[mM][pP]4$" },
+        "provenance": { "type": "string", "pattern": "\\.[mM][pP]4\\.renderflow\\.json$" },
+        "output_digest": { "$ref": "#/$defs/digest" },
+        "output_size_bytes": { "type": "integer", "minimum": 1 },
+        "argv_digest": { "$ref": "#/$defs/digest" },
+        "started_at_unix_ms": { "type": "integer", "minimum": 0 },
+        "completed_at_unix_ms": { "type": "integer", "minimum": 0 },
+        "duration_ms": { "type": "integer", "minimum": 0 },
+        "stdout_total_bytes": { "type": "integer", "minimum": 0 },
+        "stderr_total_bytes": { "type": "integer", "minimum": 0 },
+        "stdout_truncated": { "type": "boolean" },
+        "stderr_truncated": { "type": "boolean" },
+        "validation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["non_empty", "mp4_file_type_box", "within_output_limit"],
+          "properties": {
+            "non_empty": { "const": true },
+            "mp4_file_type_box": { "const": true },
+            "within_output_limit": { "const": true }
+          }
+        },
+        "flow_artifact": { "$ref": "#/$defs/flowArtifact" },
+        "aniflow_segment_capability": { "const": "media.video.segment/v1" },
+        "aniflow_reconstruct_capability": { "const": "media.video.reconstruct/v1" }
+      }
+    }
+  }
+}
