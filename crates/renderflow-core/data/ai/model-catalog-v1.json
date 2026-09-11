@@ -1,0 +1,140 @@
+{
+  "schema_version": "renderflow.ai-model-catalog/v1",
+  "revision": "2026-09-11.1",
+  "providers": [
+    {
+      "id": "provider.ollama",
+      "adapter": "ollama",
+      "display_name": "Ollama local runtime",
+      "locality": "local",
+      "requires_network_permission": false,
+      "runtime": {
+        "id": "runtime.ollama",
+        "source": "https://github.com/ollama/ollama",
+        "license": "MIT",
+        "hardware_requirements": ["Model-specific RAM or accelerator capacity"],
+        "availability_probe": {
+          "kind": "http",
+          "bounded_timeout_ms": 1500,
+          "endpoint": "http://localhost:11434/api/tags"
+        }
+      },
+      "models": [
+        {
+          "id": "llama3.2",
+          "family": "llama3.2",
+          "input_modalities": ["text", "structured_json", "artifact_dna"],
+          "output_modalities": ["text", "structured_json", "metadata"],
+          "operations": ["generation", "extraction", "classification", "schema_constrained_output"],
+          "limits": {"context_tokens": 131072},
+          "features": {
+            "native_json": true,
+            "json_schema": true,
+            "seed": true,
+            "sampler_controls": true,
+            "streaming": true,
+            "batch": false,
+            "tool_use": true,
+            "multi_input": false
+          },
+          "determinism": "probabilistic",
+          "license": {
+            "model": "Llama 3.2 Community License",
+            "weights": "Llama 3.2 Community License",
+            "code": "Runtime-specific",
+            "commercial_use": "conditional",
+            "human_review_required": true
+          },
+          "commercial_constraints": ["Verify the selected model revision and license before redistribution or commercial use"],
+          "advisory": {"cost_tier": 1, "quality_tier": 2, "latency_tier": 2, "observed_at": "2026-09-11"},
+          "maturity": "experimental",
+          "conformance": "contract_fixture",
+          "availability": "unverified",
+          "availability_reason": "Catalog entry does not imply that model weights are installed locally",
+          "required_provenance_fields": ["runtime_revision", "runtime_digest", "model_revision", "weights_digest", "settings", "skill_version", "input_digest", "output_digest"]
+        },
+        {
+          "id": "llava",
+          "family": "llava",
+          "input_modalities": ["text", "image", "structured_json", "artifact_dna"],
+          "output_modalities": ["text", "structured_json", "artifact_dna", "metadata"],
+          "operations": ["generation", "extraction", "classification", "multimodal_reasoning"],
+          "limits": {"max_images": 1},
+          "features": {
+            "native_json": true,
+            "json_schema": false,
+            "seed": true,
+            "sampler_controls": true,
+            "streaming": true,
+            "batch": false,
+            "tool_use": false,
+            "multi_input": true
+          },
+          "determinism": "probabilistic",
+          "license": {
+            "model": "Unknown until runtime discovery",
+            "commercial_use": "unknown",
+            "human_review_required": true
+          },
+          "commercial_constraints": ["Resolve the exact model revision and upstream licenses before use"],
+          "advisory": {"cost_tier": 1, "quality_tier": 1, "latency_tier": 3, "observed_at": "2026-09-11"},
+          "maturity": "experimental",
+          "conformance": "declared_only",
+          "availability": "unverified",
+          "availability_reason": "Catalog entry does not imply that model weights are installed locally",
+          "required_provenance_fields": ["runtime_revision", "model_revision", "weights_digest", "settings", "skill_version", "input_digest", "output_digest"]
+        }
+      ]
+    },
+    {
+      "id": "provider.openai-compatible",
+      "adapter": "openai",
+      "display_name": "Explicit OpenAI-compatible endpoint",
+      "locality": "remote",
+      "requires_network_permission": true,
+      "runtime": {
+        "id": "runtime.openai-compatible",
+        "source": "Configured endpoint",
+        "license": "Provider-specific terms",
+        "availability_probe": {
+          "kind": "credential_and_endpoint",
+          "bounded_timeout_ms": 1500
+        }
+      },
+      "models": [
+        {
+          "id": "gpt-4o-mini",
+          "family": "gpt-4o-mini",
+          "input_modalities": ["text", "image", "structured_json"],
+          "output_modalities": ["text", "structured_json", "artifact_dna", "metadata"],
+          "operations": ["generation", "editing", "extraction", "classification", "multimodal_reasoning", "schema_constrained_output"],
+          "limits": {"context_tokens": 128000, "output_tokens": 16384, "max_images": 20},
+          "features": {
+            "native_json": true,
+            "json_schema": true,
+            "seed": true,
+            "sampler_controls": true,
+            "streaming": true,
+            "batch": true,
+            "tool_use": true,
+            "multi_input": true
+          },
+          "determinism": "probabilistic",
+          "license": {
+            "model": "Hosted service; no model-weight license",
+            "provider_terms": "Endpoint-specific terms",
+            "commercial_use": "provider_terms_apply",
+            "human_review_required": true
+          },
+          "commercial_constraints": ["Remote use requires explicit network, privacy, budget, and provider-terms approval"],
+          "advisory": {"cost_tier": 2, "quality_tier": 3, "latency_tier": 2, "observed_at": "2026-09-11"},
+          "maturity": "experimental",
+          "conformance": "declared_only",
+          "availability": "unverified",
+          "availability_reason": "Availability depends on the configured endpoint, credentials, and provider terms",
+          "required_provenance_fields": ["endpoint_identity", "provider_terms_revision", "model_revision", "settings", "skill_version", "input_digest", "output_digest", "usage", "cost"]
+        }
+      ]
+    }
+  ]
+}

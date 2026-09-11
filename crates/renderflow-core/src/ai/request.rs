@@ -3,6 +3,8 @@
 
 use std::fmt;
 
+use serde_json::Value;
+
 // ── OutputFormat ──────────────────────────────────────────────────────────────
 
 /// The structured output format a transform expects from the AI backend.
@@ -50,6 +52,11 @@ pub struct GenerationParameters {
     pub temperature: Option<f32>,
     /// Maximum number of tokens to generate.
     pub max_tokens: Option<u32>,
+    /// Optional random seed. Supporting providers use it as a repeatability
+    /// control; it never upgrades a probabilistic model to byte-deterministic.
+    pub seed: Option<u64>,
+    /// Optional nucleus-sampling probability.
+    pub top_p: Option<f32>,
     /// Optional stop sequences that terminate generation early.
     pub stop: Vec<String>,
 }
@@ -66,6 +73,12 @@ impl GenerationParameters {
         }
         if let Some(m) = self.max_tokens {
             parts.push(format!("max_tokens:{}", m));
+        }
+        if let Some(seed) = self.seed {
+            parts.push(format!("seed:{}", seed));
+        }
+        if let Some(top_p) = self.top_p {
+            parts.push(format!("top_p:{:.6}", top_p));
         }
         if !self.stop.is_empty() {
             let mut sorted = self.stop.clone();
@@ -88,8 +101,13 @@ pub struct AiRequest {
     pub prompt: String,
     /// Optional expected output format used for post-response validation.
     pub output_format: Option<OutputFormat>,
+    /// Optional strict JSON Schema forwarded only by compatible adapters and
+    /// always revalidated by Renderflow after generation.
+    pub output_schema: Option<Value>,
     /// Optional generation parameters forwarded to the backend.
     pub params: GenerationParameters,
+    /// Optional wall-clock transport timeout in milliseconds.
+    pub timeout_ms: Option<u64>,
     /// Prompt template version string, included in cache keys so that changing
     /// the template invalidates existing cached responses.
     pub prompt_version: Option<String>,
@@ -102,7 +120,9 @@ impl AiRequest {
             model: model.into(),
             prompt: prompt.into(),
             output_format: None,
+            output_schema: None,
             params: GenerationParameters::default(),
+            timeout_ms: None,
             prompt_version: None,
         }
     }
@@ -114,10 +134,24 @@ impl AiRequest {
         self
     }
 
+    /// Attach the strict structured-output JSON Schema.
+    #[must_use]
+    pub fn with_output_schema(mut self, schema: Value) -> Self {
+        self.output_schema = Some(schema);
+        self
+    }
+
     /// Attach [`GenerationParameters`].
     #[must_use]
     pub fn with_params(mut self, params: GenerationParameters) -> Self {
         self.params = params;
+        self
+    }
+
+    /// Attach a bounded provider transport timeout.
+    #[must_use]
+    pub fn with_timeout_ms(mut self, timeout_ms: u64) -> Self {
+        self.timeout_ms = Some(timeout_ms);
         self
     }
 
@@ -204,6 +238,7 @@ mod tests {
             temperature: Some(0.7),
             max_tokens: Some(256),
             stop: vec!["END".to_string()],
+            ..Default::default()
         };
         let key = p.cache_key_fragment();
         assert!(key.contains("temp:"));
@@ -232,6 +267,7 @@ mod tests {
         assert_eq!(r.model, "mistral");
         assert_eq!(r.prompt, "hello");
         assert!(r.output_format.is_none());
+        assert!(r.output_schema.is_none());
         assert!(r.prompt_version.is_none());
     }
 

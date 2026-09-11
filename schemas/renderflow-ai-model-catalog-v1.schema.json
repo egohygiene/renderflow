@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-ai-model-catalog-v1.schema.json",
+  "title": "Renderflow AI provider/model compatibility catalog v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "revision", "providers"],
+  "properties": {
+    "schema_version": {"const": "renderflow.ai-model-catalog/v1"},
+    "revision": {"type": "string", "minLength": 1},
+    "providers": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/provider"}}
+  },
+  "$defs": {
+    "locality": {"enum": ["local", "remote", "hybrid"]},
+    "availability": {"enum": ["available", "unavailable", "unverified"]},
+    "modality": {"enum": ["text", "image", "audio", "video", "document", "structured_json", "artifact_dna", "embeddings", "mask", "metadata"]},
+    "operation": {"enum": ["generation", "editing", "extraction", "classification", "transcription", "embeddings", "multimodal_reasoning", "schema_constrained_output"]},
+    "probe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "bounded_timeout_ms"],
+      "properties": {"kind": {"type": "string", "minLength": 1}, "bounded_timeout_ms": {"type": "integer", "minimum": 1}, "endpoint": {"type": "string"}}
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "availability_probe"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1}, "revision": {"type": "string"}, "digest": {"type": "string"}, "source": {"type": "string"}, "license": {"type": "string"},
+        "hardware_requirements": {"type": "array", "items": {"type": "string"}}, "availability_probe": {"$ref": "#/$defs/probe"}
+      }
+    },
+    "limits": {
+      "type": "object", "additionalProperties": false,
+      "properties": {"context_tokens": {"type": "integer", "minimum": 1}, "output_tokens": {"type": "integer", "minimum": 1}, "max_input_bytes": {"type": "integer", "minimum": 1}, "max_images": {"type": "integer", "minimum": 1}, "max_audio_seconds": {"type": "integer", "minimum": 1}, "max_video_seconds": {"type": "integer", "minimum": 1}}
+    },
+    "features": {
+      "type": "object", "additionalProperties": false,
+      "required": ["native_json", "json_schema", "seed", "sampler_controls", "streaming", "batch", "tool_use", "multi_input"],
+      "properties": {"native_json": {"type": "boolean"}, "json_schema": {"type": "boolean"}, "seed": {"type": "boolean"}, "sampler_controls": {"type": "boolean"}, "streaming": {"type": "boolean"}, "batch": {"type": "boolean"}, "tool_use": {"type": "boolean"}, "multi_input": {"type": "boolean"}}
+    },
+    "license": {
+      "type": "object", "additionalProperties": false,
+      "required": ["model", "commercial_use", "human_review_required"],
+      "properties": {"model": {"type": "string"}, "weights": {"type": "string"}, "code": {"type": "string"}, "provider_terms": {"type": "string"}, "commercial_use": {"type": "string"}, "human_review_required": {"type": "boolean"}}
+    },
+    "advisory": {
+      "type": "object", "additionalProperties": false,
+      "properties": {"cost_tier": {"type": "integer", "minimum": 0, "maximum": 255}, "quality_tier": {"type": "integer", "minimum": 0, "maximum": 255}, "latency_tier": {"type": "integer", "minimum": 0, "maximum": 255}, "observed_at": {"type": "string"}}
+    },
+    "model": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "family", "input_modalities", "output_modalities", "operations", "determinism", "license", "maturity", "conformance", "availability", "required_provenance_fields"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1}, "family": {"type": "string", "minLength": 1}, "revision": {"type": "string"}, "quantization": {"type": "string"}, "weights_digest": {"type": "string"}, "configuration_digest": {"type": "string"},
+        "input_modalities": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/modality"}},
+        "output_modalities": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/modality"}},
+        "operations": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/operation"}},
+        "limits": {"$ref": "#/$defs/limits"}, "features": {"$ref": "#/$defs/features"},
+        "determinism": {"enum": ["byte_deterministic", "configuration_repeatable", "probabilistic", "unknown"]}, "license": {"$ref": "#/$defs/license"},
+        "commercial_constraints": {"type": "array", "items": {"type": "string"}}, "advisory": {"$ref": "#/$defs/advisory"},
+        "maturity": {"type": "string"}, "conformance": {"type": "string"}, "availability": {"$ref": "#/$defs/availability"}, "availability_reason": {"type": "string"},
+        "required_provenance_fields": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}}
+      }
+    },
+    "provider": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "adapter", "display_name", "locality", "requires_network_permission", "runtime", "models"],
+      "properties": {"id": {"type": "string", "minLength": 1}, "adapter": {"type": "string", "minLength": 1}, "display_name": {"type": "string", "minLength": 1}, "locality": {"$ref": "#/$defs/locality"}, "requires_network_permission": {"type": "boolean"}, "runtime": {"$ref": "#/$defs/runtime"}, "models": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/model"}}}
+    }
+  }
+}

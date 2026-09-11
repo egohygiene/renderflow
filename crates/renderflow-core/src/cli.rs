@@ -218,7 +218,7 @@ pub enum Commands {
         subcommand: PluginCommands,
     },
 
-    /// Manage and inspect AI providers and the AI transform cache
+    /// Resolve model-aware AI skills and inspect providers, policy, and cache state
     ///
     /// These commands help you discover configured AI providers, inspect
     /// available models, run connectivity diagnostics, and manage the AI
@@ -227,8 +227,10 @@ pub enum Commands {
         subcommand_required = true,
         arg_required_else_help = true,
         after_help = "Examples:\n  \
-            renderflow ai providers             List available AI providers\n  \
-            renderflow ai models                List available models per provider\n  \
+            renderflow ai matrix                Inspect model-specific compatibility\n  \
+            renderflow ai resolve --skill skill.metadata.extract\n  \
+            renderflow ai skills validate       Validate bundled skill contracts\n  \
+            renderflow ai providers             List legacy provider-wide capabilities\n  \
             renderflow ai doctor                Run AI provider diagnostics\n  \
             renderflow ai cache                 Show AI cache statistics"
     )]
@@ -555,6 +557,53 @@ pub enum ToolCommands {
 /// Subcommands for `renderflow ai`.
 #[derive(Subcommand)]
 pub enum AiCommands {
+    /// Inspect the versioned provider/model compatibility matrix
+    #[command(
+        after_help = "Examples:\n  renderflow ai matrix\n  renderflow ai matrix --format json"
+    )]
+    Matrix {
+        /// Output format: text (default), json, or yaml
+        #[arg(long, default_value = "text", value_name = "FORMAT")]
+        format: String,
+        /// Optional path to a versioned catalog JSON file
+        #[arg(long, value_name = "FILE")]
+        catalog: Option<String>,
+    },
+
+    /// Resolve a reviewed AI skill to a compatible provider/model
+    #[command(
+        after_help = "Examples:\n  renderflow ai resolve --skill skill.metadata.extract\n  renderflow ai resolve --skill skill.metadata.extract --allow-unverified --format json"
+    )]
+    Resolve {
+        /// Stable skill ID
+        #[arg(long, value_name = "ID")]
+        skill: String,
+        /// Optional exact skill version
+        #[arg(long, value_name = "VERSION")]
+        skill_version: Option<String>,
+        /// Execution preference
+        #[arg(long, default_value = "local-preferred", value_name = "PREFERENCE")]
+        execution_preference: String,
+        /// Explicitly allow remote candidates when the skill policy also permits them
+        #[arg(long)]
+        allow_remote: bool,
+        /// Permit planning against catalog entries whose live availability is unverified
+        #[arg(long)]
+        allow_unverified: bool,
+        /// Output format: text (default), json, or yaml
+        #[arg(long, default_value = "text", value_name = "FORMAT")]
+        format: String,
+        /// Optional path to a versioned catalog JSON file
+        #[arg(long, value_name = "FILE")]
+        catalog: Option<String>,
+    },
+
+    /// Inspect and validate reviewed, versioned AI skills
+    Skills {
+        #[command(subcommand)]
+        subcommand: AiSkillCommands,
+    },
+
     /// List available AI providers and their capabilities
     ///
     /// Prints a table of all known providers (Ollama, OpenAI) with their
@@ -593,6 +642,37 @@ pub enum AiCommands {
         /// Path to the AI cache file
         #[arg(long, default_value = ".renderflow-ai-cache.json", value_name = "FILE")]
         path: String,
+    },
+}
+
+/// Subcommands for versioned Renderflow AI skills.
+#[derive(Subcommand)]
+pub enum AiSkillCommands {
+    /// List bundled AI skills
+    List {
+        /// Output format: text (default), json, or yaml
+        #[arg(long, default_value = "text", value_name = "FORMAT")]
+        format: String,
+    },
+    /// Inspect one bundled AI skill
+    Inspect {
+        /// Stable skill ID
+        id: String,
+        /// Optional exact skill version
+        #[arg(long, value_name = "VERSION")]
+        version: Option<String>,
+        /// Output format: text (default), json, or yaml
+        #[arg(long, default_value = "text", value_name = "FORMAT")]
+        format: String,
+    },
+    /// Validate all bundled skills or one external skill file
+    Validate {
+        /// Optional path to a skill JSON file
+        #[arg(long, value_name = "FILE")]
+        path: Option<String>,
+        /// Output format: text (default), json, or yaml
+        #[arg(long, default_value = "text", value_name = "FORMAT")]
+        format: String,
     },
 }
 

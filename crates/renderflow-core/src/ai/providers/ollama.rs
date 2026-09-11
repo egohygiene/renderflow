@@ -5,6 +5,7 @@
 //! for local-first execution.
 
 use std::fmt;
+use std::time::Duration;
 
 use anyhow::{Context, Result};
 use serde_json::json;
@@ -62,11 +63,36 @@ impl OllamaProvider {
 
     fn call_api(&self, request: &AiRequest) -> Result<String> {
         let url = format!("{}/api/generate", self.endpoint.trim_end_matches('/'));
-        let body = json!({
+        let mut body = json!({
             "model": request.model,
             "prompt": request.prompt,
             "stream": false,
         });
+        let body_object = body.as_object_mut().expect("Ollama request is an object");
+        if let Some(schema) = &request.output_schema {
+            body_object.insert("format".to_string(), schema.clone());
+        } else if request.output_format == Some(crate::ai::OutputFormat::Json) {
+            body_object.insert("format".to_string(), json!("json"));
+        }
+        let mut options = serde_json::Map::new();
+        if let Some(temperature) = request.params.temperature {
+            options.insert("temperature".to_string(), json!(temperature));
+        }
+        if let Some(max_tokens) = request.params.max_tokens {
+            options.insert("num_predict".to_string(), json!(max_tokens));
+        }
+        if let Some(seed) = request.params.seed {
+            options.insert("seed".to_string(), json!(seed));
+        }
+        if let Some(top_p) = request.params.top_p {
+            options.insert("top_p".to_string(), json!(top_p));
+        }
+        if !request.params.stop.is_empty() {
+            options.insert("stop".to_string(), json!(request.params.stop));
+        }
+        if !options.is_empty() {
+            body_object.insert("options".to_string(), serde_json::Value::Object(options));
+        }
 
         debug!(
             provider = "ollama",
@@ -75,7 +101,13 @@ impl OllamaProvider {
             "Sending request to Ollama"
         );
 
-        let body_str = ureq::post(&url)
+        let mut agent_builder = ureq::AgentBuilder::new();
+        if let Some(timeout_ms) = request.timeout_ms {
+            agent_builder = agent_builder.timeout(Duration::from_millis(timeout_ms));
+        }
+        let agent = agent_builder.build();
+        let body_str = agent
+            .post(&url)
             .set("Content-Type", "application/json")
             .send_json(body)
             .with_context(|| format!("Failed to POST to Ollama endpoint '{}'", url))?
@@ -157,13 +189,18 @@ impl AiProvider for OllamaProvider {
 /// the connectivity problem.
 pub fn check_ollama_connectivity(endpoint: &str) -> Result<()> {
     let url = format!("{}/api/tags", endpoint.trim_end_matches('/'));
-    ureq::get(&url).call().with_context(|| {
-        format!(
-            "Ollama server is not reachable at '{}'. \
+    ureq::AgentBuilder::new()
+        .timeout(Duration::from_millis(1_500))
+        .build()
+        .get(&url)
+        .call()
+        .with_context(|| {
+            format!(
+                "Ollama server is not reachable at '{}'. \
                  Ensure Ollama is running: `ollama serve`",
-            endpoint
-        )
-    })?;
+                endpoint
+            )
+        })?;
     Ok(())
 }
 

@@ -9,10 +9,10 @@ Renderflow supports AI-backed transforms through `AiTransform` and the `renderfl
 | `ollama` | `http://localhost:11434` | local-first provider, `POST /api/generate` |
 | `openai` | `https://api.openai.com` | OpenAI-compatible chat completions, `POST /v1/chat/completions` |
 
-Built-in model lists shown by `renderflow ai models` include:
-
-- Ollama: `mistral`, `llava`, `llama3`, `gemma`, `phi`
-- OpenAI: `gpt-4o`, `gpt-4o-mini`, `gpt-4-turbo`, `gpt-3.5-turbo`
+The legacy model lists shown by `renderflow ai models` are compatibility hints.
+Use `renderflow ai matrix` for the versioned, model-specific capability contract
+and `renderflow ai resolve` for a policy-aware selection. A catalog entry does
+not imply that local weights are installed or a remote endpoint is approved.
 
 ## YAML example
 
@@ -52,8 +52,15 @@ Renderflow substitutes `{input}` into the prompt template before sending the req
 
 - `renderflow ai providers`
 - `renderflow ai models`
+- `renderflow ai matrix --format json`
+- `renderflow ai resolve --skill skill.metadata.extract --format json`
+- `renderflow ai skills validate`
 - `renderflow ai doctor --ollama-endpoint ...`
 - `renderflow ai cache --path .renderflow-ai-cache.json`
+
+See [Model catalog and AI skills](../ai-guide/model-catalog-and-skills.md) for
+local-only guarantees, remote opt-in, strict schemas, hygiene, provenance, and
+candidate approval.
 
 !!! warning
     AI transforms are optional and only run when configured. In fail-fast mode a backend outage aborts the build; in watch mode the transform is skipped and the original content continues through the pipeline.

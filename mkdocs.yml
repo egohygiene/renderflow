@@ -148,6 +148,7 @@ nav:
   - AI Guide:
       - Overview: ai-guide/overview.md
       - Configuration: ai-guide/configuration.md
+      - Model catalog and skills: ai-guide/model-catalog-and-skills.md
   - Examples:
       - Hello World: examples/hello-world.md
       - Multi Output: examples/multi-output.md
