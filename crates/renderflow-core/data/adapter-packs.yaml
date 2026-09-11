@@ -1,6 +1,41 @@
 schema: renderflow.adapter-catalog/v1
 
 providers:
+  - id: adapter.publication.lulu
+    runtime_tool: tool.lulu-rules
+    name: Lulu publication candidate adapter
+    families: [publication, pdf, ebooks]
+    maturity: integrated
+    selection_priority: 10
+    capabilities:
+      - publication.lulu.print-direct.preflight
+      - publication.lulu.bookstore.preflight
+      - publication.lulu.global-distribution.preflight
+      - publication.lulu.pdf-ebook.preflight
+      - publication.lulu.epub-distribution.preflight
+    input_media_types: [application/pdf, application/epub+zip, application/vnd.renderflow.publication+json]
+    output_media_types: [application/vnd.renderflow.lulu-conformance+json]
+    determinism: deterministic
+    locality: local
+    fidelity: lossless
+    execution:
+      service: renderflow.process/v1
+      direct_argv: true
+      bounded_output: true
+      timeout: true
+      cancellation: true
+      network: false
+      side_effects: [reads_declared_candidates, writes_declared_report]
+    configuration_schema:
+      request: renderflow.lulu-request/v1
+      rules: pinned_bundled_rule_pack
+      cover_templates: required_user_supplied_paths
+      attestations: explicit_reviewed_boolean_map
+    validation: [validator.core.pdf, validator.core.epub, validator.epubcheck, provider.lulu.rules]
+    provenance: [rule_pack_id, observation_date, official_source_urls, input_digests, cover_template_digests, publication_contract_digest]
+    upstream: https://help.lulu.com/
+    rationale: Provider-specific eligibility remains in a dated, offline rule pack and reports candidates without upload side effects.
+
   - id: adapter.documents.pandoc
     runtime_tool: tool.pandoc
     name: Pandoc document adapter

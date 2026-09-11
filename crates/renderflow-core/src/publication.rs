@@ -1,5 +1,7 @@
 //! Provider-neutral publication contracts and deterministic release metadata.
 
+pub mod lulu;
+
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};

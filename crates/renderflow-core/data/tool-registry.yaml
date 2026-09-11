@@ -1,6 +1,30 @@
 schema: renderflow.tool-registry/v1
 
 tools:
+  - id: tool.lulu-rules
+    name: Pinned Lulu publication rule pack
+    discovery:
+      kind: virtual
+    operating_systems: [linux, macos, windows]
+    capabilities:
+      - publication.lulu.print-direct.preflight
+      - publication.lulu.bookstore.preflight
+      - publication.lulu.global-distribution.preflight
+      - publication.lulu.pdf-ebook.preflight
+      - publication.lulu.epub-distribution.preflight
+    input_media_types:
+      - application/pdf
+      - application/epub+zip
+      - application/vnd.renderflow.publication+json
+    output_media_types:
+      - application/vnd.renderflow.lulu-conformance+json
+    determinism: deterministic
+    locality: local
+    fidelity: lossless
+    support_tier: optional
+    license_notes: "Provider rules summarize dated public Lulu documentation; official terms remain authoritative."
+    distribution_notes: "Offline candidate validation only; never uploads, allocates ISBNs, orders proofs, or publishes."
+
   - id: tool.pandoc
     name: Pandoc
     discovery:

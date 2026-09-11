@@ -1,0 +1,21 @@
+schema: renderflow.lulu-request/v1
+rule_pack: lulu-2026-09-11
+publication_spec: ../magazine/renderflow.yaml
+channels:
+  - amazon
+  - ingram
+  - barnes_and_noble
+product:
+  format: comic_book
+  binding: perfect_bound
+  paper: sixty_white
+  color: standard_color
+  page_count: 44
+  trim_width_mm: 177.8
+  trim_height_mm: 254.0
+artifacts: {}
+metadata:
+  print_isbn: "9780306406157"
+  description: A synthetic comic fixture used to prove independent channel eligibility decisions without uploading anything.
+  proof_approved: false
+attestations: {}

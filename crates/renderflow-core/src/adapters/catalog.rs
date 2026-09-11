@@ -25,6 +25,7 @@ pub enum AdapterFamily {
     Data,
     Ocr,
     Subtitles,
+    Publication,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

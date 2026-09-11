@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-lulu-conformance-v1.schema.json",
+  "title": "Renderflow Lulu conformance report v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "provider_id", "rule_pack", "observed_on", "deterministic_offline_evaluation", "publication_schema", "publication_spec_sha256", "artifacts", "channels", "findings", "sources", "upload_performed"],
+  "properties": {
+    "schema": { "const": "renderflow.lulu-conformance/v1" },
+    "provider_id": { "const": "adapter.publication.lulu" },
+    "rule_pack": { "type": "string" },
+    "observed_on": { "type": "string", "format": "date" },
+    "deterministic_offline_evaluation": { "const": true },
+    "publication_schema": { "const": "renderflow.publication/v1" },
+    "publication_spec_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "artifacts": { "type": "array", "items": { "type": "object" } },
+    "channels": { "type": "array", "items": { "type": "object" } },
+    "findings": { "type": "array", "items": { "type": "object" } },
+    "sources": { "type": "array", "items": { "type": "object" } },
+    "upload_performed": { "const": false }
+  }
+}

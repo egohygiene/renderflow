@@ -5,6 +5,7 @@ pub mod ebook;
 pub mod graph;
 pub mod inspect;
 pub mod plugin;
+pub mod publication;
 pub mod spec;
 pub mod system;
 pub mod tools;

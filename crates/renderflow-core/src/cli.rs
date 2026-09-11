@@ -273,6 +273,13 @@ pub enum Commands {
         subcommand: EbookCommands,
     },
 
+    /// Inspect pinned commercial-publication provider rule packs and candidates.
+    #[command(subcommand_required = true, arg_required_else_help = true)]
+    Publication {
+        #[command(subcommand)]
+        subcommand: PublicationCommands,
+    },
+
     /// List stable provider capability IDs and their implementations.
     Capabilities {
         /// Output format: text (default), json, or yaml.
@@ -304,6 +311,38 @@ pub enum Commands {
         /// Exit with non-zero status when required dependencies are missing
         #[arg(long)]
         strict: bool,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum PublicationCommands {
+    /// Evaluate candidates with the bundled, offline Lulu provider pack.
+    Lulu {
+        #[command(subcommand)]
+        subcommand: LuluCommands,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum LuluCommands {
+    /// Emit the exact pinned Lulu rule pack and official source observations.
+    Rules {
+        #[arg(long, default_value = "text", value_name = "FORMAT")]
+        format: String,
+        #[arg(long, value_name = "FILE")]
+        output: Option<String>,
+    },
+    /// Validate local upload candidates without uploading or allocating identifiers.
+    Preflight {
+        #[arg(long, value_name = "FILE")]
+        request: String,
+        #[arg(long, default_value = "text", value_name = "FORMAT")]
+        format: String,
+        #[arg(long, value_name = "FILE")]
+        output: Option<String>,
+        /// Run the optional local EPUBCheck v5 provider.
+        #[arg(long)]
+        epubcheck: bool,
     },
 }
 

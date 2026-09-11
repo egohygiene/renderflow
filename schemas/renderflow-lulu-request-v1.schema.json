@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-lulu-request-v1.schema.json",
+  "title": "Renderflow Lulu preflight request v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "rule_pack", "publication_spec", "channels", "product"],
+  "properties": {
+    "schema": { "const": "renderflow.lulu-request/v1" },
+    "rule_pack": { "type": "string", "minLength": 1 },
+    "publication_spec": { "type": "string", "minLength": 1 },
+    "channels": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "enum": ["print_direct", "lulu_bookstore", "global_distribution", "pdf_ebook", "epub_distribution", "amazon", "ingram", "barnes_and_noble"] }
+    },
+    "product": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["format", "binding", "paper", "color", "page_count", "trim_width_mm", "trim_height_mm"],
+      "properties": {
+        "format": { "type": "string", "minLength": 1 },
+        "binding": { "type": "string", "minLength": 1 },
+        "paper": { "type": "string", "minLength": 1 },
+        "color": { "type": "string", "minLength": 1 },
+        "page_count": { "type": "integer", "minimum": 1 },
+        "trim_width_mm": { "type": "number", "exclusiveMinimum": 0 },
+        "trim_height_mm": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "interior_pdf": { "type": "string", "minLength": 1 },
+        "bookstore_cover_pdf": { "type": "string", "minLength": 1 },
+        "distribution_cover_pdf": { "type": "string", "minLength": 1 },
+        "bookstore_cover_template": { "type": "string", "minLength": 1 },
+        "distribution_cover_template": { "type": "string", "minLength": 1 },
+        "pdf_ebook": { "type": "string", "minLength": 1 },
+        "epub": { "type": "string", "minLength": 1 },
+        "ebook_cover": { "type": "string", "minLength": 1 },
+        "print_proof_pdf": { "type": "string", "minLength": 1 },
+        "proof_contact_sheet": { "type": "string", "minLength": 1 },
+        "ace_report": { "type": "string", "minLength": 1 }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "print_isbn": { "type": "string" },
+        "ebook_isbn": { "type": "string", "pattern": "^[0-9]{13}$" },
+        "description": { "type": "string" },
+        "keywords": { "type": "array", "items": { "type": "string" } },
+        "proof_approved": { "type": "boolean" },
+        "fixed_layout_compatibility_verified": { "type": "boolean" },
+        "accessible_epub_claimed": { "type": "boolean" }
+      }
+    },
+    "attestations": { "type": "object", "additionalProperties": { "type": "boolean" } }
+  }
+}

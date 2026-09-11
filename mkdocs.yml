@@ -72,6 +72,7 @@ nav:
       - Adapter Ecosystem: user-guide/adapter-ecosystem.md
       - EPUB and KEPUB Derivatives: user-guide/ebook-derivatives.md
       - Magazine Publications: user-guide/magazine-publications.md
+      - Lulu Publication Pack: user-guide/lulu-publication-pack.md
       - Super Resolution: user-guide/super-resolution.md
       - Upscayl Models: user-guide/upscayl-models.md
       - Pipelines: user-guide/pipelines.md
@@ -130,6 +131,7 @@ nav:
       - plugin: cli-reference/plugin.md
       - ai: cli-reference/ai.md
       - tools & capabilities: cli-reference/tools.md
+      - publication: cli-reference/publication.md
       - spec: cli-reference/spec.md
   - Transform Reference:
       - Overview: transform-reference/index.md
