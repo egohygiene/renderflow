@@ -253,6 +253,20 @@ pub enum Commands {
         subcommand: DnaCommands,
     },
 
+    /// Validate and resolve pinned local font assets by semantic role
+    #[command(
+        subcommand_required = true,
+        arg_required_else_help = true,
+        after_help = "Examples:\n  \
+            renderflow font validate --registry fonts.yaml\n  \
+            renderflow font resolve --registry fonts.yaml --target pdf\n  \
+            renderflow font css --registry fonts.yaml --output fonts.css"
+    )]
+    Font {
+        #[command(subcommand)]
+        subcommand: FontCommands,
+    },
+
     /// Inspect, visualize, and export the transformation execution plan
     ///
     /// These commands expose the canonical execution plan that the planner
@@ -752,6 +766,44 @@ pub enum DnaCommands {
         /// Serialization format: json (default) or yaml
         #[arg(long, default_value = "json", value_name = "FORMAT")]
         format: String,
+    },
+}
+
+/// Subcommands for versioned local font registries.
+#[derive(Subcommand)]
+pub enum FontCommands {
+    /// Validate registry structure, local bytes, digests, and license artifacts
+    Validate {
+        /// Font registry YAML or JSON file
+        #[arg(long, value_name = "FILE")]
+        registry: String,
+        /// Output format: text (default), json, or yaml
+        #[arg(long, default_value = "text", value_name = "FORMAT")]
+        format: String,
+    },
+    /// Resolve every configured semantic role for one renderer target
+    Resolve {
+        /// Font registry YAML or JSON file
+        #[arg(long, value_name = "FILE")]
+        registry: String,
+        /// Renderer target: html, latex, pdf, epub, or docx
+        #[arg(long, value_name = "TARGET")]
+        target: String,
+        /// Optional report output file
+        #[arg(long, value_name = "FILE")]
+        output: Option<String>,
+        /// Output format: json (default) or yaml
+        #[arg(long, default_value = "json", value_name = "FORMAT")]
+        format: String,
+    },
+    /// Emit deterministic HTML/EPUB @font-face CSS for resolved local assets
+    Css {
+        /// Font registry YAML or JSON file
+        #[arg(long, value_name = "FILE")]
+        registry: String,
+        /// Optional CSS output file
+        #[arg(long, value_name = "FILE")]
+        output: Option<String>,
     },
 }
 

@@ -411,6 +411,7 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
         &targets,
         source_format,
         &source_path,
+        &request.config_path,
     )?;
 
     let mut plan = ExecutionPlan::from_dag(&dag, source_format, &target_formats, optimization);
@@ -2272,8 +2273,14 @@ fn register_builtin_strategy_executors(
     targets: &[ResolvedTarget],
     source_format: Format,
     source_path: &Path,
+    config_path: &Path,
 ) -> Result<()> {
     let source_root = source_path.parent().map(Path::to_path_buf);
+    let mut variables = spec.variables.clone();
+    if let Some(registry) = variables.get_mut(crate::font::FONT_REGISTRY_VARIABLE) {
+        let resolved = resolve_path_relative_to_config(config_path, registry);
+        *registry = resolved.to_string_lossy().into_owned();
+    }
     for edge in dag.all_edges() {
         if edge.evidence.get("adapter").map(String::as_str) != Some(BUILTIN_ADAPTER_EVIDENCE) {
             continue;
@@ -2302,7 +2309,7 @@ fn register_builtin_strategy_executors(
             edge.to,
             template,
             profile,
-            spec.variables.clone(),
+            variables.clone(),
             asset_root,
         )?;
         executor.register_artifact(edge.from, edge.to, Arc::new(transform));

@@ -21,6 +21,10 @@ pub struct PandocArgs {
     template: Option<String>,
     pdf_engine: Option<String>,
     reference_doc: Option<String>,
+    css: Vec<String>,
+    epub_embed_fonts: Vec<String>,
+    standalone: bool,
+    embed_resources: bool,
     variables: Vec<(String, String)>,
 }
 
@@ -38,6 +42,10 @@ impl PandocArgs {
             template: None,
             pdf_engine: None,
             reference_doc: None,
+            css: Vec::new(),
+            epub_embed_fonts: Vec::new(),
+            standalone: false,
+            embed_resources: false,
             variables: Vec::new(),
         }
     }
@@ -57,6 +65,30 @@ impl PandocArgs {
     /// Add a `--reference-doc <path>` argument (used by the DOCX strategy).
     pub fn with_reference_doc(mut self, path: impl Into<String>) -> Self {
         self.reference_doc = Some(path.into());
+        self
+    }
+
+    /// Add a local stylesheet to HTML or EPUB output.
+    pub fn with_css(mut self, path: impl Into<String>) -> Self {
+        self.css.push(path.into());
+        self
+    }
+
+    /// Ask Pandoc to emit a self-contained document envelope.
+    pub fn with_standalone(mut self) -> Self {
+        self.standalone = true;
+        self
+    }
+
+    /// Embed linked local resources into standalone HTML output.
+    pub fn with_embed_resources(mut self) -> Self {
+        self.embed_resources = true;
+        self
+    }
+
+    /// Embed one reviewed local font asset into EPUB output.
+    pub fn with_epub_embed_font(mut self, path: impl Into<String>) -> Self {
+        self.epub_embed_fonts.push(path.into());
         self
     }
 
@@ -85,7 +117,7 @@ impl PandocArgs {
             "--from".to_owned(),
             self.input_format,
             self.input_path,
-            "-o".to_owned(),
+            "--output".to_owned(),
             self.output_path,
         ];
 
@@ -101,6 +133,21 @@ impl PandocArgs {
         if let Some(reference_doc) = self.reference_doc {
             args.push("--reference-doc".to_owned());
             args.push(reference_doc);
+        }
+
+        if self.standalone {
+            args.push("--standalone".to_owned());
+        }
+        if self.embed_resources {
+            args.push("--embed-resources".to_owned());
+        }
+        for css in self.css {
+            args.push("--css".to_owned());
+            args.push(css);
+        }
+        for font in self.epub_embed_fonts {
+            args.push("--epub-embed-font".to_owned());
+            args.push(font);
         }
 
         for (key, value) in self.variables {
@@ -121,7 +168,7 @@ mod tests {
         let args = PandocArgs::new("markdown", "input.md", "output.html").build();
         assert_eq!(
             args,
-            vec!["--from", "markdown", "input.md", "-o", "output.html"]
+            vec!["--from", "markdown", "input.md", "--output", "output.html"]
         );
     }
 
@@ -136,7 +183,7 @@ mod tests {
                 "--from",
                 "markdown",
                 "input.md",
-                "-o",
+                "--output",
                 "output.html",
                 "--template",
                 "/templates/default.html"
@@ -155,7 +202,7 @@ mod tests {
                 "--from",
                 "markdown",
                 "input.md",
-                "-o",
+                "--output",
                 "output.pdf",
                 "--pdf-engine=tectonic"
             ]
@@ -174,7 +221,7 @@ mod tests {
                 "--from",
                 "markdown",
                 "input.md",
-                "-o",
+                "--output",
                 "output.pdf",
                 "--pdf-engine=tectonic",
                 "--template",
@@ -194,7 +241,7 @@ mod tests {
                 "--from",
                 "markdown",
                 "input.md",
-                "-o",
+                "--output",
                 "output.docx",
                 "--reference-doc",
                 "/templates/reference.docx",
@@ -280,5 +327,23 @@ mod tests {
             !args.iter().any(|a| a == "--variable"),
             "empty variables should produce no --variable flags"
         );
+    }
+
+    #[test]
+    fn test_build_with_local_font_assets() {
+        let args = PandocArgs::new("markdown", "input.md", "output.html")
+            .with_standalone()
+            .with_embed_resources()
+            .with_css("/tmp/fonts.css")
+            .with_epub_embed_font("/tmp/font.woff2")
+            .build();
+        assert!(args.contains(&"--standalone".to_string()));
+        assert!(args.contains(&"--embed-resources".to_string()));
+        assert!(args
+            .windows(2)
+            .any(|pair| pair == ["--css", "/tmp/fonts.css"]));
+        assert!(args
+            .windows(2)
+            .any(|pair| pair == ["--epub-embed-font", "/tmp/font.woff2"]));
     }
 }

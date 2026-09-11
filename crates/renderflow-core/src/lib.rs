@@ -22,6 +22,7 @@ pub mod dna;
 pub mod ebook;
 pub mod error;
 pub mod evidence;
+pub mod font;
 pub mod graph;
 pub mod hygiene;
 mod image;
@@ -49,6 +50,12 @@ pub use dna::{
     ARTIFACT_DNA_COMPARISON_SCHEMA_V1, ARTIFACT_DNA_SCHEMA_V1,
 };
 pub use evidence::{ArtifactManifest, RunManifest};
+pub use font::{
+    FontAsset, FontDiagnostic, FontDiagnosticSeverity, FontEmbeddingPermission, FontFormat,
+    FontLicense, FontProvenance, FontRedistributionStatus, FontRegistry, FontResolutionReport,
+    FontRole, FontRoleBinding, FontTarget, FontValidationReport, LoadedFontRegistry,
+    FONT_REGISTRY_SCHEMA_V1, FONT_REGISTRY_VARIABLE, FONT_RESOLUTION_SCHEMA_V1,
+};
 pub use hygiene::{
     ContentRedactionProvider, HygieneEngine, HygieneEvidence, HygieneFinding, HygieneFindingKind,
     HygieneOutcome, HygieneStatus, RedactionEvidence, RedactionRequest, RedactionResult,

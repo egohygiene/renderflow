@@ -2,8 +2,9 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use anyhow::{Context, Result};
-use tracing::info;
+use tracing::{info, warn};
 
+use crate::font::{resolve_from_variables, FontTarget};
 use crate::process::{
     ProcessExecutor, ProcessExpectedOutput, ProcessNetworkPolicy, ProcessRequest,
     DEFAULT_CAPTURE_LIMIT_BYTES, DEFAULT_PROCESS_TIMEOUT,
@@ -93,8 +94,25 @@ impl OutputStrategy for EbookStrategy {
             info!(input = %ctx.input_path, output = %ctx.output_path, "[dry-run] Would render e-book derivative");
             return Ok(());
         }
+        let font_workspace = tempfile::tempdir().context("failed to stage local EPUB font CSS")?;
         let (program, args) = match self.output {
-            EbookOutput::Epub => ("pandoc", self.epub_args(ctx)?),
+            EbookOutput::Epub => {
+                let mut args = self.epub_args(ctx)?;
+                if let Some(report) = resolve_from_variables(ctx.variables, FontTarget::Epub)? {
+                    for diagnostic in &report.diagnostics {
+                        warn!(code = %diagnostic.code, message = %diagnostic.message, "Font resolution diagnostic");
+                    }
+                    let css_path = font_workspace.path().join("renderflow-fonts.css");
+                    std::fs::write(&css_path, report.css())?;
+                    args.push("--css".to_string());
+                    args.push(css_path.to_string_lossy().into_owned());
+                    for path in report.embeddable_paths() {
+                        args.push("--epub-embed-font".to_string());
+                        args.push(path.to_string_lossy().into_owned());
+                    }
+                }
+                ("pandoc", args)
+            }
             EbookOutput::Kepub => (
                 "kepubify",
                 vec![

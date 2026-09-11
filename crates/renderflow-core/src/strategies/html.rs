@@ -1,8 +1,10 @@
 use anyhow::{Context, Result};
+use std::fs;
 use std::path::Path;
-use tracing::info;
+use tracing::{info, warn};
 
 use crate::adapters::command::run_command;
+use crate::font::{resolve_from_variables, FontTarget};
 use crate::strategies::{OutputStrategy, PandocArgs, RenderContext};
 
 /// Renders a document to HTML format using pandoc.
@@ -50,11 +52,23 @@ impl OutputStrategy for HtmlStrategy {
             None
         };
 
-        let builder = PandocArgs::new(
+        let mut builder = PandocArgs::new(
             ctx.input_format.as_pandoc_format(),
             ctx.input_path,
             ctx.output_path,
         );
+        let font_workspace = tempfile::tempdir().context("failed to stage local HTML font CSS")?;
+        if let Some(report) = resolve_from_variables(ctx.variables, FontTarget::Html)? {
+            for diagnostic in &report.diagnostics {
+                warn!(code = %diagnostic.code, message = %diagnostic.message, "Font resolution diagnostic");
+            }
+            let css_path = font_workspace.path().join("renderflow-fonts.css");
+            fs::write(&css_path, report.css())?;
+            builder = builder
+                .with_css(css_path.to_string_lossy().into_owned())
+                .with_standalone()
+                .with_embed_resources();
+        }
         let args = match template_path {
             Some(ref path) => builder.with_template(path.as_str()),
             None => builder,
