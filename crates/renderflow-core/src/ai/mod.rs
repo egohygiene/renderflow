@@ -34,19 +34,38 @@
 //! println!("{}", response.content);
 //! ```
 
+pub mod catalog;
 pub mod metrics;
 pub mod output;
 pub mod provider;
 pub mod providers;
 pub mod request;
 pub mod retry;
+pub mod runtime;
+pub mod skill;
 
+pub use catalog::{
+    AiAvailability, AiCandidateAssessment, AiCandidateStatus, AiDeterminism,
+    AiExecutionPreferenceV1, AiLocality, AiModality, AiModelCatalog, AiModelCatalogEntry,
+    AiModelSelection, AiOperation, AiProviderCatalogEntry, AiResolutionReason, AiResolutionReport,
+    AiResolutionRequest, AI_MODEL_CATALOG_SCHEMA_V1, AI_RESOLUTION_SCHEMA_V1,
+};
 pub use metrics::{AiExecutionMetrics, SharedMetrics};
 pub use output::validate_output;
 pub use provider::{AiCapabilities, AiCapability, AiExecutionPreference, AiModel, AiProvider};
 pub use providers::{OllamaProvider, OpenAiProvider};
 pub use request::{AiRequest, AiResponse, GenerationParameters, OutputFormat};
 pub use retry::RetryConfig;
+pub use runtime::{
+    AiExecutionEvidence, AiHygieneEvidence, AiHygieneFindingEvidence, AiHygieneStatus,
+    AiInputArtifactEvidence, AiSkillExecutionOutcome, AiSkillExecutionRequest, AiSkillRuntime,
+    AI_EXECUTION_EVIDENCE_SCHEMA_V1,
+};
+pub use skill::{
+    validate_json_instance, validate_json_schema_definition, AiCandidateState, AiHygieneAction,
+    AiProtectedReferenceRule, AiSkillRegistry, AiSkillSpec, AiSkillValidationResult,
+    AI_SKILL_SCHEMA_V1,
+};
 
 // ── compute_ai_cache_key ──────────────────────────────────────────────────────
 

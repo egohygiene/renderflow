@@ -3,8 +3,8 @@ use clap::Parser;
 use tracing::info;
 
 use crate::cli::{
-    AiCommands, Cli, Commands, EbookCommands, GraphCommands, LuluCommands, PluginCommands,
-    PublicationCommands, SpecCommands, ToolCommands, VideoCommands,
+    AiCommands, AiSkillCommands, Cli, Commands, EbookCommands, GraphCommands, LuluCommands,
+    PluginCommands, PublicationCommands, SpecCommands, ToolCommands, VideoCommands,
 };
 use crate::video::HandBrakeLimits;
 use crate::{commands, transforms};
@@ -101,6 +101,37 @@ pub fn run_cli(cli: Cli) -> Result<()> {
             }
         }
         Some(Commands::Ai { subcommand }) => match subcommand {
+            AiCommands::Matrix { format, catalog } => {
+                commands::ai::run_matrix(&format, catalog.as_deref())?
+            }
+            AiCommands::Resolve {
+                skill,
+                skill_version,
+                execution_preference,
+                allow_remote,
+                allow_unverified,
+                format,
+                catalog,
+            } => commands::ai::run_resolve(
+                &skill,
+                skill_version.as_deref(),
+                &execution_preference,
+                allow_remote,
+                allow_unverified,
+                &format,
+                catalog.as_deref(),
+            )?,
+            AiCommands::Skills { subcommand } => match subcommand {
+                AiSkillCommands::List { format } => commands::ai::run_skills_list(&format)?,
+                AiSkillCommands::Inspect {
+                    id,
+                    version,
+                    format,
+                } => commands::ai::run_skills_inspect(&id, version.as_deref(), &format)?,
+                AiSkillCommands::Validate { path, format } => {
+                    commands::ai::run_skills_validate(path.as_deref(), &format)?
+                }
+            },
             AiCommands::Providers => commands::ai::run_providers()?,
             AiCommands::Models => commands::ai::run_models()?,
             AiCommands::Doctor { ollama_endpoint } => commands::ai::run_doctor(&ollama_endpoint)?,

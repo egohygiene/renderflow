@@ -1,0 +1,47 @@
+{
+  "schema_version": "renderflow.ai-skill/v1",
+  "id": "skill.metadata.extract",
+  "version": "1.0.0",
+  "purpose": "Extract conservative publication metadata from approved text into a strict candidate record.",
+  "artifact_families": ["document", "publication", "metadata"],
+  "operations": ["extraction", "schema_constrained_output"],
+  "input_modalities": ["text", "structured_json"],
+  "output_modalities": ["structured_json", "metadata"],
+  "requires_json_schema": true,
+  "input_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "required": ["source_text"],
+    "properties": {
+      "source_text": {"type": "string", "minLength": 1, "maxLength": 65536}
+    },
+    "additionalProperties": false
+  },
+  "output_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "required": ["title", "summary", "keywords", "review_required"],
+    "properties": {
+      "title": {"type": "string", "minLength": 1, "maxLength": 240},
+      "summary": {"type": "string", "minLength": 1, "maxLength": 2000},
+      "keywords": {"type": "array", "maxItems": 20, "items": {"type": "string", "maxLength": 80}},
+      "review_required": {"const": true}
+    },
+    "additionalProperties": false
+  },
+  "templates": {
+    "system": "You are a conservative publication metadata extractor. Return only JSON matching the supplied output contract.",
+    "instruction": "Describe only evidence present in the approved source. Do not infer ownership, rights clearance, or legal conclusions.",
+    "prompt": "Extract a title, summary, and keywords from this approved source. Mark review_required true.\n\n{{source_text}}"
+  },
+  "variables": [{"name": "source_text", "required": true, "sensitive": false, "max_bytes": 65536}],
+  "max_rendered_prompt_bytes": 70000,
+  "generation": {"temperature": 0.1, "max_tokens": 1200, "seed": 42, "top_p": 0.9},
+  "budgets": {"network": true, "remote_execution": true, "max_input_bytes": 65536, "max_output_bytes": 16384, "max_tokens": 1400, "max_duration_ms": 60000, "max_retries": 1, "max_cost_microunits": 50000},
+  "hygiene": {"policy_id": "policy.ai.publication-safe/v1", "scan_secrets": true, "pii_action": "review", "protected_reference_action": "rewrite", "protected_references": [{"term": "Example Franchise", "descriptive_replacement": "genre-specific visual characteristics"}], "allow_private_remote_input": false, "retain_raw_prompts": false, "post_output_review": true},
+  "approval": {"initial_state": "candidate", "human_review_required": true, "validators": ["validator.json-contract/v1", "validator.ai-hygiene/v1"]},
+  "provenance": {"cache_identity_fields": ["skill", "model", "runtime", "input", "schemas", "settings", "hygiene"], "evidence_fields": ["provider", "runtime", "model", "skill", "digests", "usage", "candidate_state", "approvals"], "redact_raw_inputs": true, "redact_raw_prompts": true},
+  "redistribution_notes": "The specification and synthetic fixture contain no third-party source material.",
+  "license_notes": "Model and provider licenses remain independent evidence and require review.",
+  "fixture": {"source_text": "A small synthetic booklet explains mindful pauses through geometric shapes."}
+}

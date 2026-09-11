@@ -13,6 +13,7 @@
 //! variables.  Keys are **never logged** at any log level.
 
 use std::fmt;
+use std::time::Duration;
 
 use anyhow::{Context, Result};
 use serde_json::json;
@@ -163,12 +164,51 @@ impl OpenAiProvider {
             "{}/v1/chat/completions",
             self.endpoint.trim_end_matches('/')
         );
-        let body = json!({
+        let mut body = json!({
             "model": request.model,
             "messages": [{"role": "user", "content": request.prompt}],
         });
+        let body_object = body.as_object_mut().expect("OpenAI request is an object");
+        if let Some(temperature) = request.params.temperature {
+            body_object.insert("temperature".to_string(), json!(temperature));
+        }
+        if let Some(max_tokens) = request.params.max_tokens {
+            body_object.insert("max_tokens".to_string(), json!(max_tokens));
+        }
+        if let Some(seed) = request.params.seed {
+            body_object.insert("seed".to_string(), json!(seed));
+        }
+        if let Some(top_p) = request.params.top_p {
+            body_object.insert("top_p".to_string(), json!(top_p));
+        }
+        if !request.params.stop.is_empty() {
+            body_object.insert("stop".to_string(), json!(request.params.stop));
+        }
+        if let Some(schema) = &request.output_schema {
+            body_object.insert(
+                "response_format".to_string(),
+                json!({
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": "renderflow_skill_output",
+                        "strict": true,
+                        "schema": schema,
+                    }
+                }),
+            );
+        } else if request.output_format == Some(crate::ai::OutputFormat::Json) {
+            body_object.insert(
+                "response_format".to_string(),
+                json!({"type": "json_object"}),
+            );
+        }
 
-        let mut req = ureq::post(&url).set("Content-Type", "application/json");
+        let mut agent_builder = ureq::AgentBuilder::new();
+        if let Some(timeout_ms) = request.timeout_ms {
+            agent_builder = agent_builder.timeout(Duration::from_millis(timeout_ms));
+        }
+        let agent = agent_builder.build();
+        let mut req = agent.post(&url).set("Content-Type", "application/json");
         if let Some(key) = self.resolve_api_key()? {
             req = req.set("Authorization", &format!("Bearer {}", key));
         }

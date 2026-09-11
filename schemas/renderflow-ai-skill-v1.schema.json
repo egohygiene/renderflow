@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-ai-skill-v1.schema.json",
+  "title": "Renderflow reviewed AI skill specification v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "id", "version", "purpose", "artifact_families", "operations", "input_modalities", "output_modalities", "requires_json_schema", "input_schema", "output_schema", "templates", "variables", "max_rendered_prompt_bytes", "generation", "budgets", "hygiene", "approval", "provenance", "redistribution_notes", "license_notes", "fixture"],
+  "properties": {
+    "schema_version": {"const": "renderflow.ai-skill/v1"},
+    "id": {"type": "string", "pattern": "^skill\\.[A-Za-z0-9._-]+$"},
+    "version": {"type": "string", "minLength": 1}, "purpose": {"type": "string", "minLength": 1},
+    "artifact_families": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+    "operations": {"type": "array", "minItems": 1, "items": {"enum": ["generation", "editing", "extraction", "classification", "transcription", "embeddings", "multimodal_reasoning", "schema_constrained_output"]}},
+    "input_modalities": {"type": "array", "minItems": 1, "items": {"enum": ["text", "image", "audio", "video", "document", "structured_json", "artifact_dna", "embeddings", "mask", "metadata"]}},
+    "output_modalities": {"type": "array", "minItems": 1, "items": {"enum": ["text", "image", "audio", "video", "document", "structured_json", "artifact_dna", "embeddings", "mask", "metadata"]}},
+    "requires_json_schema": {"type": "boolean"}, "input_schema": {"type": "object"}, "output_schema": {"type": "object"},
+    "templates": {"type": "object", "additionalProperties": false, "required": ["system", "instruction", "prompt"], "properties": {"system": {"type": "string"}, "instruction": {"type": "string"}, "prompt": {"type": "string"}}},
+    "variables": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["name", "required", "max_bytes"], "properties": {"name": {"type": "string", "pattern": "^[A-Za-z0-9_]+$"}, "required": {"type": "boolean"}, "sensitive": {"type": "boolean"}, "max_bytes": {"type": "integer", "minimum": 1}}}},
+    "max_rendered_prompt_bytes": {"type": "integer", "minimum": 1},
+    "generation": {"type": "object", "additionalProperties": false, "properties": {"temperature": {"type": "number", "minimum": 0}, "max_tokens": {"type": "integer", "minimum": 1}, "seed": {"type": "integer", "minimum": 0}, "top_p": {"type": "number", "minimum": 0, "maximum": 1}, "stop": {"type": "array", "items": {"type": "string"}}, "provider_extensions": {"type": "object"}}},
+    "budgets": {"type": "object", "additionalProperties": false, "required": ["network", "remote_execution", "max_input_bytes", "max_output_bytes", "max_tokens", "max_duration_ms", "max_retries"], "properties": {"network": {"type": "boolean"}, "remote_execution": {"type": "boolean"}, "max_input_bytes": {"type": "integer", "minimum": 1}, "max_output_bytes": {"type": "integer", "minimum": 1}, "max_tokens": {"type": "integer", "minimum": 1}, "max_duration_ms": {"type": "integer", "minimum": 1}, "max_retries": {"type": "integer", "minimum": 0}, "max_cost_microunits": {"type": "integer", "minimum": 0}}},
+    "hygiene": {"type": "object", "additionalProperties": false, "required": ["policy_id", "scan_secrets", "pii_action", "protected_reference_action", "allow_private_remote_input", "retain_raw_prompts", "post_output_review"], "properties": {"policy_id": {"type": "string"}, "scan_secrets": {"type": "boolean"}, "pii_action": {"enum": ["block", "rewrite", "review"]}, "protected_reference_action": {"enum": ["block", "rewrite", "review"]}, "protected_references": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["term"], "properties": {"term": {"type": "string", "minLength": 1}, "descriptive_replacement": {"type": "string"}}}}, "allow_private_remote_input": {"type": "boolean"}, "retain_raw_prompts": {"const": false}, "post_output_review": {"type": "boolean"}}},
+    "approval": {"type": "object", "additionalProperties": false, "required": ["initial_state", "human_review_required", "validators"], "properties": {"initial_state": {"enum": ["candidate", "approved"]}, "human_review_required": {"type": "boolean"}, "validators": {"type": "array", "minItems": 1, "items": {"type": "string"}}}},
+    "provenance": {"type": "object", "additionalProperties": false, "required": ["cache_identity_fields", "evidence_fields", "redact_raw_inputs", "redact_raw_prompts"], "properties": {"cache_identity_fields": {"type": "array", "minItems": 1, "items": {"type": "string"}}, "evidence_fields": {"type": "array", "minItems": 1, "items": {"type": "string"}}, "redact_raw_inputs": {"type": "boolean"}, "redact_raw_prompts": {"const": true}}},
+    "redistribution_notes": {"type": "string"}, "license_notes": {"type": "string"}, "fixture": {}
+  }
+}

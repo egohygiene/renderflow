@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-ai-execution-v1.schema.json",
+  "title": "Renderflow AI execution evidence v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "execution_id", "occurred_at_unix_ms", "identity", "skill_id", "skill_version", "skill_digest", "input_digest", "input_artifacts", "instruction_digest", "prompt_digest", "input_schema_digest", "output_schema_digest", "settings_digest", "hygiene_policy_digest", "cache_identity", "cache_decision", "determinism", "usage", "output_artifact_id", "output_digest", "output_state", "approval_required", "validators", "validation_status", "pre_prompt_hygiene", "post_output_hygiene", "raw_inputs_retained", "raw_prompts_retained"],
+  "properties": {
+    "schema_version": {"const": "renderflow.ai-execution/v1"}, "execution_id": {"type": "string"}, "occurred_at_unix_ms": {"type": "integer"},
+    "identity": {"type": "object"}, "skill_id": {"type": "string"}, "skill_version": {"type": "string"},
+    "skill_digest": {"$ref": "#/$defs/digest"}, "input_digest": {"$ref": "#/$defs/digest"}, "input_artifacts": {"type": "array", "items": {"type": "object"}},
+    "instruction_digest": {"$ref": "#/$defs/digest"}, "prompt_digest": {"$ref": "#/$defs/digest"}, "input_schema_digest": {"$ref": "#/$defs/digest"}, "output_schema_digest": {"$ref": "#/$defs/digest"}, "settings_digest": {"$ref": "#/$defs/digest"}, "hygiene_policy_digest": {"$ref": "#/$defs/digest"}, "cache_identity": {"$ref": "#/$defs/digest"},
+    "cache_decision": {"type": "string"}, "determinism": {"type": "string"}, "usage": {"type": "object"}, "output_artifact_id": {"type": "string"}, "output_digest": {"$ref": "#/$defs/digest"},
+    "output_state": {"enum": ["candidate", "approved"]}, "approval_required": {"type": "boolean"}, "approval_reference": {"type": "string"}, "validators": {"type": "array", "items": {"type": "string"}}, "validation_status": {"type": "string"},
+    "pre_prompt_hygiene": {"type": "object"}, "post_output_hygiene": {"type": "object"}, "raw_inputs_retained": {"const": false}, "raw_prompts_retained": {"const": false}
+  },
+  "$defs": {"digest": {"type": "object", "additionalProperties": false, "required": ["algorithm", "value"], "properties": {"algorithm": {"const": "sha256"}, "value": {"type": "string", "pattern": "^[a-f0-9]{64}$"}}}}
+}
