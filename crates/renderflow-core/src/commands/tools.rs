@@ -3,6 +3,7 @@ use std::collections::BTreeMap;
 use anyhow::{Context, Result};
 use serde::Serialize;
 
+use crate::adapters::catalog::AdapterCatalog;
 use crate::super_resolution::{UpscaylModelCatalog, UPSCAYL_TOOL_ID};
 use crate::toolchain::{ToolAvailability, ToolDescriptor, ToolRegistry};
 use crate::transforms::yaml_loader::load_tool_registry_from_yaml;
@@ -45,6 +46,82 @@ fn emit_serialized<T: Serialize>(value: &T, format: StructuredFormat) -> Result<
         StructuredFormat::Yaml => {
             print!("{}", serde_yaml_ng::to_string(value)?);
         }
+    }
+    Ok(())
+}
+
+pub fn run_ecosystem(
+    format: &str,
+    capability: Option<&str>,
+    preferred: &[String],
+    available_only: bool,
+) -> Result<()> {
+    let registry = ToolRegistry::builtins();
+    let catalog = AdapterCatalog::builtins(&registry)?;
+    let provider_ids = match capability {
+        Some(capability) => catalog
+            .providers_for(capability)
+            .into_iter()
+            .map(|provider| provider.runtime_tool.as_str())
+            .collect::<Vec<_>>(),
+        None => catalog
+            .providers
+            .iter()
+            .map(|provider| provider.runtime_tool.as_str())
+            .collect::<Vec<_>>(),
+    };
+    let inventory = registry.assess_ids_current(provider_ids);
+    let report = catalog.report(&inventory, capability, preferred, available_only);
+    let format = StructuredFormat::parse(format)?;
+    if format != StructuredFormat::Text {
+        return emit_serialized(&report, format);
+    }
+
+    println!("Renderflow Adapter Ecosystem");
+    println!("============================");
+    println!("catalog: {}", report.schema);
+    println!();
+    println!(
+        "{:<34} {:<15} {:<14} {:<9} Capability",
+        "Adapter", "Availability", "Maturity", "Priority"
+    );
+    for provider in &report.providers {
+        println!(
+            "{:<34} {:<15} {:<14} {:<9} {}",
+            provider.contract.id,
+            provider.availability.as_str(),
+            format!("{:?}", provider.contract.maturity).to_ascii_lowercase(),
+            provider.contract.selection_priority,
+            provider
+                .contract
+                .capabilities
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+    }
+    if let Some(selection) = &report.selection {
+        println!();
+        println!(
+            "Selected for {}: {}",
+            selection.capability,
+            selection.selected.as_deref().unwrap_or("unavailable")
+        );
+        for decision in &selection.decisions {
+            println!("  - {}: {}", decision.adapter_id, decision.reason);
+        }
+    }
+    println!();
+    println!("Adopt / adapt / reject matrix");
+    println!("-----------------------------");
+    for evaluation in &report.evaluations {
+        println!(
+            "{:<28} {:<8} {}",
+            evaluation.candidate,
+            format!("{:?}", evaluation.decision).to_ascii_lowercase(),
+            evaluation.rationale
+        );
     }
     Ok(())
 }

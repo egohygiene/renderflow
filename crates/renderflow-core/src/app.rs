@@ -165,6 +165,17 @@ pub fn run_cli(cli: Cli) -> Result<()> {
             } => commands::graph::run_stats(&config, target.as_deref(), optimization)?,
         },
         Some(Commands::Tools { subcommand }) => match subcommand {
+            ToolCommands::Ecosystem {
+                format,
+                capability,
+                preferred,
+                available_only,
+            } => commands::tools::run_ecosystem(
+                &format,
+                capability.as_deref(),
+                &preferred,
+                available_only,
+            )?,
             ToolCommands::List { format, transforms } => {
                 commands::tools::run_list(transforms.as_deref(), &format)?
             }

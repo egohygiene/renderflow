@@ -1,0 +1,315 @@
+schema: renderflow.adapter-catalog/v1
+
+providers:
+  - id: adapter.documents.pandoc
+    runtime_tool: tool.pandoc
+    name: Pandoc document adapter
+    families: [documents, ebooks, office]
+    maturity: integrated
+    selection_priority: 10
+    capabilities: [document.convert, document.generate]
+    input_media_types: [text/markdown, text/html, text/x-rst, application/epub+zip, application/x-tex]
+    output_media_types: [text/html, application/pdf, application/epub+zip, application/x-tex, application/vnd.openxmlformats-officedocument.wordprocessingml.document]
+    determinism: configuration_dependent
+    locality: local
+    fidelity: path_dependent
+    execution: &bounded_local
+      service: renderflow.process/v1
+      direct_argv: true
+      bounded_output: true
+      timeout: true
+      cancellation: true
+      network: false
+      side_effects: [writes_declared_output, reads_local_assets]
+    configuration_schema:
+      input_format: format_id
+      output_format: format_id
+      template: optional_local_path
+      variables: string_map
+    validation: [validator.core.non_empty, format_specific_validator]
+    provenance: [provider_id, provider_version, argv_digest, input_digest, output_digest]
+    upstream: https://pandoc.org/
+    rationale: Mature cross-platform document provider already integrated through the artifact-native strategy adapter.
+
+  - id: adapter.pdf.tectonic
+    runtime_tool: tool.tectonic
+    name: Tectonic PDF typesetting adapter
+    families: [documents, pdf]
+    maturity: integrated
+    selection_priority: 20
+    capabilities: [latex.compile, pdf.typeset]
+    input_media_types: [application/x-tex, text/x-tex]
+    output_media_types: [application/pdf]
+    determinism: configuration_dependent
+    locality: network_optional
+    fidelity: path_dependent
+    execution: *bounded_local
+    configuration_schema:
+      bundle: optional_local_path
+      offline: boolean
+    validation: [validator.core.non_empty, validator.core.pdf]
+    provenance: [provider_id, provider_version, argv_digest, input_digest, output_digest]
+    upstream: https://tectonic-typesetting.github.io/
+    rationale: Existing PDF typesetter retained behind explicit offline/network policy and toolchain evidence.
+
+  - id: adapter.media.ffmpeg
+    runtime_tool: tool.ffmpeg
+    name: FFmpeg media adapter
+    families: [images, audio_video, subtitles]
+    maturity: integrated
+    selection_priority: 10
+    capabilities: [audio.convert, image.convert, media.convert, video.convert]
+    input_media_types: [audio/*, image/*, video/*]
+    output_media_types: [audio/*, image/*, video/*]
+    determinism: configuration_dependent
+    locality: local
+    fidelity: path_dependent
+    execution: *bounded_local
+    configuration_schema:
+      codec: optional_stable_id
+      pixel_format: optional_stable_id
+      sample_format: optional_stable_id
+      quality: optional_number
+    validation: [validator.core.non_empty, format_specific_validator]
+    provenance: [provider_id, provider_version, argv_digest, input_digest, output_digest]
+    upstream: https://ffmpeg.org/
+    rationale: Existing local image/audio adapter; video and subtitle capabilities remain graph-advertised only when an executable edge exists.
+
+  - id: adapter.pdf.wkhtmltopdf
+    runtime_tool: tool.wkhtmltopdf
+    name: wkhtmltopdf compatibility adapter
+    families: [pdf]
+    maturity: experimental
+    selection_priority: 80
+    capabilities: [html.render.pdf]
+    input_media_types: [text/html]
+    output_media_types: [application/pdf]
+    determinism: configuration_dependent
+    locality: local
+    fidelity: partial_loss
+    execution: *bounded_local
+    configuration_schema:
+      page_size: optional_string
+    validation: [validator.core.pdf]
+    provenance: [provider_id, provider_version, argv_digest, input_digest, output_digest]
+    upstream: https://wkhtmltopdf.org/
+    rationale: Retained as an experimental compatibility fallback; browser age and rendering variance prevent preferred status.
+
+  - id: adapter.archives.zip
+    runtime_tool: tool.zip
+    name: ZIP and CBZ aggregation adapter
+    families: [archives]
+    maturity: experimental
+    selection_priority: 50
+    capabilities: [archive.zip.create, comic.cbz.create]
+    input_media_types: [application/octet-stream, image/*]
+    output_media_types: [application/zip, application/vnd.comicbook+zip]
+    determinism: configuration_dependent
+    locality: local
+    fidelity: lossless
+    execution: *bounded_local
+    configuration_schema:
+      ordering: explicit_path_list
+      timestamp_policy: deterministic_or_source
+    validation: [validator.core.zip]
+    provenance: [provider_id, provider_version, argv_digest, ordered_input_digests, output_digest]
+    upstream: https://infozip.sourceforge.net/
+    rationale: Useful portable baseline, but deterministic archive metadata requires adapter-owned normalization.
+
+  - id: adapter.pdf.img2pdf
+    runtime_tool: tool.img2pdf
+    name: img2pdf aggregation adapter
+    families: [images, pdf]
+    maturity: experimental
+    selection_priority: 30
+    capabilities: [image.aggregate.pdf]
+    input_media_types: [image/*]
+    output_media_types: [application/pdf]
+    determinism: deterministic
+    locality: local
+    fidelity: lossless
+    execution: *bounded_local
+    configuration_schema:
+      page_size: optional_geometry
+      fit: optional_enum
+    validation: [validator.core.pdf]
+    provenance: [provider_id, provider_version, argv_digest, ordered_input_digests, output_digest]
+    upstream: https://gitlab.mister-muffin.de/josch/img2pdf
+    rationale: Strong lossless image-to-PDF candidate; collection execution remains experimental until Transform v2 aggregation coverage lands.
+
+  - id: adapter.pdf.ghostscript
+    runtime_tool: tool.ghostscript
+    name: Ghostscript PDF processing adapter
+    families: [pdf, images]
+    maturity: experimental
+    selection_priority: 60
+    capabilities: [pdf.process, tiff.aggregate.press_pdf]
+    input_media_types: [application/pdf, image/tiff]
+    output_media_types: [application/pdf]
+    determinism: configuration_dependent
+    locality: local
+    fidelity: path_dependent
+    execution: *bounded_local
+    configuration_schema:
+      device: allowlisted_enum
+      compatibility_level: optional_version
+    validation: [validator.core.pdf]
+    provenance: [provider_id, provider_version, argv_digest, input_digest, output_digest]
+    upstream: https://www.ghostscript.com/
+    rationale: Valuable for PDF repair/preflight workflows, but licensing and lossy presets require explicit policy.
+
+  - id: adapter.images.upscayl
+    runtime_tool: tool.upscayl-ncnn
+    name: Upscayl local super-resolution adapter
+    families: [images]
+    maturity: experimental
+    selection_priority: 90
+    capabilities: [image.super_resolution]
+    input_media_types: [image/*]
+    output_media_types: [image/*]
+    determinism: configuration_dependent
+    locality: local
+    fidelity: lossy
+    execution: *bounded_local
+    configuration_schema:
+      model: registered_variant_id
+      scale: bounded_integer
+    validation: [validator.core.non_empty, format_specific_validator]
+    provenance: [provider_id, provider_version, model_digest, input_digest, output_digest]
+    upstream: https://github.com/upscayl/upscayl-ncnn
+    rationale: Existing opt-in local AI adapter; model material and license evidence remain mandatory.
+
+  - id: adapter.data.jq
+    runtime_tool: tool.jq
+    name: jq typed JSON adapter
+    families: [data]
+    maturity: experimental
+    selection_priority: 50
+    capabilities: [data.json.transform]
+    input_media_types: [application/json]
+    output_media_types: [application/json]
+    determinism: deterministic
+    locality: local
+    fidelity: path_dependent
+    execution: *bounded_local
+    configuration_schema:
+      filter: reviewed_expression
+      output_shape: optional_json_schema
+    validation: [validator.core.json]
+    provenance: [provider_id, provider_version, filter_digest, input_digest, output_digest]
+    upstream: https://jqlang.github.io/jq/
+    rationale: Experimental typed JSON provider; graph registration waits for constrained filter and output-schema contracts.
+
+  - id: adapter.images.imagemagick
+    runtime_tool: tool.imagemagick
+    name: ImageMagick constrained image adapter
+    families: [images]
+    maturity: experimental
+    selection_priority: 70
+    capabilities: [image.convert]
+    input_media_types: [image/*]
+    output_media_types: [image/*]
+    determinism: configuration_dependent
+    locality: local
+    fidelity: path_dependent
+    execution: *bounded_local
+    configuration_schema:
+      operation: allowlisted_enum
+      geometry: optional_geometry
+      quality: optional_number
+    validation: [validator.core.non_empty, format_specific_validator]
+    provenance: [provider_id, provider_version, delegate_inventory, argv_digest, input_digest, output_digest]
+    upstream: https://imagemagick.org/
+    rationale: Experimental fallback behind allowlisted operations because delegate availability and policy alter behavior.
+
+  - id: adapter.ocr.tesseract
+    runtime_tool: tool.tesseract
+    name: Tesseract OCR extraction adapter
+    families: [ocr]
+    maturity: experimental
+    selection_priority: 50
+    capabilities: [ocr.extract.text]
+    input_media_types: [image/*]
+    output_media_types: [text/plain]
+    determinism: configuration_dependent
+    locality: local
+    fidelity: lossy
+    execution: *bounded_local
+    configuration_schema:
+      languages: registered_language_pack_ids
+      page_segmentation: optional_allowlisted_enum
+    validation: [validator.core.utf8]
+    provenance: [provider_id, provider_version, language_pack_versions, input_digest, output_digest]
+    upstream: https://github.com/tesseract-ocr/tesseract
+    rationale: Experimental local OCR provider pending language-pack discovery and confidence-aware extraction evidence.
+
+evaluations:
+  - candidate: Pandoc
+    families: [documents, ebooks, office]
+    decision: adopt
+    upstream: https://pandoc.org/
+    rationale: Broad mature conversion coverage with an existing artifact-native Renderflow integration.
+  - candidate: Tectonic
+    families: [documents, pdf]
+    decision: adopt
+    upstream: https://tectonic-typesetting.github.io/
+    rationale: Reproducible-oriented typesetting with an explicit offline/network boundary.
+  - candidate: FFmpeg and ffprobe
+    families: [images, audio_video, subtitles]
+    decision: adapt
+    upstream: https://ffmpeg.org/
+    rationale: Keep FFmpeg conversion integrated and add ffprobe inspection through the same bounded provider contract.
+  - candidate: qpdf and Poppler
+    families: [pdf]
+    decision: adapt
+    upstream: https://qpdf.sourceforge.io/
+    rationale: Preferred future structural PDF inspection and repair pack; implementation requires validator and mutation boundaries.
+    follow_up: Add qpdf/pdfinfo providers with synthetic PDF fixtures.
+  - candidate: ImageMagick
+    families: [images]
+    decision: adapt
+    upstream: https://imagemagick.org/
+    rationale: Useful breadth, but delegates and policy.xml make availability and security build-dependent.
+    follow_up: Add a constrained allowlisted operation surface rather than arbitrary convert arguments.
+  - candidate: LibreOffice
+    families: [office, documents]
+    decision: adapt
+    upstream: https://www.libreoffice.org/
+    rationale: Valuable office fallback when isolated profiles, bounded temporary directories, and nondeterminism evidence are explicit.
+  - candidate: Calibre
+    families: [ebooks]
+    decision: defer
+    upstream: https://calibre-ebook.com/
+    rationale: "Coordinate with EPUB and KEPUB issue #344 so ebook semantics are not duplicated in this foundation."
+    follow_up: "#344"
+  - candidate: 7-Zip and libarchive
+    families: [archives]
+    decision: adapt
+    upstream: https://www.libarchive.org/
+    rationale: Strong archive breadth, but extraction must reuse universal-intake path and expansion safety budgets.
+  - candidate: jq
+    families: [data]
+    decision: adapt
+    upstream: https://jqlang.github.io/jq/
+    rationale: Keep an experimental typed JSON provider while constrained filter and output-schema contracts mature.
+  - candidate: SQLite
+    families: [data]
+    decision: defer
+    upstream: https://sqlite.org/
+    rationale: Relational transforms need typed schema and query contracts before a command adapter can claim meaningful fidelity.
+  - candidate: Tesseract and OCRmyPDF
+    families: [ocr, pdf]
+    decision: adapt
+    upstream: https://github.com/tesseract-ocr/tesseract
+    rationale: High-value local OCR path requiring language-pack discovery, confidence evidence, and searchable-PDF validation.
+  - candidate: Subtitle Edit
+    families: [subtitles]
+    decision: reject
+    upstream: https://github.com/SubtitleEdit/subtitleedit
+    rationale: GUI-centric cross-platform footprint is a poor core dependency; prefer bounded FFmpeg and text-native subtitle adapters.
+  - candidate: HandBrakeCLI
+    families: [audio_video]
+    decision: defer
+    upstream: https://handbrake.fr/
+    rationale: "Keep video transcode ownership coordinated with Aniflow through issue #345."
+    follow_up: "#345"

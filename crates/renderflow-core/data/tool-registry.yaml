@@ -59,7 +59,7 @@ tools:
     discovery:
       kind: executable
       candidates: [ffmpeg]
-      version_args: [--version]
+      version_args: [-version]
     version:
       min_inclusive: "4.0.0"
     operating_systems: [linux, macos, windows]
@@ -159,6 +159,66 @@ tools:
     support_tier: experimental
     license_notes: "Ghostscript is available under AGPL/commercial licensing; review distribution obligations."
     distribution_notes: "Used by press-oriented TIFF/PDF command adapters when configured."
+
+  - id: tool.jq
+    name: jq
+    discovery:
+      kind: executable
+      candidates: [jq]
+      version_args: [--version]
+    version:
+      min_inclusive: "1.6.0"
+    operating_systems: [linux, macos, windows]
+    capabilities:
+      - data.json.transform
+    input_media_types: [application/json]
+    output_media_types: [application/json]
+    determinism: deterministic
+    locality: local
+    fidelity: path_dependent
+    support_tier: experimental
+    license_notes: "See the jq upstream license for redistribution terms."
+    distribution_notes: "Experimental typed JSON transform provider; arbitrary filters are not registered as graph edges."
+
+  - id: tool.imagemagick
+    name: ImageMagick
+    discovery:
+      kind: executable
+      candidates: [magick]
+      version_args: [--version]
+    version:
+      min_inclusive: "7.0.0"
+    operating_systems: [linux, macos, windows]
+    capabilities:
+      - image.convert
+    input_media_types: [image/*]
+    output_media_types: [image/*]
+    determinism: configuration_dependent
+    locality: local
+    fidelity: path_dependent
+    support_tier: experimental
+    license_notes: "See the ImageMagick upstream license and the exact build's delegate licenses."
+    distribution_notes: "Experimental constrained image fallback; arbitrary operations and delegates are not graph-enabled."
+
+  - id: tool.tesseract
+    name: Tesseract OCR
+    discovery:
+      kind: executable
+      candidates: [tesseract]
+      version_args: [--version]
+    version:
+      min_inclusive: "5.0.0"
+    operating_systems: [linux, macos, windows]
+    capabilities:
+      - ocr.extract.text
+    input_media_types: [image/*]
+    output_media_types: [text/plain]
+    determinism: configuration_dependent
+    locality: local
+    fidelity: lossy
+    support_tier: experimental
+    license_notes: "See the Tesseract upstream Apache-2.0 license and language-data licenses."
+    distribution_notes: "Experimental OCR provider; language-pack identity and confidence evidence are required before graph integration."
 
 
   - id: tool.upscayl-ncnn

@@ -5,7 +5,7 @@
 
 #![recursion_limit = "256"]
 
-mod adapters;
+pub mod adapters;
 pub mod ai;
 pub mod app;
 pub mod artifact;

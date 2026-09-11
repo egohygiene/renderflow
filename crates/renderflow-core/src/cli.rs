@@ -355,6 +355,22 @@ pub enum PluginCommands {
 /// Subcommands for `renderflow tools`.
 #[derive(Subcommand)]
 pub enum ToolCommands {
+    /// Inspect the versioned adapter-pack catalog and adopt/adapt/reject matrix.
+    Ecosystem {
+        /// Output format: text (default), json, or yaml.
+        #[arg(long, default_value = "text", value_name = "FORMAT")]
+        format: String,
+        /// Limit output to providers for one stable capability ID.
+        #[arg(long, value_name = "CAPABILITY")]
+        capability: Option<String>,
+        /// Prefer an adapter ID for capability selection; repeat for fallback order.
+        #[arg(long, value_name = "ADAPTER", requires = "capability")]
+        preferred: Vec<String>,
+        /// Only include providers available on this host.
+        #[arg(long)]
+        available_only: bool,
+    },
+
     /// List registered providers and live availability/version state.
     List {
         /// Output format: text (default), json, or yaml.
