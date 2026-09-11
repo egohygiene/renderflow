@@ -4,8 +4,9 @@ use tracing::info;
 
 use crate::cli::{
     AiCommands, Cli, Commands, EbookCommands, GraphCommands, LuluCommands, PluginCommands,
-    PublicationCommands, SpecCommands, ToolCommands,
+    PublicationCommands, SpecCommands, ToolCommands, VideoCommands,
 };
+use crate::video::HandBrakeLimits;
 use crate::{commands, transforms};
 
 /// Initialize logging for a Renderflow CLI run.
@@ -216,6 +217,51 @@ pub fn run_cli(cli: Cli) -> Result<()> {
                     epubcheck,
                 )?,
             },
+        },
+        Some(Commands::Video { subcommand }) => match subcommand {
+            VideoCommands::Capabilities { format } => commands::video::run_capabilities(&format)?,
+            VideoCommands::Plan {
+                input,
+                output,
+                preset,
+                timeout_seconds,
+                capture_limit_bytes,
+                progress_interval_ms,
+                maximum_output_bytes,
+                format,
+            } => commands::video::run_plan(
+                &input,
+                &output,
+                preset.into(),
+                HandBrakeLimits {
+                    timeout_seconds,
+                    capture_limit_bytes,
+                    progress_interval_ms,
+                    maximum_output_bytes,
+                },
+                &format,
+            )?,
+            VideoCommands::Transcode {
+                input,
+                output,
+                preset,
+                timeout_seconds,
+                capture_limit_bytes,
+                progress_interval_ms,
+                maximum_output_bytes,
+                format,
+            } => commands::video::run_transcode(
+                &input,
+                &output,
+                preset.into(),
+                HandBrakeLimits {
+                    timeout_seconds,
+                    capture_limit_bytes,
+                    progress_interval_ms,
+                    maximum_output_bytes,
+                },
+                &format,
+            )?,
         },
         Some(Commands::Capabilities {
             format,

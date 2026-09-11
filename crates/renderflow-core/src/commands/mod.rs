@@ -9,4 +9,5 @@ pub mod publication;
 pub mod spec;
 pub mod system;
 pub mod tools;
+pub mod video;
 pub mod watch;

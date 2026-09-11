@@ -40,5 +40,7 @@ Progress events include their schema version and, when available, run ID, step I
 - `schemas/renderflow-checkpoints-v1.schema.json` describes durable checkpoint state.
 - `schemas/renderflow-intake-v1.schema.json` describes universal input identity, detection, inspection, and extracted-child evidence.
 - `schemas/renderflow-hygiene-v1.schema.json` describes non-destructive publication-hygiene decisions and safe findings.
+- `schemas/renderflow-handbrake-capability-v1.schema.json` describes the typed whole-file video ownership boundary and presets.
+- `schemas/renderflow-handbrake-transform-v1.schema.json` describes HandBrake plans, provenance reports, and embedded Flow artifacts.
 - `schemas/renderflow-run-v1.schema.json` describes authoritative run evidence.
 - `RunManifest::flow_artifacts_v1()` projects outputs into `flow.artifact/v1` without importing Flow source.

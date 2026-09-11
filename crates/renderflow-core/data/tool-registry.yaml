@@ -107,6 +107,28 @@ tools:
     license_notes: "FFmpeg licensing is build-dependent; consult the exact distributed build."
     distribution_notes: "Used by Renderflow audio, image, and future video adapters."
 
+  - id: tool.handbrake
+    name: HandBrakeCLI
+    discovery:
+      kind: executable
+      candidates: [HandBrakeCLI]
+      version_args: [--version]
+    version:
+      min_inclusive: "1.6.0"
+    operating_systems: [linux, macos, windows]
+    capabilities:
+      - video.transcode.whole_file
+    input_media_types:
+      - video/*
+    output_media_types:
+      - video/mp4
+    determinism: configuration_dependent
+    locality: local
+    fidelity: lossy
+    support_tier: optional
+    license_notes: "HandBrake is GPL-2.0-only; consult the exact distributed binary and bundled libraries."
+    distribution_notes: "Optional bounded whole-file delivery adapter; Aniflow owns temporal segmentation and reconstruction."
+
   - id: tool.wkhtmltopdf
     name: wkhtmltopdf
     discovery:

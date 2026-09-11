@@ -73,6 +73,7 @@ nav:
       - EPUB and KEPUB Derivatives: user-guide/ebook-derivatives.md
       - Magazine Publications: user-guide/magazine-publications.md
       - Lulu Publication Pack: user-guide/lulu-publication-pack.md
+      - Whole-file Video: handbrake-adapter.md
       - Super Resolution: user-guide/super-resolution.md
       - Upscayl Models: user-guide/upscayl-models.md
       - Pipelines: user-guide/pipelines.md
