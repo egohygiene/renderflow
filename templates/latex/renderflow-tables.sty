@@ -1,0 +1,21 @@
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesFile{renderflow-tables.sty}[2026/09/11 Renderflow tables]
+
+\RequirePackage{booktabs}
+\RequirePackage{longtable}
+\RequirePackage{array}
+\RequirePackage{calc}
+\RequirePackage{etoolbox}
+\renewcommand{\arraystretch}{1.15}
+\setlength{\tabcolsep}{0.6em}
+\makeatletter
+\patchcmd\longtable{\par}{\if@noskipsec\mbox{}\fi\par}{}{}
+\makeatother
+\IfFileExists{footnotehyper.sty}{
+  \RequirePackage{footnotehyper}
+}{
+  \RequirePackage{footnote}
+}
+\makesavenoteenv{longtable}
+
+\endinput

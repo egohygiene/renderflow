@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use std::collections::HashMap;
 use std::path::Path;
 use tracing::info;
 
@@ -38,6 +39,27 @@ impl PdfStrategy {
         }
         Ok(())
     }
+
+    /// Add paths owned by Renderflow's template bundle without overriding
+    /// explicit profile variables. This keeps shared LaTeX components and
+    /// local font assets discoverable when pandoc stages its intermediate
+    /// document in a temporary directory.
+    fn template_variables(&self, variables: &HashMap<String, String>) -> HashMap<String, String> {
+        let mut resolved = variables.clone();
+        let template_root = Path::new(&self.template_dir);
+
+        for (key, directory) in [
+            ("renderflow-style-root", template_root.join("latex")),
+            ("renderflow-font-root", template_root.join("fonts")),
+        ] {
+            if !resolved.contains_key(key) && directory.is_dir() {
+                let path = directory.canonicalize().unwrap_or(directory);
+                resolved.insert(key.to_string(), path.to_string_lossy().into_owned());
+            }
+        }
+
+        resolved
+    }
 }
 
 impl OutputStrategy for PdfStrategy {
@@ -70,6 +92,7 @@ impl OutputStrategy for PdfStrategy {
             None
         };
 
+        let variables = self.template_variables(ctx.variables);
         let builder = PandocArgs::new(
             ctx.input_format.as_pandoc_format(),
             ctx.input_path,
@@ -80,7 +103,7 @@ impl OutputStrategy for PdfStrategy {
             Some(ref path) => builder.with_template(path.as_str()),
             None => builder,
         }
-        .with_variables(ctx.variables)
+        .with_variables(&variables)
         .build();
         let args_refs: Vec<&str> = args.iter().map(String::as_str).collect();
 

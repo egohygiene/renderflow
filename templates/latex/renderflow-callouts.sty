@@ -1,0 +1,21 @@
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesFile{renderflow-callouts.sty}[2026/09/11 Renderflow callouts]
+
+\RequirePackage{framed}
+\newenvironment{RenderflowCallout}[1][Note]{%
+  \def\FrameCommand{%
+    {\color{RenderflowAccent}\vrule width \RenderflowCalloutRuleWeight}%
+    \hspace{0.8em}%
+  }%
+  \MakeFramed{\advance\hsize-\width\FrameRestore}%
+  \noindent\textbf{\color{RenderflowAccent}#1}\par\smallskip
+}{%
+  \endMakeFramed
+}
+\newenvironment{RenderflowAside}{%
+  \begin{RenderflowCallout}[Aside]\small\color{RenderflowMuted}
+}{%
+  \end{RenderflowCallout}
+}
+
+\endinput

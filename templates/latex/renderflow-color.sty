@@ -1,0 +1,24 @@
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesFile{renderflow-color.sty}[2026/09/11 Renderflow color roles]
+
+\RequirePackage{xcolor}
+\definecolor{RenderflowInk}{HTML}{\RenderflowColorInk}
+\definecolor{RenderflowMuted}{HTML}{\RenderflowColorMuted}
+\definecolor{RenderflowAccent}{HTML}{\RenderflowColorAccent}
+\definecolor{RenderflowRule}{HTML}{\RenderflowColorRule}
+\definecolor{RenderflowSurface}{HTML}{\RenderflowColorSurface}
+\color{RenderflowInk}
+
+\PassOptionsToPackage{hyphens}{url}
+\RequirePackage{hyperref}
+\IfFileExists{xurl.sty}{\RequirePackage{xurl}}{}
+\hypersetup{
+  colorlinks=true,
+  linkcolor=RenderflowAccent,
+  citecolor=RenderflowAccent,
+  urlcolor=RenderflowAccent,
+  pdfcreator={Renderflow via Pandoc and LaTeX}
+}
+\urlstyle{same}
+
+\endinput

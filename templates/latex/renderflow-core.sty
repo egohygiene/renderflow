@@ -1,0 +1,32 @@
+%% Renderflow shared LaTeX presentation layer.
+%% Profiles set semantic token commands before loading this file.
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesFile{renderflow-core.sty}[2026/09/11 v1.0 Renderflow components]
+
+%% Central design tokens. Profiles may define any token before this package is
+%% loaded, or use \renewcommand after loading where LaTeX permits it.
+\providecommand{\RenderflowColorInk}{1F2937}
+\providecommand{\RenderflowColorMuted}{5F6B7A}
+\providecommand{\RenderflowColorAccent}{334E9E}
+\providecommand{\RenderflowColorRule}{CBD5E1}
+\providecommand{\RenderflowColorSurface}{F3F6FA}
+\providecommand{\RenderflowMarginTop}{25mm}
+\providecommand{\RenderflowMarginBottom}{25mm}
+\providecommand{\RenderflowMarginInner}{30mm}
+\providecommand{\RenderflowMarginOuter}{30mm}
+\providecommand{\RenderflowParagraphSkip}{0.65em}
+\providecommand{\RenderflowHeadingBefore}{1.5ex}
+\providecommand{\RenderflowHeadingAfter}{0.8ex}
+\providecommand{\RenderflowRuleWeight}{0.4pt}
+\providecommand{\RenderflowCalloutRuleWeight}{2pt}
+
+\input{\RenderflowStyleRoot/renderflow-color.sty}
+\input{\RenderflowStyleRoot/renderflow-typography.sty}
+\input{\RenderflowStyleRoot/renderflow-layout.sty}
+\input{\RenderflowStyleRoot/renderflow-figures.sty}
+\input{\RenderflowStyleRoot/renderflow-tables.sty}
+\input{\RenderflowStyleRoot/renderflow-code.sty}
+\input{\RenderflowStyleRoot/renderflow-callouts.sty}
+\input{\RenderflowStyleRoot/renderflow-metadata.sty}
+
+\endinput

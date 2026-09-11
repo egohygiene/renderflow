@@ -1,0 +1,30 @@
+schema: renderflow/v2
+sources:
+  - id: component-showcase
+    role: manuscript
+    path: showcase.md
+    format: markdown
+targets:
+  exact:
+    - id: research-pdf
+      role: publication/research
+      format: pdf
+      template: research/research.tex
+variables:
+  renderflow-color-accent: "4058A6"
+  renderflow-margin-inner: "28mm"
+  renderflow-margin-outer: "28mm"
+execution:
+  requirements:
+    deterministic: true
+    local_only: true
+    offline: true
+  network: deny
+  ai: deny
+  validation:
+    required: true
+    failure_mode: fatal
+    allow_unavailable: false
+output:
+  bundle_root: output
+  naming_template: "{target.role}.{ext}"

@@ -1,0 +1,22 @@
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesFile{renderflow-code.sty}[2026/09/11 Renderflow code presentation]
+
+\RequirePackage{fancyvrb}
+\RequirePackage{listings}
+\RequirePackage{framed}
+\definecolor{shadecolor}{HTML}{\RenderflowColorSurface}
+\providecommand{\passthrough}[1]{#1}
+\newenvironment{RenderflowShaded}{\begin{snugshade}}{\end{snugshade}}
+\lstset{
+  basicstyle=\small\ttfamily,
+  backgroundcolor=\color{RenderflowSurface},
+  rulecolor=\color{RenderflowRule},
+  breaklines=true,
+  frame=single,
+  framerule=\RenderflowRuleWeight,
+  xleftmargin=0.5em,
+  xrightmargin=0.5em,
+  showstringspaces=false
+}
+
+\endinput
