@@ -220,6 +220,46 @@ tools:
     license_notes: "See the Tesseract upstream Apache-2.0 license and language-data licenses."
     distribution_notes: "Experimental OCR provider; language-pack identity and confidence evidence are required before graph integration."
 
+  - id: tool.kepubify
+    name: Kepubify
+    discovery:
+      kind: executable
+      candidates: [kepubify]
+      version_args: [--version]
+    version:
+      min_inclusive: "4.0.0"
+    operating_systems: [linux, macos, windows]
+    capabilities:
+      - ebook.convert.kepub
+    input_media_types: [application/epub+zip]
+    output_media_types: [application/epub+zip]
+    determinism: configuration_dependent
+    locality: local
+    fidelity: partial_loss
+    support_tier: optional
+    license_notes: "Kepubify is MIT-licensed; preserve the upstream license when redistributing it."
+    distribution_notes: "Optional EPUB-to-KEPUB provider; Renderflow invokes it with direct argv and explicit output paths."
+
+  - id: tool.epubcheck
+    name: EPUBCheck
+    discovery:
+      kind: executable
+      candidates: [epubcheck]
+      version_args: [--version]
+    version:
+      min_inclusive: "5.0.0"
+    operating_systems: [linux, macos, windows]
+    capabilities:
+      - ebook.validate.epub
+    input_media_types: [application/epub+zip]
+    output_media_types: [application/json]
+    determinism: deterministic
+    locality: local
+    fidelity: lossless
+    support_tier: optional
+    license_notes: "EPUBCheck is available under the BSD 3-Clause license."
+    distribution_notes: "Optional authoritative EPUB conformance provider; native structural inspection remains available without Java."
+
 
   - id: tool.upscayl-ncnn
     name: Upscayl NCNN

@@ -92,6 +92,13 @@ impl StrategyArtifactTransform {
         })?;
         Ok(path)
     }
+
+    fn requires_text_preparation(&self) -> bool {
+        matches!(
+            self.from,
+            Format::Markdown | Format::Html | Format::Rst | Format::Latex
+        )
+    }
 }
 
 impl ArtifactTransform for StrategyArtifactTransform {
@@ -120,12 +127,17 @@ impl ArtifactTransform for StrategyArtifactTransform {
         let work_dir = tempfile::tempdir_in(store.temporary_directory())
             .context("failed to create strategy adapter work directory")?;
         let document_input = document_input_format(self.from);
-        let input_path = if document_input.is_some() {
+        let input_path = if self.requires_text_preparation() {
             self.prepare_document_input(input, store, work_dir.path())?
         } else {
             store.payload_path(input)?
         };
-        let output_path = work_dir.path().join(format!("output.{}", self.to));
+        let output_name = if self.to == Format::Kepub {
+            "output.kepub.epub".to_string()
+        } else {
+            format!("output.{}", self.to)
+        };
+        let output_path = work_dir.path().join(output_name);
         let strategy = select_strategy(
             &self.output_type,
             self.template.as_deref(),
@@ -176,6 +188,7 @@ pub fn document_input_format(format: Format) -> Option<InputFormat> {
         Format::Docx => Some(InputFormat::Docx),
         Format::Html => Some(InputFormat::Html),
         Format::Epub => Some(InputFormat::Epub),
+        Format::Kepub => Some(InputFormat::Epub),
         Format::Rst => Some(InputFormat::Rst),
         Format::Latex => Some(InputFormat::Latex),
         _ => None,
@@ -187,6 +200,8 @@ pub fn output_type_for_format(format: Format) -> Option<OutputType> {
         Format::Html => Some(OutputType::Html),
         Format::Pdf => Some(OutputType::Pdf),
         Format::Docx => Some(OutputType::Docx),
+        Format::Epub => Some(OutputType::Epub),
+        Format::Kepub => Some(OutputType::Kepub),
         _ => {
             let value = format.to_string();
             if let Ok(audio) = value.parse::<crate::audio::AudioFormat>() {

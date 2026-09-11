@@ -21,6 +21,8 @@ pub enum Format {
     Pdf,
     Docx,
     Epub,
+    /// Kobo-enhanced EPUB derivative (`.kepub.epub`).
+    Kepub,
     Rst,
     Latex,
     /// Fountain screenplay plain-text format.
@@ -155,6 +157,7 @@ impl fmt::Display for Format {
             Format::Pdf => "pdf",
             Format::Docx => "docx",
             Format::Epub => "epub",
+            Format::Kepub => "kepub",
             Format::Rst => "rst",
             Format::Latex => "latex",
             Format::Fountain => "fountain",
@@ -241,6 +244,7 @@ impl FromStr for Format {
             "pdf" => Ok(Format::Pdf),
             "docx" => Ok(Format::Docx),
             "epub" => Ok(Format::Epub),
+            "kepub" | "kepub.epub" => Ok(Format::Kepub),
             "rst" => Ok(Format::Rst),
             "latex" | "tex" => Ok(Format::Latex),
             "fountain" => Ok(Format::Fountain),
@@ -306,7 +310,7 @@ impl FromStr for Format {
             "vtt" | "webvtt" => Ok(Format::WebVtt),
             _ => anyhow::bail!(
                 "'{}' is not a known format. \
-                 Documents: markdown, html, pdf, docx, epub, rst, latex, fountain. \
+                 Documents: markdown, html, pdf, docx, epub, kepub, rst, latex, fountain. \
                  Images: jpeg, png, tiff, webp, gif, bmp, avif, svg, cbz. \
                  Audio: wav, aiff, bwf, pcm, flac, m4a_alac, wv, ape, tta, dsf, dff, shn, \
                  mp3, m4a, aac, ogg, opus, wma, amr, mp2, ra, oma, \

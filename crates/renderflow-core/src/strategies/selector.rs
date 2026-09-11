@@ -3,7 +3,7 @@ use anyhow::Result;
 use crate::audio::AudioStrategy;
 use crate::config::{unsupported_type_message, OutputType};
 use crate::image::ImageStrategy;
-use crate::strategies::{DocxStrategy, HtmlStrategy, OutputStrategy, PdfStrategy};
+use crate::strategies::{DocxStrategy, EbookStrategy, HtmlStrategy, OutputStrategy, PdfStrategy};
 
 /// Select an output strategy based on the given output type.
 ///
@@ -32,6 +32,11 @@ pub fn select_strategy(
             template.map(str::to_owned),
             template_dir.to_owned(),
         ))),
+        OutputType::Epub => Ok(Box::new(EbookStrategy::epub(
+            template.map(str::to_owned),
+            template_dir.to_owned(),
+        ))),
+        OutputType::Kepub => Ok(Box::new(EbookStrategy::kepub())),
         OutputType::Audio(fmt) => Ok(Box::new(AudioStrategy::new(
             *fmt,
             profile.map(str::to_owned),

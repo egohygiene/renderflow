@@ -137,8 +137,8 @@ Each output item maps to the v1 `OutputConfig` compatibility model.
 
 | Key | Required | Notes |
 |---|---|---|
-| `type` | Yes | `html`, `pdf`, `docx`, supported audio formats, or supported image formats |
-| `template` | No | Template name looked up in `templates/` |
+| `type` | Yes | `html`, `pdf`, `docx`, `epub`, `kepub`, supported audio formats, or supported image formats |
+| `template` | No | Template/reference file looked up in `templates/`; for EPUB this is an OPF metadata fragment |
 | `profile` | No | Audio quality profile for audio outputs only |
 
 ## V1 validation rules
@@ -180,6 +180,8 @@ Document outputs are first-class:
 - `html`
 - `pdf`
 - `docx`
+- `epub`
+- `kepub`
 
 Audio and image outputs are broader. Representative examples include:
 

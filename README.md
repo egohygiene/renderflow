@@ -370,7 +370,7 @@ outputs:
 | `input_format` | ❌ No    | auto-detect  | Override the input format; auto-detected from file extension when omitted |
 | `output_dir`   | ❌ No    | `dist`       | Directory where output files are written |
 | `outputs`      | ✅ Yes   | —            | List of one or more output targets (must contain at least one entry) |
-| `outputs[].type` | ✅ Yes | —           | Output format: `html`, `pdf`, `docx`, or any supported audio/image format |
+| `outputs[].type` | ✅ Yes | —           | Output format: `html`, `pdf`, `docx`, `epub`, `kepub`, or any supported audio/image format |
 | `outputs[].template` | ❌ No | —        | Name of a Tera template in the `templates/` directory to use for this output |
 | `variables`    | ❌ No    | `{}`         | Map of string key/value pairs injected into the document via `{{key}}` placeholders |
 
@@ -398,6 +398,8 @@ When `input_format` is omitted, Renderflow auto-detects the format from the file
 | `html` | Renders to HTML               | Pandoc            |
 | `pdf`  | Renders to PDF via LaTeX      | Pandoc + Tectonic |
 | `docx` | Renders to Word document      | Pandoc            |
+| `epub` | Renders a reflowable EPUB 3   | Pandoc            |
+| `kepub` | Renders EPUB 3, then Kobo enhancements | Pandoc + Kepubify |
 
 Not every input → output combination is supported. For example, `epub` and `latex` inputs cannot currently be converted to `docx`. Renderflow reports a clear error when an unsupported combination is specified.
 

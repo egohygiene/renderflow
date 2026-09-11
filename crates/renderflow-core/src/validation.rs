@@ -120,6 +120,7 @@ impl ValidationRegistry {
         registry.register(Arc::new(PngValidator));
         registry.register(Arc::new(JpegValidator));
         registry.register(Arc::new(ZipValidator));
+        registry.register(Arc::new(EpubValidator));
         registry.register(Arc::new(RiffWaveValidator));
         registry.register(Arc::new(DeclaredSignatureValidator));
         registry
@@ -240,7 +241,8 @@ impl ValidationRegistry {
             Format::Pdf => Some("validator.core.pdf"),
             Format::Png => Some("validator.core.png"),
             Format::Jpeg => Some("validator.core.jpeg"),
-            Format::Zip | Format::Docx | Format::Epub | Format::Cbz => Some("validator.core.zip"),
+            Format::Epub | Format::Kepub => Some("validator.core.epub"),
+            Format::Zip | Format::Docx | Format::Cbz => Some("validator.core.zip"),
             Format::Wav | Format::Bwf => Some("validator.core.riff_wave"),
             Format::Markdown
             | Format::Rst
@@ -574,7 +576,7 @@ impl ArtifactValidator for ZipValidator {
     fn descriptor(&self) -> ValidatorDescriptor {
         descriptor(
             "validator.core.zip",
-            &[Format::Zip, Format::Docx, Format::Epub, Format::Cbz],
+            &[Format::Zip, Format::Docx, Format::Cbz],
             ValidatorSupportTier::Experimental,
         )
     }
@@ -595,6 +597,46 @@ impl ArtifactValidator for ZipValidator {
             "validation.zip_envelope_only",
             "ZIP envelope is intact; member-specific validation requires a format provider",
         ))
+    }
+}
+
+struct EpubValidator;
+
+impl ArtifactValidator for EpubValidator {
+    fn descriptor(&self) -> ValidatorDescriptor {
+        descriptor(
+            "validator.core.epub",
+            &[Format::Epub, Format::Kepub],
+            ValidatorSupportTier::Experimental,
+        )
+    }
+
+    fn validate(&self, artifact: &Artifact, store: &ArtifactStore) -> Result<ValidationCheck> {
+        store.verify(artifact)?;
+        let path = store.payload_path(artifact)?;
+        let inspection = crate::ebook::inspect_ebook(&path, false)?;
+        let diagnostics = inspection
+            .diagnostics
+            .into_iter()
+            .map(|diagnostic| ValidationDiagnostic {
+                code: diagnostic.code,
+                message: diagnostic.message,
+            })
+            .collect::<Vec<_>>();
+        if !inspection.valid {
+            return Ok(ValidationCheck {
+                state: ValidationState::Invalid,
+                diagnostics,
+            });
+        }
+        Ok(ValidationCheck {
+            state: if diagnostics.is_empty() {
+                ValidationState::Valid
+            } else {
+                ValidationState::ValidWithWarnings
+            },
+            diagnostics,
+        })
     }
 }
 
@@ -779,10 +821,9 @@ fn conformance_row(
             .map(|tool| tool.stable_id().to_string())
             .collect(),
         validator_ids,
-        fixture_ids: if descriptor.id == "png" {
-            vec!["fixture.corrupt.png.truncated".to_string()]
-        } else {
-            Vec::new()
+        fixture_ids: match descriptor.id {
+            "png" => vec!["fixture.corrupt.png.truncated".to_string()],
+            _ => Vec::new(),
         },
         supported_platforms: vec![
             "linux".to_string(),

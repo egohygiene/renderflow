@@ -1,4 +1,5 @@
 pub mod docx;
+pub mod ebook;
 pub mod html;
 pub mod pandoc_args;
 pub mod pdf;
@@ -7,6 +8,7 @@ pub mod strategy;
 
 #[allow(unused_imports)]
 pub use docx::DocxStrategy;
+pub use ebook::EbookStrategy;
 #[allow(unused_imports)]
 pub use html::HtmlStrategy;
 #[allow(unused_imports)]

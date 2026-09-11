@@ -39,6 +39,7 @@ These are the canonical node names used in transform YAML files and graph output
 | `pdf` |
 | `docx` |
 | `epub` |
+| `kepub` |
 | `rst` |
 | `latex` |
 | `fountain` |

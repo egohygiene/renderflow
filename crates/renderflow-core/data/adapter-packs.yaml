@@ -243,6 +243,46 @@ providers:
     upstream: https://github.com/tesseract-ocr/tesseract
     rationale: Experimental local OCR provider pending language-pack discovery and confidence-aware extraction evidence.
 
+  - id: adapter.ebooks.kepubify
+    runtime_tool: tool.kepubify
+    name: Kepubify Kobo EPUB adapter
+    families: [ebooks]
+    maturity: integrated
+    selection_priority: 10
+    capabilities: [ebook.convert.kepub]
+    input_media_types: [application/epub+zip]
+    output_media_types: [application/epub+zip]
+    determinism: configuration_dependent
+    locality: local
+    fidelity: partial_loss
+    execution: *bounded_local
+    configuration_schema:
+      output: declared_artifact_path
+    validation: [validator.core.epub, validator.epubcheck]
+    provenance: [provider_id, provider_version, argv_digest, input_digest, output_digest]
+    upstream: https://github.com/pgaskin/kepubify
+    rationale: Adopted as a fast, standalone, MIT-licensed EPUB-to-KEPUB provider behind an explicit graph edge.
+
+  - id: adapter.ebooks.epubcheck
+    runtime_tool: tool.epubcheck
+    name: EPUBCheck conformance adapter
+    families: [ebooks]
+    maturity: integrated
+    selection_priority: 10
+    capabilities: [ebook.validate.epub]
+    input_media_types: [application/epub+zip]
+    output_media_types: [application/json]
+    determinism: deterministic
+    locality: local
+    fidelity: lossless
+    execution: *bounded_local
+    configuration_schema:
+      report_format: json
+    validation: [validator.epubcheck]
+    provenance: [provider_id, provider_version, argv_digest, input_digest, report_digest]
+    upstream: https://github.com/w3c/epubcheck
+    rationale: Adopted as the official EPUB conformance checker; absence is reported rather than silently treated as a pass.
+
 evaluations:
   - candidate: Pandoc
     families: [documents, ebooks, office]
@@ -280,8 +320,17 @@ evaluations:
     families: [ebooks]
     decision: defer
     upstream: https://calibre-ebook.com/
-    rationale: "Coordinate with EPUB and KEPUB issue #344 so ebook semantics are not duplicated in this foundation."
-    follow_up: "#344"
+    rationale: Broader conversion fallback remains deferred until its larger runtime and output-variation surface has dedicated conformance evidence.
+  - candidate: Kepubify
+    families: [ebooks]
+    decision: adopt
+    upstream: https://github.com/pgaskin/kepubify
+    rationale: Focused, portable, MIT-licensed KEPUB conversion with a small local-only execution surface.
+  - candidate: EPUBCheck
+    families: [ebooks]
+    decision: adopt
+    upstream: https://github.com/w3c/epubcheck
+    rationale: Official EPUB 3.3 conformance evidence complements the native bounded structural inspector.
   - candidate: 7-Zip and libarchive
     families: [archives]
     decision: adapt

@@ -3,7 +3,8 @@ use clap::Parser;
 use tracing::info;
 
 use crate::cli::{
-    AiCommands, Cli, Commands, GraphCommands, PluginCommands, SpecCommands, ToolCommands,
+    AiCommands, Cli, Commands, EbookCommands, GraphCommands, PluginCommands, SpecCommands,
+    ToolCommands,
 };
 use crate::{commands, transforms};
 
@@ -189,6 +190,14 @@ pub fn run_cli(cli: Cli) -> Result<()> {
                 models_dir,
                 format,
             } => commands::tools::run_variants(&id, models_dir.as_deref(), &format)?,
+        },
+        Some(Commands::Ebook { subcommand }) => match subcommand {
+            EbookCommands::Inspect {
+                input,
+                format,
+                epubcheck,
+            } => commands::ebook::run_inspect(&input, &format, epubcheck)?,
+            EbookCommands::Capabilities { format } => commands::ebook::run_capabilities(&format)?,
         },
         Some(Commands::Capabilities {
             format,

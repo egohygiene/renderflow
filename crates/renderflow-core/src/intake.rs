@@ -1114,7 +1114,7 @@ fn resolve_child_format(name: &str, bytes: &[u8]) -> Option<Format> {
             .filter(|format| {
                 matches!(
                     format,
-                    Format::Zip | Format::Docx | Format::Epub | Format::Cbz
+                    Format::Zip | Format::Docx | Format::Epub | Format::Kepub | Format::Cbz
                 )
             })
             .or(Some(Format::Zip));
@@ -1123,8 +1123,10 @@ fn resolve_child_format(name: &str, bytes: &[u8]) -> Option<Format> {
 }
 
 fn is_zip_artifact(artifact: &Artifact, bytes: &[u8]) -> bool {
-    matches!(artifact.format().as_str(), "zip" | "epub" | "docx" | "cbz")
-        || bytes.starts_with(b"PK\x03\x04")
+    matches!(
+        artifact.format().as_str(),
+        "zip" | "epub" | "kepub" | "docx" | "cbz"
+    ) || bytes.starts_with(b"PK\x03\x04")
 }
 
 fn safe_archive_path(path: &Path) -> bool {
