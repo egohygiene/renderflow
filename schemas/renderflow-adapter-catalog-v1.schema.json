@@ -1,0 +1,143 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-adapter-catalog-v1.schema.json",
+  "title": "Renderflow adapter catalog v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "providers", "evaluations"],
+  "properties": {
+    "schema": { "const": "renderflow.adapter-catalog/v1" },
+    "providers": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/provider" }
+    },
+    "evaluations": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/evaluation" }
+    }
+  },
+  "$defs": {
+    "stableId": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9._-]+$"
+    },
+    "family": {
+      "enum": [
+        "documents",
+        "pdf",
+        "images",
+        "audio_video",
+        "ebooks",
+        "office",
+        "archives",
+        "data",
+        "ocr",
+        "subtitles"
+      ]
+    },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "service",
+        "direct_argv",
+        "bounded_output",
+        "timeout",
+        "cancellation",
+        "network"
+      ],
+      "properties": {
+        "service": { "const": "renderflow.process/v1" },
+        "direct_argv": { "const": true },
+        "bounded_output": { "const": true },
+        "timeout": { "const": true },
+        "cancellation": { "const": true },
+        "network": { "type": "boolean" },
+        "side_effects": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/stableId" },
+          "uniqueItems": true
+        }
+      }
+    },
+    "provider": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "runtime_tool",
+        "name",
+        "families",
+        "maturity",
+        "selection_priority",
+        "capabilities",
+        "determinism",
+        "locality",
+        "fidelity",
+        "execution",
+        "upstream",
+        "rationale"
+      ],
+      "properties": {
+        "id": { "type": "string", "pattern": "^adapter\\.[A-Za-z0-9._-]+$" },
+        "runtime_tool": { "type": "string", "pattern": "^tool\\.[A-Za-z0-9._-]+$" },
+        "name": { "type": "string", "minLength": 1 },
+        "families": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/family" },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "maturity": { "enum": ["integrated", "experimental"] },
+        "selection_priority": { "type": "integer", "minimum": 0, "maximum": 65535 },
+        "capabilities": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/stableId" },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "input_media_types": { "type": "array", "items": { "type": "string" } },
+        "output_media_types": { "type": "array", "items": { "type": "string" } },
+        "determinism": { "enum": ["deterministic", "configuration_dependent", "nondeterministic"] },
+        "locality": { "enum": ["local", "local_service", "network_optional", "network_required"] },
+        "fidelity": { "enum": ["lossless", "partial_loss", "lossy", "path_dependent"] },
+        "execution": { "$ref": "#/$defs/execution" },
+        "configuration_schema": {
+          "type": "object",
+          "additionalProperties": { "type": "string", "minLength": 1 }
+        },
+        "validation": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "provenance": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/stableId" },
+          "uniqueItems": true
+        },
+        "upstream": { "type": "string", "format": "uri" },
+        "rationale": { "type": "string", "minLength": 1 }
+      }
+    },
+    "evaluation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["candidate", "families", "decision", "upstream", "rationale"],
+      "properties": {
+        "candidate": { "type": "string", "minLength": 1 },
+        "families": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/family" },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "decision": { "enum": ["adopt", "adapt", "reject", "defer"] },
+        "upstream": { "type": "string", "format": "uri" },
+        "rationale": { "type": "string", "minLength": 1 },
+        "follow_up": { "type": ["string", "null"] }
+      }
+    }
+  }
+}

@@ -19,9 +19,12 @@ without editing this built-in catalog.
 | --- | --- | --- | --- | --- | --- |
 | `tool.ffmpeg` | FFmpeg | executable: `ffmpeg` | optional | configuration_dependent | local |
 | `tool.ghostscript` | Ghostscript | executable: `gs` | experimental | configuration_dependent | local |
+| `tool.imagemagick` | ImageMagick | executable: `magick` | experimental | configuration_dependent | local |
 | `tool.img2pdf` | img2pdf | executable: `img2pdf` | experimental | deterministic | local |
+| `tool.jq` | jq | executable: `jq` | experimental | deterministic | local |
 | `tool.pandoc` | Pandoc | executable: `pandoc` | required | configuration_dependent | local |
 | `tool.tectonic` | Tectonic | executable: `tectonic` | optional | configuration_dependent | network_optional |
+| `tool.tesseract` | Tesseract OCR | executable: `tesseract` | experimental | configuration_dependent | local |
 | `tool.upscayl-ncnn` | Upscayl NCNN | executable: `upscayl-ncnn`, `upscayl-bin` | experimental | configuration_dependent | local |
 | `tool.wkhtmltopdf` | wkhtmltopdf | executable: `wkhtmltopdf` | experimental | configuration_dependent | local |
 | `tool.zip` | Info-ZIP compatible zip | executable: `zip` | experimental | configuration_dependent | local |
@@ -36,11 +39,14 @@ without editing this built-in catalog.
 | `video.convert` | `tool.ffmpeg` |
 | `pdf.process` | `tool.ghostscript` |
 | `tiff.aggregate.press_pdf` | `tool.ghostscript` |
+| `image.convert` | `tool.imagemagick` |
 | `image.aggregate.pdf` | `tool.img2pdf` |
+| `data.json.transform` | `tool.jq` |
 | `document.convert` | `tool.pandoc` |
 | `document.generate` | `tool.pandoc` |
 | `latex.compile` | `tool.tectonic` |
 | `pdf.typeset` | `tool.tectonic` |
+| `ocr.extract.text` | `tool.tesseract` |
 | `image.super_resolution` | `tool.upscayl-ncnn` |
 | `html.render.pdf` | `tool.wkhtmltopdf` |
 | `archive.zip.create` | `tool.zip` |
