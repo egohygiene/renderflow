@@ -18,6 +18,7 @@ mod commands;
 mod compat;
 mod config;
 pub mod detect;
+pub mod ebook;
 pub mod error;
 pub mod evidence;
 pub mod graph;

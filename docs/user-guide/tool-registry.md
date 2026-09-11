@@ -17,11 +17,13 @@ without editing this built-in catalog.
 
 | Provider ID | Name | Discovery | Tier | Determinism | Locality |
 | --- | --- | --- | --- | --- | --- |
+| `tool.epubcheck` | EPUBCheck | executable: `epubcheck` | optional | deterministic | local |
 | `tool.ffmpeg` | FFmpeg | executable: `ffmpeg` | optional | configuration_dependent | local |
 | `tool.ghostscript` | Ghostscript | executable: `gs` | experimental | configuration_dependent | local |
 | `tool.imagemagick` | ImageMagick | executable: `magick` | experimental | configuration_dependent | local |
 | `tool.img2pdf` | img2pdf | executable: `img2pdf` | experimental | deterministic | local |
 | `tool.jq` | jq | executable: `jq` | experimental | deterministic | local |
+| `tool.kepubify` | Kepubify | executable: `kepubify` | optional | configuration_dependent | local |
 | `tool.pandoc` | Pandoc | executable: `pandoc` | required | configuration_dependent | local |
 | `tool.tectonic` | Tectonic | executable: `tectonic` | optional | configuration_dependent | network_optional |
 | `tool.tesseract` | Tesseract OCR | executable: `tesseract` | experimental | configuration_dependent | local |
@@ -33,6 +35,7 @@ without editing this built-in catalog.
 
 | Capability ID | Provider ID |
 | --- | --- |
+| `ebook.validate.epub` | `tool.epubcheck` |
 | `audio.convert` | `tool.ffmpeg` |
 | `image.convert` | `tool.ffmpeg` |
 | `media.convert` | `tool.ffmpeg` |
@@ -42,6 +45,7 @@ without editing this built-in catalog.
 | `image.convert` | `tool.imagemagick` |
 | `image.aggregate.pdf` | `tool.img2pdf` |
 | `data.json.transform` | `tool.jq` |
+| `ebook.convert.kepub` | `tool.kepubify` |
 | `document.convert` | `tool.pandoc` |
 | `document.generate` | `tool.pandoc` |
 | `latex.compile` | `tool.tectonic` |

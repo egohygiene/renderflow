@@ -70,6 +70,7 @@ nav:
       - Supported Formats: user-guide/supported-formats.md
       - Tool Registry: user-guide/tool-registry.md
       - Adapter Ecosystem: user-guide/adapter-ecosystem.md
+      - EPUB and KEPUB Derivatives: user-guide/ebook-derivatives.md
       - Super Resolution: user-guide/super-resolution.md
       - Upscayl Models: user-guide/upscayl-models.md
       - Pipelines: user-guide/pipelines.md

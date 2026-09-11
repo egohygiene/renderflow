@@ -19,6 +19,8 @@ pub enum OutputType {
     Html,
     Pdf,
     Docx,
+    Epub,
+    Kepub,
     /// Any audio format, handled by FFmpeg via [`crate::audio::AudioStrategy`].
     Audio(AudioFormat),
     /// Any image format, handled by FFmpeg via [`crate::image::ImageStrategy`].
@@ -40,6 +42,8 @@ impl<'de> Deserialize<'de> for OutputType {
             "html" => Ok(OutputType::Html),
             "pdf" => Ok(OutputType::Pdf),
             "docx" => Ok(OutputType::Docx),
+            "epub" => Ok(OutputType::Epub),
+            "kepub" | "kepub.epub" => Ok(OutputType::Kepub),
             other => {
                 // Try audio format first, then image format, then fall back to Unsupported.
                 if let Ok(audio_fmt) = other.parse::<AudioFormat>() {
@@ -60,6 +64,8 @@ impl fmt::Display for OutputType {
             OutputType::Html => write!(f, "html"),
             OutputType::Pdf => write!(f, "pdf"),
             OutputType::Docx => write!(f, "docx"),
+            OutputType::Epub => write!(f, "epub"),
+            OutputType::Kepub => write!(f, "kepub"),
             OutputType::Audio(fmt) => write!(f, "{}", fmt),
             OutputType::Image(fmt) => write!(f, "{}", fmt),
             OutputType::Unsupported(s) => write!(f, "{}", s),
@@ -74,7 +80,7 @@ impl fmt::Display for OutputType {
 pub fn unsupported_type_message(type_str: &str) -> String {
     format!(
         "'{}' is not a valid output type. \
-         Supported document types are: html, pdf, docx. \
+         Supported document types are: html, pdf, docx, epub, kepub. \
          Supported audio types are: wav, aif, aiff, bwf, pcm, flac, m4a, m4a_alac, \
          wv, ape, tta, mp3, aac, ogg, opus, wma, amr, mp2, ac3, ec3, dts, mid, midi. \
          Supported image types are: jpeg, jpg, png, webp, avif, gif, bmp, tiff, tif, \

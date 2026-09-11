@@ -1,6 +1,7 @@
 pub mod ai;
 pub mod audit;
 pub mod build;
+pub mod ebook;
 pub mod graph;
 pub mod inspect;
 pub mod plugin;

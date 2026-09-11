@@ -16,7 +16,7 @@ The graph engine lives in `src/graph/` and models conversions as a directed grap
 
 `Format` includes:
 
-- document formats: `markdown`, `html`, `pdf`, `docx`, `epub`, `rst`, `latex`, `fountain`
+- document formats: `markdown`, `html`, `pdf`, `docx`, `epub`, `kepub`, `rst`, `latex`, `fountain`
 - image formats such as `jpeg`, `png`, `tiff`, `cbz`
 - many audio formats such as `wav`, `flac`, `mp3`, `ogg`, `opus`, `ac3`, `dts`, `midi`
 

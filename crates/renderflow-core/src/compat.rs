@@ -8,9 +8,9 @@ use crate::input_format::InputFormat;
 /// tested and validated.
 ///
 /// ```text
-/// Markdown  → html, pdf, docx
-/// Rst       → html, pdf, docx
-/// Html      → html, pdf, docx
+/// Markdown  → html, pdf, docx, epub, kepub
+/// Rst       → html, pdf, docx, epub, kepub
+/// Html      → html, pdf, docx, epub, kepub
 /// Docx      → html, pdf
 /// Epub      → html, pdf          (epub → docx is not yet supported)
 /// Latex     → html, pdf          (latex → docx is not yet supported)
@@ -20,26 +20,40 @@ pub fn is_supported(input: &InputFormat, output: &OutputType) -> bool {
         // Markdown
         (InputFormat::Markdown, OutputType::Html)
         | (InputFormat::Markdown, OutputType::Pdf)
-        | (InputFormat::Markdown, OutputType::Docx) => true,
+        | (InputFormat::Markdown, OutputType::Docx)
+        | (InputFormat::Markdown, OutputType::Epub)
+        | (InputFormat::Markdown, OutputType::Kepub) => true,
 
         // reStructuredText
         (InputFormat::Rst, OutputType::Html)
         | (InputFormat::Rst, OutputType::Pdf)
-        | (InputFormat::Rst, OutputType::Docx) => true,
+        | (InputFormat::Rst, OutputType::Docx)
+        | (InputFormat::Rst, OutputType::Epub)
+        | (InputFormat::Rst, OutputType::Kepub) => true,
 
         // HTML (pass-through or convert)
         (InputFormat::Html, OutputType::Html)
         | (InputFormat::Html, OutputType::Pdf)
-        | (InputFormat::Html, OutputType::Docx) => true,
+        | (InputFormat::Html, OutputType::Docx)
+        | (InputFormat::Html, OutputType::Epub)
+        | (InputFormat::Html, OutputType::Kepub) => true,
 
         // Docx (reading a Word document)
-        (InputFormat::Docx, OutputType::Html) | (InputFormat::Docx, OutputType::Pdf) => true,
+        (InputFormat::Docx, OutputType::Html)
+        | (InputFormat::Docx, OutputType::Pdf)
+        | (InputFormat::Docx, OutputType::Epub)
+        | (InputFormat::Docx, OutputType::Kepub) => true,
 
         // Epub
-        (InputFormat::Epub, OutputType::Html) | (InputFormat::Epub, OutputType::Pdf) => true,
+        (InputFormat::Epub, OutputType::Html)
+        | (InputFormat::Epub, OutputType::Pdf)
+        | (InputFormat::Epub, OutputType::Kepub) => true,
 
         // LaTeX
-        (InputFormat::Latex, OutputType::Html) | (InputFormat::Latex, OutputType::Pdf) => true,
+        (InputFormat::Latex, OutputType::Html)
+        | (InputFormat::Latex, OutputType::Pdf)
+        | (InputFormat::Latex, OutputType::Epub)
+        | (InputFormat::Latex, OutputType::Kepub) => true,
 
         // Everything else — including Unsupported output types — is not supported.
         _ => false,
@@ -48,10 +62,16 @@ pub fn is_supported(input: &InputFormat, output: &OutputType) -> bool {
 
 /// Return the output types that are supported for a given input format.
 pub fn supported_outputs_for(input: &InputFormat) -> Vec<OutputType> {
-    [OutputType::Html, OutputType::Pdf, OutputType::Docx]
-        .into_iter()
-        .filter(|o| is_supported(input, o))
-        .collect()
+    [
+        OutputType::Html,
+        OutputType::Pdf,
+        OutputType::Docx,
+        OutputType::Epub,
+        OutputType::Kepub,
+    ]
+    .into_iter()
+    .filter(|o| is_supported(input, o))
+    .collect()
 }
 
 /// Build a user-facing error message for an unsupported input → output pair.

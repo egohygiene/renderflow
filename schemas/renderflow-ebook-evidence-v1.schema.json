@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://renderflow.dev/schemas/renderflow-ebook-evidence-v1.schema.json",
+  "title": "Renderflow e-book inspection evidence v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "source",
+    "source_sha256",
+    "variant",
+    "valid",
+    "layout",
+    "xhtml_documents",
+    "spine_items",
+    "navigation",
+    "page_list",
+    "metadata",
+    "accessibility",
+    "retailer_acceptance",
+    "diagnostics"
+  ],
+  "properties": {
+    "schema": { "const": "renderflow.ebook-evidence/v1" },
+    "source": { "type": "string" },
+    "source_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "variant": { "enum": ["epub", "kepub"] },
+    "valid": { "type": "boolean" },
+    "epub_version": { "type": ["string", "null"] },
+    "package_document": { "type": ["string", "null"] },
+    "layout": { "enum": ["reflowable", "pre_paginated", "mixed", "unknown"] },
+    "xhtml_documents": { "type": "integer", "minimum": 0 },
+    "spine_items": { "type": "integer", "minimum": 0 },
+    "navigation": { "type": "boolean" },
+    "page_list": { "type": "boolean" },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["title", "creator", "language", "identifier", "rights"],
+      "properties": {
+        "title": { "type": "boolean" },
+        "creator": { "type": "boolean" },
+        "language": { "type": "boolean" },
+        "identifier": { "type": "boolean" },
+        "rights": { "type": "boolean" }
+      }
+    },
+    "accessibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["access_modes", "accessibility_features", "accessibility_hazards", "accessibility_summary", "conforms_to"],
+      "properties": {
+        "access_modes": { "type": "integer", "minimum": 0 },
+        "accessibility_features": { "type": "integer", "minimum": 0 },
+        "accessibility_hazards": { "type": "integer", "minimum": 0 },
+        "accessibility_summary": { "type": "boolean" },
+        "conforms_to": { "type": "boolean" }
+      }
+    },
+    "retailer_acceptance": { "const": "requires_provider_profile" },
+    "diagnostics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["severity", "code", "message"],
+        "properties": {
+          "severity": { "enum": ["info", "warning", "error"] },
+          "code": { "type": "string" },
+          "message": { "type": "string" }
+        }
+      }
+    },
+    "epubcheck": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["provider_id", "available"],
+      "properties": {
+        "provider_id": { "const": "tool.epubcheck" },
+        "available": { "type": "boolean" },
+        "version": { "type": ["string", "null"] },
+        "passed": { "type": ["boolean", "null"] },
+        "duration_ms": { "type": ["integer", "null"], "minimum": 0 },
+        "report": {},
+        "diagnostic": { "type": ["string", "null"] }
+      }
+    }
+  }
+}

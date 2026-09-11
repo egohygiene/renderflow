@@ -163,6 +163,7 @@ impl MediaType {
                 "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             }
             Format::Epub => "application/epub+zip",
+            Format::Kepub => "application/epub+zip",
             Format::Rst => "text/x-rst",
             Format::Latex => "application/x-latex",
             Format::Fountain => "text/plain",

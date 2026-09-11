@@ -38,7 +38,7 @@ use crate::spec::{
 };
 use crate::super_resolution::{select_upscayl_variants, UpscaylModelCatalog};
 use crate::toolchain::{
-    transform_capability_id, ToolDeterminism, ToolId, ToolLocality, ToolRegistry,
+    transform_capability_id, CapabilityId, ToolDeterminism, ToolId, ToolLocality, ToolRegistry,
     ToolRuntimeContext, ToolchainSnapshot,
 };
 use crate::transforms::yaml_loader::build_graph_executor_and_tools_from_yaml;
@@ -1585,10 +1585,11 @@ fn register_builtin_strategy_edges(
         Format::Html,
         Format::Docx,
         Format::Epub,
+        Format::Kepub,
         Format::Rst,
         Format::Latex,
     ];
-    let document_outputs = [Format::Html, Format::Pdf, Format::Docx];
+    let document_outputs = [Format::Html, Format::Pdf, Format::Docx, Format::Epub];
     for from in document_inputs {
         for to in document_outputs {
             if from == to {
@@ -1609,6 +1610,16 @@ fn register_builtin_strategy_edges(
             graph.add_transform(edge);
         }
     }
+    let kepub_capability = CapabilityId::new("ebook.convert.kepub")?;
+    let kepubify = ToolId::new("tool.kepubify")?;
+    tools.add_capability(&kepubify, kepub_capability.clone())?;
+    graph.add_transform(
+        TransformEdge::new(Format::Epub, Format::Kepub, 0.25, 0.98)
+            .with_provider(kepubify.to_string(), kepub_capability.to_string())
+            .with_evidence("adapter", BUILTIN_ADAPTER_EVIDENCE)
+            .with_evidence("family", "ebooks")
+            .with_evidence("transform_id", "builtin.epub.kepub"),
+    );
 
     let image_formats = [
         Format::Jpeg,
@@ -2164,7 +2175,17 @@ fn register_builtin_strategy_executors(
         if edge.evidence.get("adapter").map(String::as_str) != Some(BUILTIN_ADAPTER_EVIDENCE) {
             continue;
         }
-        let target = targets.iter().find(|target| target.format == edge.to);
+        let target = targets
+            .iter()
+            .find(|target| target.format == edge.to)
+            .or_else(|| {
+                (edge.to == Format::Epub
+                    && dag.all_edges().iter().any(|candidate| {
+                        candidate.from == Format::Epub && candidate.to == Format::Kepub
+                    }))
+                .then(|| targets.iter().find(|target| target.format == Format::Kepub))
+                .flatten()
+            });
         let template = target.and_then(|target| target.template.clone());
         let profile = target.and_then(|target| target.preset.clone());
         let asset_root = if edge.from == source_format && document_input_format(edge.from).is_some()
@@ -2286,7 +2307,10 @@ fn render_output_paths(resolved: &ResolvedExecution) -> Result<Vec<PathBuf>> {
     let mut seen = HashMap::<PathBuf, usize>::new();
     for target in &resolved.targets {
         let relative = if resolved.source_version == SourceSpecVersion::V1 {
-            PathBuf::from(format!("{source_stem}.{}", target.format))
+            PathBuf::from(format!(
+                "{source_stem}.{}",
+                artifact_extension(target.format)
+            ))
         } else {
             let format_string = target.format.to_string();
             let target_role = target.role.as_deref().unwrap_or(format_string.as_str());
@@ -2302,7 +2326,7 @@ fn render_output_paths(resolved: &ResolvedExecution) -> Result<Vec<PathBuf>> {
             rendered = rendered.replace("{target.id}", target_id);
             rendered = rendered.replace("{target.role}", target_role);
             rendered = rendered.replace("{target.format}", &format_string);
-            rendered = rendered.replace("{ext}", &format_string);
+            rendered = rendered.replace("{ext}", &artifact_extension(target.format));
             let path = PathBuf::from(rendered);
             validate_relative_output_path(&path)?;
             path
@@ -2325,6 +2349,13 @@ fn render_output_paths(resolved: &ResolvedExecution) -> Result<Vec<PathBuf>> {
         paths.push(destination);
     }
     Ok(paths)
+}
+
+fn artifact_extension(format: Format) -> String {
+    match format {
+        Format::Kepub => "kepub.epub".to_string(),
+        _ => format.to_string(),
+    }
 }
 
 fn validate_relative_output_path(path: &Path) -> Result<()> {

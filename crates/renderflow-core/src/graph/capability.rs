@@ -167,6 +167,8 @@ pub enum ExternalTool {
     Tectonic,
     /// FFmpeg multimedia framework (audio, video, image conversion).
     Ffmpeg,
+    /// Kepubify EPUB-to-KEPUB converter.
+    Kepubify,
 }
 
 impl ExternalTool {
@@ -176,6 +178,7 @@ impl ExternalTool {
             Self::Pandoc => "pandoc",
             Self::Tectonic => "tectonic",
             Self::Ffmpeg => "ffmpeg",
+            Self::Kepubify => "kepubify",
         }
     }
 
@@ -190,6 +193,7 @@ impl ExternalTool {
             Self::Pandoc => "tool.pandoc",
             Self::Tectonic => "tool.tectonic",
             Self::Ffmpeg => "tool.ffmpeg",
+            Self::Kepubify => "tool.kepubify",
         }
     }
 }
@@ -414,11 +418,26 @@ impl FormatCapabilityRegistry {
                 extensions: &["epub"],
                 media_types: &["application/epub+zip"],
                 families: &[Document, Archive],
-                capabilities: vec![Detect, Inspect, Extract, Convert],
+                capabilities: vec![Detect, Inspect, Extract, Convert, Generate],
                 // EPUB is a ZIP file — matches ZIP magic bytes.
                 magic_signatures: vec![MagicSignature::at_start(b"PK\x03\x04")],
                 loss_profile: PartialLoss,
                 external_requirements: vec![Pandoc],
+            },
+        );
+
+        self.register(
+            Format::Kepub,
+            FormatDescriptor {
+                id: "kepub",
+                name: "Kobo Enhanced Electronic Publication",
+                extensions: &["kepub", "kepub.epub"],
+                media_types: &["application/epub+zip"],
+                families: &[Document, Archive],
+                capabilities: vec![Detect, Inspect, Extract, Convert, Generate],
+                magic_signatures: vec![MagicSignature::at_start(b"PK\x03\x04")],
+                loss_profile: PartialLoss,
+                external_requirements: vec![ExternalTool::Kepubify],
             },
         );
 

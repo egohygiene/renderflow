@@ -264,6 +264,13 @@ pub enum Commands {
         subcommand: ToolCommands,
     },
 
+    /// Inspect and validate EPUB/KEPUB publication derivatives.
+    #[command(subcommand_required = true, arg_required_else_help = true)]
+    Ebook {
+        #[command(subcommand)]
+        subcommand: EbookCommands,
+    },
+
     /// List stable provider capability IDs and their implementations.
     Capabilities {
         /// Output format: text (default), json, or yaml.
@@ -295,6 +302,26 @@ pub enum Commands {
         /// Exit with non-zero status when required dependencies are missing
         #[arg(long)]
         strict: bool,
+    },
+}
+
+/// Subcommands for provider-neutral e-book derivatives.
+#[derive(Subcommand)]
+pub enum EbookCommands {
+    /// Inspect EPUB 3 structure, metadata, navigation, layout, and accessibility evidence.
+    Inspect {
+        #[arg(long, value_name = "FILE")]
+        input: String,
+        #[arg(long, default_value = "text", value_name = "FORMAT")]
+        format: String,
+        /// Run the optional local EPUBCheck provider and include its report.
+        #[arg(long)]
+        epubcheck: bool,
+    },
+    /// Print the honest built-in EPUB/KEPUB capability contract.
+    Capabilities {
+        #[arg(long, default_value = "text", value_name = "FORMAT")]
+        format: String,
     },
 }
 
