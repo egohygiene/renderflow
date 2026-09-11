@@ -1205,6 +1205,7 @@ mod tests {
             variant: Some("variant.upscayl-ncnn.digital-art-4x".to_string()),
             preset: None,
             template: None,
+            ..TargetSpec::default()
         });
         let report = select_upscayl_variants(&spec, &UpscaylModelCatalog::builtins());
         assert_eq!(report.variants.len(), 1);

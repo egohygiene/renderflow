@@ -7,7 +7,16 @@ use crate::planning::{execute, resolve, PlanningRequest};
 /// Run the canonical Renderflow execution lifecycle using the target intent
 /// declared in the v1/v2 configuration.
 pub fn run(config_path: &str, dry_run: bool, optimization: Option<OptimizationMode>) -> Result<()> {
-    run_selection(config_path, dry_run, false, optimization, None, false)
+    run_selection(
+        config_path,
+        dry_run,
+        false,
+        optimization,
+        None,
+        None,
+        &[],
+        false,
+    )
 }
 
 /// Compatibility entrypoint for watch mode.
@@ -26,6 +35,8 @@ pub(crate) fn run_selection(
     resume: bool,
     optimization: Option<OptimizationMode>,
     target: Option<&str>,
+    profile: Option<&str>,
+    exclude: &[String],
     all_reachable: bool,
 ) -> Result<()> {
     if dry_run {
@@ -40,8 +51,13 @@ pub(crate) fn run_selection(
     }
     if let Some(target) = target {
         request = request.with_target(target);
+    } else if let Some(profile) = profile {
+        request = request.with_profile(profile);
     } else if all_reachable {
         request = request.with_all_reachable();
+    }
+    for selector in exclude {
+        request = request.with_exclude(selector)?;
     }
 
     let resolved = resolve(request)?.with_resume(resume);

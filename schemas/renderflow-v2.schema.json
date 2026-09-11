@@ -54,6 +54,38 @@
       },
       "type": "object"
     },
+    "contentRedaction": {
+      "additionalProperties": false,
+      "properties": {
+        "classes": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "determinism": {
+          "default": "deterministic",
+          "enum": [
+            "deterministic",
+            "probabilistic"
+          ]
+        },
+        "provider": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "reviewed": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "provider"
+      ],
+      "type": "object"
+    },
     "executionPolicy": {
       "additionalProperties": false,
       "properties": {
@@ -67,6 +99,16 @@
         },
         "budgets": {
           "$ref": "#/$defs/budgets"
+        },
+        "hygiene_policy": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/stableId"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "max_parallel": {
           "default": 1,
@@ -107,12 +149,6 @@
           "type": [
             "string",
             "null"
-          ]
-        },
-        "hygiene_policy": {
-          "anyOf": [
-            { "$ref": "#/$defs/stableId" },
-            { "type": "null" }
           ]
         },
         "reject_loss_classes": {
@@ -156,6 +192,69 @@
       },
       "type": "object"
     },
+    "hygienePolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "audience": {
+          "default": "candidate",
+          "enum": [
+            "candidate",
+            "private",
+            "public",
+            "commercial"
+          ]
+        },
+        "metadata": {
+          "$ref": "#/$defs/metadataHygiene"
+        },
+        "protected_references": {
+          "$ref": "#/$defs/protectedReferences"
+        },
+        "redaction": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/contentRedaction"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "rights": {
+          "$ref": "#/$defs/rightsHygiene"
+        },
+        "secrets": {
+          "$ref": "#/$defs/secretHygiene"
+        }
+      },
+      "type": "object"
+    },
+    "metadataHygiene": {
+      "additionalProperties": false,
+      "properties": {
+        "allow": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "allowlist_only": {
+          "default": false,
+          "type": "boolean"
+        },
+        "deny": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
     "outputLayout": {
       "additionalProperties": false,
       "properties": {
@@ -180,78 +279,13 @@
       },
       "type": "object"
     },
-    "hygienePolicy": {
-      "additionalProperties": false,
-      "properties": {
-        "audience": {
-          "default": "candidate",
-          "enum": ["candidate", "private", "public", "commercial"]
-        },
-        "metadata": { "$ref": "#/$defs/metadataHygiene" },
-        "secrets": { "$ref": "#/$defs/secretHygiene" },
-        "protected_references": { "$ref": "#/$defs/protectedReferences" },
-        "redaction": {
-          "anyOf": [
-            { "$ref": "#/$defs/contentRedaction" },
-            { "type": "null" }
-          ]
-        },
-        "rights": { "$ref": "#/$defs/rightsHygiene" }
-      },
-      "type": "object"
-    },
-    "metadataHygiene": {
-      "additionalProperties": false,
-      "properties": {
-        "allow": { "default": [], "items": { "minLength": 1, "type": "string" }, "type": "array" },
-        "deny": { "default": [], "items": { "minLength": 1, "type": "string" }, "type": "array" },
-        "allowlist_only": { "default": false, "type": "boolean" }
-      },
-      "type": "object"
-    },
-    "secretHygiene": {
-      "additionalProperties": false,
-      "properties": {
-        "enabled": { "default": true, "type": "boolean" },
-        "block": { "default": true, "type": "boolean" },
-        "markers": { "default": [], "items": { "minLength": 1, "type": "string" }, "type": "array" }
-      },
-      "type": "object"
-    },
-    "protectedReferences": {
-      "additionalProperties": false,
-      "properties": {
-        "terms": { "default": [], "items": { "minLength": 1, "type": "string" }, "type": "array" },
-        "block": { "default": true, "type": "boolean" },
-        "case_sensitive": { "default": false, "type": "boolean" }
-      },
-      "type": "object"
-    },
-    "contentRedaction": {
-      "additionalProperties": false,
-      "properties": {
-        "provider": { "minLength": 1, "type": "string" },
-        "determinism": { "default": "deterministic", "enum": ["deterministic", "probabilistic"] },
-        "classes": { "default": [], "items": { "minLength": 1, "type": "string" }, "type": "array" },
-        "reviewed": { "default": false, "type": "boolean" }
-      },
-      "required": ["provider"],
-      "type": "object"
-    },
-    "rightsHygiene": {
-      "additionalProperties": false,
-      "properties": {
-        "required": { "default": false, "type": "boolean" },
-        "license": { "type": ["string", "null"] },
-        "rights_holder": { "type": ["string", "null"] },
-        "approval_reference": { "type": ["string", "null"] },
-        "reviewed": { "default": false, "type": "boolean" }
-      },
-      "type": "object"
-    },
     "profile": {
       "additionalProperties": false,
       "properties": {
+        "all_reachable": {
+          "default": false,
+          "type": "boolean"
+        },
         "description": {
           "type": [
             "string",
@@ -261,19 +295,113 @@
         "exclude": {
           "$ref": "#/$defs/selectorSet"
         },
-        "include": {
-          "$ref": "#/$defs/selectorSet"
+        "extends": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/stableId"
+          },
+          "type": "array"
         },
         "hygiene_policy": {
           "anyOf": [
-            { "$ref": "#/$defs/stableId" },
-            { "type": "null" }
+            {
+              "$ref": "#/$defs/stableId"
+            },
+            {
+              "type": "null"
+            }
           ]
+        },
+        "include": {
+          "$ref": "#/$defs/selectorSet"
+        },
+        "intermediates": {
+          "enum": [
+            "cache_only",
+            "retain"
+          ]
+        },
+        "policy": {
+          "$ref": "#/$defs/profilePolicy"
+        },
+        "schema": {
+          "const": "renderflow.profile/v1",
+          "default": "renderflow.profile/v1"
         },
         "targets": {
           "default": [],
           "items": {
             "$ref": "#/$defs/target"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "profilePolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "ai": {
+          "enum": [
+            "deny",
+            "local_only",
+            "allow"
+          ]
+        },
+        "budgets": {
+          "$ref": "#/$defs/budgets"
+        },
+        "minimum_fidelity": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "network": {
+          "enum": [
+            "deny",
+            "allow"
+          ]
+        },
+        "publication_policy": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "redaction_policy": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "requirements": {
+          "$ref": "#/$defs/requirements"
+        },
+        "validation": {
+          "$ref": "#/$defs/validation"
+        }
+      },
+      "type": "object"
+    },
+    "protectedReferences": {
+      "additionalProperties": false,
+      "properties": {
+        "block": {
+          "default": true,
+          "type": "boolean"
+        },
+        "case_sensitive": {
+          "default": false,
+          "type": "boolean"
+        },
+        "terms": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
           },
           "type": "array"
         }
@@ -294,6 +422,60 @@
         "offline": {
           "default": false,
           "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "rightsHygiene": {
+      "additionalProperties": false,
+      "properties": {
+        "approval_reference": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "license": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "required": {
+          "default": false,
+          "type": "boolean"
+        },
+        "reviewed": {
+          "default": false,
+          "type": "boolean"
+        },
+        "rights_holder": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "secretHygiene": {
+      "additionalProperties": false,
+      "properties": {
+        "block": {
+          "default": true,
+          "type": "boolean"
+        },
+        "enabled": {
+          "default": true,
+          "type": "boolean"
+        },
+        "markers": {
+          "default": [],
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": "array"
         }
       },
       "type": "object"
@@ -326,6 +508,20 @@
           "default": [],
           "items": {
             "$ref": "#/$defs/stableId"
+          },
+          "type": "array"
+        },
+        "providers": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/stableId"
+          },
+          "type": "array"
+        },
+        "roles": {
+          "default": [],
+          "items": {
+            "type": "string"
           },
           "type": "array"
         },
@@ -468,10 +664,21 @@
             }
           ]
         },
+        "options": {
+          "default": {},
+          "type": "object"
+        },
         "preset": {
           "type": [
             "string",
             "null"
+          ]
+        },
+        "requirement": {
+          "default": "required",
+          "enum": [
+            "required",
+            "optional"
           ]
         },
         "role": {
@@ -580,7 +787,9 @@
       "$ref": "#/$defs/executionPolicy"
     },
     "hygiene": {
-      "additionalProperties": { "$ref": "#/$defs/hygienePolicy" },
+      "additionalProperties": {
+        "$ref": "#/$defs/hygienePolicy"
+      },
       "default": {},
       "type": "object"
     },

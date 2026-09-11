@@ -60,7 +60,7 @@ pub enum Commands {
             renderflow build --optimization speed   Build using speed optimization mode\n  \
             renderflow build --optimization pareto  Build with Pareto-optimal path selection\n  \
             renderflow build --target pdf           Build only the PDF output via graph resolution\n  \
-            renderflow build --all                  Build all reachable outputs via graph resolution")]
+            renderflow build --profile everything  Build the maximal available artifact forest")]
     Build {
         /// Path to the renderflow configuration file
         #[arg(long, default_value = "renderflow.yaml", value_name = "FILE")]
@@ -84,13 +84,21 @@ pub enum Commands {
         /// Build only the specified output format using the canonical capability graph.
         /// Built-in document/image/audio capabilities and optional configured transforms are
         /// resolved through the same planner. Cannot be combined with --all.
-        #[arg(long, value_name = "FORMAT", conflicts_with = "all")]
+        #[arg(long, value_name = "FORMAT", conflicts_with_all = ["all", "profile"])]
         target: Option<String>,
+
+        /// Build a named, versioned derivative profile. `everything` is bundled.
+        #[arg(long, value_name = "PROFILE", conflicts_with_all = ["target", "all"])]
+        profile: Option<String>,
+
+        /// Exclude a branch selector (for example `family:video` or `provider:tool.ffmpeg`).
+        #[arg(long, value_name = "SELECTOR")]
+        exclude: Vec<String>,
 
         /// Build all policy-allowed output formats reachable through the canonical capability graph.
         /// Built-in capabilities and optional configured transforms participate equally.
         /// Cannot be combined with --target.
-        #[arg(long, conflicts_with = "target")]
+        #[arg(long, conflicts_with_all = ["target", "profile"])]
         all: bool,
     },
 
@@ -437,7 +445,8 @@ pub enum GraphCommands {
             renderflow graph plan\n  \
             renderflow graph plan --format mermaid\n  \
             renderflow graph plan --format json --export plan.json\n  \
-            renderflow graph plan --target pdf")]
+            renderflow graph plan --target pdf\n  \
+            renderflow graph plan --profile everything")]
     Plan {
         /// Path to the renderflow configuration file
         #[arg(long, default_value = "renderflow.yaml", value_name = "FILE")]
@@ -449,8 +458,16 @@ pub enum GraphCommands {
         format: String,
 
         /// Limit the plan to this output format only.
-        #[arg(long, value_name = "FORMAT")]
+        #[arg(long, value_name = "FORMAT", conflicts_with = "profile")]
         target: Option<String>,
+
+        /// Resolve a named, versioned derivative profile. `everything` is bundled.
+        #[arg(long, value_name = "PROFILE", conflicts_with = "target")]
+        profile: Option<String>,
+
+        /// Exclude a branch selector such as `family:video`.
+        #[arg(long, value_name = "SELECTOR")]
+        exclude: Vec<String>,
 
         /// Write the output to a file instead of stdout.
         #[arg(long, short = 'o', value_name = "FILE")]

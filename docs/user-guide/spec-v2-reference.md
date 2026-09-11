@@ -54,13 +54,13 @@ Spec v2 describes source intent, derivative selection, execution policy, and det
 | --- | --- | --- | --- |
 | `ai` | `deny` / `local_only` / `allow` | no | `"deny"` |
 | `budgets` | `budgets` | no | — |
+| `hygiene_policy` | `object` | no | — |
 | `max_parallel` | `integer` | no | `1` |
 | `minimum_fidelity` | `number` / `null` | no | — |
 | `network` | `deny` / `allow` | no | `"deny"` |
 | `optimization` | `speed` / `quality` / `balanced` / `pareto` | no | `"balanced"` |
 | `publication_policy` | `string` / `null` | no | — |
 | `redaction_policy` | `string` / `null` | no | — |
-| `hygiene_policy` | `object` | no | — |
 | `reject_loss_classes` | `array` | no | `[]` |
 | `requirements` | `requirements` | no | — |
 | `retry_policy` | `string` / `null` | no | — |
