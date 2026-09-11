@@ -82,6 +82,7 @@ nav:
       - Optimization: user-guide/optimization.md
       - Caching: user-guide/caching.md
       - AI: user-guide/ai.md
+      - Artifact DNA: user-guide/artifact-dna.md
       - Plugins: user-guide/plugins.md
       - Benchmarking: user-guide/benchmarking.md
       - Troubleshooting: user-guide/troubleshooting.md
@@ -132,6 +133,7 @@ nav:
       - graph: cli-reference/graph.md
       - plugin: cli-reference/plugin.md
       - ai: cli-reference/ai.md
+      - dna: cli-reference/dna.md
       - tools & capabilities: cli-reference/tools.md
       - publication: cli-reference/publication.md
       - spec: cli-reference/spec.md

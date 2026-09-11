@@ -1,0 +1,92 @@
+{
+  "schema_version": "renderflow.artifact-dna/v1",
+  "source": {
+    "artifact_id": "artifact:sha256:sonic-fixture",
+    "digest": { "algorithm": "sha256", "value": "2222222222222222222222222222222222222222222222222222222222222222" },
+    "format": "wav",
+    "media_type": "audio/wav",
+    "size_bytes": 96044
+  },
+  "modalities": ["sonic"],
+  "observations": [
+    {
+      "id": "sonic.technical.channels",
+      "modality": "sonic",
+      "dimension": "sonic.technical.channel_count",
+      "value": 2,
+      "evidence": {
+        "origin": "provider_observed",
+        "provider_id": "fixture.local-audio-probe",
+        "provider_version": "1.0.0",
+        "determinism": "deterministic",
+        "confidence": 1.0,
+        "scope": { "stream": 0 }
+      },
+      "similarity_eligible": false
+    },
+    {
+      "id": "sonic.rhythm.tempo",
+      "modality": "sonic",
+      "dimension": "sonic.rhythm.tempo_bpm",
+      "value": 96.0,
+      "description": "Moderate pulse from synthetic analyzer evidence",
+      "evidence": {
+        "origin": "inferred",
+        "provider_id": "fixture.local-tempo-analyzer",
+        "provider_version": "1.0.0",
+        "determinism": "probabilistic",
+        "confidence": 0.82,
+        "scope": { "start_ms": 0, "end_ms": 10000 }
+      },
+      "similarity_eligible": true
+    }
+  ],
+  "omissions": [
+    {
+      "code": "dna.sonic.semantic.deferred",
+      "class": "specialized_analysis",
+      "message": "Semantic Sonic DNA remains the responsibility of the dedicated audio issue"
+    }
+  ],
+  "similarity_guidance": {
+    "purpose": "Demonstrate extensible Sonic DNA evidence without coupling the core contract to an analyzer",
+    "direct_imitation_allowed": false,
+    "legal_clearance_claimed": false,
+    "dimension_weights": { "sonic.rhythm.tempo_bpm": 1.0 },
+    "excluded_dimensions": ["identity.creator", "identity.brand", "identity.protected_work"]
+  },
+  "hygiene": {
+    "policy_id": "policy.artifact-dna.public-safe/v1",
+    "status": "passed",
+    "raw_payload_retained": false,
+    "identifying_metadata_retained": false
+  },
+  "provenance": {
+    "source_digest": { "algorithm": "sha256", "value": "2222222222222222222222222222222222222222222222222222222222222222" },
+    "extractors": [
+      {
+        "provider_id": "fixture.local-audio-probe",
+        "provider_version": "1.0.0",
+        "locality": "local",
+        "determinism": "deterministic",
+        "ai_assisted": false
+      },
+      {
+        "provider_id": "fixture.local-tempo-analyzer",
+        "provider_version": "1.0.0",
+        "locality": "local",
+        "determinism": "probabilistic",
+        "ai_assisted": false
+      }
+    ],
+    "policy_id": "policy.artifact-dna.public-safe/v1",
+    "policy_digest": { "algorithm": "sha256", "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+    "configuration_digest": { "algorithm": "sha256", "value": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" }
+  },
+  "approval": { "state": "candidate", "human_review_required": true },
+  "validation": {
+    "status": "valid_with_warnings",
+    "schema_valid": true,
+    "diagnostics": ["Probabilistic tempo evidence requires review"]
+  }
+}

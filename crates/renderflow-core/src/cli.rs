@@ -239,6 +239,20 @@ pub enum Commands {
         subcommand: AiCommands,
     },
 
+    /// Extract, validate, and compare versioned Artifact DNA
+    #[command(
+        subcommand_required = true,
+        arg_required_else_help = true,
+        after_help = "Examples:\n  \
+            renderflow dna extract --input cover.svg --output cover.dna.json\n  \
+            renderflow dna validate --input cover.dna.json\n  \
+            renderflow dna compare --left cover.dna.json --right divider.dna.json"
+    )]
+    Dna {
+        #[command(subcommand)]
+        subcommand: DnaCommands,
+    },
+
     /// Inspect, visualize, and export the transformation execution plan
     ///
     /// These commands expose the canonical execution plan that the planner
@@ -672,6 +686,71 @@ pub enum AiSkillCommands {
         path: Option<String>,
         /// Output format: text (default), json, or yaml
         #[arg(long, default_value = "text", value_name = "FORMAT")]
+        format: String,
+    },
+}
+
+/// Subcommands for optional, versioned Artifact DNA.
+#[derive(Subcommand)]
+pub enum DnaCommands {
+    /// Extract local deterministic DNA from an immutable source artifact
+    Extract {
+        /// Source artifact to inspect
+        #[arg(long, value_name = "FILE")]
+        input: String,
+        /// Optional output file; omit to print to standard output
+        #[arg(long, value_name = "FILE")]
+        output: Option<String>,
+        /// Content-addressed artifact-store root
+        #[arg(long, default_value = ".renderflow/dna-artifacts", value_name = "DIR")]
+        store: String,
+        /// Source-reported media type used as an intake signal
+        #[arg(long, value_name = "TYPE")]
+        media_type: Option<String>,
+        /// Serialization format: json (default) or yaml
+        #[arg(long, default_value = "json", value_name = "FORMAT")]
+        format: String,
+        /// Maximum source size permitted for extraction
+        #[arg(long, default_value_t = 67_108_864, value_name = "BYTES")]
+        max_source_bytes: u64,
+        /// Maximum number of observations permitted in the result
+        #[arg(long, default_value_t = 512, value_name = "COUNT")]
+        max_observations: usize,
+        /// Explicitly allow registered AI-assisted extractors
+        #[arg(long)]
+        allow_ai: bool,
+        /// Explicitly allow extractors that require network access
+        #[arg(long)]
+        allow_network: bool,
+        /// Explicitly allow registered remote extractors
+        #[arg(long, requires_all = ["allow_ai", "allow_network"])]
+        allow_remote: bool,
+        /// Protected artist, creator, brand, franchise, or work name to omit
+        #[arg(long, value_name = "TERM")]
+        protected_reference: Vec<String>,
+    },
+    /// Validate a versioned Artifact DNA JSON document
+    Validate {
+        /// Artifact DNA JSON document
+        #[arg(long, value_name = "FILE")]
+        input: String,
+        /// Output format: text (default), json, or yaml
+        #[arg(long, default_value = "text", value_name = "FORMAT")]
+        format: String,
+    },
+    /// Compare shared, similarity-eligible descriptive dimensions
+    Compare {
+        /// Left Artifact DNA JSON document
+        #[arg(long, value_name = "FILE")]
+        left: String,
+        /// Right Artifact DNA JSON document
+        #[arg(long, value_name = "FILE")]
+        right: String,
+        /// Optional report output; omit to print to standard output
+        #[arg(long, value_name = "FILE")]
+        output: Option<String>,
+        /// Serialization format: json (default) or yaml
+        #[arg(long, default_value = "json", value_name = "FORMAT")]
         format: String,
     },
 }

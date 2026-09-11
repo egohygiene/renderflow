@@ -48,6 +48,7 @@ At its core, Renderflow models every transformation as a **directed acyclic grap
 - 🎯 **Optimization modes** — Choose Speed, Quality, Balanced, or Pareto-optimal path selection
 - 🔄 **Transform pipeline** — Pluggable in-memory content transforms (built-in and custom)
 - 🤖 **AI transforms** — Ollama and OpenAI-compatible LLM integration with local caching
+- 🧬 **Artifact DNA** — Optional, local-first visual/layout characteristics with strict provenance, hygiene, and similarity guidance
 - 🖼️ **Image conversion** — FFmpeg-backed format conversion across 80+ image formats (JPEG, PNG, WebP, AVIF, HEIC, EXR, and more)
 - 🎵 **Audio conversion** — FFmpeg-backed format conversion across 40+ audio formats (WAV, FLAC, MP3, AAC, Opus, and more)
 - 🎬 **Whole-file video delivery** — Typed HandBrake presets with bounded execution, provenance, and explicit Aniflow temporal boundaries

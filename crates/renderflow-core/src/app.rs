@@ -3,8 +3,8 @@ use clap::Parser;
 use tracing::info;
 
 use crate::cli::{
-    AiCommands, AiSkillCommands, Cli, Commands, EbookCommands, GraphCommands, LuluCommands,
-    PluginCommands, PublicationCommands, SpecCommands, ToolCommands, VideoCommands,
+    AiCommands, AiSkillCommands, Cli, Commands, DnaCommands, EbookCommands, GraphCommands,
+    LuluCommands, PluginCommands, PublicationCommands, SpecCommands, ToolCommands, VideoCommands,
 };
 use crate::video::HandBrakeLimits;
 use crate::{commands, transforms};
@@ -136,6 +136,42 @@ pub fn run_cli(cli: Cli) -> Result<()> {
             AiCommands::Models => commands::ai::run_models()?,
             AiCommands::Doctor { ollama_endpoint } => commands::ai::run_doctor(&ollama_endpoint)?,
             AiCommands::Cache { path } => commands::ai::run_cache(&path)?,
+        },
+        Some(Commands::Dna { subcommand }) => match subcommand {
+            DnaCommands::Extract {
+                input,
+                output,
+                store,
+                media_type,
+                format,
+                max_source_bytes,
+                max_observations,
+                allow_ai,
+                allow_network,
+                allow_remote,
+                protected_reference,
+            } => commands::dna::run_extract(
+                &input,
+                output.as_deref(),
+                &store,
+                media_type.as_deref(),
+                &format,
+                max_source_bytes,
+                max_observations,
+                allow_ai,
+                allow_network,
+                allow_remote,
+                &protected_reference,
+            )?,
+            DnaCommands::Validate { input, format } => {
+                commands::dna::run_validate(&input, &format)?
+            }
+            DnaCommands::Compare {
+                left,
+                right,
+                output,
+                format,
+            } => commands::dna::run_compare(&left, &right, output.as_deref(), &format)?,
         },
         Some(Commands::Graph { subcommand }) => match subcommand {
             GraphCommands::Plan {

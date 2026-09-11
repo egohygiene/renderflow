@@ -11,6 +11,7 @@ This section documents command syntax, flags, and behavior.
 - [`graph`](graph.md)
 - [`plugin`](plugin.md)
 - [`ai`](ai.md)
+- [`dna`](dna.md)
 - [`publication`](publication.md)
 - [`video`](../handbrake-adapter.md)
 

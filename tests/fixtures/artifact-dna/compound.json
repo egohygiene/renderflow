@@ -1,0 +1,90 @@
+{
+  "schema_version": "renderflow.artifact-dna/v1",
+  "source": {
+    "artifact_id": "artifact:sha256:compound-fixture",
+    "digest": { "algorithm": "sha256", "value": "4444444444444444444444444444444444444444444444444444444444444444" },
+    "format": "zip",
+    "media_type": "application/zip",
+    "size_bytes": 4096
+  },
+  "modalities": ["compound", "visual", "textual", "layout", "cross_modal"],
+  "observations": [
+    {
+      "id": "compound.members",
+      "modality": "compound",
+      "dimension": "compound.structure.member_count",
+      "value": 3,
+      "evidence": {
+        "origin": "provider_observed",
+        "provider_id": "fixture.compound-manifest",
+        "provider_version": "1.0.0",
+        "determinism": "deterministic",
+        "confidence": 1.0
+      },
+      "similarity_eligible": false
+    },
+    {
+      "id": "cross-modal.energy",
+      "modality": "cross_modal",
+      "dimension": "cross_modal.energy.level",
+      "value": 0.65,
+      "description": "Measured synthetic energy anchor shared by layout and visual evidence",
+      "evidence": {
+        "origin": "inferred",
+        "provider_id": "fixture.local-cross-modal",
+        "provider_version": "1.0.0",
+        "determinism": "heuristic",
+        "confidence": 0.7,
+        "scope": { "member_artifact_ids": ["artifact:fixture:image", "artifact:fixture:text"] }
+      },
+      "similarity_eligible": true
+    }
+  ],
+  "provider_extensions": {
+    "fixture.compound": {
+      "relationship": "synthetic publication bundle",
+      "member_modalities": ["visual", "textual", "layout"]
+    }
+  },
+  "similarity_guidance": {
+    "purpose": "Compare reviewed cross-modal relationships without exposing member payloads",
+    "direct_imitation_allowed": false,
+    "legal_clearance_claimed": false,
+    "dimension_weights": { "cross_modal.energy.level": 1.0 },
+    "excluded_dimensions": ["identity.creator", "identity.brand", "identity.protected_work"]
+  },
+  "hygiene": {
+    "policy_id": "policy.artifact-dna.public-safe/v1",
+    "status": "passed",
+    "raw_payload_retained": false,
+    "identifying_metadata_retained": false
+  },
+  "provenance": {
+    "source_digest": { "algorithm": "sha256", "value": "4444444444444444444444444444444444444444444444444444444444444444" },
+    "extractors": [
+      {
+        "provider_id": "fixture.compound-manifest",
+        "provider_version": "1.0.0",
+        "locality": "local",
+        "determinism": "deterministic",
+        "ai_assisted": false
+      },
+      {
+        "provider_id": "fixture.local-cross-modal",
+        "provider_version": "1.0.0",
+        "locality": "local",
+        "determinism": "heuristic",
+        "ai_assisted": false
+      }
+    ],
+    "policy_id": "policy.artifact-dna.public-safe/v1",
+    "policy_digest": { "algorithm": "sha256", "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+    "configuration_digest": { "algorithm": "sha256", "value": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" }
+  },
+  "approval": { "state": "candidate", "human_review_required": true },
+  "validation": {
+    "status": "valid_with_warnings",
+    "schema_valid": true,
+    "diagnostics": ["Cross-modal heuristic requires review"]
+  }
+}
