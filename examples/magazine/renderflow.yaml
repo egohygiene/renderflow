@@ -1,0 +1,93 @@
+schema: renderflow/v2
+sources:
+  - id: issue-zero
+    role: editorial-source
+    path: issue.md
+    format: markdown
+publication:
+  schema: renderflow.publication/v1
+  publication: The Small Systems Review
+  series: Demonstration Editions
+  issue_id: small-systems-000
+  issue_number: "0"
+  title: The Small Systems Review
+  subtitle: Synthetic Issue Zero
+  contributors:
+    - name: Renderflow Contributors
+      role: editorial
+  publication_date: "2026-09-11"
+  status: approved
+  language: en-US
+  artwork:
+    - role: cover
+      path: assets/cover.svg
+      alt_text: Indigo and cream geometric cover for The Small Systems Review, Synthetic Issue Zero.
+      approval_reference: synthetic-fixture-approval
+  geometry:
+    width: 210
+    height: 297
+    unit: mm
+    margin: 15
+    bleed: 3
+    safe_area: 5
+  color_policy: print-cmyk-with-screen-srgb-derivatives
+  font_policy: embed-or-block-release
+  asset_policy: approved-local-assets-only
+  rights:
+    license: CC0-1.0
+    rights_holder: Renderflow Contributors
+    approval_reference: synthetic-fixture-approval
+    reviewed: true
+  accessibility:
+    summary: Structured text with declared language and alternative text requirements.
+    access_modes: [textual, visual]
+    hazards: [none]
+  output_roles:
+    print/press:
+      format: pdf
+      stage: release
+      geometry: { width: 210, height: 297, unit: mm, bleed: 3, safe_area: 5 }
+      color_policy: cmyk
+      minimum_image_dpi: 300
+      require_embedded_fonts: true
+      validators: [validator.core.pdf]
+    print/proof:
+      format: pdf
+      stage: candidate
+      geometry: { width: 210, height: 297, unit: mm }
+      color_policy: srgb
+      minimum_image_dpi: 144
+      validators: [validator.core.pdf]
+    digital/screen:
+      format: pdf
+      stage: release
+      color_policy: srgb
+      validators: [validator.core.pdf]
+hygiene:
+  magazine-release:
+    audience: public
+    metadata:
+      allow: [dc.title, dc.creator, dc.language, dc.rights]
+      deny: [exif, xmp, iptc, geolocation, filesystem.*]
+    secrets:
+      enabled: true
+      block: true
+    protected_references:
+      terms: [Example Protected Franchise]
+      block: true
+    rights:
+      required: true
+      license: CC0-1.0
+      rights_holder: Renderflow Contributors
+      approval_reference: synthetic-fixture-approval
+      reviewed: true
+targets:
+  exact:
+    - id: default.web
+      role: digital/web/index
+      format: html
+execution:
+  hygiene_policy: magazine-release
+output:
+  bundle_root: release
+  naming_template: "{target.role}.{ext}"

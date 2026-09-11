@@ -30,6 +30,7 @@ pub mod optimization;
 mod pipeline;
 pub mod planning;
 pub mod process;
+pub mod publication;
 mod sdk;
 pub mod spec;
 pub mod strategies;

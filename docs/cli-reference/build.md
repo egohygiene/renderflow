@@ -5,7 +5,7 @@ Build documents from a Renderflow config.
 ## Syntax
 
 ```bash
-renderflow build [--config FILE] [--dry-run] [--resume] [--optimization MODE] [--target FORMAT | --all]
+renderflow build [--config FILE] [--dry-run] [--resume] [--optimization MODE] [--target FORMAT | --profile PROFILE | --all]
 ```
 
 ## Flags
@@ -17,6 +17,7 @@ renderflow build [--config FILE] [--dry-run] [--resume] [--optimization MODE] [-
 | `--resume` | reuse only compatible, validated node checkpoints |
 | `--optimization MODE` | override config optimization mode |
 | `--target FORMAT` | graph-build one reachable target; requires `transforms` |
+| `--profile PROFILE` | build a named versioned profile; `everything` and `magazine` are bundled |
 | `--all` | graph-build all reachable targets; requires `transforms` |
 
 ## Standard build behavior
@@ -53,5 +54,6 @@ renderflow build --dry-run
 renderflow build --resume
 renderflow build --optimization quality
 renderflow build --target pdf
+renderflow build --config examples/magazine/renderflow.yaml --profile magazine --dry-run
 renderflow build --all --optimization speed
 ```

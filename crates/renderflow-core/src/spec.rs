@@ -8,6 +8,7 @@ use serde_json::{json, Value};
 
 use crate::config::Config;
 use crate::optimization::OptimizationMode;
+use crate::publication::PublicationContract;
 
 pub const SPEC_V2_ID: &str = "renderflow/v2";
 pub const SPEC_V2_SCHEMA_PATH: &str = "schemas/renderflow-v2.schema.json";
@@ -561,6 +562,8 @@ pub struct SpecV2 {
     pub profiles: BTreeMap<String, DerivativeProfile>,
     #[serde(default)]
     pub hygiene: BTreeMap<String, HygienePolicy>,
+    #[serde(default)]
+    pub publication: Option<PublicationContract>,
     pub targets: TargetSelection,
     #[serde(default)]
     pub execution: ExecutionPolicy,
@@ -772,6 +775,20 @@ impl SpecV2 {
                     "selected profiles use different hygiene policies; choose one with execution.hygiene_policy",
                 ));
             }
+        }
+
+        if let Some(publication) = &self.publication {
+            let hygiene = self
+                .execution
+                .hygiene_policy
+                .as_deref()
+                .and_then(|policy| self.hygiene.get(policy));
+            diagnostics.extend(
+                publication
+                    .diagnostics(hygiene)
+                    .into_iter()
+                    .map(|item| SpecDiagnostic::new(item.path, item.code, item.message)),
+            );
         }
 
         for (profile_name, profile) in &self.profiles {
@@ -1284,6 +1301,7 @@ pub(crate) fn migrate_v1_config(config: &Config) -> SpecV2 {
         }],
         profiles: BTreeMap::new(),
         hygiene: BTreeMap::new(),
+        publication: None,
         targets: TargetSelection {
             exact,
             profiles: Vec::new(),
@@ -1327,6 +1345,12 @@ pub fn json_schema() -> Value {
                 "additionalProperties": {"$ref": "#/$defs/hygienePolicy"},
                 "default": {}
             },
+            "publication": {
+                "anyOf": [
+                    {"$ref": "#/$defs/publicationContract"},
+                    {"type": "null"}
+                ]
+            },
             "targets": {"$ref": "#/$defs/targetSelection"},
             "execution": {"$ref": "#/$defs/executionPolicy"},
             "output": {"$ref": "#/$defs/outputLayout"},
@@ -1339,6 +1363,95 @@ pub fn json_schema() -> Value {
         },
         "$defs": {
             "stableId": {"type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9._-]+$"},
+            "publicationContributor": {
+                "type": "object", "additionalProperties": false,
+                "required": ["name", "role"],
+                "properties": {
+                    "name": {"type": "string", "minLength": 1},
+                    "role": {"type": "string", "minLength": 1},
+                    "identifier": {"type": ["string", "null"]}
+                }
+            },
+            "publicationAsset": {
+                "type": "object", "additionalProperties": false,
+                "required": ["role", "path"],
+                "properties": {
+                    "role": {"type": "string", "minLength": 1},
+                    "path": {"type": "string", "minLength": 1},
+                    "alt_text": {"type": ["string", "null"]},
+                    "approval_reference": {"type": ["string", "null"]}
+                }
+            },
+            "pageGeometry": {
+                "type": "object", "additionalProperties": false,
+                "required": ["width", "height"],
+                "properties": {
+                    "width": {"type": "number", "exclusiveMinimum": 0},
+                    "height": {"type": "number", "exclusiveMinimum": 0},
+                    "unit": {"type": "string", "default": "mm"},
+                    "margin": {"type": ["number", "null"], "minimum": 0},
+                    "bleed": {"type": ["number", "null"], "minimum": 0},
+                    "safe_area": {"type": ["number", "null"], "minimum": 0}
+                }
+            },
+            "publicationRights": {
+                "type": "object", "additionalProperties": false,
+                "properties": {
+                    "license": {"type": ["string", "null"]},
+                    "rights_holder": {"type": ["string", "null"]},
+                    "approval_reference": {"type": ["string", "null"]},
+                    "reviewed": {"type": "boolean", "default": false}
+                }
+            },
+            "accessibilityMetadata": {
+                "type": "object", "additionalProperties": false,
+                "properties": {
+                    "summary": {"type": ["string", "null"]},
+                    "access_modes": {"type": "array", "items": {"type": "string"}, "default": []},
+                    "hazards": {"type": "array", "items": {"type": "string"}, "default": []}
+                }
+            },
+            "publicationRoleConstraints": {
+                "type": "object", "additionalProperties": false,
+                "required": ["format"],
+                "properties": {
+                    "format": {"type": "string", "minLength": 1},
+                    "stage": {"type": "string", "default": ""},
+                    "geometry": {"anyOf": [{"$ref": "#/$defs/pageGeometry"}, {"type": "null"}]},
+                    "color_policy": {"type": ["string", "null"]},
+                    "minimum_image_dpi": {"type": ["integer", "null"], "minimum": 1},
+                    "require_embedded_fonts": {"type": "boolean", "default": false},
+                    "validators": {"type": "array", "items": {"type": "string"}, "default": []}
+                }
+            },
+            "publicationContract": {
+                "type": "object", "additionalProperties": false,
+                "required": ["publication", "issue_id", "title", "publication_date", "language", "geometry"],
+                "properties": {
+                    "schema": {"const": "renderflow.publication/v1", "default": "renderflow.publication/v1"},
+                    "publication": {"type": "string", "minLength": 1},
+                    "series": {"type": ["string", "null"]},
+                    "issue_id": {"type": "string", "minLength": 1},
+                    "issue_number": {"type": ["string", "null"]},
+                    "title": {"type": "string", "minLength": 1},
+                    "subtitle": {"type": ["string", "null"]},
+                    "contributors": {"type": "array", "items": {"$ref": "#/$defs/publicationContributor"}, "default": []},
+                    "publication_date": {"type": "string", "minLength": 1},
+                    "status": {"enum": ["draft", "reviewed", "approved", "released"], "default": "draft"},
+                    "language": {"type": "string", "minLength": 1},
+                    "artwork": {"type": "array", "items": {"$ref": "#/$defs/publicationAsset"}, "default": []},
+                    "geometry": {"$ref": "#/$defs/pageGeometry"},
+                    "color_policy": {"type": ["string", "null"]},
+                    "font_policy": {"type": ["string", "null"]},
+                    "asset_policy": {"type": ["string", "null"]},
+                    "rights": {"$ref": "#/$defs/publicationRights"},
+                    "accessibility": {"$ref": "#/$defs/accessibilityMetadata"},
+                    "canonical_url": {"type": ["string", "null"]},
+                    "identifiers": {"type": "object", "additionalProperties": {"type": "string"}, "default": {}},
+                    "output_roles": {"type": "object", "additionalProperties": {"$ref": "#/$defs/publicationRoleConstraints"}, "default": {}},
+                    "extensions": {"type": "object", "default": {}}
+                }
+            },
             "source": {
                 "type": "object",
                 "additionalProperties": false,
