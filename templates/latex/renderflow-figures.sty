@@ -1,0 +1,20 @@
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesFile{renderflow-figures.sty}[2026/09/11 Renderflow figures]
+
+\RequirePackage{graphicx}
+\RequirePackage{caption}
+\makeatletter
+\def\maxwidth{\ifdim\Gin@nat@width>\linewidth\linewidth\else\Gin@nat@width\fi}
+\def\maxheight{\ifdim\Gin@nat@height>\textheight\textheight\else\Gin@nat@height\fi}
+\def\fps@figure{htbp}
+\makeatother
+\setkeys{Gin}{width=\maxwidth,height=\maxheight,keepaspectratio}
+\captionsetup{
+  font=small,
+  labelfont=bf,
+  textfont={color=RenderflowMuted},
+  labelsep=period,
+  skip=0.5em
+}
+
+\endinput

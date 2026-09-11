@@ -1,0 +1,65 @@
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesFile{renderflow-typography.sty}[2026/09/11 Renderflow typography roles]
+
+\RequirePackage{iftex}
+\providecommand{\RenderflowMainFont}{Latin Modern Roman}
+\providecommand{\RenderflowSansFont}{Latin Modern Sans}
+\providecommand{\RenderflowMonoFont}{Latin Modern Mono}
+\providecommand{\RenderflowFontRoot}{.}
+\providecommand{\RenderflowMainFontFile}{}
+\providecommand{\RenderflowSansFontFile}{}
+\providecommand{\RenderflowMonoFontFile}{}
+\RequirePackage{etoolbox}
+
+\ifPDFTeX
+  \RequirePackage[T1]{fontenc}
+  \RequirePackage[utf8]{inputenc}
+  \RequirePackage{textcomp}
+  \RequirePackage{lmodern}
+\else
+  \RequirePackage{fontspec}
+  \defaultfontfeatures{Ligatures=TeX,Scale=MatchLowercase}
+  \ifdefempty{\RenderflowMainFontFile}{
+    \setmainfont{\RenderflowMainFont}
+  }{
+    \IfFileExists{\RenderflowFontRoot/\RenderflowMainFontFile}{
+      \setmainfont[Path=\RenderflowFontRoot/]{\RenderflowMainFontFile}
+    }{
+      \PackageWarning{renderflow-typography}{Local main font missing; using deterministic fallback}
+      \setmainfont{\RenderflowMainFont}
+    }
+  }
+  \ifdefempty{\RenderflowSansFontFile}{
+    \setsansfont{\RenderflowSansFont}
+  }{
+    \IfFileExists{\RenderflowFontRoot/\RenderflowSansFontFile}{
+      \setsansfont[Path=\RenderflowFontRoot/]{\RenderflowSansFontFile}
+    }{
+      \PackageWarning{renderflow-typography}{Local sans font missing; using deterministic fallback}
+      \setsansfont{\RenderflowSansFont}
+    }
+  }
+  \ifdefempty{\RenderflowMonoFontFile}{
+    \setmonofont{\RenderflowMonoFont}
+  }{
+    \IfFileExists{\RenderflowFontRoot/\RenderflowMonoFontFile}{
+      \setmonofont[Path=\RenderflowFontRoot/]{\RenderflowMonoFontFile}
+    }{
+      \PackageWarning{renderflow-typography}{Local mono font missing; using deterministic fallback}
+      \setmonofont{\RenderflowMonoFont}
+    }
+  }
+\fi
+
+\IfFileExists{microtype.sty}{\RequirePackage{microtype}}{}
+\IfFileExists{upquote.sty}{\RequirePackage{upquote}}{}
+\RequirePackage{titlesec}
+\titleformat{\section}{\Large\bfseries\color{RenderflowInk}}{\thesection}{0.8em}{}[\color{RenderflowRule}\titlerule]
+\titleformat{\subsection}{\large\bfseries\color{RenderflowInk}}{\thesubsection}{0.8em}{}
+\titleformat{\subsubsection}{\normalsize\bfseries\color{RenderflowInk}}{\thesubsubsection}{0.8em}{}
+\titlespacing*{\section}{0pt}{\RenderflowHeadingBefore}{\RenderflowHeadingAfter}
+\titlespacing*{\subsection}{0pt}{\RenderflowHeadingBefore}{\RenderflowHeadingAfter}
+\titlespacing*{\subsubsection}{0pt}{\RenderflowHeadingBefore}{\RenderflowHeadingAfter}
+\AtBeginEnvironment{quote}{\color{RenderflowMuted}\itshape}
+
+\endinput

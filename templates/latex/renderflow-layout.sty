@@ -1,0 +1,30 @@
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesFile{renderflow-layout.sty}[2026/09/11 Renderflow page layout]
+
+\RequirePackage[
+  top=\RenderflowMarginTop,
+  bottom=\RenderflowMarginBottom,
+  inner=\RenderflowMarginInner,
+  outer=\RenderflowMarginOuter
+]{geometry}
+\RequirePackage{parskip}
+\RequirePackage{enumitem}
+\RequirePackage{fancyhdr}
+
+\setlength{\parskip}{\RenderflowParagraphSkip}
+\setlength{\parindent}{0pt}
+\setlength{\emergencystretch}{3em}
+\setlist{noitemsep,topsep=0.5em}
+\setlength{\headheight}{14pt}
+
+\providecommand{\RenderflowRunningTitle}{}
+\providecommand{\RenderflowRunningAuthor}{}
+\fancyhf{}
+\fancyhead[L]{\small\itshape\color{RenderflowMuted}\RenderflowRunningTitle}
+\fancyhead[R]{\small\itshape\color{RenderflowMuted}\RenderflowRunningAuthor}
+\fancyfoot[C]{\small\color{RenderflowMuted}\thepage}
+\renewcommand{\headrulewidth}{\RenderflowRuleWeight}
+\renewcommand{\footrulewidth}{0pt}
+\pagestyle{fancy}
+
+\endinput

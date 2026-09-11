@@ -1,122 +1,171 @@
-%% research.tex — Pandoc-compatible LaTeX template for research papers
-%%
-%% Usage:
-%%   pandoc input.md --template templates/research/research.tex -o output.pdf
-%%
-%% Required metadata (YAML front matter):
-%%   title: "My Paper"
-%%   author: "Alan"
-%%   date: "2026"
-%%
-%% Optional metadata:
-%%   abstract: "A short summary of the paper."
-%%   toc: true
-
+%% research.tex — Pandoc composition for the shared Renderflow LaTeX library.
+%% Document semantics stay here; presentation primitives live in templates/latex.
 \documentclass[$if(fontsize)$$fontsize$$else$11pt$endif$,$if(papersize)$$papersize$$else$a4paper$endif$]{article}
 
-%% ── Core packages ────────────────────────────────────────────────────────────
-\usepackage[T1]{fontenc}
-\usepackage[utf8]{inputenc}
-\usepackage{lmodern}          % scalable vector fonts
-\usepackage{microtype}        % improved character spacing
-\usepackage{parskip}          % paragraph spacing instead of indentation
+%% Renderflow injects these roots from the active template directory. The
+%% defaults also support direct pandoc use from the repository root.
+$if(renderflow-style-root)$
+\edef\RenderflowStyleRoot{\detokenize{$renderflow-style-root$}}
+$else$
+\def\RenderflowStyleRoot{templates/latex}
+$endif$
+$if(renderflow-font-root)$
+\edef\RenderflowFontRoot{\detokenize{$renderflow-font-root$}}
+$endif$
 
-%% ── Page geometry ────────────────────────────────────────────────────────────
-\usepackage[
-  $if(geometry)$$geometry$$else$
-  top=2.5cm, bottom=2.5cm,
-  left=3cm,  right=3cm
-  $endif$
-]{geometry}
+%% Profile-level design token overrides. These remain semantic values rather
+%% than package implementation details.
+$if(renderflow-color-accent)$
+\def\RenderflowColorAccent{$renderflow-color-accent$}
+$endif$
+$if(renderflow-color-ink)$
+\def\RenderflowColorInk{$renderflow-color-ink$}
+$endif$
+$if(renderflow-color-muted)$
+\def\RenderflowColorMuted{$renderflow-color-muted$}
+$endif$
+$if(renderflow-color-rule)$
+\def\RenderflowColorRule{$renderflow-color-rule$}
+$endif$
+$if(renderflow-color-surface)$
+\def\RenderflowColorSurface{$renderflow-color-surface$}
+$endif$
+$if(renderflow-margin-top)$
+\def\RenderflowMarginTop{$renderflow-margin-top$}
+$endif$
+$if(renderflow-margin-bottom)$
+\def\RenderflowMarginBottom{$renderflow-margin-bottom$}
+$endif$
+$if(renderflow-margin-inner)$
+\def\RenderflowMarginInner{$renderflow-margin-inner$}
+$endif$
+$if(renderflow-margin-outer)$
+\def\RenderflowMarginOuter{$renderflow-margin-outer$}
+$endif$
+$if(renderflow-paragraph-skip)$
+\def\RenderflowParagraphSkip{$renderflow-paragraph-skip$}
+$endif$
 
-%% ── Graphics & colour ────────────────────────────────────────────────────────
-\usepackage{graphicx}
-\usepackage{xcolor}
+%% Semantic font roles use deterministic Latin Modern defaults. A profile may
+%% select another bundled family or local-first file without changing styles.
+$if(mainfont)$
+\def\RenderflowMainFont{$mainfont$}
+$endif$
+$if(sansfont)$
+\def\RenderflowSansFont{$sansfont$}
+$endif$
+$if(monofont)$
+\def\RenderflowMonoFont{$monofont$}
+$endif$
+$if(renderflow-main-font-file)$
+\edef\RenderflowMainFontFile{\detokenize{$renderflow-main-font-file$}}
+$endif$
+$if(renderflow-sans-font-file)$
+\edef\RenderflowSansFontFile{\detokenize{$renderflow-sans-font-file$}}
+$endif$
+$if(renderflow-mono-font-file)$
+\edef\RenderflowMonoFontFile{\detokenize{$renderflow-mono-font-file$}}
+$endif$
 
-%% ── Hyperlinks ───────────────────────────────────────────────────────────────
-\usepackage[
-  colorlinks=true,
-  linkcolor=black,
-  citecolor=black,
-  urlcolor=blue
-]{hyperref}
+\input{\RenderflowStyleRoot/renderflow-core.sty}
+\RequirePackage{amsmath,amssymb}
 
-%% ── Section styling ──────────────────────────────────────────────────────────
-\usepackage{titlesec}
-\titleformat{\section}{\large\bfseries}{\thesection}{1em}{}[\titlerule]
-\titleformat{\subsection}{\normalsize\bfseries}{\thesubsection}{1em}{}
-\titleformat{\subsubsection}{\normalsize\itshape}{\thesubsubsection}{1em}{}
+$if(highlighting-macros)$
+$highlighting-macros$
+\renewenvironment{Shaded}{\begin{RenderflowShaded}}{\end{RenderflowShaded}}
+$endif$
 
-%% ── Headers and footers ──────────────────────────────────────────────────────
-\usepackage{fancyhdr}
-\pagestyle{fancy}
-\fancyhf{}
-\fancyhead[L]{\small\itshape $if(title)$$title$$endif$}
-\fancyhead[R]{\small\itshape $if(author)$$author$$endif$}
-\fancyfoot[C]{\small\thepage}
-\renewcommand{\headrulewidth}{0.4pt}
-
-%% ── Lists ────────────────────────────────────────────────────────────────────
-\usepackage{enumitem}
-\setlist{noitemsep, topsep=4pt}
-
-%% ── Tables ───────────────────────────────────────────────────────────────────
-\usepackage{booktabs}
-\usepackage{longtable}
-
-%% ── Code blocks ──────────────────────────────────────────────────────────────
-\usepackage{fancyvrb}
-\usepackage{listings}
-\lstset{
-  basicstyle=\small\ttfamily,
-  breaklines=true,
-  frame=single,
-  framerule=0.4pt,
-  xleftmargin=0.5em,
-  xrightmargin=0.5em
-}
-
-%% ── Mathematics ──────────────────────────────────────────────────────────────
-\usepackage{amsmath}
-\usepackage{amssymb}
-
-%% ── User-supplied header includes ────────────────────────────────────────────
 $for(header-includes)$
 $header-includes$
 $endfor$
 
-%% ── Pandoc-generated definitions (tight lists, etc.) ─────────────────────────
-\providecommand{\tightlist}{%
-  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
-
-%% ─────────────────────────────────────────────────────────────────────────────
-\begin{document}
-
-%% ── Title block ──────────────────────────────────────────────────────────────
 $if(title)$
-\begin{center}
-  {\LARGE\bfseries $title$}\\[0.8em]
-  $if(author)${\large $author$}\\[0.4em]$endif$
-  $if(date)${\normalsize $date$}$endif$
-\end{center}
-\vspace{1em}
+\renewcommand{\RenderflowDocumentTitle}{$title$}
+\renewcommand{\RenderflowRunningTitle}{$title$}
+$endif$
+$if(subtitle)$
+\renewcommand{\RenderflowDocumentSubtitle}{$subtitle$}
+$endif$
+$if(author)$
+\renewcommand{\RenderflowDocumentAuthors}{$for(author)$$author$$sep$; $endfor$}
+\renewcommand{\RenderflowRunningAuthor}{$for(author)$$author$$sep$; $endfor$}
+$endif$
+$if(date)$
+\renewcommand{\RenderflowDocumentDate}{$date$}
 $endif$
 
-%% ── Abstract ─────────────────────────────────────────────────────────────────
+\hypersetup{
+$if(title-meta)$
+  pdftitle={$title-meta$},
+$endif$
+$if(author-meta)$
+  pdfauthor={$author-meta$},
+$endif$
+$if(subject)$
+  pdfsubject={$subject$},
+$endif$
+$if(keywords)$
+  pdfkeywords={$for(keywords)$$keywords$$sep$, $endfor$},
+$endif$
+  pdfcreator={Renderflow via Pandoc and Tectonic}
+}
+
+$if(numbersections)$
+\setcounter{secnumdepth}{$if(secnumdepth)$$secnumdepth$$else$5$endif$}
+$else$
+\setcounter{secnumdepth}{-\maxdimen}
+$endif$
+
+$if(natbib)$
+\RequirePackage[$natbiboptions$]{natbib}
+\bibliographystyle{$if(biblio-style)$$biblio-style$$else$plainnat$endif$}
+$endif$
+$if(biblatex)$
+\RequirePackage[$if(biblio-style)$style=$biblio-style$,$endif$$for(biblatexoptions)$$biblatexoptions$$sep$,$endfor$]{biblatex}
+$for(bibliography)$
+\addbibresource{$bibliography$}
+$endfor$
+$endif$
+
+\begin{document}
+
+$if(title)$
+\RenderflowMakeTitle
+$endif$
+
 $if(abstract)$
 \begin{abstract}
-  \noindent $abstract$
+$abstract$
 \end{abstract}
 \vspace{1em}
 $endif$
 
-%% ── Table of contents ────────────────────────────────────────────────────────
+$for(include-before)$
+$include-before$
+$endfor$
+
 $if(toc)$
+$if(toc-title)$
+\renewcommand*\contentsname{$toc-title$}
+$endif$
+\setcounter{tocdepth}{$if(toc-depth)$$toc-depth$$else$3$endif$}
 \tableofcontents
 \newpage
 $endif$
 
-%% ── Document body ────────────────────────────────────────────────────────────
 $body$
+
+$if(natbib)$
+$if(bibliography)$
+\bibliography{$for(bibliography)$$bibliography$$sep$,$endfor$}
+$endif$
+$endif$
+$if(biblatex)$
+\printbibliography$if(biblio-title)$[title=$biblio-title$]$endif$
+$endif$
+
+$for(include-after)$
+$include-after$
+$endfor$
 
 \end{document}

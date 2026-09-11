@@ -72,6 +72,7 @@ nav:
       - Adapter Ecosystem: user-guide/adapter-ecosystem.md
       - EPUB and KEPUB Derivatives: user-guide/ebook-derivatives.md
       - Magazine Publications: user-guide/magazine-publications.md
+      - LaTeX Components: user-guide/latex-components.md
       - Lulu Publication Pack: user-guide/lulu-publication-pack.md
       - Whole-file Video: handbrake-adapter.md
       - Super Resolution: user-guide/super-resolution.md

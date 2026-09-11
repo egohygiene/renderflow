@@ -1,0 +1,43 @@
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesFile{renderflow-metadata.sty}[2026/09/11 Renderflow metadata primitives]
+
+\providecommand{\RenderflowDocumentTitle}{}
+\providecommand{\RenderflowDocumentSubtitle}{}
+\providecommand{\RenderflowDocumentAuthors}{}
+\providecommand{\RenderflowDocumentDate}{}
+\newcommand{\RenderflowMakeTitle}{%
+  \begin{center}
+    {\LARGE\bfseries\color{RenderflowInk}\RenderflowDocumentTitle\par}
+    \ifx\RenderflowDocumentSubtitle\empty\else
+      \vspace{0.45em}{\large\color{RenderflowMuted}\RenderflowDocumentSubtitle\par}
+    \fi
+    \ifx\RenderflowDocumentAuthors\empty\else
+      \vspace{0.8em}{\large\RenderflowDocumentAuthors\par}
+    \fi
+    \ifx\RenderflowDocumentDate\empty\else
+      \vspace{0.35em}{\normalsize\color{RenderflowMuted}\RenderflowDocumentDate\par}
+    \fi
+  \end{center}
+  \vspace{1em}
+}
+
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+
+\newlength{\cslhangindent}
+\setlength{\cslhangindent}{1.5em}
+\newlength{\csllabelwidth}
+\setlength{\csllabelwidth}{3em}
+\newlength{\cslentryspacingunit}
+\setlength{\cslentryspacingunit}{\parskip}
+\newenvironment{CSLReferences}[2]{%
+  \setlength{\parindent}{0pt}%
+  \setlength{\parskip}{#2\cslentryspacingunit}%
+  \ifodd #1\let\oldpar\par\def\par{\hangindent=\cslhangindent\oldpar}\fi
+}{}
+\newcommand{\CSLBlock}[1]{#1\hfill\break}
+\newcommand{\CSLLeftMargin}[1]{\parbox[t]{\csllabelwidth}{#1}}
+\newcommand{\CSLRightInline}[1]{\parbox[t]{\linewidth-\csllabelwidth}{#1}\break}
+\newcommand{\CSLIndent}[1]{\hspace{\cslhangindent}#1}
+
+\endinput
