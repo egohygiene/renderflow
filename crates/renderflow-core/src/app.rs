@@ -3,8 +3,8 @@ use clap::Parser;
 use tracing::info;
 
 use crate::cli::{
-    AiCommands, Cli, Commands, EbookCommands, GraphCommands, PluginCommands, SpecCommands,
-    ToolCommands,
+    AiCommands, Cli, Commands, EbookCommands, GraphCommands, LuluCommands, PluginCommands,
+    PublicationCommands, SpecCommands, ToolCommands,
 };
 use crate::{commands, transforms};
 
@@ -198,6 +198,24 @@ pub fn run_cli(cli: Cli) -> Result<()> {
                 epubcheck,
             } => commands::ebook::run_inspect(&input, &format, epubcheck)?,
             EbookCommands::Capabilities { format } => commands::ebook::run_capabilities(&format)?,
+        },
+        Some(Commands::Publication { subcommand }) => match subcommand {
+            PublicationCommands::Lulu { subcommand } => match subcommand {
+                LuluCommands::Rules { format, output } => {
+                    commands::publication::run_lulu_rules(&format, output.as_deref())?
+                }
+                LuluCommands::Preflight {
+                    request,
+                    format,
+                    output,
+                    epubcheck,
+                } => commands::publication::run_lulu_preflight(
+                    &request,
+                    &format,
+                    output.as_deref(),
+                    epubcheck,
+                )?,
+            },
         },
         Some(Commands::Capabilities {
             format,

@@ -1,0 +1,72 @@
+schema: renderflow.lulu-rules/v1
+id: lulu-2026-09-11
+observed_on: "2026-09-11"
+sources:
+  - url: https://help.lulu.com/en/support/solutions/articles/64000255462-mandatory-print-book-distribution-requirements
+    observed_modified: "2026-08-21"
+  - url: https://help.lulu.com/en/support/solutions/articles/64000255486-how-to-create-a-print-book
+    observed_modified: "2026-06-12"
+  - url: https://help.lulu.com/en/support/solutions/articles/64000255463-mandatory-ebook-distribution-requirements
+    observed_modified: "2026-08-07"
+  - url: https://help.lulu.com/en/support/solutions/articles/64000255592-publishing-an-ebook-for-global-distribution
+    observed_modified: "2026-08-07"
+  - url: https://help.lulu.com/en/support/solutions/articles/64000308545-learn-more-about-accessible-ebooks
+    observed_modified: "2025-05-30"
+  - url: https://help.lulu.com/en/support/solutions/articles/64000267552-global-distribution-print-exclusions
+    observed_modified: "2026-08-21"
+print:
+  recommended_max_bytes: 524288000
+  amazon_minimum_color_pages: 72
+  spine_text_minimum_pages: 100
+  maximum_consecutive_blank_pages: 2
+  barcode:
+    width_mm: 50.8
+    height_mm: 30.5
+    edge_clearance_mm: 6.0
+    black_on_white: true
+  required_distribution_attestations:
+    - interior_page_count_verified
+    - interior_geometry_verified
+    - fonts_embedded
+    - layers_flattened
+    - vectors_rasterized_where_required
+    - no_trim_or_bleed_marks
+    - page_order_reviewed
+    - blank_pages_reviewed
+    - images_high_resolution
+    - color_matches_metadata
+    - metadata_matches_files
+    - title_page_before_copyright_page
+    - barcode_identity_verified
+    - barcode_geometry_verified
+    - barcode_safe_placement_verified
+  amazon_excluded_formats: [comic_book]
+  ingram_excluded_formats: [small_square]
+  amazon_excluded_bindings: [linen_wrap, casewrap]
+  amazon_excluded_papers: [eighty_white, eighty_coated]
+  global_distribution_review_minimum_weeks: 12
+ebook:
+  epubcheck_major: 5
+  epub_version: "3.3"
+  recommended_max_bytes: 52428800
+  rejection_risk_bytes: 524288000
+  global_distribution_languages: [en, en-US, en-GB]
+  cover_width_px: 612
+  cover_height_px: 792
+  cover_minimum_ppi: 72
+  cover_maximum_ppi: 300
+  apple_max_image_pixels: 5600000
+  required_distribution_attestations:
+    - xhtml_content
+    - complete_ordered_navigation
+    - text_not_truncated
+    - images_rgb
+    - no_interactive_content
+    - no_fillable_content
+    - metadata_matches_files
+    - copyright_page_present
+    - retailer_cover_is_flat
+    - retailer_cover_dimensions_verified
+    - retailer_cover_resolution_verified
+    - apple_image_limit_verified
+    - accessibility_metadata_reviewed

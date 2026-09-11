@@ -33,7 +33,8 @@
         "archives",
         "data",
         "ocr",
-        "subtitles"
+        "subtitles",
+        "publication"
       ]
     },
     "execution": {
