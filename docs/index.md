@@ -53,6 +53,7 @@ When a config includes `transforms: path/to/transforms.yaml`, Renderflow can bui
 ### AI and plugins
 
 - **AI transforms** support `ollama` and `openai` backends, prompt templates, cache files, artifact output, and API key resolution via environment variables.
+- **Artifact DNA** emits optional, versioned, hygiene-gated visual/layout and cross-modal characteristics as normal provenance-linked artifacts.
 - **Plugins** are runtime extensions that implement the `PluginExecutor` trait and register metadata/capabilities in a `PluginRegistry`.
 
 ### Whole-file video delivery

@@ -1,0 +1,237 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-artifact-dna-v1.schema.json",
+  "title": "Renderflow Artifact DNA v1",
+  "description": "Provider-neutral, evidence-backed descriptive characteristics derived from an immutable artifact.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "source",
+    "modalities",
+    "observations",
+    "similarity_guidance",
+    "hygiene",
+    "provenance",
+    "approval",
+    "validation"
+  ],
+  "properties": {
+    "schema_version": { "const": "renderflow.artifact-dna/v1" },
+    "source": { "$ref": "#/$defs/source" },
+    "modalities": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/modality" }
+    },
+    "observations": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/observation" }
+    },
+    "provider_extensions": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[A-Za-z0-9_-]+(?:\\.[A-Za-z0-9_-]+)+$" },
+      "additionalProperties": true
+    },
+    "omissions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/omission" }
+    },
+    "similarity_guidance": { "$ref": "#/$defs/similarity_guidance" },
+    "hygiene": { "$ref": "#/$defs/hygiene" },
+    "provenance": { "$ref": "#/$defs/provenance" },
+    "approval": { "$ref": "#/$defs/approval" },
+    "validation": { "$ref": "#/$defs/validation" }
+  },
+  "$defs": {
+    "modality": {
+      "enum": ["visual", "sonic", "textual", "layout", "cross_modal", "compound"]
+    },
+    "digest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "value"],
+      "properties": {
+        "algorithm": { "const": "sha256" },
+        "value": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_id", "digest", "format", "media_type", "size_bytes"],
+      "properties": {
+        "artifact_id": { "type": "string", "minLength": 1 },
+        "digest": { "$ref": "#/$defs/digest" },
+        "format": { "type": "string", "minLength": 1 },
+        "media_type": { "type": "string", "minLength": 1 },
+        "size_bytes": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "modality", "dimension", "value", "evidence", "similarity_eligible"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "modality": { "$ref": "#/$defs/modality" },
+        "dimension": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]+(?:\\.[A-Za-z0-9_-]+)+$"
+        },
+        "value": true,
+        "description": { "type": "string" },
+        "evidence": { "$ref": "#/$defs/observation_evidence" },
+        "similarity_eligible": { "type": "boolean" }
+      }
+    },
+    "observation_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["origin", "provider_id", "provider_version", "determinism", "confidence"],
+      "properties": {
+        "origin": {
+          "enum": ["source_reported", "provider_observed", "inferred", "human_provided"]
+        },
+        "provider_id": { "type": "string", "minLength": 1 },
+        "provider_version": { "type": "string", "minLength": 1 },
+        "determinism": { "enum": ["deterministic", "heuristic", "probabilistic"] },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "scope": { "type": "object", "additionalProperties": true }
+      }
+    },
+    "omission": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "class", "message"],
+      "properties": {
+        "code": { "type": "string", "minLength": 1 },
+        "class": { "type": "string", "minLength": 1 },
+        "message": { "type": "string", "minLength": 1 }
+      }
+    },
+    "similarity_guidance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "purpose",
+        "direct_imitation_allowed",
+        "legal_clearance_claimed",
+        "dimension_weights",
+        "excluded_dimensions"
+      ],
+      "properties": {
+        "purpose": { "type": "string", "minLength": 1 },
+        "direct_imitation_allowed": { "const": false },
+        "legal_clearance_claimed": { "const": false },
+        "dimension_weights": {
+          "type": "object",
+          "propertyNames": { "pattern": "^[A-Za-z0-9_-]+(?:\\.[A-Za-z0-9_-]+)+$" },
+          "additionalProperties": { "type": "number", "minimum": 0 }
+        },
+        "excluded_dimensions": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true
+        }
+      }
+    },
+    "hygiene_finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "class", "action", "message"],
+      "properties": {
+        "code": { "type": "string", "minLength": 1 },
+        "class": { "type": "string", "minLength": 1 },
+        "action": { "enum": ["omit", "rewrite", "block"] },
+        "message": { "type": "string", "minLength": 1 }
+      }
+    },
+    "hygiene": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "policy_id",
+        "status",
+        "raw_payload_retained",
+        "identifying_metadata_retained"
+      ],
+      "properties": {
+        "policy_id": { "type": "string", "minLength": 1 },
+        "status": { "enum": ["passed", "sanitized", "blocked"] },
+        "raw_payload_retained": { "const": false },
+        "identifying_metadata_retained": { "const": false },
+        "findings": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/hygiene_finding" }
+        }
+      }
+    },
+    "extractor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider_id",
+        "provider_version",
+        "locality",
+        "determinism",
+        "ai_assisted"
+      ],
+      "properties": {
+        "provider_id": { "type": "string", "minLength": 1 },
+        "provider_version": { "type": "string", "minLength": 1 },
+        "locality": { "enum": ["local", "remote"] },
+        "determinism": { "enum": ["deterministic", "heuristic", "probabilistic"] },
+        "ai_assisted": { "type": "boolean" }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_digest",
+        "extractors",
+        "policy_id",
+        "policy_digest",
+        "configuration_digest"
+      ],
+      "properties": {
+        "source_digest": { "$ref": "#/$defs/digest" },
+        "extractors": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/extractor" }
+        },
+        "policy_id": { "type": "string", "minLength": 1 },
+        "policy_digest": { "$ref": "#/$defs/digest" },
+        "configuration_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "approval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "human_review_required"],
+      "properties": {
+        "state": { "enum": ["candidate", "approved"] },
+        "human_review_required": { "type": "boolean" },
+        "approval_reference": { "type": "string", "minLength": 1 }
+      },
+      "if": { "properties": { "state": { "const": "approved" } } },
+      "then": { "required": ["approval_reference"] }
+    },
+    "validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "schema_valid"],
+      "properties": {
+        "status": { "enum": ["valid", "valid_with_warnings", "blocked"] },
+        "schema_valid": { "type": "boolean" },
+        "diagnostics": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    }
+  }
+}

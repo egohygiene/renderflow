@@ -18,6 +18,7 @@ mod commands;
 mod compat;
 mod config;
 pub mod detect;
+pub mod dna;
 pub mod ebook;
 pub mod error;
 pub mod evidence;
@@ -40,6 +41,13 @@ pub mod transforms;
 pub mod validation;
 pub mod video;
 
+pub use dna::{
+    ArtifactDna, ArtifactDnaComparison, ArtifactDnaEngine, ArtifactDnaExtractor,
+    BuiltinArtifactDnaExtractor, DnaDeterminism, DnaEvidenceOrigin, DnaExtractionBatch,
+    DnaExtractionOutcome, DnaExtractionPolicy, DnaExtractionStatus, DnaHygieneAction, DnaModality,
+    DnaProtectedReferenceRule, DnaProviderLocality, DnaReviewState,
+    ARTIFACT_DNA_COMPARISON_SCHEMA_V1, ARTIFACT_DNA_SCHEMA_V1,
+};
 pub use evidence::{ArtifactManifest, RunManifest};
 pub use hygiene::{
     ContentRedactionProvider, HygieneEngine, HygieneEvidence, HygieneFinding, HygieneFindingKind,

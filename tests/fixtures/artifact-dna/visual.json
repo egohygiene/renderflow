@@ -1,0 +1,76 @@
+{
+  "schema_version": "renderflow.artifact-dna/v1",
+  "source": {
+    "artifact_id": "artifact:sha256:visual-fixture",
+    "digest": { "algorithm": "sha256", "value": "1111111111111111111111111111111111111111111111111111111111111111" },
+    "format": "svg",
+    "media_type": "image/svg+xml",
+    "size_bytes": 180
+  },
+  "modalities": ["visual", "layout"],
+  "observations": [
+    {
+      "id": "visual.canvas.aspect-ratio",
+      "modality": "layout",
+      "dimension": "layout.canvas.aspect_ratio",
+      "value": 0.75,
+      "description": "Portrait canvas",
+      "evidence": {
+        "origin": "provider_observed",
+        "provider_id": "renderflow.builtin.artifact-dna",
+        "provider_version": "0.2.1",
+        "determinism": "deterministic",
+        "confidence": 1.0
+      },
+      "similarity_eligible": true
+    },
+    {
+      "id": "visual.palette",
+      "modality": "visual",
+      "dimension": "visual.palette.hex",
+      "value": ["#112233", "#ffeeaa"],
+      "description": "Synthetic dark-blue and warm-cream palette",
+      "evidence": {
+        "origin": "provider_observed",
+        "provider_id": "renderflow.builtin.artifact-dna",
+        "provider_version": "0.2.1",
+        "determinism": "deterministic",
+        "confidence": 1.0
+      },
+      "similarity_eligible": true
+    }
+  ],
+  "similarity_guidance": {
+    "purpose": "Compare reusable geometry and palette characteristics for an original sibling asset",
+    "direct_imitation_allowed": false,
+    "legal_clearance_claimed": false,
+    "dimension_weights": {
+      "layout.canvas.aspect_ratio": 1.0,
+      "visual.palette.hex": 1.0
+    },
+    "excluded_dimensions": ["identity.creator", "identity.brand", "identity.protected_work"]
+  },
+  "hygiene": {
+    "policy_id": "policy.artifact-dna.public-safe/v1",
+    "status": "passed",
+    "raw_payload_retained": false,
+    "identifying_metadata_retained": false
+  },
+  "provenance": {
+    "source_digest": { "algorithm": "sha256", "value": "1111111111111111111111111111111111111111111111111111111111111111" },
+    "extractors": [
+      {
+        "provider_id": "renderflow.builtin.artifact-dna",
+        "provider_version": "0.2.1",
+        "locality": "local",
+        "determinism": "deterministic",
+        "ai_assisted": false
+      }
+    ],
+    "policy_id": "policy.artifact-dna.public-safe/v1",
+    "policy_digest": { "algorithm": "sha256", "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+    "configuration_digest": { "algorithm": "sha256", "value": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" }
+  },
+  "approval": { "state": "candidate", "human_review_required": false },
+  "validation": { "status": "valid", "schema_valid": true }
+}

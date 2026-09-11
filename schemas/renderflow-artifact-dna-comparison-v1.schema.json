@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-artifact-dna-comparison-v1.schema.json",
+  "title": "Renderflow Artifact DNA comparison v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "left_artifact_id",
+    "right_artifact_id",
+    "dimensions",
+    "unmatched_dimensions",
+    "guidance",
+    "direct_imitation_allowed",
+    "legal_clearance_claimed"
+  ],
+  "properties": {
+    "schema_version": { "const": "renderflow.artifact-dna-comparison/v1" },
+    "left_artifact_id": { "type": "string", "minLength": 1 },
+    "right_artifact_id": { "type": "string", "minLength": 1 },
+    "overall_score": { "type": "number", "minimum": 0, "maximum": 1 },
+    "dimensions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["modality", "dimension", "score", "weight"],
+        "properties": {
+          "modality": {
+            "enum": ["visual", "sonic", "textual", "layout", "cross_modal", "compound"]
+          },
+          "dimension": { "type": "string", "minLength": 1 },
+          "score": { "type": "number", "minimum": 0, "maximum": 1 },
+          "weight": { "type": "number", "minimum": 0 }
+        }
+      }
+    },
+    "unmatched_dimensions": {
+      "type": "array",
+      "items": { "type": "string" },
+      "uniqueItems": true
+    },
+    "guidance": { "type": "string", "minLength": 1 },
+    "direct_imitation_allowed": { "const": false },
+    "legal_clearance_claimed": { "const": false }
+  }
+}

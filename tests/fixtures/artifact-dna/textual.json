@@ -1,0 +1,74 @@
+{
+  "schema_version": "renderflow.artifact-dna/v1",
+  "source": {
+    "artifact_id": "artifact:sha256:textual-fixture",
+    "digest": { "algorithm": "sha256", "value": "3333333333333333333333333333333333333333333333333333333333333333" },
+    "format": "markdown",
+    "media_type": "text/markdown",
+    "size_bytes": 320
+  },
+  "modalities": ["textual", "layout"],
+  "observations": [
+    {
+      "id": "textual.structure.paragraphs",
+      "modality": "textual",
+      "dimension": "textual.structure.paragraph_count",
+      "value": 4,
+      "evidence": {
+        "origin": "provider_observed",
+        "provider_id": "renderflow.builtin.artifact-dna",
+        "provider_version": "0.2.1",
+        "determinism": "deterministic",
+        "confidence": 1.0
+      },
+      "similarity_eligible": true
+    },
+    {
+      "id": "layout.hierarchy.headings",
+      "modality": "layout",
+      "dimension": "layout.hierarchy.heading_count",
+      "value": 2,
+      "evidence": {
+        "origin": "provider_observed",
+        "provider_id": "renderflow.builtin.artifact-dna",
+        "provider_version": "0.2.1",
+        "determinism": "deterministic",
+        "confidence": 1.0
+      },
+      "similarity_eligible": true
+    }
+  ],
+  "similarity_guidance": {
+    "purpose": "Compare structural cadence without retaining or copying source prose",
+    "direct_imitation_allowed": false,
+    "legal_clearance_claimed": false,
+    "dimension_weights": {
+      "textual.structure.paragraph_count": 1.0,
+      "layout.hierarchy.heading_count": 0.8
+    },
+    "excluded_dimensions": ["textual.content.verbatim", "identity.creator", "identity.protected_work"]
+  },
+  "hygiene": {
+    "policy_id": "policy.artifact-dna.public-safe/v1",
+    "status": "passed",
+    "raw_payload_retained": false,
+    "identifying_metadata_retained": false
+  },
+  "provenance": {
+    "source_digest": { "algorithm": "sha256", "value": "3333333333333333333333333333333333333333333333333333333333333333" },
+    "extractors": [
+      {
+        "provider_id": "renderflow.builtin.artifact-dna",
+        "provider_version": "0.2.1",
+        "locality": "local",
+        "determinism": "deterministic",
+        "ai_assisted": false
+      }
+    ],
+    "policy_id": "policy.artifact-dna.public-safe/v1",
+    "policy_digest": { "algorithm": "sha256", "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+    "configuration_digest": { "algorithm": "sha256", "value": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" }
+  },
+  "approval": { "state": "candidate", "human_review_required": false },
+  "validation": { "status": "valid", "schema_valid": true }
+}
