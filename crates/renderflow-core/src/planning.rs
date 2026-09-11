@@ -31,6 +31,7 @@ use crate::graph::{
 use crate::hygiene::{HygieneEngine, HygieneEvidence};
 use crate::intake::{IntakeEngine, IntakeRequest, ResolvedArtifactProfile};
 use crate::optimization::OptimizationMode;
+use crate::publication::write_release_metadata;
 use crate::spec::{
     load_spec, AiPolicy, CollisionPolicy, DerivativeProfile, HygienePolicy, IntermediatePolicy,
     RejectedLossClass, SelectorSet, SourceKind, SourceSpec, SourceSpecVersion, SpecV2,
@@ -296,6 +297,18 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
             source_path.display()
         );
     }
+    if let Some(publication) = &spec.publication {
+        for artwork in &publication.artwork {
+            let path = resolve_path_relative_to_config(&request.config_path, &artwork.path);
+            if !path.is_file() {
+                anyhow::bail!(
+                    "publication artwork role '{}' does not resolve to a file: '{}'",
+                    artwork.role,
+                    path.display()
+                );
+            }
+        }
+    }
     // Universal intake establishes immutable byte identity and multi-signal
     // evidence before the graph is selected. The temporary CAS is only a
     // planning staging area; execution imports the same bytes into its durable
@@ -341,6 +354,7 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
     if targets.is_empty() {
         anyhow::bail!("target selection resolved to no executable artifact formats");
     }
+    validate_publication_target_roles(&spec, &targets)?;
 
     let provider_inventory = tool_registry.assess_ids_current(policy_graph.provider_ids());
     let available_graph =
@@ -877,7 +891,7 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
             continue;
         }
         let locator = bundle_locator(&output_root, destination);
-        output_locators.insert(artifact.id().to_string(), locator);
+        output_locators.insert(target_evidence_key(target), locator);
         actual_outputs.push(destination.display().to_string());
     }
 
@@ -890,6 +904,21 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
         &validation_outcomes,
         &hygiene_evidence,
     );
+    let materialized_artifact_count = actual_outputs.len();
+    if let Some(publication) = &resolved.spec.publication {
+        let source_spec_digest = sha256_serialized(&resolved.spec)?;
+        let execution_plan_digest = sha256_serialized(&resolved.plan)?;
+        let sidecars = write_release_metadata(
+            &output_root,
+            publication,
+            &artifacts,
+            &actual_outputs,
+            &source_spec_digest,
+            &execution_plan_digest,
+            resolved.plan.toolchain.as_ref(),
+        )?;
+        actual_outputs.extend(sidecars);
+    }
     let has_failed_step = report
         .steps
         .iter()
@@ -901,7 +930,7 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
     let has_failure = target_failures || has_failed_step;
     let state = if has_cancelled_step {
         RunState::Cancelled
-    } else if has_failure && actual_outputs.is_empty() {
+    } else if has_failure && materialized_artifact_count == 0 {
         RunState::Failed
     } else if has_failure {
         RunState::Partial
@@ -1180,21 +1209,19 @@ fn artifact_evidence(
             .then_with(|| left.id().as_str().cmp(right.id().as_str()))
     });
     for (format, artifact) in artifacts {
-        if artifact.id() == source.id() {
+        if artifact.id() == source.id()
+            && !resolved
+                .targets
+                .iter()
+                .any(|target| target.format == *format)
+        {
             continue;
         }
-        let target = resolved
+        let targets = resolved
             .targets
             .iter()
-            .find(|target| target.format == *format);
-        let lifecycle = if target.is_some() {
-            ArtifactRole::Terminal
-        } else {
-            ArtifactRole::Intermediate
-        };
-        let role = target
-            .and_then(|target| target.role.clone().or_else(|| target.id.clone()))
-            .unwrap_or_else(|| artifact.format().to_string());
+            .filter(|target| target.format == *format)
+            .collect::<Vec<_>>();
         let producing_step = report.steps.iter().find(|step| {
             step.output_artifacts
                 .iter()
@@ -1216,30 +1243,68 @@ fn artifact_evidence(
         let fidelity = producing_step
             .map(|step| step.fidelity)
             .unwrap_or(FidelityDeclaration::Unknown);
-        let locator = output_locators
-            .get(artifact.id().as_str())
-            .cloned()
-            .unwrap_or_else(|| artifact_store_locator(artifact));
-        let mut artifact_evidence = ArtifactEvidence::from_artifact(
-            artifact, role, lifecycle, locator, producer, validation, fidelity,
-        );
-        artifact_evidence.validation_evidence = outcome
-            .map(|outcome| outcome.validators.clone())
-            .unwrap_or_default();
-        artifact_evidence.hygiene = hygiene_evidence.get(artifact.id().as_str()).cloned();
-        if let Some(step) = producing_step {
-            artifact_evidence.warnings = diagnostics
-                .iter()
-                .filter(|diagnostic| {
-                    diagnostic.severity == DiagnosticSeverity::Warning
-                        && diagnostic.step_id.as_deref() == Some(step.step_id.as_str())
-                })
-                .map(|diagnostic| diagnostic.message.clone())
-                .collect();
+        let target_instances = if targets.is_empty() {
+            vec![None]
+        } else {
+            targets.into_iter().map(Some).collect()
+        };
+        for target in target_instances {
+            let lifecycle = if target.is_some() {
+                ArtifactRole::Terminal
+            } else {
+                ArtifactRole::Intermediate
+            };
+            let role = target
+                .and_then(|target| target.role.clone().or_else(|| target.id.clone()))
+                .unwrap_or_else(|| artifact.format().to_string());
+            let locator = target
+                .and_then(|target| output_locators.get(&target_evidence_key(target)).cloned())
+                .unwrap_or_else(|| artifact_store_locator(artifact));
+            let mut item = ArtifactEvidence::from_artifact(
+                artifact,
+                role,
+                lifecycle,
+                locator,
+                producer.clone(),
+                validation,
+                fidelity,
+            );
+            item.validation_evidence = outcome
+                .map(|outcome| outcome.validators.clone())
+                .unwrap_or_default();
+            item.hygiene = hygiene_evidence.get(artifact.id().as_str()).cloned();
+            if let Some(target) = target {
+                item.metadata.insert(
+                    "renderflow.target.id".to_string(),
+                    serde_json::json!(target.id),
+                );
+                item.metadata.insert(
+                    "renderflow.target.options".to_string(),
+                    serde_json::json!(target.options),
+                );
+            }
+            if let Some(step) = producing_step {
+                item.warnings = diagnostics
+                    .iter()
+                    .filter(|diagnostic| {
+                        diagnostic.severity == DiagnosticSeverity::Warning
+                            && diagnostic.step_id.as_deref() == Some(step.step_id.as_str())
+                    })
+                    .map(|diagnostic| diagnostic.message.clone())
+                    .collect();
+            }
+            evidence.push(item);
         }
-        evidence.push(artifact_evidence);
     }
     evidence
+}
+
+fn target_evidence_key(target: &ResolvedTarget) -> String {
+    target
+        .id
+        .clone()
+        .or_else(|| target.role.clone())
+        .unwrap_or_else(|| target.format.to_string())
 }
 
 fn artifact_store_locator(artifact: &Artifact) -> String {
@@ -1336,10 +1401,21 @@ fn apply_request_overrides(spec: &mut SpecV2, request: &PlanningRequest) -> Resu
             ..TargetSelection::default()
         };
     } else if let Some(profile) = &request.profile {
-        if profile == "everything" && !spec.profiles.contains_key(profile) {
-            let bundled: DerivativeProfile =
-                serde_yaml_ng::from_str(include_str!("../data/profiles/everything-v1.yaml"))
-                    .context("bundled everything profile is invalid")?;
+        if matches!(profile.as_str(), "everything" | "magazine")
+            && !spec.profiles.contains_key(profile)
+        {
+            let (source, label) = match profile.as_str() {
+                "magazine" => (
+                    include_str!("../data/profiles/magazine-v1.yaml"),
+                    "magazine",
+                ),
+                _ => (
+                    include_str!("../data/profiles/everything-v1.yaml"),
+                    "everything",
+                ),
+            };
+            let bundled: DerivativeProfile = serde_yaml_ng::from_str(source)
+                .with_context(|| format!("bundled {label} profile is invalid"))?;
             spec.profiles.insert(profile.clone(), bundled);
         }
         if !spec.profiles.contains_key(profile) {
@@ -1862,80 +1938,77 @@ fn build_artifact_forest(
     unavailable: &[ResolvedTarget],
     budget_pruned: &[ResolvedTarget],
 ) -> ArtifactForest {
-    let selected_formats = selected
-        .iter()
-        .map(|target| target.format)
-        .collect::<HashSet<_>>();
-    let unavailable_formats = unavailable
-        .iter()
-        .map(|target| target.format)
-        .collect::<HashSet<_>>();
-    let budget_pruned_formats = budget_pruned
-        .iter()
-        .map(|target| target.format)
-        .collect::<HashSet<_>>();
     let mut exclusions = spec.targets.exclude.clone();
     for profile_name in &spec.targets.profiles {
         if let Some(profile) = spec.profiles.get(profile_name) {
             merge_selector_set(&mut exclusions, &profile.exclude);
         }
     }
-    let mut formats = graph.reachable_from(source);
-    formats.sort_by_key(ToString::to_string);
-    let branches = formats
-        .into_iter()
-        .filter_map(|format| {
-            let target = ResolvedTarget::generated(format);
-            let (state, reason_code, reason) = if selected_formats.contains(&format) {
-                (
-                    ForestBranchState::Selected,
-                    "branch.selected",
-                    "reachable, policy-allowed, and provider-available",
-                )
-            } else if unavailable_formats.contains(&format) {
-                (
-                    ForestBranchState::Unavailable,
-                    "branch.provider_unavailable",
-                    "a required provider is unavailable on this host",
-                )
-            } else if budget_pruned_formats.contains(&format) {
-                (
-                    ForestBranchState::BudgetPruned,
-                    "branch.max_artifacts",
-                    "pruned by execution.budgets.max_artifacts",
-                )
-            } else if selector_matches(&target, &exclusions, graph) {
-                (
-                    ForestBranchState::Excluded,
-                    "branch.selector_excluded",
-                    "matched a profile, spec, or CLI exclusion selector",
-                )
-            } else if spec.targets.all_reachable {
-                return None;
-            } else {
-                return None;
-            };
-            let resolved_target = selected
-                .iter()
-                .chain(unavailable.iter())
-                .chain(budget_pruned.iter())
-                .find(|candidate| candidate.format == format)
-                .unwrap_or(&target);
-            Some(ForestBranch {
-                format: format.to_string(),
-                role: resolved_target.role.clone(),
-                requirement: match resolved_target.requirement {
-                    TargetRequirement::Required => "required",
-                    TargetRequirement::Optional => "optional",
-                }
-                .to_string(),
-                options: resolved_target.options.clone(),
-                state,
-                reason_code: reason_code.to_string(),
-                reason: reason.to_string(),
-            })
+    let branch = |target: &ResolvedTarget,
+                  state: ForestBranchState,
+                  reason_code: &str,
+                  reason: &str| ForestBranch {
+        format: target.format.to_string(),
+        role: target.role.clone(),
+        requirement: match target.requirement {
+            TargetRequirement::Required => "required",
+            TargetRequirement::Optional => "optional",
+        }
+        .to_string(),
+        options: target.options.clone(),
+        state,
+        reason_code: reason_code.to_string(),
+        reason: reason.to_string(),
+    };
+    let mut branches = selected
+        .iter()
+        .map(|target| {
+            branch(
+                target,
+                ForestBranchState::Selected,
+                "branch.selected",
+                "reachable, policy-allowed, and provider-available",
+            )
         })
-        .collect();
+        .chain(unavailable.iter().map(|target| {
+            branch(
+                target,
+                ForestBranchState::Unavailable,
+                "branch.provider_unavailable",
+                "a required provider is unavailable on this host",
+            )
+        }))
+        .chain(budget_pruned.iter().map(|target| {
+            branch(
+                target,
+                ForestBranchState::BudgetPruned,
+                "branch.max_artifacts",
+                "pruned by execution.budgets.max_artifacts",
+            )
+        }))
+        .collect::<Vec<_>>();
+    let represented = selected
+        .iter()
+        .chain(unavailable.iter())
+        .chain(budget_pruned.iter())
+        .map(|target| target.format)
+        .collect::<HashSet<_>>();
+    for format in graph.reachable_from(source) {
+        let target = ResolvedTarget::generated(format);
+        if !represented.contains(&format) && selector_matches(&target, &exclusions, graph) {
+            branches.push(branch(
+                &target,
+                ForestBranchState::Excluded,
+                "branch.selector_excluded",
+                "matched a profile, spec, or CLI exclusion selector",
+            ));
+        }
+    }
+    branches.sort_by(|left, right| {
+        left.format
+            .cmp(&right.format)
+            .then_with(|| left.role.cmp(&right.role))
+    });
     ArtifactForest {
         profiles: spec
             .targets
@@ -2033,8 +2106,16 @@ fn insert_target(selected: &mut Vec<ResolvedTarget>, candidate: ResolvedTarget) 
         if is_generated(&candidate) {
             return Ok(());
         }
+        let shares_render = existing.preset == candidate.preset
+            && existing.template == candidate.template
+            && existing.variant == candidate.variant
+            && existing.options == candidate.options;
+        if shares_render {
+            selected.push(candidate);
+            return Ok(());
+        }
         anyhow::bail!(
-            "multiple distinct target configurations resolve to format '{}'; format-only DAG nodes cannot represent parallel same-format variants until Transform v2 (#357)",
+            "multiple target roles resolve to format '{}' with different render configurations; use a shared preset/template/options or Transform v2 target nodes",
             candidate.format
         );
     }
@@ -2160,6 +2241,28 @@ fn unsupported_targets_error(
         source,
         unreachable
     )
+}
+
+fn validate_publication_target_roles(spec: &SpecV2, targets: &[ResolvedTarget]) -> Result<()> {
+    let Some(publication) = &spec.publication else {
+        return Ok(());
+    };
+    for (role, constraints) in &publication.output_roles {
+        let Some(target) = targets
+            .iter()
+            .find(|target| target.role.as_deref() == Some(role.as_str()))
+        else {
+            continue;
+        };
+        if target.format.to_string() != constraints.format {
+            anyhow::bail!(
+                "publication output role '{role}' expects format '{}' but the selected target resolves to '{}'",
+                constraints.format,
+                target.format
+            );
+        }
+    }
+    Ok(())
 }
 
 fn register_builtin_strategy_executors(
@@ -2348,6 +2451,15 @@ fn render_output_paths(resolved: &ResolvedExecution) -> Result<Vec<PathBuf>> {
         *count += 1;
         paths.push(destination);
     }
+    if resolved.spec.publication.is_some() {
+        paths.extend([
+            root.join("metadata/publication.json"),
+            root.join("metadata/manifest.json"),
+            root.join("metadata/provenance.json"),
+            root.join("metadata/preflight.json"),
+            root.join("metadata/checksums.sha256"),
+        ]);
+    }
     Ok(paths)
 }
 
@@ -2412,6 +2524,7 @@ mod tests {
             }],
             profiles: BTreeMap::new(),
             hygiene: BTreeMap::new(),
+            publication: None,
             targets: TargetSelection::default(),
             execution: ExecutionPolicy::default(),
             output: OutputLayout::default(),

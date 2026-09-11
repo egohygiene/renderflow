@@ -73,6 +73,13 @@ def main() -> None:
     ]
     lines.extend(render_properties("Top-level fields", schema))
     lines.extend(render_properties("Source", definitions["source"]))
+    lines.extend(render_properties("Publication contract", definitions["publicationContract"]))
+    lines.extend(
+        render_properties(
+            "Publication output-role constraints",
+            definitions["publicationRoleConstraints"],
+        )
+    )
     lines.extend(render_properties("Target selection", definitions["targetSelection"]))
     lines.extend(render_properties("Execution policy", definitions["executionPolicy"]))
     lines.extend(render_properties("Output layout", definitions["outputLayout"]))

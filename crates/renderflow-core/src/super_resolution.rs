@@ -1122,6 +1122,7 @@ mod tests {
             }],
             profiles: BTreeMap::new(),
             hygiene: BTreeMap::new(),
+            publication: None,
             targets: TargetSelection::default(),
             execution: ExecutionPolicy {
                 ai: AiPolicy::LocalOnly,

@@ -1,0 +1,43 @@
+schema: renderflow.profile/v1
+description: Versioned multi-channel magazine release bundle
+intermediates: cache_only
+targets:
+  - id: publication.print.press
+    role: print/press
+    format: pdf
+  - id: publication.print.proof
+    role: print/proof
+    format: pdf
+  - id: publication.digital.screen
+    role: digital/screen
+    format: pdf
+    requirement: optional
+  - id: publication.digital.web
+    role: digital/web/index
+    format: html
+  - id: publication.editorial.markdown
+    role: editorial/normalized
+    format: markdown
+  - id: publication.editorial.docx
+    role: editorial/document
+    format: docx
+    requirement: optional
+  - id: publication.digital.epub
+    role: digital/issue
+    format: epub
+    requirement: optional
+  - id: publication.digital.kepub
+    role: digital/issue
+    format: kepub
+    requirement: optional
+  - id: publication.assets.cover-preview
+    role: assets/previews/cover
+    format: png
+    requirement: optional
+policy:
+  validation:
+    required: true
+    failure_mode: branch_local
+    allow_unavailable: true
+  network: deny
+  ai: deny

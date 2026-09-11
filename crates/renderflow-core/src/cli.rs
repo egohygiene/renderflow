@@ -60,7 +60,9 @@ pub enum Commands {
             renderflow build --optimization speed   Build using speed optimization mode\n  \
             renderflow build --optimization pareto  Build with Pareto-optimal path selection\n  \
             renderflow build --target pdf           Build only the PDF output via graph resolution\n  \
-            renderflow build --profile everything  Build the maximal available artifact forest")]
+            renderflow build --profile everything  Build the maximal available artifact forest
+  \
+            renderflow build --profile magazine    Build a versioned magazine release bundle")]
     Build {
         /// Path to the renderflow configuration file
         #[arg(long, default_value = "renderflow.yaml", value_name = "FILE")]
@@ -87,7 +89,7 @@ pub enum Commands {
         #[arg(long, value_name = "FORMAT", conflicts_with_all = ["all", "profile"])]
         target: Option<String>,
 
-        /// Build a named, versioned derivative profile. `everything` is bundled.
+        /// Build a named, versioned derivative profile. `everything` and `magazine` are bundled.
         #[arg(long, value_name = "PROFILE", conflicts_with_all = ["target", "all"])]
         profile: Option<String>,
 
@@ -504,7 +506,7 @@ pub enum GraphCommands {
         #[arg(long, value_name = "FORMAT", conflicts_with = "profile")]
         target: Option<String>,
 
-        /// Resolve a named, versioned derivative profile. `everything` is bundled.
+        /// Resolve a named, versioned derivative profile. `everything` and `magazine` are bundled.
         #[arg(long, value_name = "PROFILE", conflicts_with = "target")]
         profile: Option<String>,
 

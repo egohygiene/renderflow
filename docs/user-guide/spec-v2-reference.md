@@ -16,6 +16,7 @@ Spec v2 describes source intent, derivative selection, execution policy, and det
 | `hygiene` | `object` | no | `{}` |
 | `output` | `outputLayout` | no | — |
 | `profiles` | `object` | no | `{}` |
+| `publication` | `object` | no | — |
 | `schema` | `"renderflow/v2"` | yes | — |
 | `sources` | `array` | yes | — |
 | `targets` | `targetSelection` | yes | — |
@@ -36,6 +37,45 @@ Spec v2 describes source intent, derivative selection, execution policy, and det
 | `path` | `string` / `null` | no | — |
 | `role` | `string` / `null` | no | — |
 | `uri` | `string` / `null` | no | — |
+
+## Publication contract
+
+| Field | Type | Required | Default |
+| --- | --- | --- | --- |
+| `accessibility` | `accessibilityMetadata` | no | — |
+| `artwork` | `array` | no | `[]` |
+| `asset_policy` | `string` / `null` | no | — |
+| `canonical_url` | `string` / `null` | no | — |
+| `color_policy` | `string` / `null` | no | — |
+| `contributors` | `array` | no | `[]` |
+| `extensions` | `object` | no | `{}` |
+| `font_policy` | `string` / `null` | no | — |
+| `geometry` | `pageGeometry` | yes | — |
+| `identifiers` | `object` | no | `{}` |
+| `issue_id` | `string` | yes | — |
+| `issue_number` | `string` / `null` | no | — |
+| `language` | `string` | yes | — |
+| `output_roles` | `object` | no | `{}` |
+| `publication` | `string` | yes | — |
+| `publication_date` | `string` | yes | — |
+| `rights` | `publicationRights` | no | — |
+| `schema` | `"renderflow.publication/v1"` | no | `"renderflow.publication/v1"` |
+| `series` | `string` / `null` | no | — |
+| `status` | `draft` / `reviewed` / `approved` / `released` | no | `"draft"` |
+| `subtitle` | `string` / `null` | no | — |
+| `title` | `string` | yes | — |
+
+## Publication output-role constraints
+
+| Field | Type | Required | Default |
+| --- | --- | --- | --- |
+| `color_policy` | `string` / `null` | no | — |
+| `format` | `string` | yes | — |
+| `geometry` | `object` | no | — |
+| `minimum_image_dpi` | `integer` / `null` | no | — |
+| `require_embedded_fonts` | `boolean` | no | `false` |
+| `stage` | `string` | no | `""` |
+| `validators` | `array` | no | `[]` |
 
 ## Target selection
 

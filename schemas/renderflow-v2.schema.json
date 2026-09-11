@@ -1,5 +1,31 @@
 {
   "$defs": {
+    "accessibilityMetadata": {
+      "additionalProperties": false,
+      "properties": {
+        "access_modes": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "hazards": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "summary": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
     "allowDeny": {
       "additionalProperties": false,
       "properties": {
@@ -279,6 +305,49 @@
       },
       "type": "object"
     },
+    "pageGeometry": {
+      "additionalProperties": false,
+      "properties": {
+        "bleed": {
+          "minimum": 0,
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "height": {
+          "exclusiveMinimum": 0,
+          "type": "number"
+        },
+        "margin": {
+          "minimum": 0,
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "safe_area": {
+          "minimum": 0,
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "unit": {
+          "default": "mm",
+          "type": "string"
+        },
+        "width": {
+          "exclusiveMinimum": 0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "width",
+        "height"
+      ],
+      "type": "object"
+    },
     "profile": {
       "additionalProperties": false,
       "properties": {
@@ -406,6 +475,269 @@
           "type": "array"
         }
       },
+      "type": "object"
+    },
+    "publicationAsset": {
+      "additionalProperties": false,
+      "properties": {
+        "alt_text": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "approval_reference": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "path": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "role": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "role",
+        "path"
+      ],
+      "type": "object"
+    },
+    "publicationContract": {
+      "additionalProperties": false,
+      "properties": {
+        "accessibility": {
+          "$ref": "#/$defs/accessibilityMetadata"
+        },
+        "artwork": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/publicationAsset"
+          },
+          "type": "array"
+        },
+        "asset_policy": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "canonical_url": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "color_policy": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "contributors": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/publicationContributor"
+          },
+          "type": "array"
+        },
+        "extensions": {
+          "default": {},
+          "type": "object"
+        },
+        "font_policy": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "geometry": {
+          "$ref": "#/$defs/pageGeometry"
+        },
+        "identifiers": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "type": "object"
+        },
+        "issue_id": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "issue_number": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "language": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "output_roles": {
+          "additionalProperties": {
+            "$ref": "#/$defs/publicationRoleConstraints"
+          },
+          "default": {},
+          "type": "object"
+        },
+        "publication": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "publication_date": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "rights": {
+          "$ref": "#/$defs/publicationRights"
+        },
+        "schema": {
+          "const": "renderflow.publication/v1",
+          "default": "renderflow.publication/v1"
+        },
+        "series": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "status": {
+          "default": "draft",
+          "enum": [
+            "draft",
+            "reviewed",
+            "approved",
+            "released"
+          ]
+        },
+        "subtitle": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "title": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "publication",
+        "issue_id",
+        "title",
+        "publication_date",
+        "language",
+        "geometry"
+      ],
+      "type": "object"
+    },
+    "publicationContributor": {
+      "additionalProperties": false,
+      "properties": {
+        "identifier": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "name": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "role": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "role"
+      ],
+      "type": "object"
+    },
+    "publicationRights": {
+      "additionalProperties": false,
+      "properties": {
+        "approval_reference": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "license": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reviewed": {
+          "default": false,
+          "type": "boolean"
+        },
+        "rights_holder": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "publicationRoleConstraints": {
+      "additionalProperties": false,
+      "properties": {
+        "color_policy": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "format": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "geometry": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/pageGeometry"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "minimum_image_dpi": {
+          "minimum": 1,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "require_embedded_fonts": {
+          "default": false,
+          "type": "boolean"
+        },
+        "stage": {
+          "default": "",
+          "type": "string"
+        },
+        "validators": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "format"
+      ],
       "type": "object"
     },
     "requirements": {
@@ -802,6 +1134,16 @@
       },
       "default": {},
       "type": "object"
+    },
+    "publication": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/publicationContract"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "schema": {
       "const": "renderflow/v2"
