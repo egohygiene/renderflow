@@ -1,0 +1,7 @@
+schema: renderflow.profile/v1
+description: Maximal policy-allowed artifact forest for the detected source
+all_reachable: true
+intermediates: cache_only
+targets: []
+include: {}
+exclude: {}

@@ -72,6 +72,10 @@ pub struct SelectorSet {
     #[serde(default)]
     pub transforms: Vec<String>,
     #[serde(default)]
+    pub providers: Vec<String>,
+    #[serde(default)]
+    pub roles: Vec<String>,
+    #[serde(default)]
     pub profiles: Vec<String>,
     #[serde(default)]
     pub variants: Vec<String>,
@@ -83,12 +87,14 @@ impl SelectorSet {
             && self.families.is_empty()
             && self.capabilities.is_empty()
             && self.transforms.is_empty()
+            && self.providers.is_empty()
+            && self.roles.is_empty()
             && self.profiles.is_empty()
             && self.variants.is_empty()
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TargetSpec {
     #[serde(default)]
@@ -109,6 +115,12 @@ pub struct TargetSpec {
     pub preset: Option<String>,
     #[serde(default)]
     pub template: Option<String>,
+    /// Whether failure to resolve this branch fails the complete request.
+    #[serde(default)]
+    pub requirement: TargetRequirement,
+    /// Provider-neutral options passed to the selected target adapter.
+    #[serde(default)]
+    pub options: BTreeMap<String, Value>,
 }
 
 impl TargetSpec {
@@ -118,6 +130,14 @@ impl TargetSpec {
             || self.capability.is_some()
             || self.transform.is_some()
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TargetRequirement {
+    #[default]
+    Required,
+    Optional,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -145,20 +165,77 @@ pub struct TargetSelection {
     pub intermediates: IntermediatePolicy,
 }
 
-#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DerivativeProfile {
+    /// Profile contract version. Only `renderflow.profile/v1` is currently supported.
+    #[serde(default = "default_profile_schema")]
+    pub schema: String,
     #[serde(default)]
     pub description: Option<String>,
+    /// Parent profiles, composed from left to right before this profile.
+    #[serde(default)]
+    pub extends: Vec<String>,
     #[serde(default)]
     pub targets: Vec<TargetSpec>,
     #[serde(default)]
     pub include: SelectorSet,
     #[serde(default)]
     pub exclude: SelectorSet,
+    /// Expand to every policy-allowed branch reachable from the detected source.
+    #[serde(default)]
+    pub all_reachable: bool,
+    /// Override intermediate retention when the profile is selected.
+    #[serde(default)]
+    pub intermediates: Option<IntermediatePolicy>,
     /// Named publication-hygiene policy applied to artifacts selected by this profile.
     #[serde(default)]
     pub hygiene_policy: Option<String>,
+    /// Optional execution gates contributed by this profile.
+    #[serde(default)]
+    pub policy: ProfilePolicy,
+}
+
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ProfilePolicy {
+    #[serde(default)]
+    pub validation: Option<ValidationPolicy>,
+    #[serde(default)]
+    pub minimum_fidelity: Option<f32>,
+    #[serde(default)]
+    pub requirements: Option<ExecutionRequirements>,
+    #[serde(default)]
+    pub network: Option<NetworkPolicy>,
+    #[serde(default)]
+    pub ai: Option<AiPolicy>,
+    #[serde(default)]
+    pub budgets: Option<ResourceBudgets>,
+    #[serde(default)]
+    pub publication_policy: Option<String>,
+    #[serde(default)]
+    pub redaction_policy: Option<String>,
+}
+
+fn default_profile_schema() -> String {
+    "renderflow.profile/v1".to_string()
+}
+
+impl Default for DerivativeProfile {
+    fn default() -> Self {
+        Self {
+            schema: default_profile_schema(),
+            description: None,
+            extends: Vec::new(),
+            targets: Vec::new(),
+            include: SelectorSet::default(),
+            exclude: SelectorSet::default(),
+            all_reachable: false,
+            intermediates: None,
+            hygiene_policy: None,
+            policy: ProfilePolicy::default(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -706,7 +783,27 @@ impl SpecV2 {
                     "profile names must use only ASCII letters, digits, '.', '_', or '-'",
                 ));
             }
-            if profile.targets.is_empty() && profile.include.is_empty() {
+            if profile.schema != "renderflow.profile/v1" {
+                diagnostics.push(SpecDiagnostic::new(
+                    format!("{base}.schema"),
+                    "profile.schema.unsupported",
+                    "supported profile schema is renderflow.profile/v1",
+                ));
+            }
+            for (index, parent) in profile.extends.iter().enumerate() {
+                if !self.profiles.contains_key(parent) {
+                    diagnostics.push(SpecDiagnostic::new(
+                        format!("{base}.extends[{index}]"),
+                        "profile.parent.unknown",
+                        format!("parent profile '{parent}' is not declared in $.profiles"),
+                    ));
+                }
+            }
+            if profile.targets.is_empty()
+                && profile.include.is_empty()
+                && profile.extends.is_empty()
+                && !profile.all_reachable
+            {
                 diagnostics.push(SpecDiagnostic::new(
                     base.clone(),
                     "profile.empty",
@@ -1163,6 +1260,8 @@ pub(crate) fn migrate_v1_config(config: &Config) -> SpecV2 {
             variant: None,
             preset: output.profile.clone(),
             template: output.template.clone(),
+            requirement: TargetRequirement::Required,
+            options: BTreeMap::new(),
         })
         .collect();
 
@@ -1265,6 +1364,8 @@ pub fn json_schema() -> Value {
                     "families": {"type": "array", "items": {"type": "string"}, "default": []},
                     "capabilities": {"type": "array", "items": {"type": "string"}, "default": []},
                     "transforms": {"type": "array", "items": {"type": "string"}, "default": []},
+                    "providers": {"type": "array", "items": {"$ref": "#/$defs/stableId"}, "default": []},
+                    "roles": {"type": "array", "items": {"type": "string"}, "default": []},
                     "profiles": {"type": "array", "items": {"$ref": "#/$defs/stableId"}, "default": []},
                     "variants": {"type": "array", "items": {"$ref": "#/$defs/stableId"}, "default": []}
                 }
@@ -1281,7 +1382,9 @@ pub fn json_schema() -> Value {
                     "transform": {"type": ["string", "null"]},
                     "variant": {"anyOf": [{"$ref": "#/$defs/stableId"}, {"type": "null"}]},
                     "preset": {"type": ["string", "null"]},
-                    "template": {"type": ["string", "null"]}
+                    "template": {"type": ["string", "null"]},
+                    "requirement": {"enum": ["required", "optional"], "default": "required"},
+                    "options": {"type": "object", "default": {}}
                 },
                 "anyOf": [
                     {"required": ["format"]},
@@ -1306,11 +1409,30 @@ pub fn json_schema() -> Value {
                 "type": "object",
                 "additionalProperties": false,
                 "properties": {
+                    "schema": {"const": "renderflow.profile/v1", "default": "renderflow.profile/v1"},
                     "description": {"type": ["string", "null"]},
+                    "extends": {"type": "array", "items": {"$ref": "#/$defs/stableId"}, "default": []},
                     "targets": {"type": "array", "items": {"$ref": "#/$defs/target"}, "default": []},
                     "include": {"$ref": "#/$defs/selectorSet"},
                     "exclude": {"$ref": "#/$defs/selectorSet"},
-                    "hygiene_policy": {"anyOf": [{"$ref": "#/$defs/stableId"}, {"type": "null"}]}
+                    "all_reachable": {"type": "boolean", "default": false},
+                    "intermediates": {"enum": ["cache_only", "retain"]},
+                    "hygiene_policy": {"anyOf": [{"$ref": "#/$defs/stableId"}, {"type": "null"}]},
+                    "policy": {"$ref": "#/$defs/profilePolicy"}
+                }
+            },
+            "profilePolicy": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "validation": {"$ref": "#/$defs/validation"},
+                    "minimum_fidelity": {"type": ["number", "null"], "minimum": 0.0, "maximum": 1.0},
+                    "requirements": {"$ref": "#/$defs/requirements"},
+                    "network": {"enum": ["deny", "allow"]},
+                    "ai": {"enum": ["deny", "local_only", "allow"]},
+                    "budgets": {"$ref": "#/$defs/budgets"},
+                    "publication_policy": {"type": ["string", "null"]},
+                    "redaction_policy": {"type": ["string", "null"]}
                 }
             },
             "hygienePolicy": {

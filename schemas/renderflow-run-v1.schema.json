@@ -37,9 +37,41 @@
       "type": "array",
       "items": { "$ref": "#/$defs/diagnostic" }
     },
-    "toolchain": { "type": "object" }
+    "toolchain": { "type": "object" },
+    "artifact_forest": { "$ref": "#/$defs/artifact_forest" }
   },
   "$defs": {
+    "artifact_forest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["profiles", "intermediates", "branches"],
+      "properties": {
+        "profiles": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "intermediates": { "enum": ["cache_only", "retain"] },
+        "branches": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["format", "requirement", "state", "reason_code", "reason"],
+            "properties": {
+              "format": { "type": "string", "minLength": 1 },
+              "role": { "type": "string", "minLength": 1 },
+              "requirement": { "enum": ["required", "optional"] },
+              "options": { "type": "object" },
+              "state": { "enum": ["selected", "excluded", "unavailable", "budget_pruned"] },
+              "reason_code": { "type": "string", "minLength": 1 },
+              "reason": { "type": "string", "minLength": 1 }
+            }
+          }
+        },
+        "produced_artifacts": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        }
+      }
+    },
     "digest": {
       "type": "object",
       "additionalProperties": false,

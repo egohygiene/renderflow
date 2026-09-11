@@ -187,6 +187,43 @@ pub struct PlanDiagnostic {
     pub message: String,
 }
 
+/// Resolution state for one requested artifact-forest branch.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ForestBranchState {
+    Selected,
+    Excluded,
+    Unavailable,
+    BudgetPruned,
+}
+
+/// Machine-readable evidence for a branch considered during profile expansion.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ForestBranch {
+    pub format: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub role: Option<String>,
+    pub requirement: String,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub options: BTreeMap<String, serde_json::Value>,
+    pub state: ForestBranchState,
+    pub reason_code: String,
+    pub reason: String,
+}
+
+/// Requested and resolved artifact forest attached to plans and run manifests.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct ArtifactForest {
+    #[serde(default)]
+    pub profiles: Vec<String>,
+    pub intermediates: String,
+    #[serde(default)]
+    pub branches: Vec<ForestBranch>,
+    /// Artifact ids actually produced; empty in a pre-execution plan.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub produced_artifacts: Vec<String>,
+}
+
 impl PlanDiagnostic {
     fn info(message: impl Into<String>) -> Self {
         PlanDiagnostic {
@@ -254,6 +291,9 @@ pub struct ExecutionPlan {
     /// Reproducible evidence for providers selected by this exact plan.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub toolchain: Option<ToolchainSnapshot>,
+    /// Profile expansion and branch-local selection evidence.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub artifact_forest: Option<ArtifactForest>,
 }
 
 impl ExecutionPlan {
@@ -366,6 +406,7 @@ impl ExecutionPlan {
             diagnostics,
             source_artifact: None,
             toolchain: None,
+            artifact_forest: None,
         }
     }
 
@@ -392,6 +433,19 @@ impl ExecutionPlan {
     /// Attach graph-consumable source identity from universal intake.
     pub fn attach_source_artifact(&mut self, report: &IntakeReport) {
         self.source_artifact = Some(PlanSourceArtifact::from(report));
+    }
+
+    pub fn attach_artifact_forest(&mut self, forest: ArtifactForest) {
+        let selected = forest
+            .branches
+            .iter()
+            .filter(|branch| branch.state == ForestBranchState::Selected)
+            .count();
+        let pruned = forest.branches.len().saturating_sub(selected);
+        self.diagnostics.push(PlanDiagnostic::info(format!(
+            "Artifact forest selected {selected} branch(es) and recorded {pruned} excluded, unavailable, or budget-pruned branch(es)."
+        )));
+        self.artifact_forest = Some(forest);
     }
 
     /// Surface an unavailable/unsupported provider observation in plan diagnostics.

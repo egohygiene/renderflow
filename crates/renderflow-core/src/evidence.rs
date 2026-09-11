@@ -311,6 +311,8 @@ pub struct RunManifest {
     pub diagnostics: Vec<ExecutionDiagnostic>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub toolchain: Option<ToolchainSnapshot>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub artifact_forest: Option<crate::graph::ArtifactForest>,
 }
 
 impl RunManifest {

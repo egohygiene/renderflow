@@ -4,7 +4,7 @@
 //! Execution consumes a previously resolved [`ResolvedExecution`] and never
 //! performs implicit target/path re-planning.
 
-use std::collections::{BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::fs;
 use std::io::Write;
 use std::path::{Component, Path, PathBuf};
@@ -25,16 +25,16 @@ use crate::evidence::{
 };
 use crate::graph::capability::{FormatCapabilityRegistry, FormatFamily};
 use crate::graph::{
-    DagExecutionReport, DagExecutor, DiagnosticLevel, ExecutionPlan, Format, MultiTargetDag,
-    TransformEdge, TransformGraph,
+    ArtifactForest, DagExecutionReport, DagExecutor, DiagnosticLevel, ExecutionPlan, ForestBranch,
+    ForestBranchState, Format, MultiTargetDag, TransformEdge, TransformGraph,
 };
 use crate::hygiene::{HygieneEngine, HygieneEvidence};
 use crate::intake::{IntakeEngine, IntakeRequest, ResolvedArtifactProfile};
 use crate::optimization::OptimizationMode;
 use crate::spec::{
-    load_spec, AiPolicy, CollisionPolicy, HygienePolicy, RejectedLossClass, SelectorSet,
-    SourceKind, SourceSpec, SourceSpecVersion, SpecV2, TargetSelection, TargetSpec,
-    ValidationFailureMode,
+    load_spec, AiPolicy, CollisionPolicy, DerivativeProfile, HygienePolicy, IntermediatePolicy,
+    RejectedLossClass, SelectorSet, SourceKind, SourceSpec, SourceSpecVersion, SpecV2,
+    TargetRequirement, TargetSelection, TargetSpec, ValidationFailureMode,
 };
 use crate::super_resolution::{select_upscayl_variants, UpscaylModelCatalog};
 use crate::toolchain::{
@@ -51,6 +51,8 @@ pub struct PlanningRequest {
     pub config_path: PathBuf,
     pub target: Option<String>,
     pub all_reachable: bool,
+    pub profile: Option<String>,
+    pub exclude: SelectorSet,
     pub optimization: Option<OptimizationMode>,
 }
 
@@ -60,6 +62,8 @@ impl PlanningRequest {
             config_path: path.as_ref().to_path_buf(),
             target: None,
             all_reachable: false,
+            profile: None,
+            exclude: SelectorSet::default(),
             optimization: None,
         }
     }
@@ -67,13 +71,40 @@ impl PlanningRequest {
     pub fn with_target(mut self, target: impl Into<String>) -> Self {
         self.target = Some(target.into());
         self.all_reachable = false;
+        self.profile = None;
         self
     }
 
     pub fn with_all_reachable(mut self) -> Self {
         self.target = None;
+        self.profile = None;
         self.all_reachable = true;
         self
+    }
+
+    pub fn with_profile(mut self, profile: impl Into<String>) -> Self {
+        self.target = None;
+        self.all_reachable = false;
+        self.profile = Some(profile.into());
+        self
+    }
+
+    pub fn with_exclude(mut self, expression: &str) -> Result<Self> {
+        let (kind, value) = expression.split_once(':').ok_or_else(|| {
+            anyhow::anyhow!("invalid exclude selector '{expression}'; expected kind:value")
+        })?;
+        let destination = match kind {
+            "format" => &mut self.exclude.formats,
+            "family" => &mut self.exclude.families,
+            "capability" => &mut self.exclude.capabilities,
+            "provider" => &mut self.exclude.providers,
+            "role" => &mut self.exclude.roles,
+            "transform" => &mut self.exclude.transforms,
+            "variant" => &mut self.exclude.variants,
+            _ => anyhow::bail!("unknown exclude selector kind '{kind}'"),
+        };
+        destination.push(value.to_string());
+        Ok(self)
     }
 
     pub fn with_optimization(mut self, optimization: OptimizationMode) -> Self {
@@ -90,6 +121,8 @@ pub struct ResolvedTarget {
     pub preset: Option<String>,
     pub template: Option<String>,
     pub variant: Option<String>,
+    pub requirement: TargetRequirement,
+    pub options: std::collections::BTreeMap<String, serde_json::Value>,
 }
 
 impl ResolvedTarget {
@@ -101,6 +134,8 @@ impl ResolvedTarget {
             preset: None,
             template: None,
             variant: None,
+            requirement: TargetRequirement::Optional,
+            options: Default::default(),
         }
     }
 
@@ -112,6 +147,8 @@ impl ResolvedTarget {
             preset: target.preset.clone(),
             template: target.template.clone(),
             variant: target.variant.clone(),
+            requirement: target.requirement,
+            options: target.options.clone(),
         }
     }
 }
@@ -241,6 +278,7 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
     let source_version = loaded.source_version;
     let mut spec = loaded.spec;
     apply_request_overrides(&mut spec, &request)?;
+    compose_selected_profiles(&mut spec)?;
 
     let source = select_primary_source(&spec)?;
     let source_path = resolve_path_relative_to_config(
@@ -299,15 +337,44 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
 
     register_builtin_strategy_edges(&mut graph, &mut tool_registry)?;
     let policy_graph = apply_execution_policy(&graph, &tool_registry, &spec);
-    let targets = resolve_target_intent(&spec, &policy_graph, source_format)?;
+    let mut targets = resolve_target_intent(&spec, &policy_graph, source_format)?;
     if targets.is_empty() {
         anyhow::bail!("target selection resolved to no executable artifact formats");
     }
-    let target_formats: Vec<Format> = targets.iter().map(|target| target.format).collect();
 
     let provider_inventory = tool_registry.assess_ids_current(policy_graph.provider_ids());
     let available_graph =
         policy_graph.filtered_by_available_providers(&provider_inventory.available_ids());
+    let available_formats = available_graph
+        .reachable_from(source_format)
+        .into_iter()
+        .collect::<HashSet<_>>();
+    let mut pruned_unavailable = Vec::new();
+    targets.retain(|target| {
+        let available = available_formats.contains(&target.format);
+        if !available
+            && (spec.targets.all_reachable || target.requirement == TargetRequirement::Optional)
+        {
+            pruned_unavailable.push(target.clone());
+            false
+        } else {
+            true
+        }
+    });
+    let mut pruned_budget = Vec::new();
+    if let Some(max_artifacts) = spec.execution.budgets.max_artifacts {
+        let limit = usize::try_from(max_artifacts).unwrap_or(usize::MAX);
+        if targets.len() > limit {
+            pruned_budget.extend(targets[limit..].iter().cloned());
+            targets.truncate(limit);
+        }
+    }
+    if targets.is_empty() {
+        anyhow::bail!(
+            "target selection resolved to no available branches; inspect the artifact-forest plan or relax provider/policy constraints"
+        );
+    }
+    let target_formats: Vec<Format> = targets.iter().map(|target| target.format).collect();
     let optimization = spec.execution.optimization;
     let (dag, used_blocked_provider_fallback) = match available_graph
         .build_multi_target_dag_with_mode(source_format, &target_formats, optimization)
@@ -333,6 +400,14 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
     )?;
 
     let mut plan = ExecutionPlan::from_dag(&dag, source_format, &target_formats, optimization);
+    plan.attach_artifact_forest(build_artifact_forest(
+        &spec,
+        &policy_graph,
+        source_format,
+        &targets,
+        &pruned_unavailable,
+        &pruned_budget,
+    ));
     plan.attach_source_artifact(&source_intake);
     if !source_intake.profile.conflicts.is_empty() {
         plan.add_tool_diagnostic(format!(
@@ -993,6 +1068,15 @@ fn build_run_manifest(
     let execution_plan_digest = sha256_serialized(&resolved.plan)?;
     let source_spec_digest = sha256_serialized(&resolved.spec)?;
     let run_id = run_id(&execution_plan_digest, started_at_unix_ms);
+    let mut artifact_forest = resolved.plan.artifact_forest.clone();
+    if let Some(forest) = &mut artifact_forest {
+        forest.produced_artifacts = artifacts
+            .iter()
+            .map(|artifact| artifact.artifact_id.clone())
+            .collect();
+        forest.produced_artifacts.sort();
+        forest.produced_artifacts.dedup();
+    }
     Ok(RunManifest {
         schema_version: RUN_MANIFEST_SCHEMA_V1.to_string(),
         run_id: run_id.clone(),
@@ -1012,6 +1096,7 @@ fn build_run_manifest(
         steps,
         diagnostics,
         toolchain: resolved.plan.toolchain.clone(),
+        artifact_forest,
     })
 }
 
@@ -1244,7 +1329,24 @@ fn apply_request_overrides(spec: &mut SpecV2, request: &PlanningRequest) -> Resu
                 variant: None,
                 preset: None,
                 template: None,
+                requirement: TargetRequirement::Required,
+                options: Default::default(),
             }],
+            intermediates: spec.targets.intermediates,
+            ..TargetSelection::default()
+        };
+    } else if let Some(profile) = &request.profile {
+        if profile == "everything" && !spec.profiles.contains_key(profile) {
+            let bundled: DerivativeProfile =
+                serde_yaml_ng::from_str(include_str!("../data/profiles/everything-v1.yaml"))
+                    .context("bundled everything profile is invalid")?;
+            spec.profiles.insert(profile.clone(), bundled);
+        }
+        if !spec.profiles.contains_key(profile) {
+            anyhow::bail!("target profile '{profile}' is not defined");
+        }
+        spec.targets = TargetSelection {
+            profiles: vec![profile.clone()],
             intermediates: spec.targets.intermediates,
             ..TargetSelection::default()
         };
@@ -1259,7 +1361,167 @@ fn apply_request_overrides(spec: &mut SpecV2, request: &PlanningRequest) -> Resu
             ..TargetSelection::default()
         };
     }
+    merge_selector_set(&mut spec.targets.exclude, &request.exclude);
     Ok(())
+}
+
+fn compose_selected_profiles(spec: &mut SpecV2) -> Result<()> {
+    let selected = spec.targets.profiles.clone();
+    let mut cache = BTreeMap::new();
+    for name in selected {
+        let profile = resolve_profile(spec, &name, &mut Vec::new(), &mut cache)?;
+        spec.targets.all_reachable |= profile.all_reachable;
+        if let Some(intermediates) = profile.intermediates {
+            spec.targets.intermediates = intermediates;
+        }
+        apply_profile_policy(&mut spec.execution, &profile.policy);
+        spec.profiles.insert(name, profile);
+    }
+    Ok(())
+}
+
+fn resolve_profile(
+    spec: &SpecV2,
+    name: &str,
+    stack: &mut Vec<String>,
+    cache: &mut BTreeMap<String, DerivativeProfile>,
+) -> Result<DerivativeProfile> {
+    if let Some(profile) = cache.get(name) {
+        return Ok(profile.clone());
+    }
+    if let Some(position) = stack.iter().position(|item| item == name) {
+        let mut cycle = stack[position..].to_vec();
+        cycle.push(name.to_string());
+        anyhow::bail!(
+            "derivative profile inheritance cycle: {}",
+            cycle.join(" -> ")
+        );
+    }
+    let declared = spec
+        .profiles
+        .get(name)
+        .with_context(|| format!("target profile '{name}' is not defined"))?;
+    if declared.schema != "renderflow.profile/v1" {
+        anyhow::bail!(
+            "profile '{name}' uses unsupported schema '{}'; expected renderflow.profile/v1",
+            declared.schema
+        );
+    }
+    stack.push(name.to_string());
+    let mut result = DerivativeProfile::default();
+    let mut inherited_hygiene = BTreeSet::new();
+    for parent_name in &declared.extends {
+        let parent = resolve_profile(spec, parent_name, stack, cache)?;
+        if let Some(policy) = &parent.hygiene_policy {
+            inherited_hygiene.insert(policy.clone());
+        }
+        merge_profile(&mut result, &parent);
+    }
+    stack.pop();
+    if declared.hygiene_policy.is_none() && inherited_hygiene.len() > 1 {
+        anyhow::bail!(
+            "profile '{name}' inherits conflicting hygiene policies {}; declare hygiene_policy to resolve the conflict",
+            inherited_hygiene.into_iter().collect::<Vec<_>>().join(", ")
+        );
+    }
+    merge_profile(&mut result, declared);
+    result.extends = declared.extends.clone();
+    cache.insert(name.to_string(), result.clone());
+    Ok(result)
+}
+
+fn merge_profile(destination: &mut DerivativeProfile, source: &DerivativeProfile) {
+    destination.schema = source.schema.clone();
+    if source.description.is_some() {
+        destination.description = source.description.clone();
+    }
+    for target in &source.targets {
+        if let Some(id) = &target.id {
+            if let Some(existing) = destination
+                .targets
+                .iter_mut()
+                .find(|candidate| candidate.id.as_ref() == Some(id))
+            {
+                *existing = target.clone();
+                continue;
+            }
+        }
+        if !destination.targets.contains(target) {
+            destination.targets.push(target.clone());
+        }
+    }
+    merge_selector_set(&mut destination.include, &source.include);
+    merge_selector_set(&mut destination.exclude, &source.exclude);
+    destination.all_reachable |= source.all_reachable;
+    if source.intermediates.is_some() {
+        destination.intermediates = source.intermediates;
+    }
+    if source.hygiene_policy.is_some() {
+        destination.hygiene_policy = source.hygiene_policy.clone();
+    }
+    macro_rules! overlay {
+        ($field:ident) => {
+            if source.policy.$field.is_some() {
+                destination.policy.$field = source.policy.$field.clone();
+            }
+        };
+    }
+    overlay!(validation);
+    overlay!(minimum_fidelity);
+    overlay!(requirements);
+    overlay!(network);
+    overlay!(ai);
+    overlay!(budgets);
+    overlay!(publication_policy);
+    overlay!(redaction_policy);
+}
+
+fn apply_profile_policy(
+    execution: &mut crate::spec::ExecutionPolicy,
+    policy: &crate::spec::ProfilePolicy,
+) {
+    if let Some(value) = &policy.validation {
+        execution.validation = value.clone();
+    }
+    if let Some(value) = policy.minimum_fidelity {
+        execution.minimum_fidelity = Some(value);
+    }
+    if let Some(value) = &policy.requirements {
+        execution.requirements = value.clone();
+    }
+    if let Some(value) = policy.network {
+        execution.network = value;
+    }
+    if let Some(value) = policy.ai {
+        execution.ai = value;
+    }
+    if let Some(value) = &policy.budgets {
+        execution.budgets = value.clone();
+    }
+    if let Some(value) = &policy.publication_policy {
+        execution.publication_policy = Some(value.clone());
+    }
+    if let Some(value) = &policy.redaction_policy {
+        execution.redaction_policy = Some(value.clone());
+    }
+}
+
+fn merge_selector_set(destination: &mut SelectorSet, source: &SelectorSet) {
+    macro_rules! merge {
+        ($field:ident) => {{
+            destination.$field.extend(source.$field.iter().cloned());
+            destination.$field.sort();
+            destination.$field.dedup();
+        }};
+    }
+    merge!(formats);
+    merge!(families);
+    merge!(capabilities);
+    merge!(transforms);
+    merge!(providers);
+    merge!(roles);
+    merge!(profiles);
+    merge!(variants);
 }
 
 fn select_primary_source(spec: &SpecV2) -> Result<SourceSpec> {
@@ -1551,6 +1813,7 @@ fn resolve_target_intent(
 ) -> Result<Vec<ResolvedTarget>> {
     let reachable = graph.reachable_from(source);
     let mut selected = Vec::new();
+    let mut profile_exclusions = SelectorSet::default();
 
     for target in &spec.targets.exact {
         extend_target_spec(&mut selected, target, graph, source, &reachable)?;
@@ -1564,7 +1827,7 @@ fn resolve_target_intent(
             extend_target_spec(&mut selected, target, graph, source, &reachable)?;
         }
         extend_selector(&mut selected, &profile.include, graph, source, &reachable)?;
-        apply_exclusions(&mut selected, &profile.exclude, graph);
+        merge_selector_set(&mut profile_exclusions, &profile.exclude);
     }
     if spec.targets.all_reachable {
         for format in &reachable {
@@ -1572,11 +1835,118 @@ fn resolve_target_intent(
         }
     }
     if !spec.targets.include.is_empty() {
-        selected.retain(|target| selector_matches(target.format, &spec.targets.include, graph));
+        selected.retain(|target| selector_matches(target, &spec.targets.include, graph));
     }
+    apply_exclusions(&mut selected, &profile_exclusions, graph);
     apply_exclusions(&mut selected, &spec.targets.exclude, graph);
     selected.sort_by(|left, right| left.format.to_string().cmp(&right.format.to_string()));
     Ok(selected)
+}
+
+fn build_artifact_forest(
+    spec: &SpecV2,
+    graph: &TransformGraph,
+    source: Format,
+    selected: &[ResolvedTarget],
+    unavailable: &[ResolvedTarget],
+    budget_pruned: &[ResolvedTarget],
+) -> ArtifactForest {
+    let selected_formats = selected
+        .iter()
+        .map(|target| target.format)
+        .collect::<HashSet<_>>();
+    let unavailable_formats = unavailable
+        .iter()
+        .map(|target| target.format)
+        .collect::<HashSet<_>>();
+    let budget_pruned_formats = budget_pruned
+        .iter()
+        .map(|target| target.format)
+        .collect::<HashSet<_>>();
+    let mut exclusions = spec.targets.exclude.clone();
+    for profile_name in &spec.targets.profiles {
+        if let Some(profile) = spec.profiles.get(profile_name) {
+            merge_selector_set(&mut exclusions, &profile.exclude);
+        }
+    }
+    let mut formats = graph.reachable_from(source);
+    formats.sort_by_key(ToString::to_string);
+    let branches = formats
+        .into_iter()
+        .filter_map(|format| {
+            let target = ResolvedTarget::generated(format);
+            let (state, reason_code, reason) = if selected_formats.contains(&format) {
+                (
+                    ForestBranchState::Selected,
+                    "branch.selected",
+                    "reachable, policy-allowed, and provider-available",
+                )
+            } else if unavailable_formats.contains(&format) {
+                (
+                    ForestBranchState::Unavailable,
+                    "branch.provider_unavailable",
+                    "a required provider is unavailable on this host",
+                )
+            } else if budget_pruned_formats.contains(&format) {
+                (
+                    ForestBranchState::BudgetPruned,
+                    "branch.max_artifacts",
+                    "pruned by execution.budgets.max_artifacts",
+                )
+            } else if selector_matches(&target, &exclusions, graph) {
+                (
+                    ForestBranchState::Excluded,
+                    "branch.selector_excluded",
+                    "matched a profile, spec, or CLI exclusion selector",
+                )
+            } else if spec.targets.all_reachable {
+                return None;
+            } else {
+                return None;
+            };
+            let resolved_target = selected
+                .iter()
+                .chain(unavailable.iter())
+                .chain(budget_pruned.iter())
+                .find(|candidate| candidate.format == format)
+                .unwrap_or(&target);
+            Some(ForestBranch {
+                format: format.to_string(),
+                role: resolved_target.role.clone(),
+                requirement: match resolved_target.requirement {
+                    TargetRequirement::Required => "required",
+                    TargetRequirement::Optional => "optional",
+                }
+                .to_string(),
+                options: resolved_target.options.clone(),
+                state,
+                reason_code: reason_code.to_string(),
+                reason: reason.to_string(),
+            })
+        })
+        .collect();
+    ArtifactForest {
+        profiles: spec
+            .targets
+            .profiles
+            .iter()
+            .map(|name| {
+                let version = spec
+                    .profiles
+                    .get(name)
+                    .map(|profile| profile.schema.as_str())
+                    .unwrap_or("unknown");
+                format!("{name}@{version}")
+            })
+            .collect(),
+        intermediates: match spec.targets.intermediates {
+            IntermediatePolicy::CacheOnly => "cache_only",
+            IntermediatePolicy::Retain => "retain",
+        }
+        .to_string(),
+        branches,
+        produced_artifacts: Vec::new(),
+    }
 }
 
 fn extend_target_spec(
@@ -1630,8 +2000,9 @@ fn extend_selector(
     reachable: &[Format],
 ) -> Result<()> {
     for format in reachable {
-        if selector_matches(*format, selector, graph) {
-            insert_target(selected, ResolvedTarget::generated(*format))?;
+        let target = ResolvedTarget::generated(*format);
+        if selector_matches(&target, selector, graph) {
+            insert_target(selected, target)?;
         }
     }
     Ok(())
@@ -1675,10 +2046,15 @@ fn apply_exclusions(
     if selector.is_empty() {
         return;
     }
-    selected.retain(|target| !selector_matches(target.format, selector, graph));
+    selected.retain(|target| !selector_matches(target, selector, graph));
 }
 
-fn selector_matches(format: Format, selector: &SelectorSet, graph: &TransformGraph) -> bool {
+fn selector_matches(
+    target: &ResolvedTarget,
+    selector: &SelectorSet,
+    graph: &TransformGraph,
+) -> bool {
+    let format = target.format;
     let mut has_format_selector = false;
     let mut matches = false;
     if !selector.formats.is_empty() {
@@ -1710,6 +2086,25 @@ fn selector_matches(format: Format, selector: &SelectorSet, graph: &TransformGra
                 .get("transform_id")
                 .is_some_and(|transform| selector.transforms.contains(transform))
         });
+    }
+    if !selector.providers.is_empty() {
+        has_format_selector = true;
+        matches |= graph.transforms_to(format).iter().any(|edge| {
+            edge.provider_id
+                .as_ref()
+                .is_some_and(|provider| selector.providers.contains(provider))
+                || edge
+                    .required_provider_ids
+                    .iter()
+                    .any(|provider| selector.providers.contains(provider))
+        });
+    }
+    if !selector.roles.is_empty() {
+        has_format_selector = true;
+        matches |= target
+            .role
+            .as_ref()
+            .is_some_and(|role| selector.roles.contains(role));
     }
     if !selector.profiles.is_empty() {
         has_format_selector = true;
@@ -2007,6 +2402,7 @@ mod tests {
             variant: None,
             preset: None,
             template: None,
+            ..TargetSpec::default()
         });
         let mut graph = TransformGraph::new();
         graph.add_transform(TransformEdge::new(Format::Markdown, Format::Html, 1.0, 1.0));

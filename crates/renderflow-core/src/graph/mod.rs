@@ -13,7 +13,10 @@ mod transform_edge;
 pub use dag_executor::{DagExecutionReport, DagExecutor};
 pub use definition::TransformDefinition;
 pub use definition_registry::TransformDefinitionRegistry;
-pub use execution_plan::{DiagnosticLevel, ExecutionPlan, PlanSourceArtifact};
+pub use execution_plan::{
+    ArtifactForest, DiagnosticLevel, ExecutionPlan, ForestBranch, ForestBranchState,
+    PlanSourceArtifact,
+};
 pub use format::Format;
 pub use input_kind::InputKind;
 pub use multi_target::MultiTargetDag;

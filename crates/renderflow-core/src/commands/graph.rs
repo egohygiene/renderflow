@@ -51,10 +51,27 @@ pub fn run_plan(
     config_path: &str,
     format: &str,
     target: Option<&str>,
+    profile: Option<&str>,
+    exclude: &[String],
     export: Option<&str>,
     optimization: Option<OptimizationMode>,
 ) -> Result<()> {
-    let (plan, _) = load_plan(config_path, target, optimization)?;
+    let (plan, _) = if profile.is_some() || !exclude.is_empty() {
+        let mut request = PlanningRequest::from_path(config_path);
+        if let Some(profile) = profile {
+            request = request.with_profile(profile);
+        }
+        for selector in exclude {
+            request = request.with_exclude(selector)?;
+        }
+        if let Some(optimization) = optimization {
+            request = request.with_optimization(optimization);
+        }
+        let resolved = resolve(request)?;
+        (resolved.plan().clone(), resolved.target_formats())
+    } else {
+        load_plan(config_path, target, optimization)?
+    };
 
     let renderer = renderer_for(format).ok_or_else(|| {
         anyhow::anyhow!(
@@ -79,7 +96,7 @@ pub fn run_render(
     export: Option<&str>,
     optimization: Option<OptimizationMode>,
 ) -> Result<()> {
-    run_plan(config_path, format, target, export, optimization)
+    run_plan(config_path, format, target, None, &[], export, optimization)
 }
 
 // ── explain ──────────────────────────────────────────────────────────────────
@@ -126,7 +143,15 @@ pub fn run_export(
     target: Option<&str>,
     optimization: Option<OptimizationMode>,
 ) -> Result<()> {
-    run_plan(config_path, format, target, Some(output_path), optimization)
+    run_plan(
+        config_path,
+        format,
+        target,
+        None,
+        &[],
+        Some(output_path),
+        optimization,
+    )
 }
 
 // ── doctor ───────────────────────────────────────────────────────────────────

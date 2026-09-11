@@ -37,6 +37,59 @@ renderflow spec schema --output schemas/renderflow-v2.schema.json
 
 See the generated [Spec v2 Reference](spec-v2-reference.md) for the canonical field matrix and complete example.
 
+## Versioned derivative profiles and artifact forests
+
+Profiles use the `renderflow.profile/v1` contract. They may inherit other profiles with
+`extends`; parents are composed in declaration order and the child is applied last. Target
+entries with the same `id` are replaced by the later definition, while selector lists are
+unioned and sorted. Inheritance cycles and unresolved parent names are rejected. A child must
+explicitly choose `hygiene_policy` when its parents disagree.
+
+```yaml
+profiles:
+  publication.base:
+    schema: renderflow.profile/v1
+    targets:
+      - id: web
+        role: web
+        format: html
+        requirement: required
+        options:
+          standalone: true
+
+  publication.complete:
+    schema: renderflow.profile/v1
+    extends: [publication.base]
+    all_reachable: true
+    intermediates: cache_only
+    exclude:
+      families: [video]
+      providers: [tool.remote-video]
+    policy:
+      network: deny
+      ai: deny
+      minimum_fidelity: 0.9
+      validation:
+        required: true
+        failure_mode: branch_local
+```
+
+The bundled `everything` profile is data-defined and expands from the detected source through
+every policy-allowed branch. Provider-unavailable optional branches are recorded rather than
+failing unrelated branches. AI and network transforms remain excluded unless the effective
+profile/spec policy opts in. Intermediate artifacts remain cache-only unless retention is
+explicitly requested.
+
+```bash
+renderflow graph plan --profile everything --format json
+renderflow build --profile everything --exclude family:video --dry-run
+renderflow build --profile publication.complete --exclude provider:tool.remote-video
+```
+
+JSON plans and run manifests include `artifact_forest` evidence. Each considered branch is
+classified as `selected`, `excluded`, `unavailable`, or `budget_pruned` with a stable reason
+code. The final artifact manifest remains the authority for actually produced artifacts.
+
 ## V1 compatibility format
 
 ### Minimal config
