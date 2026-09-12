@@ -4,8 +4,13 @@ use std::path::Path;
 use anyhow::{Context, Result};
 use serde::Serialize;
 
+use crate::ai::AiSkillRegistry;
+use crate::dna::ArtifactDna;
 use crate::publication::lulu::{
     evaluate_request, LuluConformanceReport, LuluEligibility, LuluRulePack,
+};
+use crate::publication::magazine_guidance::{
+    MagazineAiEnrichmentPolicy, MagazineGuidanceBundle,
 };
 
 pub fn run_lulu_rules(format: &str, output: Option<&str>) -> Result<()> {
@@ -29,6 +34,32 @@ pub fn run_lulu_preflight(
         anyhow::bail!("one or more requested Lulu channels are not upload-ready; see report")
     }
     Ok(())
+}
+
+pub fn run_magazine_guidance(
+    dna_path: &str,
+    format: &str,
+    output: Option<&str>,
+    plan_ai: bool,
+    allow_remote: bool,
+    source_approved_for_ai: bool,
+    privacy_approved_for_remote: bool,
+) -> Result<()> {
+    let dna = ArtifactDna::load(dna_path)?;
+    let mut guidance = MagazineGuidanceBundle::from_dna(&dna)?;
+    if plan_ai {
+        guidance.plan_ai_candidates(
+            &AiSkillRegistry::bundled()?,
+            &MagazineAiEnrichmentPolicy {
+                enabled: true,
+                allow_remote,
+                source_approved_for_ai,
+                privacy_approved_for_remote,
+                ..MagazineAiEnrichmentPolicy::default()
+            },
+        )?;
+    }
+    emit(&guidance, format, output)
 }
 
 fn emit_report(report: &LuluConformanceReport, format: &str, output: Option<&str>) -> Result<()> {
