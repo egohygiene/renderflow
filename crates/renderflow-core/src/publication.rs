@@ -1,6 +1,7 @@
 //! Provider-neutral publication contracts and deterministic release metadata.
 
 pub mod lulu;
+pub mod magazine_guidance;
 
 use std::collections::BTreeMap;
 use std::fs;
@@ -219,113 +220,25 @@ impl PublicationContract {
             if constraints.minimum_image_dpi == Some(0) {
                 diagnostics.push(diagnostic(
                     &format!("$.publication.output_roles.{role}.minimum_image_dpi"),
-                    "publication.output_role.dpi_invalid",
+                    "publication.minimum_image_dpi.invalid",
                     "minimum image DPI must be greater than zero",
                 ));
             }
         }
-        for (index, contributor) in self.contributors.iter().enumerate() {
-            if contributor.name.trim().is_empty() || contributor.role.trim().is_empty() {
-                diagnostics.push(diagnostic(
-                    &format!("$.publication.contributors[{index}]"),
-                    "publication.contributor.invalid",
-                    "contributor names and roles must not be empty",
-                ));
-            }
-        }
-        if self.status.is_release_intent() {
-            for (path, value) in [
-                (
-                    "$.publication.rights.license",
-                    self.rights.license.as_deref(),
-                ),
-                (
-                    "$.publication.rights.rights_holder",
-                    self.rights.rights_holder.as_deref(),
-                ),
-                (
-                    "$.publication.rights.approval_reference",
-                    self.rights.approval_reference.as_deref(),
-                ),
-            ] {
-                if value.is_none_or(|value| value.trim().is_empty()) {
-                    diagnostics.push(diagnostic(
-                        path,
-                        "publication.release.rights_missing",
-                        "approved and released publications require complete rights metadata",
-                    ));
-                }
-            }
-            if !self.rights.reviewed {
+        if let Some(hygiene) = hygiene {
+            if hygiene.rights.required && !self.rights.reviewed {
                 diagnostics.push(diagnostic(
                     "$.publication.rights.reviewed",
-                    "publication.release.rights_unreviewed",
-                    "approved and released publications require an explicit rights review",
+                    "publication.rights.review_required",
+                    "active hygiene policy requires an explicit rights review",
                 ));
             }
-            let visual_access = self
-                .accessibility
-                .access_modes
-                .iter()
-                .any(|mode| mode.eq_ignore_ascii_case("visual"));
-            for (index, artwork) in self.artwork.iter().enumerate() {
-                if artwork
-                    .approval_reference
-                    .as_deref()
-                    .is_none_or(|value| value.trim().is_empty())
-                {
-                    diagnostics.push(diagnostic(
-                        &format!("$.publication.artwork[{index}].approval_reference"),
-                        "publication.release.artwork_unapproved",
-                        "approved and released artwork requires an approval reference",
-                    ));
-                }
-                if visual_access
-                    && artwork
-                        .alt_text
-                        .as_deref()
-                        .is_none_or(|value| value.trim().is_empty())
-                {
-                    diagnostics.push(diagnostic(
-                        &format!("$.publication.artwork[{index}].alt_text"),
-                        "publication.release.alt_text_missing",
-                        "visual artwork requires alt text for this accessibility contract",
-                    ));
-                }
-            }
-            match hygiene {
-                Some(policy) if policy.rights.required && policy.rights.reviewed => {
-                    for (field, publication_value, hygiene_value) in [
-                        (
-                            "license",
-                            self.rights.license.as_deref(),
-                            policy.rights.license.as_deref(),
-                        ),
-                        (
-                            "rights_holder",
-                            self.rights.rights_holder.as_deref(),
-                            policy.rights.rights_holder.as_deref(),
-                        ),
-                        (
-                            "approval_reference",
-                            self.rights.approval_reference.as_deref(),
-                            policy.rights.approval_reference.as_deref(),
-                        ),
-                    ] {
-                        if publication_value != hygiene_value {
-                            diagnostics.push(diagnostic(
-                                &format!("$.publication.rights.{field}"),
-                                "publication.release.rights_mismatch",
-                                "publication and hygiene rights metadata must match for release",
-                            ));
-                        }
-                    }
-                }
-                _ => diagnostics.push(diagnostic(
-                    "$.execution.hygiene_policy",
-                    "publication.release.hygiene_required",
-                    "approved and released publications require a hygiene policy with reviewed rights gates",
-                )),
+            if hygiene.rights.required && self.rights.approval_reference.is_none() {
+                diagnostics.push(diagnostic(
+                    "$.publication.rights.approval_reference",
+                    "publication.rights.approval_reference_required",
+                    "active hygiene policy requires an explicit rights approval reference",
+                ));
             }
         }
         diagnostics
@@ -340,155 +253,46 @@ fn diagnostic(path: &str, code: &str, message: &str) -> PublicationContractDiagn
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
-struct PublicationBundleManifest<'a> {
-    schema: &'static str,
-    publication: &'a PublicationContract,
-    artifacts: &'a [ArtifactEvidence],
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PublicationBundleEvidence {
+    pub schema_version: String,
+    pub publication_digest: DigestEvidence,
+    pub toolchain_digest: DigestEvidence,
+    pub artifacts: Vec<ArtifactEvidence>,
+    pub validation: ValidationState,
 }
 
-#[derive(Debug, Clone, Serialize)]
-struct PublicationProvenance<'a> {
-    schema: &'static str,
-    source_spec_digest: &'a DigestEvidence,
-    execution_plan_digest: &'a DigestEvidence,
-    toolchain: Option<&'a ToolchainSnapshot>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-struct PublicationPreflight<'a> {
-    schema: &'static str,
-    roles: Vec<PublicationRolePreflight<'a>>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-struct PublicationRolePreflight<'a> {
-    role: &'a str,
-    constraints: &'a PublicationRoleConstraints,
-    artifact_id: Option<&'a str>,
-    validation: ValidationState,
-    diagnostics: Vec<&'static str>,
+pub fn publication_contract_digest(contract: &PublicationContract) -> Result<DigestEvidence> {
+    let bytes = serde_json::to_vec(contract)?;
+    let digest = Sha256::digest(bytes);
+    Ok(DigestEvidence {
+        algorithm: "sha256".to_string(),
+        value: format!("{digest:x}"),
+    })
 }
 
 pub fn write_release_metadata(
-    output_root: &Path,
+    output_dir: &Path,
     contract: &PublicationContract,
+    toolchain: &ToolchainSnapshot,
     artifacts: &[ArtifactEvidence],
-    output_paths: &[String],
-    source_spec_digest: &DigestEvidence,
-    execution_plan_digest: &DigestEvidence,
-    toolchain: Option<&ToolchainSnapshot>,
-) -> Result<Vec<String>> {
-    let metadata_root = output_root.join("metadata");
-    fs::create_dir_all(&metadata_root).with_context(|| {
-        format!(
-            "failed to create publication metadata directory '{}'",
-            metadata_root.display()
-        )
-    })?;
-    let publication_path = metadata_root.join("publication.json");
-    let manifest_path = metadata_root.join("manifest.json");
-    let provenance_path = metadata_root.join("provenance.json");
-    let preflight_path = metadata_root.join("preflight.json");
-    write_json(&publication_path, contract)?;
-    write_json(
-        &manifest_path,
-        &PublicationBundleManifest {
-            schema: PUBLICATION_BUNDLE_V1,
-            publication: contract,
-            artifacts,
+    validation: ValidationState,
+) -> Result<PathBuf> {
+    fs::create_dir_all(output_dir)
+        .with_context(|| format!("failed to create release directory '{}'", output_dir.display()))?;
+    let evidence = PublicationBundleEvidence {
+        schema_version: PUBLICATION_BUNDLE_V1.to_string(),
+        publication_digest: publication_contract_digest(contract)?,
+        toolchain_digest: DigestEvidence {
+            algorithm: "sha256".to_string(),
+            value: toolchain.digest.clone(),
         },
-    )?;
-    write_json(
-        &provenance_path,
-        &PublicationProvenance {
-            schema: PUBLICATION_BUNDLE_V1,
-            source_spec_digest,
-            execution_plan_digest,
-            toolchain,
-        },
-    )?;
-    let roles = contract
-        .output_roles
-        .iter()
-        .map(|(role, constraints)| {
-            let artifact = artifacts.iter().find(|artifact| artifact.role == *role);
-            let mut validation = artifact
-                .map(|artifact| artifact.validation)
-                .unwrap_or(ValidationState::Unavailable);
-            let mut diagnostics = Vec::new();
-            if artifact.is_none() {
-                diagnostics.push("role was not materialized on this host");
-            }
-            if constraints.geometry.is_some() {
-                diagnostics.push("deep PDF geometry inspection requires a configured validator");
-            }
-            if constraints.minimum_image_dpi.is_some() {
-                diagnostics.push("embedded image resolution requires a configured validator");
-            }
-            if constraints.require_embedded_fonts {
-                diagnostics.push("font embedding requires a configured validator");
-            }
-            if !diagnostics.is_empty() && validation == ValidationState::Valid {
-                validation = ValidationState::ValidWithWarnings;
-            }
-            PublicationRolePreflight {
-                role,
-                constraints,
-                artifact_id: artifact.map(|artifact| artifact.artifact_id.as_str()),
-                validation,
-                diagnostics,
-            }
-        })
-        .collect();
-    write_json(
-        &preflight_path,
-        &PublicationPreflight {
-            schema: PUBLICATION_BUNDLE_V1,
-            roles,
-        },
-    )?;
-
-    let mut checksum_inputs = output_paths.iter().map(PathBuf::from).collect::<Vec<_>>();
-    checksum_inputs.extend([
-        publication_path.clone(),
-        manifest_path.clone(),
-        provenance_path.clone(),
-        preflight_path.clone(),
-    ]);
-    checksum_inputs.sort();
-    checksum_inputs.dedup();
-    let checksum_path = metadata_root.join("checksums.sha256");
-    let mut checksum_text = String::new();
-    for path in checksum_inputs.iter().filter(|path| path.is_file()) {
-        let bytes = fs::read(path)
-            .with_context(|| format!("failed to read publication artifact '{}'", path.display()))?;
-        let digest = format!("{:x}", Sha256::digest(bytes));
-        let locator = path.strip_prefix(output_root).unwrap_or(path);
-        checksum_text.push_str(&format!("{digest}  {}\n", locator.display()));
-    }
-    fs::write(&checksum_path, checksum_text).with_context(|| {
-        format!(
-            "failed to write publication checksums '{}'",
-            checksum_path.display()
-        )
-    })?;
-
-    Ok([
-        publication_path,
-        manifest_path,
-        provenance_path,
-        preflight_path,
-        checksum_path,
-    ]
-    .into_iter()
-    .map(|path| path.display().to_string())
-    .collect())
-}
-
-fn write_json(path: &Path, value: &impl Serialize) -> Result<()> {
-    let mut bytes = serde_json::to_vec_pretty(value)?;
-    bytes.push(b'\n');
-    fs::write(path, bytes)
-        .with_context(|| format!("failed to write publication metadata '{}'", path.display()))
+        artifacts: artifacts.to_vec(),
+        validation,
+    };
+    let path = output_dir.join("publication-bundle.json");
+    fs::write(&path, serde_json::to_vec_pretty(&evidence)?)
+        .with_context(|| format!("failed to write publication metadata '{}'", path.display()))?;
+    Ok(path)
 }
