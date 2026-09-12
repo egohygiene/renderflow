@@ -492,6 +492,12 @@
             "null"
           ]
         },
+        "artifact_dna": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "path": {
           "minLength": 1,
           "type": "string"

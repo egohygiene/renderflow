@@ -3,6 +3,22 @@
 Inspect pinned provider rules and preflight local publication candidates. These
 commands never authenticate, upload, allocate an ISBN, order a proof, or publish.
 
+## Magazine candidates
+
+```bash
+renderflow publication magazine-candidates \
+  --config "examples/magazine/renderflow.yaml" \
+  --asset-role "cover" \
+  --output "cover-candidates.json"
+```
+
+This local-only default consumes the artwork role's validated `artifact_dna`
+sidecar and emits a schema-bound, review-required asset-brief and metadata
+candidate. Add `--ai` and an execution-ready model catalog to request an
+additional candidate through the registered AI skill runtime. Local models are
+preferred; remote selection also requires `--allow-remote`, and remote exposure
+of privacy-reviewed input requires `--privacy-approved-for-remote`.
+
 ## Lulu rules
 
 ```bash

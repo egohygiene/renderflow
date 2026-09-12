@@ -283,6 +283,35 @@ pub fn run_cli(cli: Cli) -> Result<()> {
             EbookCommands::Capabilities { format } => commands::ebook::run_capabilities(&format)?,
         },
         Some(Commands::Publication { subcommand }) => match subcommand {
+            PublicationCommands::MagazineCandidates {
+                config,
+                asset_role,
+                output,
+                format,
+                ai,
+                ai_catalog,
+                ai_preference,
+                allow_remote,
+                allow_unverified,
+                source_approved_for_ai,
+                privacy_approved_for_remote,
+                openai_endpoint,
+                openai_api_key_env,
+            } => commands::publication::run_magazine_candidates(
+                &config,
+                &asset_role,
+                output.as_deref(),
+                &format,
+                ai,
+                ai_catalog.as_deref(),
+                &ai_preference,
+                allow_remote,
+                allow_unverified,
+                source_approved_for_ai,
+                privacy_approved_for_remote,
+                openai_endpoint.as_deref(),
+                &openai_api_key_env,
+            )?,
             PublicationCommands::Lulu { subcommand } => match subcommand {
                 LuluCommands::Rules { format, output } => {
                     commands::publication::run_lulu_rules(&format, output.as_deref())?

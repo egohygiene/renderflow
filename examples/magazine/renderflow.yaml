@@ -21,6 +21,7 @@ publication:
   artwork:
     - role: cover
       path: assets/cover.svg
+      artifact_dna: assets/cover.dna.json
       alt_text: Indigo and cream geometric cover for The Small Systems Review, Synthetic Issue Zero.
       approval_reference: synthetic-fixture-approval
   geometry:

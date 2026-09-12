@@ -1378,6 +1378,7 @@ pub fn json_schema() -> Value {
                 "properties": {
                     "role": {"type": "string", "minLength": 1},
                     "path": {"type": "string", "minLength": 1},
+                    "artifact_dna": {"type": ["string", "null"]},
                     "alt_text": {"type": ["string", "null"]},
                     "approval_reference": {"type": ["string", "null"]}
                 }

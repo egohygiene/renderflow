@@ -8,6 +8,52 @@ Add a `publication` block using `renderflow.publication/v1`. It records the publ
 
 Use `examples/magazine/renderflow.yaml` as a complete redistribution-safe starting point. Keep editorial content and approved assets in the content repository; Renderflow owns derivative planning, execution evidence, hygiene, validation, and packaging metadata.
 
+An artwork entry may reference a validated `renderflow.artifact-dna/v1` sidecar
+with `artifact_dna`. Generate a deterministic, review-required asset brief and
+metadata candidate without a network or model:
+
+```bash
+renderflow publication magazine-candidates \
+  --config "examples/magazine/renderflow.yaml" \
+  --asset-role "cover" \
+  --output "cover-candidates.json"
+```
+
+The output uses `renderflow.magazine-candidates/v1` and records source and DNA
+digests, compiler settings, hygiene policy, validation, approval state, and AI
+status. Only reusable visual/layout evidence is copied. Identity, protected-work,
+and verbatim-content dimensions are excluded, and the result is never promoted
+from `candidate` automatically.
+
+## Optional AI candidate
+
+AI is disabled unless `--ai` is present. It resolves the registered
+`skill.magazine.candidates@1.0.0` contract through the provider-neutral skill
+runtime. Local/open models are preferred by default:
+
+```bash
+renderflow publication magazine-candidates \
+  --config "examples/magazine/renderflow.yaml" \
+  --asset-role "cover" \
+  --ai \
+  --ai-catalog "local-models.json" \
+  --source-approved-for-ai \
+  --output "cover-candidates.json"
+```
+
+The catalog must record the selected local model as available plus its exact
+runtime/model provenance. If no compatible execution-ready model is available,
+the command still emits the deterministic candidate and records AI as
+`unavailable`.
+
+Remote providers require `--allow-remote`; privacy-reviewed remote input also
+requires `--privacy-approved-for-remote`. Rights/source approval, privacy,
+secret, protected-reference, copyright/imitation, and prompt/output hygiene
+gates run before or around execution. Provider output remains a separate
+schema-validated candidate with full #396 execution evidence; it is never
+silently merged into publication metadata or used to generate publication or
+comic content.
+
 Statuses are `draft`, `reviewed`, `approved`, and `released`. An `approved` or `released` contract is rejected unless it contains a license, rights holder, approval reference, an explicit rights review, and a selected hygiene policy whose rights gate is required and reviewed. Renderflow records that decision; it does not make a legal conclusion.
 
 ## Preview the artifact forest
