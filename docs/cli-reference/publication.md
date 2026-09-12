@@ -3,6 +3,26 @@
 Inspect pinned provider rules and preflight local publication candidates. These
 commands never authenticate, upload, allocate an ISBN, order a proof, or publish.
 
+## Coloring-book preflight
+
+```bash
+renderflow publication coloring-book-preflight \
+  --contract "tests/fixtures/coloring-book/book.yaml" \
+  --format json \
+  --output "coloring-book-validation.json"
+```
+
+The command validates `renderflow.coloring-book/v1` locally and emits
+`renderflow.coloring-book-validation/v1`. It hashes reviewed source, artwork,
+and font references; checks pagination, geometry evidence, resolution, contrast,
+line weight, accessibility, duplicate intent, rights, approvals, and generator
+provenance; and exits nonzero when release is blocked.
+
+Remote provider provenance is blocked unless `--allow-remote` is present. The
+flag only records an explicit review decision: preflight never invokes a model
+or contacts a provider. Local/open-model provenance needs no remote opt-in, and
+all generated output remains a candidate until approval binds its exact digest.
+
 ## Magazine candidates
 
 ```bash

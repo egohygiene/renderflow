@@ -63,7 +63,9 @@ pub enum Commands {
             renderflow build --target pdf           Build only the PDF output via graph resolution\n  \
             renderflow build --profile everything  Build the maximal available artifact forest
   \
-            renderflow build --profile magazine    Build a versioned magazine release bundle")]
+            renderflow build --profile magazine    Build a versioned magazine release bundle
+  \
+            renderflow build --profile coloring-book Build a rights-aware coloring-book bundle")]
     Build {
         /// Path to the renderflow configuration file
         #[arg(long, default_value = "renderflow.yaml", value_name = "FILE")]
@@ -90,7 +92,7 @@ pub enum Commands {
         #[arg(long, value_name = "FORMAT", conflicts_with_all = ["all", "profile"])]
         target: Option<String>,
 
-        /// Build a named, versioned derivative profile. `everything` and `magazine` are bundled.
+        /// Build a named, versioned derivative profile. `everything`, `magazine`, and `coloring-book` are bundled.
         #[arg(long, value_name = "PROFILE", conflicts_with_all = ["target", "all"])]
         profile: Option<String>,
 
@@ -424,6 +426,21 @@ pub enum VideoCommands {
 
 #[derive(Subcommand)]
 pub enum PublicationCommands {
+    /// Validate a rights-aware coloring-book contract entirely offline.
+    ColoringBookPreflight {
+        /// Coloring-book source contract in YAML or JSON.
+        #[arg(long, value_name = "FILE")]
+        contract: String,
+        /// Optional validation report output file.
+        #[arg(long, value_name = "FILE")]
+        output: Option<String>,
+        /// Output format: text (default), json, or yaml.
+        #[arg(long, default_value = "text", value_name = "FORMAT")]
+        format: String,
+        /// Acknowledge review of provenance from remote providers. No provider is invoked.
+        #[arg(long)]
+        allow_remote: bool,
+    },
     /// Produce candidate-only magazine briefs and metadata from Artifact DNA.
     MagazineCandidates {
         /// Renderflow v2 publication specification.
@@ -876,7 +893,7 @@ pub enum GraphCommands {
         #[arg(long, value_name = "FORMAT", conflicts_with = "profile")]
         target: Option<String>,
 
-        /// Resolve a named, versioned derivative profile. `everything` and `magazine` are bundled.
+        /// Resolve a named, versioned derivative profile. `everything`, `magazine`, and `coloring-book` are bundled.
         #[arg(long, value_name = "PROFILE", conflicts_with = "target")]
         profile: Option<String>,
 

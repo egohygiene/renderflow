@@ -1,0 +1,17 @@
+schema: renderflow/v2
+sources:
+  - id: synthetic-shapes
+    role: reviewed-source
+    path: reviewed-source.md
+    format: markdown
+targets:
+  exact:
+    - id: default.preview
+      role: accessible/web
+      format: html
+execution:
+  network: deny
+  ai: deny
+output:
+  bundle_root: release
+  naming_template: "{target.role}.{ext}"

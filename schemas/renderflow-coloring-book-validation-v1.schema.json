@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-coloring-book-validation-v1.schema.json",
+  "title": "Renderflow coloring-book validation report v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "validator_id", "validator_version", "contract_digest", "settings_digest", "policy", "status", "release_eligible", "artifacts", "findings"],
+  "properties": {
+    "schema": { "const": "renderflow.coloring-book-validation/v1" },
+    "validator_id": { "const": "renderflow.builtin.coloring-book-preflight" },
+    "validator_version": { "type": "string", "minLength": 1 },
+    "contract_digest": { "$ref": "#/$defs/digest" },
+    "settings_digest": { "$ref": "#/$defs/digest" },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["deterministic_offline", "network_accessed", "ai_invoked", "remote_provider_opt_in", "candidate_output_authoritative"],
+      "properties": {
+        "deterministic_offline": { "const": true },
+        "network_accessed": { "const": false },
+        "ai_invoked": { "const": false },
+        "remote_provider_opt_in": { "type": "boolean" },
+        "candidate_output_authoritative": { "const": false }
+      }
+    },
+    "status": { "enum": ["valid", "invalid"] },
+    "release_eligible": { "type": "boolean" },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["page_id", "role", "locator", "digest", "origin", "candidate_state", "rights"],
+        "properties": {
+          "page_id": { "type": "string", "minLength": 1 },
+          "role": { "type": "string", "minLength": 1 },
+          "reviewed_text": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["locator", "digest", "approval_reference"],
+            "properties": {
+              "locator": { "type": "string", "minLength": 1 },
+              "digest": { "$ref": "#/$defs/digest" },
+              "approval_reference": { "type": "string", "minLength": 1 }
+            }
+          },
+          "locator": { "type": "string", "minLength": 1 },
+          "digest": { "$ref": "#/$defs/digest" },
+          "origin": { "enum": ["reviewed_source", "generated_candidate"] },
+          "provider_id": { "type": "string", "minLength": 1 },
+          "model_id": { "type": "string", "minLength": 1 },
+          "candidate_state": { "enum": ["candidate", "approved", "rejected"] },
+          "approval_reference": { "type": "string", "minLength": 1 },
+          "rights": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["license", "rights_holder", "source", "approval_reference", "reviewed"],
+            "properties": {
+              "license": { "type": "string" },
+              "rights_holder": { "type": "string" },
+              "source": { "type": "string" },
+              "approval_reference": { "type": "string" },
+              "reviewed": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["severity", "code", "path", "message"],
+        "properties": {
+          "severity": { "enum": ["warning", "error"] },
+          "code": { "type": "string", "minLength": 1 },
+          "path": { "type": "string", "minLength": 1 },
+          "message": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "value"],
+      "properties": {
+        "algorithm": { "const": "sha256" },
+        "value": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    }
+  }
+}

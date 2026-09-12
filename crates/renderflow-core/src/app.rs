@@ -283,6 +283,17 @@ pub fn run_cli(cli: Cli) -> Result<()> {
             EbookCommands::Capabilities { format } => commands::ebook::run_capabilities(&format)?,
         },
         Some(Commands::Publication { subcommand }) => match subcommand {
+            PublicationCommands::ColoringBookPreflight {
+                contract,
+                output,
+                format,
+                allow_remote,
+            } => commands::publication::run_coloring_book_preflight(
+                &contract,
+                output.as_deref(),
+                &format,
+                allow_remote,
+            )?,
             PublicationCommands::MagazineCandidates {
                 config,
                 asset_role,

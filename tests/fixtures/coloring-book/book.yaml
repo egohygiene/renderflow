@@ -1,0 +1,114 @@
+schema: renderflow.coloring-book/v1
+book_id: synthetic-shapes
+version: "1.0.0"
+title: Synthetic shape fixture
+language: en
+intended_use: non_commercial
+audience:
+  label: general synthetic fixture
+  complexity: simple
+  minimum_age: 6
+geometry:
+  width_mm: 215.9
+  height_mm: 279.4
+  margin_mm: 12.7
+  bleed_mm: 3.175
+  safe_area_mm: 6.35
+line_art:
+  minimum_stroke_pt: 1.0
+  minimum_contrast_ratio: 7.0
+  minimum_dpi: 300
+  foreground: "#000000"
+  background: "#ffffff"
+pagination:
+  expected_page_count: 3
+  first_interior_side: recto
+  binding: perfect_bound
+print:
+  color_space: grayscale
+  interior_color: black_and_white
+  paper: uncoated_white
+  duplex: true
+  embedded_fonts_required: true
+hygiene:
+  privacy_reviewed: true
+  copyright_reviewed: true
+  protected_references_reviewed: true
+  prompt_hygiene_reviewed: true
+pages:
+  - id: front-cover
+    order: 1
+    kind: front_cover
+    teaching_objective: Identify a simple geometric outline
+    reviewed_text:
+      path: reviewed-source.md
+      sha256: cb2e352cbd1511aa4792273b1ae3dc674839cb70204600aa5017f5600fe81383
+      approval_reference: fixture-review/text-v1
+    artwork:
+      path: front-cover.svg
+      sha256: 5a8fcde3d6b8da73f25cb6fd74ff3e1cee27a9eaf526b164f82cd3fdf2dbd9d7
+      origin: reviewed_source
+      approval:
+        state: approved
+        reference: fixture-review/art-v1
+        approved_sha256: 5a8fcde3d6b8da73f25cb6fd74ff3e1cee27a9eaf526b164f82cd3fdf2dbd9d7
+      rights:
+        license: CC0-1.0
+        rights_holder: Renderflow contributors
+        source: local synthetic fixture
+        approval_reference: fixture-review/rights-v1
+        reviewed: true
+      inspection:
+        effective_dpi: 300
+        contrast_ratio: 21.0
+        minimum_stroke_pt: 2.0
+        trim_verified: true
+        bleed_verified: true
+        safe_area_verified: true
+    accessibility:
+      alt_text: A black circle outline on a white field
+      caption: Synthetic circle outline
+      source_links:
+        - reviewed-source.md
+    continuity_references:
+      - style.synthetic-monochrome-v1
+  - id: interior-2
+    order: 2
+    kind: interior
+    teaching_objective: Identify a second geometric outline
+    reviewed_text:
+      path: reviewed-source.md
+      sha256: cb2e352cbd1511aa4792273b1ae3dc674839cb70204600aa5017f5600fe81383
+      approval_reference: fixture-review/text-v1
+    artwork:
+      path: page-2.svg
+      sha256: ca07e1a082bf0d14e953657c1aaae75152587b1cd5823b3190655c95173ac80e
+      origin: reviewed_source
+      approval:
+        state: approved
+        reference: fixture-review/art-v1
+        approved_sha256: ca07e1a082bf0d14e953657c1aaae75152587b1cd5823b3190655c95173ac80e
+      rights:
+        license: CC0-1.0
+        rights_holder: Renderflow contributors
+        source: local synthetic fixture
+        approval_reference: fixture-review/rights-v1
+        reviewed: true
+      inspection:
+        effective_dpi: 300
+        contrast_ratio: 21.0
+        minimum_stroke_pt: 2.0
+        trim_verified: true
+        bleed_verified: true
+        safe_area_verified: true
+    accessibility:
+      alt_text: A black triangle outline on a white field
+      caption: Synthetic triangle outline
+      source_links:
+        - reviewed-source.md
+    continuity_references:
+      - style.synthetic-monochrome-v1
+  - id: intentional-blank-3
+    order: 3
+    kind: intentional_blank
+    blank_intent: Preserve duplex pagination before back matter
