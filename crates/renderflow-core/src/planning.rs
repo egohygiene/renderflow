@@ -1402,13 +1402,19 @@ fn apply_request_overrides(spec: &mut SpecV2, request: &PlanningRequest) -> Resu
             ..TargetSelection::default()
         };
     } else if let Some(profile) = &request.profile {
-        if matches!(profile.as_str(), "everything" | "magazine")
-            && !spec.profiles.contains_key(profile)
+        if matches!(
+            profile.as_str(),
+            "everything" | "magazine" | "coloring-book"
+        ) && !spec.profiles.contains_key(profile)
         {
             let (source, label) = match profile.as_str() {
                 "magazine" => (
                     include_str!("../data/profiles/magazine-v1.yaml"),
                     "magazine",
+                ),
+                "coloring-book" => (
+                    include_str!("../data/profiles/coloring-book-v1.yaml"),
+                    "coloring-book",
                 ),
                 _ => (
                     include_str!("../data/profiles/everything-v1.yaml"),

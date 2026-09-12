@@ -1,0 +1,29 @@
+schema: renderflow.profile/v1
+description: Versioned rights-aware coloring-book release bundle
+intermediates: cache_only
+targets:
+  - id: coloring-book.print.book
+    role: print/book
+    format: pdf
+  - id: coloring-book.print.proof
+    role: print/proof
+    format: pdf
+  - id: coloring-book.pages.raster
+    role: pages/raster
+    format: png
+    requirement: optional
+  - id: coloring-book.pages.vector
+    role: pages/vector
+    format: svg
+    requirement: optional
+  - id: coloring-book.accessible.web
+    role: accessible/web
+    format: html
+    requirement: optional
+policy:
+  validation:
+    required: true
+    failure_mode: branch_local
+    allow_unavailable: false
+  network: deny
+  ai: deny

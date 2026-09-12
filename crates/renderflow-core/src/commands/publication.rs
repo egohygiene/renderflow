@@ -11,6 +11,7 @@ use crate::ai::{
 };
 use crate::artifact::ArtifactStore;
 use crate::dna::ArtifactDna;
+use crate::publication::coloring_book::{evaluate_coloring_book, ColoringBookValidationReport};
 use crate::publication::lulu::{
     evaluate_request, LuluConformanceReport, LuluEligibility, LuluRulePack,
 };
@@ -18,6 +19,45 @@ use crate::publication::magazine::{
     build_magazine_candidates, create_magazine_ai_request, MagazineCandidatePolicy,
 };
 use crate::spec::load_spec;
+
+pub fn run_coloring_book_preflight(
+    contract: &str,
+    output: Option<&str>,
+    format: &str,
+    allow_remote: bool,
+) -> Result<()> {
+    let report = evaluate_coloring_book(Path::new(contract), allow_remote)?;
+    emit_coloring_book_report(&report, format, output)?;
+    if !report.is_valid() {
+        anyhow::bail!("coloring-book contract is not release-ready; see report")
+    }
+    Ok(())
+}
+
+fn emit_coloring_book_report(
+    report: &ColoringBookValidationReport,
+    format: &str,
+    output: Option<&str>,
+) -> Result<()> {
+    if format.eq_ignore_ascii_case("text") {
+        let mut text = format!(
+            "Coloring-book preflight\nStatus: {:?}\nRelease eligible: {}\nOffline: yes\nRemote provenance opt-in: {}\n\nFindings:\n",
+            report.status, report.release_eligible, report.policy.remote_provider_opt_in
+        );
+        if report.findings.is_empty() {
+            text.push_str("  none\n");
+        }
+        for finding in &report.findings {
+            text.push_str(&format!(
+                "  [{:?}] {} at {}: {}\n",
+                finding.severity, finding.code, finding.path, finding.message
+            ));
+        }
+        write(&text, output)
+    } else {
+        emit(report, format, output)
+    }
+}
 
 #[allow(clippy::too_many_arguments)]
 pub fn run_magazine_candidates(

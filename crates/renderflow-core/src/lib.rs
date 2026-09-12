@@ -68,6 +68,10 @@ pub use intake::{
     IntakeSignalKind, ProvenanceValue, ProviderInspection, ResolvedArtifactProfile,
     INTAKE_SCHEMA_V1,
 };
+pub use publication::coloring_book::{
+    evaluate_coloring_book, validate_coloring_book, ColoringBookContract,
+    ColoringBookValidationReport, COLORING_BOOK_REPORT_SCHEMA_V1, COLORING_BOOK_SCHEMA_V1,
+};
 pub use publication::magazine::{
     build_magazine_candidates, create_magazine_ai_request, MagazineAiCandidate, MagazineAiStatus,
     MagazineCandidateEnvelope, MagazineCandidatePolicy, MAGAZINE_CANDIDATE_SCHEMA_V1,
