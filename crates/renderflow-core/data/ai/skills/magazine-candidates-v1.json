@@ -1,0 +1,80 @@
+{
+  "schema_version": "renderflow.ai-skill/v1",
+  "id": "skill.magazine.candidates",
+  "version": "1.0.0",
+  "purpose": "Propose schema-bound magazine asset-brief and metadata enhancements from sanitized Artifact DNA and a deterministic candidate.",
+  "artifact_families": ["artifact_dna", "publication", "metadata", "asset_brief"],
+  "operations": ["generation", "extraction", "schema_constrained_output"],
+  "input_modalities": ["structured_json"],
+  "output_modalities": ["structured_json", "metadata"],
+  "requires_json_schema": true,
+  "input_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "required": ["dna", "deterministic_candidate", "intent"],
+    "properties": {
+      "dna": {"type": "string", "minLength": 1, "maxLength": 48000},
+      "deterministic_candidate": {"type": "string", "minLength": 1, "maxLength": 32000},
+      "intent": {"type": "string", "minLength": 1, "maxLength": 2000}
+    },
+    "additionalProperties": false
+  },
+  "output_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "required": ["asset_brief", "metadata", "review_required"],
+    "properties": {
+      "asset_brief": {
+        "type": "object",
+        "required": ["layout_guidance", "palette_guidance", "typography_guidance", "accessibility_guidance", "negative_guidance"],
+        "properties": {
+          "layout_guidance": {"type": "array", "maxItems": 24, "items": {"type": "string", "maxLength": 400}},
+          "palette_guidance": {"type": "array", "maxItems": 24, "items": {"type": "string", "maxLength": 400}},
+          "typography_guidance": {"type": "array", "maxItems": 24, "items": {"type": "string", "maxLength": 400}},
+          "accessibility_guidance": {"type": "array", "maxItems": 24, "items": {"type": "string", "maxLength": 400}},
+          "negative_guidance": {"type": "array", "maxItems": 24, "items": {"type": "string", "maxLength": 400}}
+        },
+        "additionalProperties": false
+      },
+      "metadata": {
+        "type": "object",
+        "required": ["descriptive_tags", "accessibility_notes"],
+        "properties": {
+          "descriptive_tags": {"type": "array", "maxItems": 24, "items": {"type": "string", "maxLength": 120}},
+          "accessibility_notes": {"type": "array", "maxItems": 24, "items": {"type": "string", "maxLength": 400}}
+        },
+        "additionalProperties": false
+      },
+      "review_required": {"const": true}
+    },
+    "additionalProperties": false
+  },
+  "templates": {
+    "system": "You propose conservative, provider-neutral magazine asset guidance. Never generate publication copy, story content, artwork, or named-style imitation. Return only strict JSON.",
+    "instruction": "Use only sanitized evidence. Preserve the deterministic candidate as the baseline, omit creator, brand, franchise, protected-work, and verbatim-content references, and mark the result review_required true.",
+    "prompt": "Intent: {{intent}}\n\nValidated sanitized Artifact DNA:\n{{dna}}\n\nDeterministic baseline candidate:\n{{deterministic_candidate}}"
+  },
+  "variables": [
+    {"name": "dna", "required": true, "sensitive": false, "max_bytes": 48000},
+    {"name": "deterministic_candidate", "required": true, "sensitive": false, "max_bytes": 32000},
+    {"name": "intent", "required": true, "sensitive": false, "max_bytes": 2000}
+  ],
+  "max_rendered_prompt_bytes": 88000,
+  "generation": {"temperature": 0.1, "max_tokens": 1800, "seed": 42, "top_p": 0.9},
+  "budgets": {"network": true, "remote_execution": true, "max_input_bytes": 84000, "max_output_bytes": 24000, "max_tokens": 2000, "max_duration_ms": 60000, "max_retries": 1, "max_cost_microunits": 50000},
+  "hygiene": {
+    "policy_id": "policy.ai.magazine-candidates.public-safe/v1",
+    "scan_secrets": true,
+    "pii_action": "block",
+    "protected_reference_action": "rewrite",
+    "protected_references": [{"term": "Example Franchise", "descriptive_replacement": "source-independent visual characteristics"}],
+    "allow_private_remote_input": false,
+    "retain_raw_prompts": false,
+    "post_output_review": true
+  },
+  "approval": {"initial_state": "candidate", "human_review_required": true, "validators": ["validator.json-contract/v1", "validator.ai-hygiene/v1", "validator.prompt-hygiene/v1", "validator.magazine-candidates/v1"]},
+  "provenance": {"cache_identity_fields": ["skill", "model", "runtime", "input", "schemas", "settings", "hygiene"], "evidence_fields": ["provider", "runtime", "model", "skill", "digests", "usage", "candidate_state", "approvals"], "redact_raw_inputs": true, "redact_raw_prompts": true},
+  "redistribution_notes": "The specification contains no publication or comic content and its fixture is synthetic.",
+  "license_notes": "Generated guidance remains a candidate; model and provider licenses require independent review.",
+  "fixture": {"dna": "{\"schema_version\":\"renderflow.artifact-dna/v1\",\"observations\":[]}", "deterministic_candidate": "{\"asset_brief\":{},\"metadata\":{}}", "intent": "Propose original cover-layout guidance without generating content."}
+}

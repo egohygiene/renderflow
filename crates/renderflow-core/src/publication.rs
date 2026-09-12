@@ -1,6 +1,7 @@
 //! Provider-neutral publication contracts and deterministic release metadata.
 
 pub mod lulu;
+pub mod magazine;
 
 use std::collections::BTreeMap;
 use std::fs;
@@ -52,6 +53,11 @@ pub struct PublicationContributor {
 pub struct PublicationAsset {
     pub role: String,
     pub path: String,
+    /// Optional validated Artifact DNA sidecar used to derive candidate-only
+    /// visual and layout guidance. The path is relative to the publication
+    /// specification.
+    #[serde(default)]
+    pub artifact_dna: Option<String>,
     #[serde(default)]
     pub alt_text: Option<String>,
     #[serde(default)]

@@ -68,6 +68,11 @@ pub use intake::{
     IntakeSignalKind, ProvenanceValue, ProviderInspection, ResolvedArtifactProfile,
     INTAKE_SCHEMA_V1,
 };
+pub use publication::magazine::{
+    build_magazine_candidates, create_magazine_ai_request, MagazineAiCandidate, MagazineAiStatus,
+    MagazineCandidateEnvelope, MagazineCandidatePolicy, MAGAZINE_CANDIDATE_SCHEMA_V1,
+    MAGAZINE_CANDIDATE_SKILL_ID_V1,
+};
 pub use sdk::{
     ArtifactProfile, CancellationToken, DiagnosticReport, Engine, EngineBuilder, ExecutionRequest,
     ExecutionResult, InspectionRequest, PlanRequest, ProgressEvent, ProgressReporter,

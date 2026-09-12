@@ -1,0 +1,137 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-magazine-candidates-v1.schema.json",
+  "title": "Renderflow magazine asset-brief and metadata candidates v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "candidate_id", "source", "asset_brief", "metadata", "ai", "provenance", "validation", "approval"],
+  "properties": {
+    "schema_version": {"const": "renderflow.magazine-candidates/v1"},
+    "candidate_id": {"type": "string", "pattern": "^magazine:sha256:[a-f0-9]{64}$"},
+    "source": {"$ref": "#/$defs/source"},
+    "asset_brief": {"$ref": "#/$defs/assetBrief"},
+    "metadata": {"$ref": "#/$defs/metadata"},
+    "ai": {"$ref": "#/$defs/ai"},
+    "provenance": {"$ref": "#/$defs/provenance"},
+    "validation": {"$ref": "#/$defs/validation"},
+    "approval": {"$ref": "#/$defs/approval"}
+  },
+  "$defs": {
+    "digest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "value"],
+      "properties": {
+        "algorithm": {"const": "sha256"},
+        "value": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+      }
+    },
+    "guidance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["observation_id", "dimension", "value", "confidence"],
+      "properties": {
+        "observation_id": {"type": "string", "minLength": 1},
+        "dimension": {"type": "string", "minLength": 1},
+        "value": {},
+        "description": {"type": ["string", "null"]},
+        "confidence": {"type": "number", "minimum": 0, "maximum": 1}
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["publication_issue_id", "asset_role", "source_artifact_id", "source_digest", "dna_digest", "dna_schema_version"],
+      "properties": {
+        "publication_issue_id": {"type": "string", "minLength": 1},
+        "asset_role": {"type": "string", "minLength": 1},
+        "source_artifact_id": {"type": "string", "minLength": 1},
+        "source_digest": {"$ref": "#/$defs/digest"},
+        "dna_digest": {"$ref": "#/$defs/digest"},
+        "dna_schema_version": {"const": "renderflow.artifact-dna/v1"}
+      }
+    },
+    "assetBrief": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "asset_role", "purpose", "layout_guidance", "palette_guidance", "typography_guidance", "accessibility_guidance", "negative_guidance"],
+      "properties": {
+        "state": {"const": "candidate"},
+        "asset_role": {"type": "string", "minLength": 1},
+        "purpose": {"type": "string", "minLength": 1},
+        "layout_guidance": {"type": "array", "items": {"$ref": "#/$defs/guidance"}},
+        "palette_guidance": {"type": "array", "items": {"$ref": "#/$defs/guidance"}},
+        "typography_guidance": {"type": "array", "items": {"$ref": "#/$defs/guidance"}},
+        "accessibility_guidance": {"type": "array", "items": {"$ref": "#/$defs/guidance"}},
+        "negative_guidance": {"type": "array", "minItems": 1, "items": {"type": "string"}}
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "asset_role", "source_format", "source_media_type", "descriptive_properties", "accessibility_review_required"],
+      "properties": {
+        "state": {"const": "candidate"},
+        "asset_role": {"type": "string", "minLength": 1},
+        "source_format": {"type": "string", "minLength": 1},
+        "source_media_type": {"type": "string", "minLength": 1},
+        "descriptive_properties": {"type": "object"},
+        "accessibility_review_required": {"const": true}
+      }
+    },
+    "ai": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "skill_id", "skill_version"],
+      "properties": {
+        "status": {"enum": ["not_requested", "unavailable", "produced"]},
+        "skill_id": {"const": "skill.magazine.candidates"},
+        "skill_version": {"type": "string", "minLength": 1},
+        "provider_id": {"type": ["string", "null"]},
+        "model_id": {"type": ["string", "null"]},
+        "candidate": {"type": ["object", "null"]},
+        "execution": {"type": ["object", "null"]},
+        "diagnostics": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["generator", "generator_version", "policy_id", "policy_digest", "settings_digest", "source_digest", "dna_digest", "dna_policy_id", "dna_policy_digest", "dna_configuration_digest", "dna_extractors"],
+      "properties": {
+        "generator": {"const": "renderflow.builtin.magazine-candidates"},
+        "generator_version": {"type": "string", "minLength": 1},
+        "policy_id": {"const": "policy.magazine-candidates.public-safe/v1"},
+        "policy_digest": {"$ref": "#/$defs/digest"},
+        "settings_digest": {"$ref": "#/$defs/digest"},
+        "source_digest": {"$ref": "#/$defs/digest"},
+        "dna_digest": {"$ref": "#/$defs/digest"},
+        "dna_policy_id": {"type": "string", "minLength": 1},
+        "dna_policy_digest": {"$ref": "#/$defs/digest"},
+        "dna_configuration_digest": {"$ref": "#/$defs/digest"},
+        "dna_extractors": {"type": "array", "minItems": 1, "items": {"type": "object"}}
+      }
+    },
+    "validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_valid", "status", "validators", "publication_content_generated"],
+      "properties": {
+        "schema_valid": {"const": true},
+        "status": {"const": "valid_review_required"},
+        "validators": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+        "publication_content_generated": {"const": false}
+      }
+    },
+    "approval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "human_review_required"],
+      "properties": {
+        "state": {"const": "candidate"},
+        "human_review_required": {"const": true},
+        "approval_reference": {"type": ["string", "null"]}
+      }
+    }
+  }
+}

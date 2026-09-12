@@ -1,0 +1,224 @@
+{
+  "schema_version": "renderflow.artifact-dna/v1",
+  "source": {
+    "artifact_id": "artifact:sha256:a7f7235672c1aa8bc012ff2b9dab401243c294ffae0866694cd773c7a82e81d2",
+    "digest": {
+      "algorithm": "sha256",
+      "value": "7808c6c0e63810064064b336b52dca4eb741f9ddbd9be20477d04d7977a2e2a4"
+    },
+    "format": "svg",
+    "media_type": "image/svg+xml",
+    "size_bytes": 921
+  },
+  "modalities": [
+    "visual",
+    "layout"
+  ],
+  "observations": [
+    {
+      "id": "technical.format",
+      "modality": "visual",
+      "dimension": "technical.format",
+      "value": "svg",
+      "evidence": {
+        "origin": "provider_observed",
+        "provider_id": "renderflow.builtin.artifact-dna",
+        "provider_version": "0.2.1",
+        "determinism": "deterministic",
+        "confidence": 1.0
+      },
+      "similarity_eligible": false
+    },
+    {
+      "id": "technical.media-type",
+      "modality": "visual",
+      "dimension": "technical.media_type",
+      "value": "image/svg+xml",
+      "evidence": {
+        "origin": "provider_observed",
+        "provider_id": "renderflow.builtin.artifact-dna",
+        "provider_version": "0.2.1",
+        "determinism": "deterministic",
+        "confidence": 1.0
+      },
+      "similarity_eligible": false
+    },
+    {
+      "id": "technical.size-bytes",
+      "modality": "visual",
+      "dimension": "technical.size_bytes",
+      "value": 921,
+      "evidence": {
+        "origin": "provider_observed",
+        "provider_id": "renderflow.builtin.artifact-dna",
+        "provider_version": "0.2.1",
+        "determinism": "deterministic",
+        "confidence": 1.0
+      },
+      "similarity_eligible": false
+    },
+    {
+      "id": "visual.canvas.height",
+      "modality": "visual",
+      "dimension": "visual.canvas.height_pixels",
+      "value": 1600,
+      "evidence": {
+        "origin": "provider_observed",
+        "provider_id": "renderflow.builtin.artifact-dna",
+        "provider_version": "0.2.1",
+        "determinism": "deterministic",
+        "confidence": 1.0
+      },
+      "similarity_eligible": true
+    },
+    {
+      "id": "visual.canvas.width",
+      "modality": "visual",
+      "dimension": "visual.canvas.width_pixels",
+      "value": 1200,
+      "evidence": {
+        "origin": "provider_observed",
+        "provider_id": "renderflow.builtin.artifact-dna",
+        "provider_version": "0.2.1",
+        "determinism": "deterministic",
+        "confidence": 1.0
+      },
+      "similarity_eligible": true
+    },
+    {
+      "id": "visual.svg.palette",
+      "modality": "visual",
+      "dimension": "visual.palette.hex",
+      "value": [
+        "#30306f",
+        "#e3a857",
+        "#f5f0df"
+      ],
+      "evidence": {
+        "origin": "provider_observed",
+        "provider_id": "renderflow.builtin.artifact-dna",
+        "provider_version": "0.2.1",
+        "determinism": "deterministic",
+        "confidence": 1.0
+      },
+      "similarity_eligible": true
+    },
+    {
+      "id": "visual.canvas.aspect-ratio",
+      "modality": "layout",
+      "dimension": "layout.canvas.aspect_ratio",
+      "value": 0.75,
+      "evidence": {
+        "origin": "provider_observed",
+        "provider_id": "renderflow.builtin.artifact-dna",
+        "provider_version": "0.2.1",
+        "determinism": "deterministic",
+        "confidence": 1.0
+      },
+      "similarity_eligible": true
+    },
+    {
+      "id": "visual.canvas.orientation",
+      "modality": "layout",
+      "dimension": "layout.canvas.orientation",
+      "value": "portrait",
+      "evidence": {
+        "origin": "provider_observed",
+        "provider_id": "renderflow.builtin.artifact-dna",
+        "provider_version": "0.2.1",
+        "determinism": "deterministic",
+        "confidence": 1.0
+      },
+      "similarity_eligible": true
+    },
+    {
+      "id": "layout.svg.element-counts",
+      "modality": "layout",
+      "dimension": "layout.svg.element_counts",
+      "value": {
+        "circle": 1,
+        "rect": 3,
+        "text": 3
+      },
+      "evidence": {
+        "origin": "provider_observed",
+        "provider_id": "renderflow.builtin.artifact-dna",
+        "provider_version": "0.2.1",
+        "determinism": "deterministic",
+        "confidence": 1.0
+      },
+      "similarity_eligible": true
+    },
+    {
+      "id": "layout.svg.text-elements",
+      "modality": "layout",
+      "dimension": "layout.typography.text_element_count",
+      "value": 3,
+      "evidence": {
+        "origin": "provider_observed",
+        "provider_id": "renderflow.builtin.artifact-dna",
+        "provider_version": "0.2.1",
+        "determinism": "deterministic",
+        "confidence": 1.0
+      },
+      "similarity_eligible": true
+    }
+  ],
+  "similarity_guidance": {
+    "purpose": "Compare reusable descriptive characteristics for related, original assets",
+    "direct_imitation_allowed": false,
+    "legal_clearance_claimed": false,
+    "dimension_weights": {
+      "layout.canvas.aspect_ratio": 1.0,
+      "layout.canvas.orientation": 1.0,
+      "layout.svg.element_counts": 1.0,
+      "layout.typography.text_element_count": 1.0,
+      "visual.canvas.height_pixels": 1.0,
+      "visual.canvas.width_pixels": 1.0,
+      "visual.palette.hex": 1.0
+    },
+    "excluded_dimensions": [
+      "identity.creator",
+      "identity.brand",
+      "identity.protected_work"
+    ]
+  },
+  "hygiene": {
+    "policy_id": "policy.artifact-dna.public-safe/v1",
+    "status": "passed",
+    "raw_payload_retained": false,
+    "identifying_metadata_retained": false
+  },
+  "provenance": {
+    "source_digest": {
+      "algorithm": "sha256",
+      "value": "7808c6c0e63810064064b336b52dca4eb741f9ddbd9be20477d04d7977a2e2a4"
+    },
+    "extractors": [
+      {
+        "provider_id": "renderflow.builtin.artifact-dna",
+        "provider_version": "0.2.1",
+        "locality": "local",
+        "determinism": "deterministic",
+        "ai_assisted": false
+      }
+    ],
+    "policy_id": "policy.artifact-dna.public-safe/v1",
+    "policy_digest": {
+      "algorithm": "sha256",
+      "value": "3a046c836a0f0b0ab442643787755fc6149ef60cb9284b0c77111f98e103759f"
+    },
+    "configuration_digest": {
+      "algorithm": "sha256",
+      "value": "3a046c836a0f0b0ab442643787755fc6149ef60cb9284b0c77111f98e103759f"
+    }
+  },
+  "approval": {
+    "state": "candidate",
+    "human_review_required": false
+  },
+  "validation": {
+    "status": "valid",
+    "schema_valid": true
+  }
+}

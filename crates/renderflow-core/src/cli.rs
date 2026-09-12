@@ -424,6 +424,48 @@ pub enum VideoCommands {
 
 #[derive(Subcommand)]
 pub enum PublicationCommands {
+    /// Produce candidate-only magazine briefs and metadata from Artifact DNA.
+    MagazineCandidates {
+        /// Renderflow v2 publication specification.
+        #[arg(long, default_value = "renderflow.yaml", value_name = "FILE")]
+        config: String,
+        /// Artwork role whose Artifact DNA sidecar should be consumed.
+        #[arg(long, value_name = "ROLE")]
+        asset_role: String,
+        /// Optional candidate output file.
+        #[arg(long, value_name = "FILE")]
+        output: Option<String>,
+        /// Output format: json (default) or yaml.
+        #[arg(long, default_value = "json", value_name = "FORMAT")]
+        format: String,
+        /// Request an optional model-generated candidate through the AI skill runtime.
+        #[arg(long)]
+        ai: bool,
+        /// AI model catalog with observed availability and exact model provenance.
+        #[arg(long, value_name = "FILE")]
+        ai_catalog: Option<String>,
+        /// Provider-neutral model selection preference.
+        #[arg(long, default_value = "local-only", value_name = "PREFERENCE")]
+        ai_preference: String,
+        /// Explicitly permit selection of a remote provider.
+        #[arg(long)]
+        allow_remote: bool,
+        /// Permit selection of catalog entries whose availability is unverified.
+        #[arg(long)]
+        allow_unverified: bool,
+        /// Confirm that source and rights evidence permit model exposure.
+        #[arg(long)]
+        source_approved_for_ai: bool,
+        /// Confirm that privacy review permits remote exposure.
+        #[arg(long)]
+        privacy_approved_for_remote: bool,
+        /// Optional OpenAI-compatible endpoint; used only after remote opt-in.
+        #[arg(long, value_name = "URL")]
+        openai_endpoint: Option<String>,
+        /// Environment variable containing an OpenAI-compatible API key.
+        #[arg(long, default_value = "OPENAI_API_KEY", value_name = "NAME")]
+        openai_api_key_env: String,
+    },
     /// Evaluate candidates with the bundled, offline Lulu provider pack.
     Lulu {
         #[command(subcommand)]
