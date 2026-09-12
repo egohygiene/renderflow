@@ -1,0 +1,39 @@
+schema: renderflow.font-registry/v1
+registry_id: fixture.redistribution-safe
+version: "1.0.0"
+assets:
+  - id: font.fixture.regular
+    family: Renderflow Fixture
+    style: normal
+    weight: 400
+    stretch: normal
+    path: Fixture-Regular.woff2
+    format: woff2
+    digest:
+      algorithm: sha256
+      value: 3fc5d1a606780ef42ffabee11615c4d7d797031234ad130ad9b9dfea40dee1ec
+    provenance:
+      source_url: https://github.com/egohygiene/renderflow
+      source_version: synthetic-contract-fixture-v1
+      project_url: https://github.com/egohygiene/renderflow
+    license:
+      spdx_id: CC0-1.0
+      license_file: CC0-1.0.txt
+      redistribution: allowed
+      embedding: allowed
+    unicode_ranges:
+      - U+0000-007F
+    intended_roles:
+      - body
+      - heading
+      - display
+      - caption
+roles:
+  body:
+    primary: font.fixture.regular
+  heading:
+    primary: font.fixture.regular
+  display:
+    primary: font.fixture.regular
+  caption:
+    primary: font.fixture.regular

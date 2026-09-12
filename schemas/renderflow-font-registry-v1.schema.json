@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-font-registry-v1.schema.json",
+  "title": "Renderflow local font registry v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "registry_id", "version", "assets", "roles"],
+  "properties": {
+    "schema": { "const": "renderflow.font-registry/v1" },
+    "registry_id": { "$ref": "#/$defs/stableId" },
+    "version": { "type": "string", "minLength": 1 },
+    "assets": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/fontAsset" }
+    },
+    "roles": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "enum": ["body", "heading", "display", "monospace", "caption", "math"]
+      },
+      "additionalProperties": { "$ref": "#/$defs/roleBinding" }
+    }
+  },
+  "$defs": {
+    "stableId": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9._-]+$"
+    },
+    "digest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "value"],
+      "properties": {
+        "algorithm": { "const": "sha256" },
+        "value": { "type": "string", "pattern": "^[A-Fa-f0-9]{64}$" }
+      }
+    },
+    "license": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["spdx_id", "license_file", "redistribution", "embedding"],
+      "properties": {
+        "spdx_id": { "type": "string", "minLength": 1 },
+        "license_file": { "type": "string", "minLength": 1 },
+        "redistribution": {
+          "enum": ["allowed", "restricted", "prohibited", "unknown"]
+        },
+        "embedding": {
+          "enum": ["allowed", "print_only", "prohibited", "unknown"]
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_url", "source_version"],
+      "properties": {
+        "source_url": { "type": "string", "minLength": 1 },
+        "source_version": { "type": "string", "minLength": 1 },
+        "project_url": { "type": ["string", "null"] }
+      }
+    },
+    "fontAsset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "family",
+        "path",
+        "format",
+        "digest",
+        "provenance",
+        "license"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/stableId" },
+        "family": { "type": "string", "minLength": 1 },
+        "style": { "type": "string", "minLength": 1, "default": "normal" },
+        "weight": { "type": "integer", "minimum": 1, "maximum": 1000, "default": 400 },
+        "stretch": { "type": "string", "minLength": 1, "default": "normal" },
+        "path": { "type": "string", "minLength": 1 },
+        "format": { "enum": ["ttf", "otf", "woff", "woff2"] },
+        "digest": { "$ref": "#/$defs/digest" },
+        "provenance": { "$ref": "#/$defs/provenance" },
+        "license": { "$ref": "#/$defs/license" },
+        "unicode_ranges": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^U\\+[A-Fa-f0-9?]+(?:-[A-Fa-f0-9?]+)?$" },
+          "default": []
+        },
+        "intended_roles": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": ["body", "heading", "display", "monospace", "caption", "math"]
+          },
+          "default": []
+        }
+      }
+    },
+    "roleBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["primary"],
+      "properties": {
+        "primary": { "$ref": "#/$defs/stableId" },
+        "fallbacks": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/stableId" },
+          "default": []
+        },
+        "style": { "type": "string", "minLength": 1, "default": "normal" },
+        "weight": { "type": "integer", "minimum": 1, "maximum": 1000, "default": 400 }
+      }
+    }
+  }
+}

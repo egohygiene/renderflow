@@ -3,6 +3,7 @@ pub mod audit;
 pub mod build;
 pub mod dna;
 pub mod ebook;
+pub mod font;
 pub mod graph;
 pub mod inspect;
 pub mod plugin;

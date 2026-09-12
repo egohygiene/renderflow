@@ -73,6 +73,7 @@ nav:
       - EPUB and KEPUB Derivatives: user-guide/ebook-derivatives.md
       - Magazine Publications: user-guide/magazine-publications.md
       - LaTeX Components: user-guide/latex-components.md
+      - Local Font Assets: user-guide/font-assets.md
       - Lulu Publication Pack: user-guide/lulu-publication-pack.md
       - Whole-file Video: handbrake-adapter.md
       - Super Resolution: user-guide/super-resolution.md
@@ -134,6 +135,7 @@ nav:
       - plugin: cli-reference/plugin.md
       - ai: cli-reference/ai.md
       - dna: cli-reference/dna.md
+      - font: cli-reference/font.md
       - tools & capabilities: cli-reference/tools.md
       - publication: cli-reference/publication.md
       - spec: cli-reference/spec.md

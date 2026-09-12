@@ -1,9 +1,10 @@
 use anyhow::{Context, Result};
 use std::collections::HashMap;
 use std::path::Path;
-use tracing::info;
+use tracing::{info, warn};
 
 use crate::adapters::command::run_command;
+use crate::font::{resolve_from_variables, FontTarget};
 use crate::strategies::{OutputStrategy, PandocArgs, RenderContext};
 use crate::toolchain::ToolRegistry;
 
@@ -60,6 +61,26 @@ impl PdfStrategy {
 
         resolved
     }
+
+    fn font_variables(
+        &self,
+        variables: &HashMap<String, String>,
+    ) -> Result<HashMap<String, String>> {
+        let mut resolved = self.template_variables(variables);
+        if let Some(report) = resolve_from_variables(variables, FontTarget::Pdf)? {
+            for diagnostic in &report.diagnostics {
+                warn!(code = %diagnostic.code, message = %diagnostic.message, "Font resolution diagnostic");
+            }
+            for (key, value) in report.latex_variables() {
+                resolved.insert(key, value);
+            }
+            resolved.insert(
+                "renderflow-font-resolution".to_string(),
+                report.fingerprint()?,
+            );
+        }
+        Ok(resolved)
+    }
 }
 
 impl OutputStrategy for PdfStrategy {
@@ -92,7 +113,7 @@ impl OutputStrategy for PdfStrategy {
             None
         };
 
-        let variables = self.template_variables(ctx.variables);
+        let variables = self.font_variables(ctx.variables)?;
         let builder = PandocArgs::new(
             ctx.input_format.as_pandoc_format(),
             ctx.input_path,

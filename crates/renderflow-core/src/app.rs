@@ -3,8 +3,9 @@ use clap::Parser;
 use tracing::info;
 
 use crate::cli::{
-    AiCommands, AiSkillCommands, Cli, Commands, DnaCommands, EbookCommands, GraphCommands,
-    LuluCommands, PluginCommands, PublicationCommands, SpecCommands, ToolCommands, VideoCommands,
+    AiCommands, AiSkillCommands, Cli, Commands, DnaCommands, EbookCommands, FontCommands,
+    GraphCommands, LuluCommands, PluginCommands, PublicationCommands, SpecCommands, ToolCommands,
+    VideoCommands,
 };
 use crate::video::HandBrakeLimits;
 use crate::{commands, transforms};
@@ -172,6 +173,20 @@ pub fn run_cli(cli: Cli) -> Result<()> {
                 output,
                 format,
             } => commands::dna::run_compare(&left, &right, output.as_deref(), &format)?,
+        },
+        Some(Commands::Font { subcommand }) => match subcommand {
+            FontCommands::Validate { registry, format } => {
+                commands::font::run_validate(&registry, &format)?
+            }
+            FontCommands::Resolve {
+                registry,
+                target,
+                output,
+                format,
+            } => commands::font::run_resolve(&registry, &target, output.as_deref(), &format)?,
+            FontCommands::Css { registry, output } => {
+                commands::font::run_css(&registry, output.as_deref())?
+            }
         },
         Some(Commands::Graph { subcommand }) => match subcommand {
             GraphCommands::Plan {

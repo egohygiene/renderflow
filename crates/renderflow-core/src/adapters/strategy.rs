@@ -9,6 +9,9 @@ use crate::artifact::{
 };
 use crate::assets::normalize_asset_paths;
 use crate::config::OutputType;
+use crate::font::{
+    resolve_from_variables, FontResolutionReport, FontTarget, FONT_REGISTRY_VARIABLE,
+};
 use crate::graph::Format;
 use crate::input_format::InputFormat;
 use crate::pipeline::Pipeline;
@@ -25,6 +28,7 @@ pub struct StrategyArtifactTransform {
     profile: Option<String>,
     variables: HashMap<String, String>,
     source_asset_root: Option<PathBuf>,
+    font_resolution: Option<FontResolutionReport>,
     cache_identity: String,
 }
 
@@ -44,11 +48,29 @@ impl StrategyArtifactTransform {
             )
         })?;
         let variables: HashMap<String, String> = variables.into_iter().collect();
-        let mut identity_variables: Vec<_> = variables.iter().collect();
+        let font_target = match to {
+            Format::Html => Some(FontTarget::Html),
+            Format::Pdf => Some(FontTarget::Pdf),
+            Format::Epub => Some(FontTarget::Epub),
+            Format::Docx => Some(FontTarget::Docx),
+            _ => None,
+        };
+        let font_resolution = font_target
+            .map(|target| resolve_from_variables(&variables, target))
+            .transpose()?
+            .flatten();
+        let font_identity = font_resolution
+            .as_ref()
+            .map(FontResolutionReport::fingerprint)
+            .transpose()?;
+        let mut identity_variables: Vec<_> = variables
+            .iter()
+            .filter(|(key, _)| key.as_str() != FONT_REGISTRY_VARIABLE)
+            .collect();
         identity_variables.sort_by(|left, right| left.0.cmp(right.0));
         let cache_identity = format!(
-            "renderflow.strategy-adapter/v1;from={from};to={to};template={template:?};profile={profile:?};source_root={:?};variables={identity_variables:?}",
-            source_asset_root
+            "renderflow.strategy-adapter/v1;from={from};to={to};template={template:?};profile={profile:?};source_root={:?};font_resolution={font_identity:?};variables={identity_variables:?}",
+            source_asset_root,
         );
         Ok(Self {
             from,
@@ -58,6 +80,7 @@ impl StrategyArtifactTransform {
             profile,
             variables,
             source_asset_root,
+            font_resolution,
             cache_identity,
         })
     }
@@ -171,14 +194,20 @@ impl ArtifactTransform for StrategyArtifactTransform {
                 output_path.display()
             );
         }
-        store.import_path(
-            &output_path,
+        let mut descriptor =
             ArtifactDescriptor::for_format(output_format, ArtifactStorageClass::Intermediate)
                 .with_source(input.id().clone())
                 .with_metadata("renderflow.adapter", "builtin.strategy")
                 .with_metadata("renderflow.from", self.from.to_string())
-                .with_metadata("renderflow.to", self.to.to_string()),
-        )
+                .with_metadata("renderflow.to", self.to.to_string());
+        if let Some(fonts) = &self.font_resolution {
+            descriptor = descriptor
+                .with_metadata("renderflow.font.registry", fonts.registry_id.clone())
+                .with_metadata("renderflow.font.target", fonts.target.to_string())
+                .with_metadata("renderflow.font.resolution", fonts.fingerprint()?)
+                .with_metadata("renderflow.font.evidence", fonts.evidence());
+        }
+        store.import_path(&output_path, descriptor)
     }
 }
 

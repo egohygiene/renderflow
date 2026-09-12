@@ -84,11 +84,15 @@ developer workstation font. When `templates/fonts/` exists, the PDF strategy
 also injects it as `renderflow-font-root`. A user-provided root remains
 authoritative.
 
-Local font variables name files rather than host-installed families. If a
-declared file cannot be found, the style layer emits a package warning and uses
-the corresponding Latin Modern role. Renderflow does not ship third-party font
-binaries; publication owners remain responsible for font licenses and for PDF
-font-embedding validation required by their publication contract.
+Local font variables name files rather than host-installed families. Paths may
+be relative to `renderflow-font-root` or absolute paths produced by a validated
+[`renderflow.font-registry/v1`](font-assets.md) resolution. If a manually
+configured font file is missing, the style layer emits a warning and
+deliberately falls back to the corresponding Latin Modern role. Registry
+fallbacks are resolved earlier and recorded in structured diagnostics.
+Renderflow does not ship a third-party font catalog; publication owners remain
+responsible for font licenses and final PDF font-embedding validation required
+by their publication contract.
 
 ## Pandoc and Tectonic compatibility
 

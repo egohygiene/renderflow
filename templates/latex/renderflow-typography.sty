@@ -22,31 +22,43 @@
   \ifdefempty{\RenderflowMainFontFile}{
     \setmainfont{\RenderflowMainFont}
   }{
-    \IfFileExists{\RenderflowFontRoot/\RenderflowMainFontFile}{
-      \setmainfont[Path=\RenderflowFontRoot/]{\RenderflowMainFontFile}
+    \IfFileExists{\RenderflowMainFontFile}{
+      \setmainfont{\RenderflowMainFontFile}
     }{
-      \PackageWarning{renderflow-typography}{Local main font missing; using deterministic fallback}
-      \setmainfont{\RenderflowMainFont}
+      \IfFileExists{\RenderflowFontRoot/\RenderflowMainFontFile}{
+        \setmainfont[Path=\RenderflowFontRoot/]{\RenderflowMainFontFile}
+      }{
+        \PackageWarning{renderflow-typography}{Local main font missing; using deterministic fallback}
+        \setmainfont{\RenderflowMainFont}
+      }
     }
   }
   \ifdefempty{\RenderflowSansFontFile}{
     \setsansfont{\RenderflowSansFont}
   }{
-    \IfFileExists{\RenderflowFontRoot/\RenderflowSansFontFile}{
-      \setsansfont[Path=\RenderflowFontRoot/]{\RenderflowSansFontFile}
+    \IfFileExists{\RenderflowSansFontFile}{
+      \setsansfont{\RenderflowSansFontFile}
     }{
-      \PackageWarning{renderflow-typography}{Local sans font missing; using deterministic fallback}
-      \setsansfont{\RenderflowSansFont}
+      \IfFileExists{\RenderflowFontRoot/\RenderflowSansFontFile}{
+        \setsansfont[Path=\RenderflowFontRoot/]{\RenderflowSansFontFile}
+      }{
+        \PackageWarning{renderflow-typography}{Local sans font missing; using deterministic fallback}
+        \setsansfont{\RenderflowSansFont}
+      }
     }
   }
   \ifdefempty{\RenderflowMonoFontFile}{
     \setmonofont{\RenderflowMonoFont}
   }{
-    \IfFileExists{\RenderflowFontRoot/\RenderflowMonoFontFile}{
-      \setmonofont[Path=\RenderflowFontRoot/]{\RenderflowMonoFontFile}
+    \IfFileExists{\RenderflowMonoFontFile}{
+      \setmonofont{\RenderflowMonoFontFile}
     }{
-      \PackageWarning{renderflow-typography}{Local mono font missing; using deterministic fallback}
-      \setmonofont{\RenderflowMonoFont}
+      \IfFileExists{\RenderflowFontRoot/\RenderflowMonoFontFile}{
+        \setmonofont[Path=\RenderflowFontRoot/]{\RenderflowMonoFontFile}
+      }{
+        \PackageWarning{renderflow-typography}{Local mono font missing; using deterministic fallback}
+        \setmonofont{\RenderflowMonoFont}
+      }
     }
   }
 \fi
