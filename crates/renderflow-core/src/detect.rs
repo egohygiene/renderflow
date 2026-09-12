@@ -83,6 +83,21 @@ pub struct DetectionConflict {
 /// The `buf` slice should contain at least the first 16 bytes of the file for
 /// reliable results, but longer slices are handled correctly.
 pub fn detect_from_bytes(buf: &[u8]) -> Option<Format> {
+    if buf.starts_with(b"RIFF") && buf.len() >= 12 {
+        match &buf[8..12] {
+            b"WAVE" => return Some(Format::Wav),
+            b"AVI " => return Some(Format::Avi),
+            b"WEBP" => return Some(Format::Webp),
+            _ => {}
+        }
+    }
+    if buf.len() >= 12 && buf.get(4..8) == Some(b"ftyp") {
+        return Some(match &buf[8..12] {
+            b"avif" | b"avis" => Format::Avif,
+            _ => Format::Mp4,
+        });
+    }
+
     // Iterate in a deterministic order so that ties between formats sharing
     // a prefix are resolved consistently.
     let registry = FormatCapabilityRegistry::global();
@@ -104,7 +119,10 @@ pub fn detect_from_bytes(buf: &[u8]) -> Option<Format> {
 
     // Prefer the match with the longest (most specific) signature to avoid
     // false positives when a shorter signature is a prefix of another.
-    candidates.sort_by(|a, b| b.1.cmp(&a.1));
+    candidates.sort_by(|a, b| {
+        b.1.cmp(&a.1)
+            .then_with(|| a.0.to_string().cmp(&b.0.to_string()))
+    });
     candidates.into_iter().next().map(|(f, _)| f)
 }
 
@@ -196,6 +214,25 @@ mod tests {
         let buf = b"fLaC\x00\x00\x00\x22";
         let result = detect_from_bytes(buf);
         assert_eq!(result, Some(Format::Flac));
+    }
+
+    #[test]
+    fn detect_riff_formats_from_form_type() {
+        assert_eq!(detect_from_bytes(b"RIFF\0\0\0\0WAVE"), Some(Format::Wav));
+        assert_eq!(detect_from_bytes(b"RIFF\0\0\0\0AVI "), Some(Format::Avi));
+        assert_eq!(detect_from_bytes(b"RIFF\0\0\0\0WEBP"), Some(Format::Webp));
+    }
+
+    #[test]
+    fn detect_iso_base_media_from_major_brand() {
+        assert_eq!(
+            detect_from_bytes(b"\0\0\0\x18ftypisom\0\0\0\0"),
+            Some(Format::Mp4)
+        );
+        assert_eq!(
+            detect_from_bytes(b"\0\0\0\x18ftypavif\0\0\0\0"),
+            Some(Format::Avif)
+        );
     }
 
     #[test]

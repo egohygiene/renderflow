@@ -1,0 +1,71 @@
+name: Artifact conformance
+
+on:
+  pull_request:
+  release:
+    types: [published]
+  schedule:
+    - cron: "17 4 * * 2"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fast:
+    name: Fast hermetic corpus
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.94"
+
+      - name: Run focused conformance harness
+        env:
+          RENDERFLOW_CONFORMANCE_TIER: "fast"
+          RENDERFLOW_CONFORMANCE_REPORT: "${{ runner.temp }}/renderflow-conformance-fast.json"
+        run: cargo test --package renderflow --test golden_conformance --locked
+
+      - name: Upload conformance report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: "renderflow-conformance-fast-${{ github.run_id }}"
+          path: "${{ runner.temp }}/renderflow-conformance-fast.json"
+
+  maximal:
+    name: Maximal tool-backed corpus
+    if: github.event_name == 'schedule' || github.event_name == 'release' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.94"
+
+      - name: Install optional conformance providers
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes ffmpeg pandoc
+
+      - name: Run maximal conformance harness
+        env:
+          RENDERFLOW_CONFORMANCE_TIER: "maximal"
+          RENDERFLOW_CONFORMANCE_REPORT: "${{ runner.temp }}/renderflow-conformance-maximal.json"
+        run: cargo test --package renderflow --test golden_conformance --locked
+
+      - name: Upload conformance report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: "renderflow-conformance-maximal-${{ github.run_id }}"
+          path: "${{ runner.temp }}/renderflow-conformance-maximal.json"
+          retention-days: 90

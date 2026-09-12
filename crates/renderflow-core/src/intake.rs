@@ -425,7 +425,9 @@ impl IntakeEngine {
                 .find(|descriptor| descriptor.id == "zip")
                 .copied()
         } else {
-            magic_matches.first().copied()
+            crate::detect::detect_from_bytes(bytes)
+                .and_then(|format| registry.get(format))
+                .or_else(|| magic_matches.first().copied())
         };
         if let Some(descriptor) = magic_match {
             signals.push(IntakeSignal {

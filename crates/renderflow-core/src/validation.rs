@@ -821,10 +821,7 @@ fn conformance_row(
             .map(|tool| tool.stable_id().to_string())
             .collect(),
         validator_ids,
-        fixture_ids: match descriptor.id {
-            "png" => vec!["fixture.corrupt.png.truncated".to_string()],
-            _ => Vec::new(),
-        },
+        fixture_ids: golden_fixture_ids(descriptor.id),
         supported_platforms: vec![
             "linux".to_string(),
             "macos".to_string(),
@@ -834,6 +831,22 @@ fn conformance_row(
         loss_profile: descriptor.loss_profile.to_string(),
         support_status,
     }
+}
+
+fn golden_fixture_ids(format: &str) -> Vec<String> {
+    let ids: &[&str] = match format {
+        "markdown" => &["fixture.document.markdown"],
+        "pdf" => &["fixture.document.pdf"],
+        "png" => &["fixture.image.png", "fixture.mismatch.jpeg-png"],
+        "svg" => &["fixture.image.svg"],
+        "wav" => &["fixture.audio.wav"],
+        "mp4" => &["fixture.video.mp4"],
+        "zip" => &["fixture.archive.zip", "fixture.corrupt.zip"],
+        "json" => &["fixture.data.json"],
+        "srt" => &["fixture.subtitle.srt"],
+        _ => &[],
+    };
+    ids.iter().map(|id| (*id).to_string()).collect()
 }
 
 #[cfg(test)]
@@ -862,5 +875,14 @@ mod tests {
         let second = CapabilityConformanceMatrix::builtins();
         assert_eq!(first, second);
         assert!(!first.formats.is_empty());
+        assert_eq!(
+            first
+                .formats
+                .iter()
+                .find(|row| row.format == "wav")
+                .unwrap()
+                .fixture_ids,
+            vec!["fixture.audio.wav"]
+        );
     }
 }
