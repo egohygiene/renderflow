@@ -11,8 +11,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::dna::{
-    ArtifactDna, DnaHygieneStatus, DnaModality, DnaReviewState, DnaValidationStatus,
-    ARTIFACT_DNA_SCHEMA_V1,
+    ArtifactDna, DnaHygieneStatus, DnaModality, DnaValidationStatus, ARTIFACT_DNA_SCHEMA_V1,
 };
 use crate::evidence::{sha256_serialized, DigestEvidence};
 
@@ -235,9 +234,6 @@ impl MagazineGuidanceBundle {
         let dna_digest = sha256_serialized(dna)?;
         let policy = MagazineAiEnrichmentPolicy::default();
         let guidance_policy_digest = sha256_serialized(&policy)?;
-        let requires_review = dna.approval.human_review_required
-            || dna.approval.state != DnaReviewState::Approved
-            || true;
         let mut bundle = Self {
             schema_version: MAGAZINE_GUIDANCE_SCHEMA_V1.to_string(),
             asset_brief,
@@ -263,7 +259,7 @@ impl MagazineGuidanceBundle {
             },
             approval: MagazineGuidanceApproval {
                 state: MagazineCandidateState::Candidate,
-                human_review_required: requires_review,
+                human_review_required: true,
                 approval_reference: None,
             },
         };
@@ -365,7 +361,7 @@ mod tests {
     use super::*;
     use crate::dna::{
         DnaApproval, DnaDeterminism, DnaEvidenceOrigin, DnaExtractorEvidence, DnaHygieneEvidence,
-        DnaObservation, DnaObservationEvidence, DnaProvenance, DnaProviderLocality,
+        DnaObservation, DnaObservationEvidence, DnaProvenance, DnaProviderLocality, DnaReviewState,
         DnaSimilarityGuidance, DnaSourceReference, DnaValidation,
     };
 
