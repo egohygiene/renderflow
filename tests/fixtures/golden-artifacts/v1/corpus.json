@@ -1,0 +1,155 @@
+{
+  "schema_version": "renderflow.golden-corpus/v1",
+  "corpus_version": "1.0.0",
+  "license": "CC0-1.0",
+  "redistribution": "Synthetic fixtures created for Renderflow conformance; no publication or third-party content.",
+  "fixtures": [
+    {
+      "id": "fixture.document.markdown",
+      "filename": "synthetic.md",
+      "encoding": "utf8",
+      "payload": "# Synthetic artifact\n\nA bounded, redistribution-safe Renderflow fixture.\n",
+      "expected_format": "markdown",
+      "expected_media_type": "text/markdown",
+      "family": "document",
+      "expected_outcome": "accepted"
+    },
+    {
+      "id": "fixture.document.pdf",
+      "filename": "synthetic.pdf",
+      "encoding": "utf8",
+      "payload": "%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF\n",
+      "expected_format": "pdf",
+      "expected_media_type": "application/pdf",
+      "family": "document",
+      "expected_outcome": "accepted"
+    },
+    {
+      "id": "fixture.image.png",
+      "filename": "pixel.png",
+      "encoding": "hex",
+      "payload": "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d49444154089963000100000500010d0a2db40000000049454e44ae426082",
+      "expected_format": "png",
+      "expected_media_type": "image/png",
+      "family": "image",
+      "expected_outcome": "accepted"
+    },
+    {
+      "id": "fixture.image.svg",
+      "filename": "shapes.svg",
+      "encoding": "utf8",
+      "payload": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"8\" height=\"8\"><rect width=\"8\" height=\"8\" fill=\"#456\"/></svg>\n",
+      "expected_format": "svg",
+      "expected_media_type": "image/svg+xml",
+      "family": "image",
+      "expected_outcome": "accepted"
+    },
+    {
+      "id": "fixture.audio.wav",
+      "filename": "silence.wav",
+      "encoding": "hex",
+      "payload": "524946462400000057415645666d74201000000001000100401f0000803e0000020010006461746100000000",
+      "expected_format": "wav",
+      "expected_media_type": "audio/wav",
+      "family": "audio",
+      "expected_outcome": "accepted"
+    },
+    {
+      "id": "fixture.video.mp4",
+      "filename": "container.mp4",
+      "encoding": "hex",
+      "payload": "000000186674797069736f6d0000020069736f6d6d703431",
+      "expected_format": "mp4",
+      "expected_media_type": "video/mp4",
+      "family": "video",
+      "expected_outcome": "accepted"
+    },
+    {
+      "id": "fixture.archive.zip",
+      "filename": "empty.zip",
+      "encoding": "hex",
+      "payload": "504b0506000000000000000000000000000000000000",
+      "expected_format": "zip",
+      "expected_media_type": "application/zip",
+      "family": "archive",
+      "expected_outcome": "accepted"
+    },
+    {
+      "id": "fixture.data.json",
+      "filename": "records.json",
+      "encoding": "utf8",
+      "payload": "[{\"id\":1,\"kind\":\"synthetic\"},{\"id\":2,\"kind\":\"synthetic\"}]\n",
+      "expected_format": "json",
+      "expected_media_type": "application/json",
+      "family": "data",
+      "expected_outcome": "accepted"
+    },
+    {
+      "id": "fixture.subtitle.srt",
+      "filename": "captions.srt",
+      "encoding": "utf8",
+      "payload": "1\n00:00:00,000 --> 00:00:01,000\nSynthetic caption.\n",
+      "expected_format": "srt",
+      "expected_media_type": "application/x-subrip",
+      "family": "subtitle",
+      "expected_outcome": "accepted"
+    },
+    {
+      "id": "fixture.corrupt.zip",
+      "filename": "corrupt.zip",
+      "encoding": "hex",
+      "payload": "504b03047472756e6361746564",
+      "expected_format": "zip",
+      "expected_media_type": "application/zip",
+      "family": "archive",
+      "expected_outcome": "rejected",
+      "expected_diagnostic": "intake.archive.malformed"
+    },
+    {
+      "id": "fixture.mismatch.jpeg-png",
+      "filename": "not-a-jpeg.jpg",
+      "encoding": "hex",
+      "payload": "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d49444154089963000100000500010d0a2db40000000049454e44ae426082",
+      "expected_format": "png",
+      "expected_media_type": "image/png",
+      "family": "image",
+      "expected_outcome": "conflict"
+    },
+    {
+      "id": "fixture.unknown.binary",
+      "filename": "unknown.bin",
+      "encoding": "hex",
+      "payload": "deadbeef001337ff",
+      "expected_media_type": "application/octet-stream",
+      "family": "unknown",
+      "expected_outcome": "accepted"
+    }
+  ],
+  "collections": [
+    {
+      "id": "fixture.collection.ordered-pages",
+      "members": ["fixture.document.markdown", "fixture.data.json"]
+    }
+  ],
+  "scenarios": [
+    { "id": "inspect_only", "tier": "fast", "fixtures": ["fixture.document.markdown", "fixture.document.pdf", "fixture.image.png", "fixture.image.svg", "fixture.audio.wav", "fixture.video.mp4", "fixture.archive.zip", "fixture.data.json", "fixture.subtitle.srt", "fixture.corrupt.zip", "fixture.mismatch.jpeg-png", "fixture.unknown.binary"] },
+    { "id": "direct_deterministic_conversion", "tier": "fast", "fixtures": ["fixture.document.markdown"] },
+    { "id": "multi_step_conversion", "tier": "fast", "fixtures": ["fixture.document.markdown"] },
+    { "id": "multi_target_shared_intermediate", "tier": "fast", "fixtures": ["fixture.document.markdown"] },
+    { "id": "cross_family_derivative", "tier": "fast", "fixtures": ["fixture.document.markdown", "fixture.data.json"] },
+    { "id": "collection_aggregation", "tier": "fast", "fixtures": ["fixture.collection.ordered-pages"] },
+    { "id": "cache_cold_warm_partial_invalidation", "tier": "fast", "fixtures": ["fixture.document.markdown"] },
+    { "id": "missing_provider_fallback", "tier": "fast", "fixtures": ["fixture.document.markdown"] },
+    { "id": "validation_failure", "tier": "fast", "fixtures": ["fixture.corrupt.zip"] },
+    { "id": "branch_local_failure_partial_result", "tier": "fast", "fixtures": ["fixture.document.markdown"] },
+    { "id": "cancellation", "tier": "fast", "fixtures": ["fixture.document.markdown"] },
+    { "id": "checkpoint_resume", "tier": "fast", "fixtures": ["fixture.document.markdown"] },
+    { "id": "version_invalidation", "tier": "fast", "fixtures": ["fixture.document.markdown"] },
+    { "id": "privacy_redaction_gate", "tier": "fast", "fixtures": ["fixture.document.markdown"] },
+    { "id": "bounded_recursive_extraction", "tier": "fast", "fixtures": ["fixture.archive.zip", "fixture.corrupt.zip"] },
+    { "id": "everything_profile", "tier": "fast", "fixtures": ["fixture.document.markdown"] },
+    { "id": "magazine_release_bundle", "tier": "fast", "fixtures": ["fixture.document.markdown", "fixture.image.png"] },
+    { "id": "optional_tool_providers", "tier": "tool_backed", "fixtures": ["fixture.document.markdown", "fixture.video.mp4"] },
+    { "id": "maximal_release_matrix", "tier": "maximal", "fixtures": ["fixture.document.markdown", "fixture.image.png", "fixture.audio.wav", "fixture.video.mp4"] }
+  ]
+}

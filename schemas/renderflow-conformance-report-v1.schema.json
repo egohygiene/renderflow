@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-conformance-report-v1.schema.json",
+  "title": "Renderflow golden conformance report v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "corpus_version", "corpus_digest", "engine_version", "tier", "status", "fixtures", "scenarios"],
+  "properties": {
+    "schema_version": { "const": "renderflow.conformance-report/v1" },
+    "corpus_version": { "type": "string", "minLength": 1 },
+    "corpus_digest": { "$ref": "#/$defs/digest" },
+    "engine_version": { "type": "string", "minLength": 1 },
+    "tier": { "enum": ["fast", "tool_backed", "maximal"] },
+    "status": { "enum": ["passed", "failed"] },
+    "fixtures": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "artifact_id", "digest", "format", "media_type", "outcome"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "artifact_id": { "type": "string", "pattern": "^artifact:sha256:[a-f0-9]{64}$" },
+          "digest": { "$ref": "#/$defs/digest" },
+          "format": { "type": ["string", "null"] },
+          "media_type": { "type": "string", "pattern": "^[^/]+/[^/]+$" },
+          "outcome": { "enum": ["accepted", "conflict", "rejected"] }
+        }
+      }
+    },
+    "scenarios": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "status", "assertions", "providers"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "status": { "enum": ["passed", "unavailable", "excluded", "failed"] },
+          "assertions": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+          "providers": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+          "reason": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "value"],
+      "properties": {
+        "algorithm": { "const": "sha256" },
+        "value": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    }
+  }
+}
