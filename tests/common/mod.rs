@@ -44,7 +44,7 @@ transforms:\n  \
 
     let output_dir = dir.path().join("dist");
     let config_content = format!(
-        "input: \"{}\"\noutput_dir: \"{}\"\ntransforms: \"{}\"\n",
+        "outputs:\n  - type: html\ninput: \"{}\"\noutput_dir: \"{}\"\ntransforms: \"{}\"\n",
         input_path.display(),
         output_dir.display(),
         transforms_path.display(),
@@ -55,7 +55,6 @@ transforms:\n  \
         .expect("failed to write config");
     (config_file, dir)
 }
-
 
 /// Create a minimal Renderflow v2 config for canonical planner CLI tests.
 #[allow(dead_code)]

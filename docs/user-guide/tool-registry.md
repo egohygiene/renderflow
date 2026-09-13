@@ -20,10 +20,12 @@ without editing this built-in catalog.
 | `tool.epubcheck` | EPUBCheck | executable: `epubcheck` | optional | deterministic | local |
 | `tool.ffmpeg` | FFmpeg | executable: `ffmpeg` | optional | configuration_dependent | local |
 | `tool.ghostscript` | Ghostscript | executable: `gs` | experimental | configuration_dependent | local |
+| `tool.handbrake` | HandBrakeCLI | executable: `HandBrakeCLI` | optional | configuration_dependent | local |
 | `tool.imagemagick` | ImageMagick | executable: `magick` | experimental | configuration_dependent | local |
 | `tool.img2pdf` | img2pdf | executable: `img2pdf` | experimental | deterministic | local |
 | `tool.jq` | jq | executable: `jq` | experimental | deterministic | local |
 | `tool.kepubify` | Kepubify | executable: `kepubify` | optional | configuration_dependent | local |
+| `tool.lulu-rules` | Pinned Lulu publication rule pack | virtual | optional | deterministic | local |
 | `tool.pandoc` | Pandoc | executable: `pandoc` | required | configuration_dependent | local |
 | `tool.tectonic` | Tectonic | executable: `tectonic` | optional | configuration_dependent | network_optional |
 | `tool.tesseract` | Tesseract OCR | executable: `tesseract` | experimental | configuration_dependent | local |
@@ -42,10 +44,16 @@ without editing this built-in catalog.
 | `video.convert` | `tool.ffmpeg` |
 | `pdf.process` | `tool.ghostscript` |
 | `tiff.aggregate.press_pdf` | `tool.ghostscript` |
+| `video.transcode.whole_file` | `tool.handbrake` |
 | `image.convert` | `tool.imagemagick` |
 | `image.aggregate.pdf` | `tool.img2pdf` |
 | `data.json.transform` | `tool.jq` |
 | `ebook.convert.kepub` | `tool.kepubify` |
+| `publication.lulu.bookstore.preflight` | `tool.lulu-rules` |
+| `publication.lulu.epub-distribution.preflight` | `tool.lulu-rules` |
+| `publication.lulu.global-distribution.preflight` | `tool.lulu-rules` |
+| `publication.lulu.pdf-ebook.preflight` | `tool.lulu-rules` |
+| `publication.lulu.print-direct.preflight` | `tool.lulu-rules` |
 | `document.convert` | `tool.pandoc` |
 | `document.generate` | `tool.pandoc` |
 | `latex.compile` | `tool.tectonic` |

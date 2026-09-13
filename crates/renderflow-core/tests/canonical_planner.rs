@@ -62,8 +62,14 @@ fn v1_and_v2_resolve_through_the_same_canonical_planner() {
     assert_eq!(v1.target_formats(), v2.target_formats());
     assert_eq!(v1.plan().source, v2.plan().source);
     assert_eq!(v1.plan().targets, v2.plan().targets);
-    assert_eq!(v1.plan().metadata.total_edges, v2.plan().metadata.total_edges);
-    assert_eq!(v1.plan().metadata.execution_depth, v2.plan().metadata.execution_depth);
+    assert_eq!(
+        v1.plan().metadata.total_edges,
+        v2.plan().metadata.total_edges
+    );
+    assert_eq!(
+        v1.plan().metadata.execution_depth,
+        v2.plan().metadata.execution_depth
+    );
 }
 
 #[test]
@@ -73,12 +79,16 @@ fn dry_run_returns_the_exact_frozen_plan_without_writing_outputs() {
     let frozen_plan = serde_json::to_value(resolved.plan()).expect("plan should serialize");
 
     assert!(!configs.v2_output.exists());
-    let result = execute(resolved, true).expect("dry-run should succeed without provider execution");
+    let result =
+        execute(resolved, true).expect("dry-run should succeed without provider execution");
     assert_eq!(
         serde_json::to_value(&result.plan).expect("result plan should serialize"),
         frozen_plan
     );
-    assert!(!configs.v2_output.exists(), "dry-run must not create output root");
+    assert!(
+        !configs.v2_output.exists(),
+        "dry-run must not create output root"
+    );
 }
 
 #[test]
@@ -87,5 +97,8 @@ fn v1_dry_run_is_also_side_effect_free() {
     let resolved = resolve(PlanningRequest::from_path(&configs.v1)).expect("v1 should resolve");
     assert!(!configs.v1_output.exists());
     execute(resolved, true).expect("v1 dry-run should succeed");
-    assert!(!configs.v1_output.exists(), "v1 dry-run must not create output root");
+    assert!(
+        !configs.v1_output.exists(),
+        "v1 dry-run must not create output root"
+    );
 }

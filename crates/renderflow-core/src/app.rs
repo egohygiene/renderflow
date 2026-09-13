@@ -38,16 +38,25 @@ pub fn run_cli(cli: Cli) -> Result<()> {
             profile,
             exclude,
             all,
-        }) => commands::build::run_selection(
-            &config,
-            dry_run,
-            resume,
-            optimization,
-            target.as_deref(),
-            profile.as_deref(),
-            &exclude,
-            all,
-        )?,
+        }) => {
+            let target_override = if let Some(target) = target.as_deref() {
+                commands::build::BuildTargetOverride::Target(target)
+            } else if let Some(profile) = profile.as_deref() {
+                commands::build::BuildTargetOverride::Profile(profile)
+            } else if all {
+                commands::build::BuildTargetOverride::AllReachable
+            } else {
+                commands::build::BuildTargetOverride::Configured
+            };
+            commands::build::run_selection(commands::build::BuildOptions {
+                config_path: &config,
+                dry_run,
+                resume,
+                optimization,
+                target_override,
+                exclude: &exclude,
+            })?;
+        }
         Some(Commands::Watch { config, debounce }) => commands::watch::run(&config, debounce)?,
         Some(Commands::Audit) => commands::audit::run()?,
         Some(Commands::Inspect {
