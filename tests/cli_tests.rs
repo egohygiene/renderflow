@@ -361,7 +361,6 @@ fn test_dry_run_output_labeled() {
     );
 }
 
-
 #[test]
 fn test_v2_dry_run_serializes_canonical_plan() {
     let (config, _dir) = common::v2_config_file();
@@ -524,7 +523,9 @@ fn test_all_without_transforms_uses_builtin_capability_registry() {
     let plan: serde_json::Value = serde_json::from_slice(&output.stdout)
         .expect("all-reachable dry-run should emit canonical plan JSON");
     assert_eq!(plan["source"], "markdown");
-    assert!(plan["targets"].as_array().is_some_and(|targets| !targets.is_empty()));
+    assert!(plan["targets"]
+        .as_array()
+        .is_some_and(|targets| !targets.is_empty()));
 }
 
 #[test]
@@ -665,7 +666,7 @@ fn test_inspect_missing_config_exits_with_error() {
 }
 
 #[test]
-fn test_inspect_without_transforms_exits_with_error() {
+fn test_inspect_without_transforms_uses_builtin_capability_registry() {
     let (f, _dir) = common::valid_config_file();
     let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
         .args(["inspect", "--config"])
@@ -674,13 +675,14 @@ fn test_inspect_without_transforms_exits_with_error() {
         .expect("failed to execute renderflow");
 
     assert!(
-        !output.status.success(),
-        "inspect without a 'transforms' key in config should fail"
+        output.status.success(),
+        "inspect should use built-in capabilities without a transforms file: {}",
+        String::from_utf8_lossy(&output.stderr)
     );
-    let stderr = String::from_utf8_lossy(&output.stderr);
+    let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
-        stderr.contains("transforms"),
-        "error should mention 'transforms', got: {stderr}"
+        stdout.contains("DAG Execution Plan"),
+        "inspect should emit a built-in execution plan, got: {stdout}"
     );
 }
 
@@ -884,7 +886,7 @@ fn test_graph_stats_help_exits_successfully() {
 }
 
 #[test]
-fn test_graph_plan_without_transforms_exits_with_error() {
+fn test_graph_plan_without_transforms_uses_builtin_capability_registry() {
     let (config_file, _dir) = common::valid_config_file();
     let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
         .args([
@@ -897,8 +899,14 @@ fn test_graph_plan_without_transforms_exits_with_error() {
         .expect("failed to execute renderflow");
 
     assert!(
-        !output.status.success(),
-        "graph plan without transforms should exit with error"
+        output.status.success(),
+        "graph plan should use built-in capabilities without a transforms file: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("Execution Plan"),
+        "graph plan should emit a built-in execution plan, got: {stdout}"
     );
 }
 

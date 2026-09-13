@@ -154,7 +154,7 @@ fn failed_step(
     started_at_unix_ms: u64,
     duration_ms: u64,
 ) -> StepEvidence {
-    let message = redact_sensitive_text(&error.to_string());
+    let message = redact_sensitive_text(&format!("{error:#}"));
     let step_id = format!("step:{}-to-{}", edge.from, edge.to);
     StepEvidence {
         step_id: step_id.clone(),

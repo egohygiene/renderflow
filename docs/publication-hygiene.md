@@ -83,4 +83,4 @@ Probabilistic redaction always produces `review_required` status for the resulti
 
 SDK integrations implement `ContentRedactionProvider` and declare a stable provider ID, version, and determinism class. Providers receive bytes plus configured content classes and return new bytes, changed classes, and safe findings. They must not mutate source files or include sensitive values in diagnostics.
 
-Hygiene evidence uses [`renderflow.hygiene/v1`](../schemas/renderflow-hygiene-v1.schema.json) and is embedded in terminal artifact evidence. A `publication.hygiene` step records the policy digest, provider, input candidate, sanitized output, duration, and fidelity.
+Hygiene evidence uses [`renderflow.hygiene/v1`](https://github.com/egohygiene/renderflow/blob/main/schemas/renderflow-hygiene-v1.schema.json) and is embedded in terminal artifact evidence. A `publication.hygiene` step records the policy digest, provider, input candidate, sanitized output, duration, and fidelity.
