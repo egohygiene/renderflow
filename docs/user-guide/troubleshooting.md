@@ -31,18 +31,24 @@ Audio and image rendering depends on FFmpeg.
 
 Standard builds require at least one `outputs[]` entry in `renderflow.yaml`.
 
-If you intended to use graph mode, add a `transforms:` file and run one of:
+If you intended to use graph mode, run one of:
 
 ```bash
 renderflow build --target pdf
 renderflow build --all
 ```
 
+A `transforms:` file is only required for project-specific graph edges. The
+built-in capability registry supports graph planning without one. On a clean
+host, `--dry-run` reports policy-allowed branches as unavailable; install the
+reported provider before attempting execution.
+
 ## Graph target is unreachable
 
 If `--target` or `--all` fails:
 
-- confirm the `transforms` file path is correct,
+- confirm any configured `transforms` file path is correct,
+- inspect provider availability with `renderflow doctor --strict`,
 - ensure the source format and requested target are connected,
 - run `renderflow graph explain --config renderflow.yaml`,
 - run `renderflow inspect --target <format>` to inspect the planned path.

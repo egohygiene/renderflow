@@ -15,7 +15,10 @@ Renderflow is a spec-driven rendering engine for turning a single source documen
 - **Fast rebuilds** use content hashes, dependency tracking, and watch mode.
 
 !!! tip
-    Use standard `renderflow build` when you already know your output list, and use `renderflow build --target ...` or `renderflow build --all` when you want graph-based path resolution from a transform YAML file.
+    Use standard `renderflow build` when you already know your output list. Use
+    `renderflow build --target ...` or `renderflow build --all` when you want
+    graph-based path resolution through the built-in capability registry plus
+    any optional transform YAML file.
 
 ## Quick start in 30 seconds
 
