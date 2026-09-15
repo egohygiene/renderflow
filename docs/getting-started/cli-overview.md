@@ -35,7 +35,14 @@ Uses `outputs:` from `renderflow.yaml` and runs the built-in transform + render 
 
 ### Graph build
 
-`renderflow build --target pdf` or `renderflow build --all` requires a `transforms` YAML file and resolves reachable formats through the transform graph.
+`renderflow build --target pdf` or `renderflow build --all` resolves reachable
+formats through the built-in capability registry. A `transforms` YAML file is
+optional and adds project-specific edges to that graph.
+
+Planning keeps provider availability explicit. A dry run can retain a
+policy-allowed branch as `unavailable` so it remains inspectable; execution
+still fails preflight before running a transform when a required provider is
+missing.
 
 ## Inspection commands
 

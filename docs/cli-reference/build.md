@@ -16,9 +16,9 @@ renderflow build [--config FILE] [--dry-run] [--resume] [--optimization MODE] [-
 | `--dry-run` | log intended actions without writing files or running commands |
 | `--resume` | reuse only compatible, validated node checkpoints |
 | `--optimization MODE` | override config optimization mode |
-| `--target FORMAT` | graph-build one reachable target; requires `transforms` |
+| `--target FORMAT` | graph-build one reachable target through registered capabilities |
 | `--profile PROFILE` | build a named versioned profile; `everything` and `magazine` are bundled |
-| `--all` | graph-build all reachable targets; requires `transforms` |
+| `--all` | graph-build all policy-allowed reachable targets |
 
 ## Standard build behavior
 
@@ -36,14 +36,18 @@ With `--target` or `--all`, `main.rs` dispatches to `src/commands/graph_build.rs
 
 That mode:
 
-- loads `transforms:` from config,
+- registers built-in capabilities and merges optional `transforms:` from config,
 - constructs a `TransformGraph`,
 - resolves targets by optimization mode,
 - executes the merged DAG,
 - writes every produced non-source format to `output_dir`.
 
 !!! note
-    Graph build can work even when `outputs:` is omitted because it uses `load_config_for_graph` instead of full standard-build validation.
+    Graph build can work when `outputs:` and `transforms:` are omitted because
+    it uses `load_config_for_graph` and the built-in capability registry. A
+    clean-host dry run preserves unavailable branches for inspection without
+    claiming their providers are installed; real execution remains blocked by
+    provider preflight.
 
 ## Examples
 

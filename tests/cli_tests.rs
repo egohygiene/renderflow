@@ -506,12 +506,14 @@ fn test_target_without_transforms_uses_builtin_capability_registry() {
 #[test]
 fn test_all_without_transforms_uses_builtin_capability_registry() {
     let (f, _dir) = common::valid_config_file();
+    let empty_path = tempfile::tempdir().expect("failed to create empty PATH directory");
     let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
         .arg("build")
         .arg("--config")
         .arg(f.path())
         .arg("--all")
         .arg("--dry-run")
+        .env("PATH", empty_path.path())
         .output()
         .expect("failed to execute renderflow");
 
@@ -526,6 +528,56 @@ fn test_all_without_transforms_uses_builtin_capability_registry() {
     assert!(plan["targets"]
         .as_array()
         .is_some_and(|targets| !targets.is_empty()));
+    let branches = plan["artifact_forest"]["branches"]
+        .as_array()
+        .expect("all-reachable plan should include artifact-forest branches");
+    assert!(
+        branches
+            .iter()
+            .any(|branch| branch["state"] == "unavailable"),
+        "clean-host plan should preserve unavailable branches: {plan}"
+    );
+    assert!(
+        branches
+            .iter()
+            .all(|branch| branch["state"] != "selected"),
+        "clean-host plan must not report unavailable providers as selected: {plan}"
+    );
+}
+
+#[test]
+fn test_all_without_available_providers_fails_closed_before_execution() {
+    let (config_file, dir) = common::valid_config_file();
+    let empty_path = tempfile::tempdir().expect("failed to create empty PATH directory");
+    let output = Command::new(env!("CARGO_BIN_EXE_renderflow"))
+        .arg("build")
+        .arg("--config")
+        .arg(config_file.path())
+        .arg("--all")
+        .env("PATH", empty_path.path())
+        .output()
+        .expect("failed to execute renderflow");
+
+    assert!(
+        !output.status.success(),
+        "--all must fail closed when every provider is unavailable"
+    );
+    let manifest_path = dir.path().join("dist/renderflow-run.json");
+    let manifest: serde_json::Value = serde_json::from_slice(
+        &std::fs::read(&manifest_path).expect("failed to read preflight failure manifest"),
+    )
+    .expect("preflight failure manifest should be valid JSON");
+    assert_eq!(manifest["state"], "failed");
+    assert_eq!(
+        manifest["artifact_manifest"]["outputs"],
+        serde_json::json!([])
+    );
+    assert_eq!(manifest["steps"], serde_json::json!([]));
+    assert!(manifest["diagnostics"]
+        .as_array()
+        .is_some_and(|diagnostics| diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic["code"] == "execution.preflight_failed")));
 }
 
 #[test]

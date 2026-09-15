@@ -350,11 +350,11 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
 
     register_builtin_strategy_edges(&mut graph, &mut tool_registry)?;
     let policy_graph = apply_execution_policy(&graph, &tool_registry, &spec);
-    let mut targets = resolve_target_intent(&spec, &policy_graph, source_format)?;
-    if targets.is_empty() {
+    let requested_targets = resolve_target_intent(&spec, &policy_graph, source_format)?;
+    if requested_targets.is_empty() {
         anyhow::bail!("target selection resolved to no executable artifact formats");
     }
-    validate_publication_target_roles(&spec, &targets)?;
+    validate_publication_target_roles(&spec, &requested_targets)?;
 
     let provider_inventory = tool_registry.assess_ids_current(policy_graph.provider_ids());
     let available_graph =
@@ -363,31 +363,26 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
         .reachable_from(source_format)
         .into_iter()
         .collect::<HashSet<_>>();
-    let mut pruned_unavailable = Vec::new();
-    targets.retain(|target| {
-        let available = available_formats.contains(&target.format);
-        if !available
-            && (spec.targets.all_reachable || target.requirement == TargetRequirement::Optional)
-        {
-            pruned_unavailable.push(target.clone());
-            false
-        } else {
-            true
-        }
-    });
+    let (mut available_targets, pruned_unavailable) = partition_targets_by_availability(
+        requested_targets,
+        &available_formats,
+        spec.targets.all_reachable,
+    );
     let mut pruned_budget = Vec::new();
     if let Some(max_artifacts) = spec.execution.budgets.max_artifacts {
         let limit = usize::try_from(max_artifacts).unwrap_or(usize::MAX);
-        if targets.len() > limit {
-            pruned_budget.extend(targets[limit..].iter().cloned());
-            targets.truncate(limit);
+        if available_targets.len() > limit {
+            pruned_budget.extend(available_targets[limit..].iter().cloned());
+            available_targets.truncate(limit);
         }
     }
-    if targets.is_empty() {
+    if available_targets.is_empty() && pruned_unavailable.is_empty() {
         anyhow::bail!(
             "target selection resolved to no available branches; inspect the artifact-forest plan or relax provider/policy constraints"
         );
     }
+    let (targets, used_unavailable_only_fallback) =
+        planning_targets(&available_targets, &pruned_unavailable);
     let target_formats: Vec<Format> = targets.iter().map(|target| target.format).collect();
     let optimization = spec.execution.optimization;
     let (dag, used_blocked_provider_fallback) = match available_graph
@@ -419,7 +414,7 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
         &spec,
         &policy_graph,
         source_format,
-        &targets,
+        &available_targets,
         &pruned_unavailable,
         &pruned_budget,
     ));
@@ -436,9 +431,14 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
             "v1 configuration normalized into renderflow/v2 before canonical planning",
         );
     }
+    if used_unavailable_only_fallback {
+        plan.add_tool_diagnostic(
+            "no provider-available branches were found; policy-allowed unavailable branches were retained so the plan remains inspectable, while execution stays blocked by provider preflight",
+        );
+    }
     if used_blocked_provider_fallback {
         plan.add_tool_diagnostic(
-            "one or more selected paths require providers unavailable on this host; dry-run remains inspectable but execution preflight will fail until dependencies are available",
+            "one or more planned paths require providers unavailable on this host; dry-run remains inspectable but execution preflight will fail until dependencies are available",
         );
     }
 
@@ -496,6 +496,40 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
         resume_checkpoints: false,
         cancellation: None,
     })
+}
+
+/// Separate provider-available targets from optional or all-reachable targets
+/// whose registered paths cannot execute on the current host.
+///
+/// Required exact targets remain selected so the canonical blocked-provider
+/// fallback and execution preflight can report their failure explicitly.
+fn partition_targets_by_availability(
+    targets: Vec<ResolvedTarget>,
+    available_formats: &HashSet<Format>,
+    all_reachable: bool,
+) -> (Vec<ResolvedTarget>, Vec<ResolvedTarget>) {
+    targets.into_iter().partition(|target| {
+        available_formats.contains(&target.format)
+            || (!all_reachable && target.requirement == TargetRequirement::Required)
+    })
+}
+
+/// Keep an all-reachable plan inspectable when the current host provides none
+/// of its policy-allowed branches.
+///
+/// The unavailable targets remain classified as unavailable in the artifact
+/// forest. They are used here only to construct a truthful blocked plan; a
+/// real execution still fails before any transform runs during provider
+/// preflight.
+fn planning_targets(
+    available: &[ResolvedTarget],
+    unavailable: &[ResolvedTarget],
+) -> (Vec<ResolvedTarget>, bool) {
+    if available.is_empty() && !unavailable.is_empty() {
+        (unavailable.to_vec(), true)
+    } else {
+        (available.to_vec(), false)
+    }
 }
 
 pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<CanonicalExecutionResult> {
@@ -2581,6 +2615,86 @@ mod tests {
         let targets = resolve_target_intent(&spec, &graph, Format::Markdown).unwrap();
         assert_eq!(targets.len(), 1);
         assert_eq!(targets[0].format, Format::Html);
+    }
+
+    #[test]
+    fn all_reachable_partition_preserves_mixed_availability_states() {
+        let requested = vec![
+            ResolvedTarget::generated(Format::Html),
+            ResolvedTarget::generated(Format::Pdf),
+        ];
+        let available_formats = HashSet::from([Format::Html]);
+
+        let (available, unavailable) =
+            partition_targets_by_availability(requested, &available_formats, true);
+        let (planned, used_unavailable_only_fallback) =
+            planning_targets(&available, &unavailable);
+
+        assert_eq!(
+            available
+                .iter()
+                .map(|target| target.format)
+                .collect::<Vec<_>>(),
+            [Format::Html]
+        );
+        assert_eq!(
+            unavailable
+                .iter()
+                .map(|target| target.format)
+                .collect::<Vec<_>>(),
+            [Format::Pdf]
+        );
+        assert_eq!(
+            planned
+                .iter()
+                .map(|target| target.format)
+                .collect::<Vec<_>>(),
+            [Format::Html]
+        );
+        assert!(!used_unavailable_only_fallback);
+    }
+
+    #[test]
+    fn all_reachable_partition_retains_unavailable_only_plan_for_inspection() {
+        let requested = vec![
+            ResolvedTarget::generated(Format::Html),
+            ResolvedTarget::generated(Format::Pdf),
+        ];
+
+        let (available, unavailable) =
+            partition_targets_by_availability(requested, &HashSet::new(), true);
+        let (planned, used_unavailable_only_fallback) =
+            planning_targets(&available, &unavailable);
+
+        assert!(available.is_empty());
+        assert_eq!(
+            unavailable
+                .iter()
+                .map(|target| target.format)
+                .collect::<Vec<_>>(),
+            [Format::Html, Format::Pdf]
+        );
+        assert_eq!(
+            planned
+                .iter()
+                .map(|target| target.format)
+                .collect::<Vec<_>>(),
+            [Format::Html, Format::Pdf]
+        );
+        assert!(used_unavailable_only_fallback);
+    }
+
+    #[test]
+    fn required_exact_target_keeps_blocked_provider_fallback() {
+        let mut target = ResolvedTarget::generated(Format::Html);
+        target.requirement = TargetRequirement::Required;
+
+        let (available, unavailable) =
+            partition_targets_by_availability(vec![target], &HashSet::new(), false);
+
+        assert_eq!(available.len(), 1);
+        assert_eq!(available[0].format, Format::Html);
+        assert!(unavailable.is_empty());
     }
 
     #[test]
