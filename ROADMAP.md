@@ -3,12 +3,12 @@ schema: aether.architecture-document/v1
 id: renderflow-roadmap
 title: Renderflow Roadmap
 kind: architecture-document
-version: 0.1.0
+version: 0.1.1
 status: draft
 owners:
   - egohygiene
 created: 2026-08-19
-updated: 2026-08-24
+updated: 2026-09-25
 governed_by:
   - architecture-roadmap
 depends_on:
@@ -26,6 +26,62 @@ supersedes: []
 
 # Renderflow Roadmap
 
+## 2026-09-25 live suite handoff
+
+> [!IMPORTANT]
+> This handoff supersedes the older 2026-08-24 current-gate text below where it
+> conflicts. The live production path is owned by #367 and #414–#419. Re-query
+> live issue, release, and CI state before starting a branch.
+
+### Immediate production path
+
+1. [#415](https://github.com/egohygiene/renderflow/issues/415) — make explicitly
+   ordered immutable artifact collections first-class inputs through canonical
+   planning, execution, validation, cache/checkpoint identity, and provenance.
+2. After #415, execute these sibling consumers independently:
+   - [#416](https://github.com/egohygiene/renderflow/issues/416) — deterministic
+     print-interior PDF generation.
+   - [#417](https://github.com/egohygiene/renderflow/issues/417) — deterministic
+     EPUB 3.3 fixed-layout generation.
+3. [#418](https://github.com/egohygiene/renderflow/issues/418) — independently
+   validate fixed-layout EPUB output and publish exact capability truth.
+4. [#419](https://github.com/egohygiene/renderflow/issues/419) — publish the
+   first immutable Renderflow integration-candidate release with clean-install,
+   checksum, provenance/SBOM, compatibility, and distribution evidence.
+5. Hand that immutable release to
+   [Flow #52](https://github.com/egohygiene/flow/issues/52) for the production
+   adapter and later static-publication proof.
+
+```text
+#415
+  ├──→ #416 print PDF ──┐
+  └──→ #417 EPUB ──→ #418
+                       └──→ #419 ──→ Flow #52
+```
+
+### Parallel and downstream lanes
+
+- [#406](https://github.com/egohygiene/renderflow/issues/406) remains the
+  parallel/later layered-composition and localization lane. It is not required
+  for the default-locale ordered-page PDF/EPUB exporters, but it is required
+  before claiming localization-ready publication.
+- [#412](https://github.com/egohygiene/renderflow/issues/412) and
+  [#413](https://github.com/egohygiene/renderflow/issues/413) follow the
+  production exporters as broader adversarial and reusable synthetic-comic
+  fixture coverage; they do not block #415–#419.
+- [#420](https://github.com/egohygiene/renderflow/issues/420), the HTTP API/job
+  service, is not on the first Flow integration critical path.
+- #397, #379, #378, #350, and #349 remain valid product/profile work but are
+  not prerequisites for the first immutable Flow-consumable Renderflow release.
+- [#409](https://github.com/egohygiene/renderflow/issues/409) is the
+  post-roadmap repository/backlog/Identity audit after the active production and
+  release work is reconciled.
+
+The goal of this lane is not to finish every Renderflow idea before integration.
+It is to release the smallest truthful production surface that lets Flow consume
+ordered page collections and obtain validated print-PDF and fixed-layout-EPUB
+artifacts without importing Renderflow source.
+
 <!-- BEGIN ROADMAP EXECUTION SNAPSHOT -->
 <!-- roadmap-manifest
 schema: hygiene.roadmap/v1alpha1
@@ -33,7 +89,7 @@ repository: egohygiene/renderflow
 visibility: public
 publication: composed
 route: /roadmap/
-updated: 2026-08-24
+updated: 2026-09-25
 -->
 ## 2026-08-24 execution snapshot
 
