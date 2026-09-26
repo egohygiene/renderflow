@@ -3,7 +3,7 @@ schema: aether.architecture-document/v1
 id: renderflow-roadmap
 title: Renderflow Roadmap
 kind: architecture-document
-version: 0.1.1
+version: 0.1.2
 status: draft
 owners:
   - egohygiene
@@ -71,6 +71,12 @@ supersedes: []
   fixture coverage; they do not block #415–#419.
 - [#420](https://github.com/egohygiene/renderflow/issues/420), the HTTP API/job
   service, is not on the first Flow integration critical path.
+- [#421](https://github.com/egohygiene/renderflow/issues/421) owns the
+  new **artifact-forest** lane: cycle-safe exhaustive derivative planning,
+  screenplay interchange/recovery, timed-text extraction, local speech
+  transcription, and a downstream Flow handoff. It is valuable for the
+  exhaustive comic workflow but does **not** block the first #415–#419
+  publication release.
 - #397, #379, #378, #350, and #349 remain valid product/profile work but are
   not prerequisites for the first immutable Flow-consumable Renderflow release.
 - [#409](https://github.com/egohygiene/renderflow/issues/409) is the
@@ -81,6 +87,49 @@ The goal of this lane is not to finish every Renderflow idea before integration.
 It is to release the smallest truthful production surface that lets Flow consume
 ordered page collections and obtain validated print-PDF and fixed-layout-EPUB
 artifacts without importing Renderflow source.
+
+
+### Artifact-forest / creative-derivative lane
+
+[#421](https://github.com/egohygiene/renderflow/issues/421) decomposes the
+broader universal-format promise into an executable, cycle-safe creative
+artifact forest:
+
+```text
+#422 derivative-forest planner policy
+  │
+  ├──────────────┐
+  │              │
+#423 screenplay  #427 timed text
+  │              │
+  ├→ #424        └→ #428 local speech transcription
+  ├→ #425
+  └→ #426
+       │
+       └──────────────┐
+                      ↓
+                  #429 toolchain
+                      ↓
+                  #430 integration proof
+                      ↓
+               Flow exhaustive-comic lane
+```
+
+The initial screenplay family is Fountain, FDX, FadeIn and OSF through a
+provider-neutral screenplay artifact model. `scripttool` and
+`afterwriting` are provider candidates, not core dependencies. PDF-to-script
+recovery is explicitly lossy/review-required. Timed-text work distinguishes
+embedded subtitle extraction from speech recognition.
+
+The exhaustive planner must materialize each eligible target identity at most
+once, suppress source-format regeneration unless explicitly requested, avoid
+repeated format nodes inside a path, and retain provider/fidelity/provenance
+evidence. This makes reversible edges such as Fountain ↔ FDX safe without
+weakening the general transformation graph.
+
+This lane should feed Flow only through a released/versioned Renderflow
+contract. Flow owns project-level orchestration and resumability; Renderflow
+continues to own static conversion/extraction/provider semantics.
 
 <!-- BEGIN ROADMAP EXECUTION SNAPSHOT -->
 <!-- roadmap-manifest
