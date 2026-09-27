@@ -3,12 +3,12 @@ schema: aether.architecture-document/v1
 id: renderflow-roadmap
 title: Renderflow Roadmap
 kind: architecture-document
-version: 0.1.2
+version: 0.1.3
 status: draft
 owners:
   - egohygiene
 created: 2026-08-19
-updated: 2026-09-25
+updated: 2026-09-27
 governed_by:
   - architecture-roadmap
 depends_on:
@@ -25,6 +25,21 @@ supersedes: []
 ---
 
 # Renderflow Roadmap
+
+## 2026-09-27 ordered collection review handoff
+
+Checkpoint #415 adds canonical planning and execution for one explicitly
+ordered, homogeneous local artifact collection. Members require stable IDs,
+root-relative locators, declared formats/media types, and SHA-256 digests;
+optional geometry enters plan identity. Planning freezes member evidence,
+execution rechecks paths and bytes, and run evidence records source order and
+aggregate lineage. The two-page synthetic fixture and generated 44-member
+recipe prove the public SDK and CLI paths without claiming PDF or EPUB output.
+
+After review and merge, #416 (print PDF) and #417 (fixed-layout EPUB) may
+proceed independently. #418 validates the EPUB capability, and #419 publishes
+the immutable release consumed by Flow #52. No real publication artifacts or
+personal media were processed by the #415 tests.
 
 ## 2026-09-25 live suite handoff
 

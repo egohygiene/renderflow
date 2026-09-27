@@ -642,6 +642,10 @@ pub fn build_graph_executor_and_tools_from_str(
 
     let config: YamlTransformConfig =
         serde_yaml_ng::from_str(yaml).context("Failed to parse YAML transform config")?;
+    // Bind the complete registry configuration, including argv and provider
+    // choices, into canonical plan and checkpoint identity without exposing
+    // potentially sensitive transform settings in public evidence.
+    let registry_digest = crate::evidence::sha256_text(yaml).value;
     let tool_registry = parse_tool_registry_from_str(yaml)?;
     let mut graph = TransformGraph::new();
     let mut executor = DagExecutor::new();
@@ -667,7 +671,8 @@ pub fn build_graph_executor_and_tools_from_str(
         graph.add_transform(
             TransformEdge::with_input_kind(from, to, def.cost, def.quality, input_kind)
                 .with_provider(provider.to_string(), capability.to_string())
-                .with_evidence("transform_id", def.name.clone()),
+                .with_evidence("transform_id", def.name.clone())
+                .with_evidence("registry_sha256", registry_digest.clone()),
         );
 
         if def.is_collection() {

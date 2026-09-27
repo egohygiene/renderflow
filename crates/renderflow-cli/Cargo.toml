@@ -28,6 +28,10 @@ name = "cli_tests"
 path = "../../tests/cli_tests.rs"
 
 [[test]]
+name = "ordered_collection_cli"
+path = "../../tests/ordered_collection_cli.rs"
+
+[[test]]
 name = "graph_integration_test"
 path = "../../tests/graph_integration_test.rs"
 

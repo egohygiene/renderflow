@@ -116,7 +116,7 @@ fn bench_transform_cache_lookup(c: &mut Criterion) {
 fn bench_transform_cache_insert(c: &mut Criterion) {
     c.bench_function("transform_cache/insert", |b| {
         b.iter_batched(
-            || TransformCache::default(),
+            TransformCache::default,
             |mut cache| {
                 cache.insert("abc123".to_string(), "transformed output".to_string());
                 cache

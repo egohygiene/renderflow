@@ -15,7 +15,7 @@ pub use definition::TransformDefinition;
 pub use definition_registry::TransformDefinitionRegistry;
 pub use execution_plan::{
     ArtifactForest, DiagnosticLevel, ExecutionPlan, ForestBranch, ForestBranchState,
-    PlanSourceArtifact,
+    PlanCollectionMember, PlanSourceArtifact, PlanSourceCollection,
 };
 pub use format::Format;
 pub use input_kind::InputKind;

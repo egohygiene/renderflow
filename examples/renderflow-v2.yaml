@@ -5,17 +5,23 @@ sources:
     role: cover
     path: assets/cover.png
     media_type: image/png
+    format: png
+    sha256: "0000000000000000000000000000000000000000000000000000000000000000"
     detect: true
 
   - id: source.body
     role: manuscript
     path: examples/input.md
     format: markdown
+    media_type: text/markdown
+    sha256: "0000000000000000000000000000000000000000000000000000000000000000"
     detect: true
 
   - id: source.publication
     role: publication
     kind: collection
+    # Illustrative mixed-media intent; current canonical execution requires
+    # a homogeneous collection and a registered collection-input transform.
     members:
       - source.cover
       - source.body

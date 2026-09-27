@@ -1117,6 +1117,8 @@ mod tests {
                 members: Vec::new(),
                 media_type: Some("image/png".to_string()),
                 format: Some("png".to_string()),
+                sha256: None,
+                geometry: None,
                 detect: false,
                 immutable: true,
             }],
