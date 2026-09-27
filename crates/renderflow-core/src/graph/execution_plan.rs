@@ -154,6 +154,24 @@ pub struct PlanSourceArtifact {
     pub profile: ResolvedArtifactProfile,
 }
 
+/// Ordered, explicitly declared collection identity frozen at planning time.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PlanSourceCollection {
+    pub source_id: String,
+    pub members: Vec<PlanCollectionMember>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PlanCollectionMember {
+    pub source_id: String,
+    pub locator: String,
+    pub media_type: String,
+    pub format: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub geometry: Option<crate::publication::PageGeometry>,
+    pub artifact: PlanSourceArtifact,
+}
+
 impl From<&IntakeReport> for PlanSourceArtifact {
     fn from(report: &IntakeReport) -> Self {
         Self {
@@ -288,6 +306,9 @@ pub struct ExecutionPlan {
     /// Source identity and multi-signal evidence established before planning.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source_artifact: Option<PlanSourceArtifact>,
+    /// Present instead of `source_artifact` for a declared ordered collection.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_collection: Option<PlanSourceCollection>,
     /// Reproducible evidence for providers selected by this exact plan.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub toolchain: Option<ToolchainSnapshot>,
@@ -405,6 +426,7 @@ impl ExecutionPlan {
             metadata,
             diagnostics,
             source_artifact: None,
+            source_collection: None,
             toolchain: None,
             artifact_forest: None,
         }

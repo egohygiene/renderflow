@@ -29,6 +29,7 @@ Spec v2 describes source intent, derivative selection, execution policy, and det
 | --- | --- | --- | --- |
 | `detect` | `boolean` | no | `true` |
 | `format` | `string` / `null` | no | — |
+| `geometry` | `object` | no | — |
 | `id` | `stableId` | yes | — |
 | `immutable` | `true` | no | `true` |
 | `kind` | `artifact` / `collection` | no | `"artifact"` |
@@ -36,6 +37,7 @@ Spec v2 describes source intent, derivative selection, execution policy, and det
 | `members` | `array` | no | `[]` |
 | `path` | `string` / `null` | no | — |
 | `role` | `string` / `null` | no | — |
+| `sha256` | `string` / `null` | no | — |
 | `uri` | `string` / `null` | no | — |
 
 ## Publication contract
@@ -131,17 +133,23 @@ sources:
     role: cover
     path: assets/cover.png
     media_type: image/png
+    format: png
+    sha256: "0000000000000000000000000000000000000000000000000000000000000000"
     detect: true
 
   - id: source.body
     role: manuscript
     path: examples/input.md
     format: markdown
+    media_type: text/markdown
+    sha256: "0000000000000000000000000000000000000000000000000000000000000000"
     detect: true
 
   - id: source.publication
     role: publication
     kind: collection
+    # Illustrative mixed-media intent; current canonical execution requires
+    # a homogeneous collection and a registered collection-input transform.
     members:
       - source.cover
       - source.body

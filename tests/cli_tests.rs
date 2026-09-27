@@ -538,9 +538,7 @@ fn test_all_without_transforms_uses_builtin_capability_registry() {
         "clean-host plan should preserve unavailable branches: {plan}"
     );
     assert!(
-        branches
-            .iter()
-            .all(|branch| branch["state"] != "selected"),
+        branches.iter().all(|branch| branch["state"] != "selected"),
         "clean-host plan must not report unavailable providers as selected: {plan}"
     );
 }

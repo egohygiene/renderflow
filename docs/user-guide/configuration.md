@@ -8,7 +8,7 @@ Renderflow supports two explicit configuration contracts:
 Renderflow never silently reinterprets a declared schema version. Unversioned files are treated as v1 compatibility files; unsupported declared schema identifiers are rejected actionably.
 
 !!! important
-    Issue #353 defines the v2 intent contract, validation, migration, and generated schema. The canonical planner/executor consumes this model in the follow-up unification work tracked by #354. Existing v1 builds remain backward compatible in the meantime.
+    The canonical planner/executor consumes v1 and v2 through the same lifecycle. Explicit ordered collections are supported for homogeneous local members through a registered collection-input transform. See [Ordered Collections](ordered-collections.md) for the supported boundary.
 
 ## Spec v2
 
@@ -36,6 +36,7 @@ renderflow spec schema --output schemas/renderflow-v2.schema.json
 ```
 
 See the generated [Spec v2 Reference](spec-v2-reference.md) for the canonical field matrix and complete example.
+The broad example expresses mixed-media intent; executable collections currently require members of one declared format and a collection-input transform.
 
 ## Versioned derivative profiles and artifact forests
 

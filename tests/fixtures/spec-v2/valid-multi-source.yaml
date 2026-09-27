@@ -3,10 +3,15 @@ sources:
   - id: source.cover
     role: cover
     path: cover.png
+    format: png
+    media_type: image/png
+    sha256: "0000000000000000000000000000000000000000000000000000000000000000"
   - id: source.body
     role: manuscript
     path: body.md
     format: markdown
+    media_type: text/markdown
+    sha256: "0000000000000000000000000000000000000000000000000000000000000000"
   - id: source.publication
     role: publication
     kind: collection

@@ -1,6 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 use std::fs;
+use std::path::{Component, Path};
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
@@ -8,7 +9,7 @@ use serde_json::{json, Value};
 
 use crate::config::Config;
 use crate::optimization::OptimizationMode;
-use crate::publication::PublicationContract;
+use crate::publication::{PageGeometry, PublicationContract};
 
 pub const SPEC_V2_ID: &str = "renderflow/v2";
 pub const SPEC_V2_SCHEMA_PATH: &str = "schemas/renderflow-v2.schema.json";
@@ -55,6 +56,12 @@ pub struct SourceSpec {
     pub media_type: Option<String>,
     #[serde(default)]
     pub format: Option<String>,
+    /// Expected payload digest for an explicitly ordered collection member.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sha256: Option<String>,
+    /// Declared page geometry; part of collection identity when present.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub geometry: Option<PageGeometry>,
     #[serde(default = "default_true")]
     pub detect: bool,
     #[serde(default = "default_true")]
@@ -715,10 +722,19 @@ impl SpecV2 {
 
         for (index, source) in self.sources.iter().enumerate() {
             if source.kind == SourceKind::Collection {
+                let mut members = BTreeSet::new();
                 for (member_index, member) in source.members.iter().enumerate() {
+                    let path = format!("$.sources[{index}].members[{member_index}]");
+                    if !members.insert(member) {
+                        diagnostics.push(SpecDiagnostic::new(
+                            path.clone(),
+                            "collection.member.duplicate",
+                            format!("collection member '{member}' appears more than once"),
+                        ));
+                    }
                     if !source_ids.contains(member) {
                         diagnostics.push(SpecDiagnostic::new(
-                            format!("$.sources[{index}].members[{member_index}]"),
+                            path.clone(),
                             "collection.member.unknown",
                             format!(
                                 "collection member '{member}' does not match a declared source id"
@@ -727,10 +743,75 @@ impl SpecV2 {
                     }
                     if member == &source.id {
                         diagnostics.push(SpecDiagnostic::new(
-                            format!("$.sources[{index}].members[{member_index}]"),
+                            path.clone(),
                             "collection.member.self_reference",
                             "a collection cannot contain itself",
                         ));
+                    }
+                    if let Some(member_source) = self.sources.iter().find(|item| &item.id == member)
+                    {
+                        if member_source.kind != SourceKind::Artifact {
+                            diagnostics.push(SpecDiagnostic::new(
+                                path.clone(),
+                                "collection.member.nested",
+                                "collection members must be artifact sources",
+                            ));
+                        }
+                        if member_source.path.is_none() || member_source.uri.is_some() {
+                            diagnostics.push(SpecDiagnostic::new(
+                                path.clone(),
+                                "collection.member.locator",
+                                "collection members require a local root-relative path",
+                            ));
+                        }
+                        if let Some(locator) = &member_source.path {
+                            if locator.is_empty()
+                                || !Path::new(locator)
+                                    .components()
+                                    .all(|component| matches!(component, Component::Normal(_)))
+                            {
+                                diagnostics.push(SpecDiagnostic::new(
+                                    format!("$.sources[{index}].members[{member_index}]"),
+                                    "collection.member.locator",
+                                    "collection member paths must be root-relative without traversal",
+                                ));
+                            }
+                        }
+                        if member_source.format.is_none() || member_source.media_type.is_none() {
+                            diagnostics.push(SpecDiagnostic::new(
+                                path.clone(),
+                                "collection.member.media",
+                                "collection members require explicit format and media_type",
+                            ));
+                        }
+                        if !member_source.sha256.as_ref().is_some_and(|digest| {
+                            digest.len() == 64
+                                && digest.bytes().all(|byte| {
+                                    byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase()
+                                })
+                        }) {
+                            diagnostics.push(SpecDiagnostic::new(
+                                path,
+                                "collection.member.digest",
+                                "collection members require a lowercase 64-character sha256 digest",
+                            ));
+                        }
+                        if member_source.geometry.as_ref().is_some_and(|geometry| {
+                            !geometry.width.is_finite()
+                                || geometry.width <= 0.0
+                                || !geometry.height.is_finite()
+                                || geometry.height <= 0.0
+                                || [geometry.margin, geometry.bleed, geometry.safe_area]
+                                    .into_iter()
+                                    .flatten()
+                                    .any(|value| !value.is_finite() || value < 0.0)
+                        }) {
+                            diagnostics.push(SpecDiagnostic::new(
+                                format!("$.sources[{index}].members[{member_index}]"),
+                                "collection.member.geometry",
+                                "collection member geometry requires finite positive dimensions and nonnegative bounds",
+                            ));
+                        }
                     }
                 }
             }
@@ -1296,6 +1377,8 @@ pub(crate) fn migrate_v1_config(config: &Config) -> SpecV2 {
             members: Vec::new(),
             media_type: None,
             format: Some(legacy_source_format(config)),
+            sha256: None,
+            geometry: None,
             detect: config.input_format.is_none(),
             immutable: true,
         }],
@@ -1466,6 +1549,8 @@ pub fn json_schema() -> Value {
                     "members": {"type": "array", "items": {"$ref": "#/$defs/stableId"}, "default": []},
                     "media_type": {"type": ["string", "null"]},
                     "format": {"type": ["string", "null"]},
+                    "sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+                    "geometry": {"anyOf": [{"$ref": "#/$defs/pageGeometry"}, {"type": "null"}]},
                     "detect": {"type": "boolean", "default": true},
                     "immutable": {"const": true, "default": true}
                 }

@@ -15,7 +15,9 @@ use anyhow::{Context, Result};
 use crate::adapters::strategy::{
     document_input_format, output_type_for_format, StrategyArtifactTransform,
 };
-use crate::artifact::{Artifact, ArtifactDescriptor, ArtifactStorageClass, ArtifactStore};
+use crate::artifact::{
+    Artifact, ArtifactCollection, ArtifactDescriptor, ArtifactStorageClass, ArtifactStore,
+};
 use crate::checkpoint::CheckpointContext;
 use crate::evidence::{
     redact_sensitive_text, run_id, sha256_serialized, unix_time_ms, ArtifactEvidence,
@@ -26,10 +28,11 @@ use crate::evidence::{
 use crate::graph::capability::{FormatCapabilityRegistry, FormatFamily};
 use crate::graph::{
     ArtifactForest, DagExecutionReport, DagExecutor, DiagnosticLevel, ExecutionPlan, ForestBranch,
-    ForestBranchState, Format, MultiTargetDag, TransformEdge, TransformGraph,
+    ForestBranchState, Format, MultiTargetDag, PlanCollectionMember, PlanSourceArtifact,
+    PlanSourceCollection, TransformEdge, TransformGraph,
 };
 use crate::hygiene::{HygieneEngine, HygieneEvidence};
-use crate::intake::{IntakeEngine, IntakeRequest, ResolvedArtifactProfile};
+use crate::intake::{IntakeEngine, IntakeReport, IntakeRequest, ResolvedArtifactProfile};
 use crate::optimization::OptimizationMode;
 use crate::publication::write_release_metadata;
 use crate::spec::{
@@ -156,18 +159,26 @@ impl ResolvedTarget {
 
 pub struct ResolvedExecution {
     plan: ExecutionPlan,
+    config_path: PathBuf,
     spec: SpecV2,
     source_version: SourceSpecVersion,
     source: SourceSpec,
     source_path: PathBuf,
     source_format: Format,
-    source_profile: ResolvedArtifactProfile,
+    source_members: Vec<ResolvedSourceMember>,
     targets: Vec<ResolvedTarget>,
     dag: MultiTargetDag,
     executor: DagExecutor,
     tool_registry: ToolRegistry,
     resume_checkpoints: bool,
     cancellation: Option<Arc<AtomicBool>>,
+}
+
+#[derive(Debug, Clone)]
+struct ResolvedSourceMember {
+    spec: SourceSpec,
+    path: PathBuf,
+    intake: IntakeReport,
 }
 
 impl ResolvedExecution {
@@ -282,21 +293,28 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
     compose_selected_profiles(&mut spec)?;
 
     let source = select_primary_source(&spec)?;
-    let source_path = resolve_path_relative_to_config(
-        &request.config_path,
-        source.path.as_deref().ok_or_else(|| {
-            anyhow::anyhow!(
-                "canonical execution currently requires a local source path for '{}'",
-                source.id
-            )
-        })?,
-    );
-    if !source_path.is_file() {
-        anyhow::bail!(
-            "source artifact '{}' does not exist or is not a file",
-            source_path.display()
-        );
-    }
+    let collection = source.kind == SourceKind::Collection;
+    let config_path = if collection {
+        fs::canonicalize(&request.config_path)
+            .context("collection.source.config: unable to resolve spec path")?
+    } else {
+        request.config_path.clone()
+    };
+    let member_specs = if collection {
+        source
+            .members
+            .iter()
+            .map(|id| {
+                spec.sources
+                    .iter()
+                    .find(|item| &item.id == id)
+                    .cloned()
+                    .with_context(|| format!("collection.member.unknown: '{id}'"))
+            })
+            .collect::<Result<Vec<_>>>()?
+    } else {
+        vec![source.clone()]
+    };
     if let Some(publication) = &spec.publication {
         for artwork in &publication.artwork {
             let path = resolve_path_relative_to_config(&request.config_path, &artwork.path);
@@ -315,17 +333,81 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
     // run store and verifies the digest through normal artifact handling.
     let intake_staging = tempfile::tempdir().context("failed to create intake staging store")?;
     let intake_store = ArtifactStore::new(intake_staging.path())?;
-    let mut intake_request = IntakeRequest::from_path(&source_path);
-    if let Some(format) = &source.format {
-        intake_request = intake_request.with_format(format.clone());
+    let mut source_members = Vec::new();
+    let mut source_format = None;
+    for member in member_specs {
+        let path = if collection {
+            collection_member_path(&config_path, &member)?
+        } else {
+            let path = resolve_path_relative_to_config(
+                &request.config_path,
+                member.path.as_deref().ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "canonical execution requires a local source path for '{}'",
+                        member.id
+                    )
+                })?,
+            );
+            if !path.is_file() {
+                anyhow::bail!(
+                    "source artifact '{}' does not exist or is not a file",
+                    path.display()
+                );
+            }
+            path
+        };
+        let intake = intake_source(&member, &path, &intake_store)?;
+        let format = resolve_source_format(&member, &path, &intake.profile)?;
+        if collection {
+            let declared_media = member
+                .media_type
+                .as_deref()
+                .context("collection.member.media: missing declared media type")?;
+            let supported = FormatCapabilityRegistry::global()
+                .get(format)
+                .is_some_and(|descriptor| descriptor.media_types.contains(&declared_media));
+            if !supported {
+                anyhow::bail!(
+                    "collection.member.unsupported_media: '{}' declares '{}' for format '{}'",
+                    member.id,
+                    declared_media,
+                    format
+                );
+            }
+            if !intake.profile.conflicts.is_empty() {
+                anyhow::bail!(
+                    "collection.member.format_conflict: '{}' has conflicting format signals",
+                    member.id
+                );
+            }
+            if member.sha256.as_deref() != Some(intake.source.digest().value()) {
+                anyhow::bail!(
+                    "collection.member.digest_mismatch: '{}' differs from declared sha256",
+                    member.id
+                );
+            }
+            if member.media_type.as_deref() != Some(intake.profile.media_type.as_str()) {
+                anyhow::bail!(
+                    "collection.member.media_mismatch: '{}' has media type '{}', expected {:?}",
+                    member.id,
+                    intake.profile.media_type,
+                    member.media_type
+                );
+            }
+            if source_format.is_some_and(|selected| selected != format) {
+                anyhow::bail!("collection.member.unsupported_media: '{}' has format '{}'; collection members must share one format", member.id, format);
+            }
+        }
+        source_format = Some(format);
+        source_members.push(ResolvedSourceMember {
+            spec: member,
+            path,
+            intake,
+        });
     }
-    if let Some(media_type) = &source.media_type {
-        intake_request = intake_request.with_media_type(media_type.clone());
-    }
-    let source_intake = IntakeEngine::new()
-        .intake(&intake_request, &intake_store)
-        .context("failed to establish source artifact identity before planning")?;
-    let source_format = resolve_source_format(&source, &source_path, &source_intake.profile)?;
+    let source_format = source_format.context("source collection has no members")?;
+    let source_path = source_members[0].path.clone();
+    let source_intake = &source_members[0].intake;
 
     let (mut graph, mut executor, mut tool_registry) =
         if let Some(transforms_path) = &spec.transforms {
@@ -350,6 +432,12 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
 
     register_builtin_strategy_edges(&mut graph, &mut tool_registry)?;
     let policy_graph = apply_execution_policy(&graph, &tool_registry, &spec);
+    let policy_graph = if collection {
+        policy_graph
+            .filtered_by(|edge| edge.from != source_format || edge.input_kind.is_collection())
+    } else {
+        policy_graph
+    };
     let requested_targets = resolve_target_intent(&spec, &policy_graph, source_format)?;
     if requested_targets.is_empty() {
         anyhow::bail!("target selection resolved to no executable artifact formats");
@@ -398,6 +486,16 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
             (dag, true)
         }
     };
+    if collection
+        && (dag.all_edges().is_empty()
+            || dag
+                .all_edges()
+                .iter()
+                .any(|edge| edge.from == source_format && !edge.input_kind.is_collection())
+            || targets.iter().any(|target| target.format == source_format))
+    {
+        anyhow::bail!("collection.transform.unsupported: a collection requires a registered collection-input transform and a distinct output format");
+    }
 
     register_builtin_strategy_executors(
         &mut executor,
@@ -418,7 +516,24 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
         &pruned_unavailable,
         &pruned_budget,
     ));
-    plan.attach_source_artifact(&source_intake);
+    if collection {
+        plan.source_collection = Some(PlanSourceCollection {
+            source_id: source.id.clone(),
+            members: source_members
+                .iter()
+                .map(|member| PlanCollectionMember {
+                    source_id: member.spec.id.clone(),
+                    locator: member.spec.path.clone().unwrap_or_default(),
+                    media_type: member.intake.profile.media_type.clone(),
+                    format: source_format.to_string(),
+                    geometry: member.spec.geometry.clone(),
+                    artifact: PlanSourceArtifact::from(&member.intake),
+                })
+                .collect(),
+        });
+    } else {
+        plan.attach_source_artifact(source_intake);
+    }
     if !source_intake.profile.conflicts.is_empty() {
         plan.add_tool_diagnostic(format!(
             "source intake reported {} conflicting format signal set(s); '{}' was selected",
@@ -483,12 +598,13 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
 
     Ok(ResolvedExecution {
         plan,
+        config_path,
         spec,
         source_version,
         source,
         source_path,
         source_format,
-        source_profile: source_intake.profile,
+        source_members,
         targets,
         dag,
         executor,
@@ -617,47 +733,74 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
             )
         }
     };
-    let source_artifact = match store.import_path(
-        &resolved.source_path,
-        ArtifactDescriptor::for_format(resolved.source_format, ArtifactStorageClass::Source)
-            .with_metadata("renderflow.source_id", resolved.source.id.clone())
+    let mut source_artifacts = Vec::new();
+    for (index, member) in resolved.source_members.iter().enumerate() {
+        let imported = (|| -> Result<Artifact> {
+            if resolved.source.kind == SourceKind::Collection {
+                collection_member_path(&resolved.config_path, &member.spec)?;
+            }
+            let descriptor = ArtifactDescriptor::for_format(
+                resolved.source_format,
+                ArtifactStorageClass::Source,
+            )
+            .with_metadata("renderflow.source_id", member.spec.id.clone())
             .with_metadata("renderflow.intake.schema", crate::intake::INTAKE_SCHEMA_V1)
             .with_metadata(
                 "renderflow.intake.profile",
-                serde_json::to_value(&resolved.source_profile)?,
-            ),
-    ) {
-        Ok(artifact) => artifact,
-        Err(error) => {
-            return failed_execution_result(
-                &resolved,
-                &output_root,
-                started_at_unix_ms,
-                Vec::new(),
-                Vec::new(),
-                "execution.source_import_failed",
-                error,
-            )
+                serde_json::to_value(&member.intake.profile)?,
+            );
+            let descriptor = if resolved.source.kind == SourceKind::Collection {
+                descriptor
+                    .with_metadata("renderflow.collection.id", resolved.source.id.clone())
+                    .with_metadata("renderflow.collection.index", index)
+                    .with_metadata("renderflow.collection.locator", member.spec.path.clone())
+                    .with_metadata(
+                        "renderflow.collection.geometry",
+                        serde_json::to_value(&member.spec.geometry)?,
+                    )
+            } else {
+                descriptor
+            };
+            let artifact = store
+                .import_path(&member.path, descriptor)
+                .with_context(|| format!("collection.member.unreadable: '{}'", member.spec.id))?;
+            if resolved.source.kind == SourceKind::Collection {
+                collection_member_path(&resolved.config_path, &member.spec)?;
+            }
+            let planned_digest = if let Some(collection) = &resolved.plan.source_collection {
+                &collection.members[index].artifact.digest
+            } else {
+                &resolved
+                    .plan
+                    .source_artifact
+                    .as_ref()
+                    .context("missing source artifact plan")?
+                    .digest
+            };
+            if artifact.digest().to_string() != *planned_digest {
+                anyhow::bail!(
+                    "collection.member.changed: '{}' differs from planned bytes; re-plan",
+                    member.spec.id
+                );
+            }
+            Ok(artifact)
+        })();
+        match imported {
+            Ok(artifact) => source_artifacts.push(artifact),
+            Err(error) => {
+                return failed_execution_result(
+                    &resolved,
+                    &output_root,
+                    started_at_unix_ms,
+                    source_evidence(&resolved, &source_artifacts),
+                    Vec::new(),
+                    "execution.source_changed_after_intake",
+                    error,
+                )
+            }
         }
-    };
-    if resolved
-        .plan
-        .source_artifact
-        .as_ref()
-        .is_some_and(|planned| planned.digest != source_artifact.digest().to_string())
-    {
-        return failed_execution_result(
-            &resolved,
-            &output_root,
-            started_at_unix_ms,
-            vec![source_artifact_evidence(&resolved, &source_artifact)],
-            Vec::new(),
-            "execution.source_changed_after_intake",
-            anyhow::anyhow!(
-                "source bytes changed after intake and before transform execution; re-plan the run"
-            ),
-        );
     }
+    let source_artifact = source_artifacts[0].clone();
 
     let executor = std::mem::take(&mut resolved.executor);
     let checkpoint_context = CheckpointContext {
@@ -669,8 +812,16 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
             .as_ref()
             .map(|snapshot| snapshot.fingerprint.clone()),
     };
+    let cache_name = if resolved.plan.source_collection.is_some() {
+        format!(
+            "canonical-cache-{}.json",
+            checkpoint_context.execution_plan_digest.value
+        )
+    } else {
+        "canonical-cache.json".to_string()
+    };
     let mut executor = executor
-        .with_cache(state_dir.join("canonical-cache.json"))
+        .with_cache(state_dir.join(cache_name))
         .with_checkpoints(
             state_dir.join("checkpoints.json"),
             checkpoint_context,
@@ -690,27 +841,37 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
                 &resolved,
                 &output_root,
                 started_at_unix_ms,
-                vec![source_artifact_evidence(&resolved, &source_artifact)],
+                source_evidence(&resolved, &source_artifacts),
                 Vec::new(),
                 "execution.toolchain_evidence_failed",
                 error.into(),
             );
         }
     }
-    let mut report = match executor.execute_artifact_with_evidence(
-        &resolved.dag,
-        resolved.source_format,
-        source_artifact.clone(),
-        &store,
-    ) {
+    let execution = if resolved.source.kind == SourceKind::Collection {
+        executor.execute_collection_with_evidence(
+            &resolved.dag,
+            resolved.source_format,
+            ArtifactCollection::new(source_artifacts.clone()),
+            &store,
+        )
+    } else {
+        executor.execute_artifact_with_evidence(
+            &resolved.dag,
+            resolved.source_format,
+            source_artifact.clone(),
+            &store,
+        )
+    };
+    let mut report = match execution {
         Ok(report) => report,
         Err(error) => {
-            let source_evidence = source_artifact_evidence(&resolved, &source_artifact);
+            let source_evidence = source_evidence(&resolved, &source_artifacts);
             return failed_execution_result(
                 &resolved,
                 &output_root,
                 started_at_unix_ms,
-                vec![source_evidence],
+                source_evidence,
                 Vec::new(),
                 "execution.executor_failed",
                 error,
@@ -932,7 +1093,7 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
 
     let artifacts = artifact_evidence(
         &resolved,
-        &source_artifact,
+        &source_artifacts,
         &report,
         &output_locators,
         &diagnostics,
@@ -1210,32 +1371,39 @@ fn plan_diagnostics(resolved: &ResolvedExecution) -> Vec<ExecutionDiagnostic> {
         .collect()
 }
 
-fn source_artifact_evidence(resolved: &ResolvedExecution, source: &Artifact) -> ArtifactEvidence {
-    ArtifactEvidence::from_artifact(
-        source,
-        resolved
-            .source
-            .role
-            .clone()
-            .unwrap_or_else(|| resolved.source.id.clone()),
-        ArtifactRole::Source,
-        artifact_store_locator(source),
-        ProducerEvidence::source(),
-        ValidationState::NotRequested,
-        FidelityDeclaration::Lossless,
-    )
+fn source_evidence(resolved: &ResolvedExecution, sources: &[Artifact]) -> Vec<ArtifactEvidence> {
+    resolved
+        .source_members
+        .iter()
+        .zip(sources)
+        .map(|(member, source)| {
+            ArtifactEvidence::from_artifact(
+                source,
+                member
+                    .spec
+                    .role
+                    .clone()
+                    .unwrap_or_else(|| member.spec.id.clone()),
+                ArtifactRole::Source,
+                artifact_store_locator(source),
+                ProducerEvidence::source(),
+                ValidationState::NotRequested,
+                FidelityDeclaration::Lossless,
+            )
+        })
+        .collect()
 }
 
 fn artifact_evidence(
     resolved: &ResolvedExecution,
-    source: &Artifact,
+    sources: &[Artifact],
     report: &DagExecutionReport,
     output_locators: &HashMap<String, String>,
     diagnostics: &[ExecutionDiagnostic],
     validation_outcomes: &HashMap<String, ArtifactValidationOutcome>,
     hygiene_evidence: &HashMap<String, HygieneEvidence>,
 ) -> Vec<ArtifactEvidence> {
-    let mut evidence = vec![source_artifact_evidence(resolved, source)];
+    let mut evidence = source_evidence(resolved, sources);
     let mut artifacts = report.artifacts.iter().collect::<Vec<_>>();
     artifacts.sort_by(|(left_format, left), (right_format, right)| {
         left_format
@@ -1244,7 +1412,7 @@ fn artifact_evidence(
             .then_with(|| left.id().as_str().cmp(right.id().as_str()))
     });
     for (format, artifact) in artifacts {
-        if artifact.id() == source.id()
+        if sources.iter().any(|source| artifact.id() == source.id())
             && !resolved
                 .targets
                 .iter()
@@ -1642,6 +1810,31 @@ fn merge_selector_set(destination: &mut SelectorSet, source: &SelectorSet) {
 }
 
 fn select_primary_source(spec: &SpecV2) -> Result<SourceSpec> {
+    let collections: Vec<&SourceSpec> = spec
+        .sources
+        .iter()
+        .filter(|source| source.kind == SourceKind::Collection)
+        .collect();
+    if let [collection] = collections.as_slice() {
+        let declared = spec
+            .sources
+            .iter()
+            .filter(|source| source.kind == SourceKind::Artifact)
+            .map(|source| source.id.as_str())
+            .collect::<BTreeSet<_>>();
+        let selected = collection
+            .members
+            .iter()
+            .map(String::as_str)
+            .collect::<BTreeSet<_>>();
+        if declared != selected {
+            anyhow::bail!("collection.source.ambiguous: every declared artifact must occur exactly once in the selected collection");
+        }
+        return Ok((*collection).clone());
+    }
+    if collections.len() > 1 {
+        anyhow::bail!("collection.source.ambiguous: canonical execution requires exactly one collection source");
+    }
     let artifacts: Vec<&SourceSpec> = spec
         .sources
         .iter()
@@ -1649,11 +1842,71 @@ fn select_primary_source(spec: &SpecV2) -> Result<SourceSpec> {
         .collect();
     if artifacts.len() != 1 {
         anyhow::bail!(
-            "canonical format-DAG execution currently requires exactly one artifact source; found {}. Multi-root/collection source identity is reserved for the Transform v2 execution graph (#357).",
+            "canonical execution requires one artifact source or one explicitly ordered collection; found {} artifacts",
             artifacts.len()
         );
     }
     Ok(artifacts[0].clone())
+}
+
+fn collection_member_path(config_path: &Path, source: &SourceSpec) -> Result<PathBuf> {
+    let locator = source.path.as_deref().ok_or_else(|| {
+        anyhow::anyhow!("collection.member.locator: '{}' requires a path", source.id)
+    })?;
+    let relative = Path::new(locator);
+    if relative.as_os_str().is_empty()
+        || !relative
+            .components()
+            .all(|component| matches!(component, Component::Normal(_)))
+    {
+        anyhow::bail!(
+            "collection.member.locator: '{}' must use a root-relative path without traversal",
+            source.id
+        );
+    }
+    let root = config_path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
+    let mut path = root.to_path_buf();
+    for component in relative.components() {
+        path.push(component);
+        let metadata = fs::symlink_metadata(&path).with_context(|| {
+            format!(
+                "collection.member.missing: '{}' at '{}'",
+                source.id,
+                path.display()
+            )
+        })?;
+        if metadata.file_type().is_symlink() {
+            anyhow::bail!(
+                "collection.member.symlink: '{}' has a symlink component at '{}'",
+                source.id,
+                path.display()
+            );
+        }
+    }
+    if !path.is_file() {
+        anyhow::bail!(
+            "collection.member.not_file: '{}' at '{}'",
+            source.id,
+            path.display()
+        );
+    }
+    Ok(path)
+}
+
+fn intake_source(source: &SourceSpec, path: &Path, store: &ArtifactStore) -> Result<IntakeReport> {
+    let mut request = IntakeRequest::from_path(path);
+    if let Some(format) = &source.format {
+        request = request.with_format(format.clone());
+    }
+    if let Some(media_type) = &source.media_type {
+        request = request.with_media_type(media_type.clone());
+    }
+    IntakeEngine::new()
+        .intake(&request, store)
+        .with_context(|| format!("source.intake.failed: '{}'", source.id))
 }
 
 fn resolve_path_relative_to_config(config_path: &Path, value: &str) -> PathBuf {
@@ -1967,7 +2220,7 @@ fn resolve_target_intent(
     }
     apply_exclusions(&mut selected, &profile_exclusions, graph);
     apply_exclusions(&mut selected, &spec.targets.exclude, graph);
-    selected.sort_by(|left, right| left.format.to_string().cmp(&right.format.to_string()));
+    selected.sort_by_key(|item| item.format.to_string());
     Ok(selected)
 }
 
@@ -2566,6 +2819,8 @@ mod tests {
                 members: Vec::new(),
                 media_type: None,
                 format: Some(source_format.to_string()),
+                sha256: None,
+                geometry: None,
                 detect: false,
                 immutable: true,
             }],
@@ -2627,8 +2882,7 @@ mod tests {
 
         let (available, unavailable) =
             partition_targets_by_availability(requested, &available_formats, true);
-        let (planned, used_unavailable_only_fallback) =
-            planning_targets(&available, &unavailable);
+        let (planned, used_unavailable_only_fallback) = planning_targets(&available, &unavailable);
 
         assert_eq!(
             available
@@ -2663,8 +2917,7 @@ mod tests {
 
         let (available, unavailable) =
             partition_targets_by_availability(requested, &HashSet::new(), true);
-        let (planned, used_unavailable_only_fallback) =
-            planning_targets(&available, &unavailable);
+        let (planned, used_unavailable_only_fallback) = planning_targets(&available, &unavailable);
 
         assert!(available.is_empty());
         assert_eq!(

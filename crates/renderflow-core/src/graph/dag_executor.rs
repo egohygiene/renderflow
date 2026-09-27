@@ -521,6 +521,36 @@ impl DagExecutor {
             .into_result()
     }
 
+    /// Execute an ordered collection and retain step evidence for canonical runs.
+    /// The root collection stays in the caller's source evidence; every derived
+    /// format must resolve to one artifact for the current output lifecycle.
+    pub fn execute_collection_with_evidence(
+        &self,
+        dag: &MultiTargetDag,
+        source_format: Format,
+        initial_artifacts: ArtifactCollection,
+        store: &ArtifactStore,
+    ) -> Result<DagExecutionReport> {
+        let report =
+            self.execute_artifacts_with_evidence(dag, source_format, initial_artifacts, store)?;
+        let artifacts = report
+            .artifacts
+            .into_iter()
+            .filter(|(format, _)| *format != source_format)
+            .map(|(format, collection)| {
+                let artifact = collection.into_one().with_context(|| {
+                    format!("Format '{format}' produced multiple artifacts where one was expected")
+                })?;
+                Ok((format, artifact))
+            })
+            .collect::<Result<HashMap<_, _>>>()?;
+        Ok(DagExecutionReport {
+            artifacts,
+            steps: report.steps,
+            diagnostics: report.diagnostics,
+        })
+    }
+
     fn execute_artifacts_with_evidence(
         &self,
         dag: &MultiTargetDag,
@@ -1111,7 +1141,7 @@ impl DagExecutor {
             output,
             transform.name().to_string(),
             "unstable-v1".to_string(),
-            sha256_text(transform.name()),
+            edge_configuration_digest(edge),
             None,
         ))
     }
