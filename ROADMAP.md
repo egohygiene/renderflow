@@ -3,7 +3,7 @@ schema: aether.architecture-document/v1
 id: renderflow-roadmap
 title: Renderflow Roadmap
 kind: architecture-document
-version: 0.1.5
+version: 0.1.6
 status: draft
 owners:
   - egohygiene
@@ -25,6 +25,30 @@ supersedes: []
 ---
 
 # Renderflow Roadmap
+
+## 2026-09-28 fixed-layout EPUB validation review handoff
+
+[#417](https://github.com/egohygiene/renderflow/issues/417) merged in
+[PR #435](https://github.com/egohygiene/renderflow/pull/435) at
+`eaf3b98d4236a74ba30b6e40456cbf9757675a76`. Its in-process packager
+builds deterministic, bounded fixed-layout EPUB from an explicitly ordered
+homogeneous PNG or JPEG collection. SVG and fixed-layout KEPUB remain
+unsupported. The #418 validation suite uses synthetic artwork only.
+
+[#418](https://github.com/egohygiene/renderflow/issues/418) is the current
+review checkpoint: inspect the generated package independently, distinguish
+native structural results from optional EPUBCheck v5 results and unavailable
+providers, exercise positive and adversarial synthetic fixtures, and align the
+capability surfaces with that exact route. Missing or incomplete accessibility
+evidence cannot be promoted to a claim of complete accessibility. A generated
+EPUB still needs its selected reading-system and distribution-channel review.
+
+After #418 review and merge, reconcile and close parent
+[#414](https://github.com/egohygiene/renderflow/issues/414) with commit and
+workflow evidence. [#419](https://github.com/egohygiene/renderflow/issues/419)
+then owns the immutable integration-candidate release for
+[Flow #52](https://github.com/egohygiene/flow/issues/52). The release is a
+separate checkpoint; this branch does not publish or approve it.
 
 ## 2026-09-28 fixed-layout EPUB implementation handoff
 

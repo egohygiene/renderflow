@@ -50,7 +50,7 @@ registers an edge and executor.
 | Archives | ZIP | Experimental | Normalize ordering and timestamps before promotion |
 | Generic image-to-PDF | img2pdf | Experimental | Does not claim print-interior validation |
 | Ordered print-interior PDF | img2pdf 0.6.3 | Integrated exact route | PNG or JPEG collection; inspect ordered streams and page boxes |
-| Fixed-layout EPUB | Renderflow native packager | Exact route under #417 | Ordered PNG or JPEG collection; SVG refused; #418 owns independent conformance |
+| Fixed-layout EPUB | Renderflow native packager | Bounded exact route | Ordered PNG or JPEG collection; native package inspection and optional EPUBCheck evidence; SVG refused |
 | PDF processing | Ghostscript | Experimental | Require explicit licensing and fidelity policy |
 | Local image AI | Upscayl NCNN | Experimental | Require model identity, license evidence, and AI opt-in |
 | Reflowable EPUB / KEPUB | Pandoc / Kepubify | Integrated | Retain separate document and Kobo conversion edges |
@@ -68,7 +68,9 @@ The fixed-layout EPUB packager is in process and has the virtual
 catalog schema describes command-backed `renderflow.process/v1` execution; it
 does not model an in-process packager as an external executable. The EPUB route
 is selected by the canonical graph and documented in the
-[fixed-layout EPUB guide](fixed-layout-epub.md).
+[fixed-layout EPUB guide](fixed-layout-epub.md). Validation is evidence about
+the generated artifact, not a new source-format or external-generator edge.
+The optional `tool.epubcheck` is a distinct local conformance provider.
 
 ## Adding an Adapter
 

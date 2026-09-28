@@ -39,26 +39,35 @@ metadata. Canonical source metadata remains preferable.
 ## Inspect and validate
 
 ```bash
-renderflow ebook inspect --input dist/book.epub --format json
-renderflow ebook inspect --input dist/book.epub --format json --epubcheck
+renderflow ebook inspect --input "dist/book.epub" --format json
+renderflow ebook inspect --input "dist/book.epub" --fixed-layout --format json --epubcheck
+renderflow ebook inspect --input "dist/book.epub" --run-manifest "dist/renderflow-run.json" --format json
 renderflow ebook capabilities --format yaml
 ```
 
-The exact route is discoverable through its graph capability and the virtual
-`tool.renderflow-epub` provider. The broad `ebook capabilities` summary still
-reports fixed-layout generation as unsupported in #417; #418 owns changing that
-claim after independent output validation. A false summary value does not
-convert a selected exact route into the Pandoc reflow path.
+The fixed-layout generation capability is scoped to the exact bounded ordered
+PNG/JPEG collection route, selected through the virtual
+`tool.renderflow-epub` provider. The `ebook capabilities` summary and generated
+conformance matrix must be read with that route constraint: they do not claim
+arbitrary document-to-fixed-layout conversion, SVG input, or fixed-layout
+KEPUB. Pandoc's reflowable document path remains separate.
 
 Native inspection validates the EPUB container and EPUB 3 package envelope and
 reports XHTML content, internal title/language/identifier/creator/rights
 metadata, navigation, page-list, layout declarations, accessibility metadata,
-and KEPUB markers. Evidence is versioned as `renderflow.ebook-evidence/v1` and
-includes the immutable source SHA-256 digest.
+and KEPUB markers. For the exact native fixed-layout route, the fixed-layout
+evidence is `validated`, `invalid`, or `unsupported` with typed diagnostics.
+Pass `--run-manifest` to check that the inspected bytes match the recorded
+output and provenance (`verified`, `stale`, or `corrupt`). Failed binding marks
+the inspection invalid. Evidence is versioned as `renderflow.ebook-evidence/v1`
+and includes the immutable source SHA-256 digest.
 
-When requested, the optional EPUBCheck provider runs locally through
-Renderflow's bounded process service and embeds its JSON report. Missing
-EPUBCheck is recorded as unavailable; it is never represented as a pass.
+When requested, the optional EPUBCheck v5 provider runs locally through
+Renderflow's bounded process service and embeds its result, including provider
+identity and the observed executable version when available. A missing
+EPUBCheck is recorded as unavailable and the requested CLI command exits
+nonzero. It is never represented as a pass. Native inspection and EPUBCheck
+conformance evidence are separate decisions.
 
 ## Capability boundaries
 
@@ -67,14 +76,14 @@ generates reflowable KEPUB from EPUB. The native ordered-image route generates
 fixed-layout EPUB packages with a pre-paginated declaration and explicit page
 order. It does not establish fixed-layout KEPUB support. Native inspection
 recognizes `rendition:layout` declarations and reports fixed-layout and mixed
-publications, but independent EPUB 3.3 validation and final capability truth
-remain the work of [#418](https://github.com/egohygiene/renderflow/issues/418).
+publications; the exact fixed-layout route additionally requires checked
+package/member relationships and page evidence.
 
-Page-list and accessibility metadata are inspected and carried as evidence; a
-missing page-list or sparse accessibility metadata produces a warning. EPUB 3.3
-conformance is established by EPUBCheck evidence, not by ZIP validity alone.
-Image descriptions and accessibility metadata also do not prove complete
-accessibility for visually rich pages.
+The exact fixed-layout validator checks the declared page-list and accessibility
+relationships rather than inferring them from an EPUB ZIP extension. The
+presence of descriptions and metadata does not prove complete accessibility
+for visually rich pages. EPUB 3.3 conformance requires successful EPUBCheck
+evidence; native structural validity alone makes no such claim.
 
 Retailer acceptance is deliberately outside this generic format capability.
 Every inspection reports `requires_provider_profile`; Lulu, Kobo, or another
