@@ -30,6 +30,14 @@ Each edge records:
 - expected `quality`
 - `input_kind`: `single` or `collection`
 
+The built-in fixed-layout EPUB edge consumes a bounded ordered PNG or JPEG
+collection and produces one EPUB artifact. Its exact capability is
+`ebook.generate.epub.fixed-layout`; the document-source Pandoc EPUB edge
+remains a separate single-input reflowable path. Ordered source IDs and digests,
+configuration, and the selected toolchain bind checkpoint reuse. The package
+is generated in process and cannot be mistaken for an implicit
+`epub -> kepub` fixed-layout capability.
+
 ## Graph construction from YAML
 
 `build_graph_and_executor_from_yaml` reads a transform YAML file and:

@@ -37,6 +37,10 @@ name = "artifact_gallery_cli"
 path = "../../tests/artifact_gallery_cli.rs"
 
 [[test]]
+name = "fixed_layout_epub_cli"
+path = "../../tests/fixed_layout_epub_cli.rs"
+
+[[test]]
 name = "graph_integration_test"
 path = "../../tests/graph_integration_test.rs"
 

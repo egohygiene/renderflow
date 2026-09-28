@@ -162,7 +162,11 @@ fn failed_step(
     let inspection_failure = error.chain().find_map(|cause| {
         cause.downcast_ref::<crate::print_pdf_inspect::PrintPdfInspectionError>()
     });
-    let cancelled = provider_failure.is_some_and(|failure| failure.cancelled);
+    let fixed_epub_failure = error
+        .chain()
+        .find_map(|cause| cause.downcast_ref::<crate::fixed_layout_epub::FixedEpubError>());
+    let cancelled = provider_failure.is_some_and(|failure| failure.cancelled)
+        || fixed_epub_failure.is_some_and(|failure| failure.cancelled);
     StepEvidence {
         step_id: step_id.clone(),
         transform: edge_identity(edge),
@@ -206,6 +210,7 @@ fn failed_step(
             code: provider_failure
                 .map(|failure| failure.code)
                 .or_else(|| inspection_failure.map(|failure| failure.code))
+                .or_else(|| fixed_epub_failure.map(|failure| failure.code))
                 .unwrap_or("execution.transform_failed")
                 .to_string(),
             message,

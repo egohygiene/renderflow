@@ -508,6 +508,9 @@ pub struct ExecutionPolicy {
     /// Exact, bounded print-interior route for an ordered PNG/JPEG collection.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub print_pdf_interior: Option<PrintPdfInteriorPolicy>,
+    /// Exact native fixed-layout EPUB route for an ordered PNG/JPEG collection.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fixed_layout_epub: Option<FixedLayoutEpubPolicy>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -551,6 +554,38 @@ impl PrintPdfInteriorPolicy {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FixedLayoutEpubPolicy {
+    /// Reading order only; RTL never mirrors or alters artwork bytes.
+    pub page_progression_direction: String,
+    /// The proven route uses single-page spreads only.
+    pub spread: String,
+    /// Existing first collection member, reused as the EPUB cover image.
+    pub cover_member_id: String,
+    pub max_pages: usize,
+    pub max_input_bytes: u64,
+    pub max_output_bytes: u64,
+}
+
+impl FixedLayoutEpubPolicy {
+    pub fn validate(&self) -> Result<()> {
+        if !matches!(self.page_progression_direction.as_str(), "ltr" | "rtl")
+            || self.spread != "none"
+            || !is_stable_id(&self.cover_member_id)
+        {
+            anyhow::bail!("fixed_epub.policy: require explicit ltr/rtl page progression, spread=none, and a stable cover member ID");
+        }
+        if !(1..=1000).contains(&self.max_pages)
+            || !(1..=536_870_912).contains(&self.max_input_bytes)
+            || !(1..=536_870_912).contains(&self.max_output_bytes)
+        {
+            anyhow::bail!("fixed_epub.bounds: max_pages (1..1000) and input/output bytes (1..512 MiB) are required");
+        }
+        Ok(())
+    }
+}
+
 impl Default for ExecutionPolicy {
     fn default() -> Self {
         Self {
@@ -571,6 +606,7 @@ impl Default for ExecutionPolicy {
             redaction_policy: None,
             hygiene_policy: None,
             print_pdf_interior: None,
+            fixed_layout_epub: None,
         }
     }
 }
@@ -698,6 +734,15 @@ impl SpecV2 {
                 diagnostics.push(SpecDiagnostic::new(
                     "$.execution.print_pdf_interior",
                     "print_pdf.policy.invalid",
+                    error.to_string(),
+                ));
+            }
+        }
+        if let Some(epub) = &self.execution.fixed_layout_epub {
+            if let Err(error) = epub.validate() {
+                diagnostics.push(SpecDiagnostic::new(
+                    "$.execution.fixed_layout_epub",
+                    "fixed_epub.policy.invalid",
                     error.to_string(),
                 ));
             }
@@ -1796,6 +1841,18 @@ pub fn json_schema() -> Value {
                     "timeout_seconds": {"type": "integer", "minimum": 1, "maximum": 3600}
                 }
             },
+            "fixedLayoutEpub": {
+                "type": "object", "additionalProperties": false,
+                "required": ["page_progression_direction", "spread", "cover_member_id", "max_pages", "max_input_bytes", "max_output_bytes"],
+                "properties": {
+                    "page_progression_direction": {"enum": ["ltr", "rtl"]},
+                    "spread": {"const": "none"},
+                    "cover_member_id": {"$ref": "#/$defs/stableId"},
+                    "max_pages": {"type": "integer", "minimum": 1, "maximum": 1000},
+                    "max_input_bytes": {"type": "integer", "minimum": 1, "maximum": 536870912},
+                    "max_output_bytes": {"type": "integer", "minimum": 1, "maximum": 536870912}
+                }
+            },
             "executionPolicy": {
                 "type": "object",
                 "additionalProperties": false,
@@ -1822,6 +1879,7 @@ pub fn json_schema() -> Value {
                     "redaction_policy": {"type": ["string", "null"]},
                     "hygiene_policy": {"anyOf": [{"$ref": "#/$defs/stableId"}, {"type": "null"}]}
                     ,"print_pdf_interior": {"anyOf": [{"$ref": "#/$defs/printPdfInterior"}, {"type": "null"}]}
+                    ,"fixed_layout_epub": {"anyOf": [{"$ref": "#/$defs/fixedLayoutEpub"}, {"type": "null"}]}
                 }
             },
             "outputLayout": {

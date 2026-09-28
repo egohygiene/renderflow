@@ -25,6 +25,10 @@ use crate::evidence::{
     ProducerEvidence, RunManifest, RunState, StepEvidence, StepState, ValidationDiagnostic,
     ValidationState, ValidatorEvidence, ARTIFACT_MANIFEST_SCHEMA_V1, RUN_MANIFEST_SCHEMA_V1,
 };
+use crate::fixed_layout_epub::{
+    validate_publication as validate_fixed_epub_publication, FixedEpubPage,
+    FixedLayoutEpubTransform, FIXED_EPUB_CAPABILITY, FIXED_EPUB_PROVIDER,
+};
 use crate::graph::capability::{FormatCapabilityRegistry, FormatFamily};
 use crate::graph::{
     ArtifactForest, DagExecutionReport, DagExecutor, DiagnosticLevel, ExecutionPlan, ForestBranch,
@@ -39,10 +43,10 @@ use crate::print_pdf_image::{inspect_print_image, PrintImageColorSpace};
 use crate::print_pdf_inspect::ExpectedPrintPage;
 use crate::publication::write_release_metadata;
 use crate::spec::{
-    load_spec, AiPolicy, CollisionPolicy, DerivativeProfile, HygienePolicy, IntermediatePolicy,
-    PrintPdfInteriorPolicy, RejectedLossClass, SelectorSet, SourceKind, SourceSpec,
-    SourceSpecVersion, SpecV2, TargetRequirement, TargetSelection, TargetSpec,
-    ValidationFailureMode,
+    load_spec, AiPolicy, CollisionPolicy, DerivativeProfile, FixedLayoutEpubPolicy, HygienePolicy,
+    IntermediatePolicy, NetworkPolicy, PrintPdfInteriorPolicy, RejectedLossClass, SelectorSet,
+    SourceKind, SourceSpec, SourceSpecVersion, SpecV2, TargetRequirement, TargetSelection,
+    TargetSpec, ValidationFailureMode,
 };
 use crate::super_resolution::{select_upscayl_variants, UpscaylModelCatalog};
 use crate::toolchain::{
@@ -171,6 +175,7 @@ pub struct ResolvedExecution {
     source_format: Format,
     source_members: Vec<ResolvedSourceMember>,
     print_pages: Option<Vec<ExpectedPrintPage>>,
+    fixed_epub_pages: Option<Vec<FixedEpubPage>>,
     targets: Vec<ResolvedTarget>,
     dag: MultiTargetDag,
     executor: DagExecutor,
@@ -416,6 +421,8 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
     let source_path = source_members[0].path.clone();
     let source_intake = &source_members[0].intake;
     let print_pages = resolve_print_pages(&spec, collection, source_format, &source_members)?;
+    let fixed_epub_pages =
+        resolve_fixed_epub_pages(&spec, collection, source_format, &source_members)?;
 
     let (mut graph, mut executor, mut tool_registry) =
         if let Some(transforms_path) = &spec.transforms {
@@ -442,6 +449,17 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
     if let Some(policy) = &spec.execution.print_pdf_interior {
         register_print_pdf_edge(&mut graph, &mut tool_registry, source_format, policy)?;
     }
+    if let (Some(policy), Some(publication)) =
+        (&spec.execution.fixed_layout_epub, &spec.publication)
+    {
+        register_fixed_epub_edge(
+            &mut graph,
+            &tool_registry,
+            source_format,
+            policy,
+            publication,
+        )?;
+    }
     let policy_graph = apply_execution_policy(&graph, &tool_registry, &spec);
     let policy_graph = if collection {
         policy_graph
@@ -461,6 +479,14 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
             || requested_targets[0].requirement != TargetRequirement::Required)
     {
         anyhow::bail!("print_pdf.target: exactly one required PDF target with role 'interior' must be selected");
+    }
+    if fixed_epub_pages.is_some()
+        && (requested_targets.len() != 1
+            || requested_targets[0].format != Format::Epub
+            || requested_targets[0].role.as_deref() != Some("ebook")
+            || requested_targets[0].requirement != TargetRequirement::Required)
+    {
+        anyhow::bail!("fixed_epub.target: exactly one required EPUB target with role 'ebook' must be selected");
     }
 
     let provider_inventory = tool_registry.assess_ids_current(policy_graph.provider_ids());
@@ -522,6 +548,12 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
         anyhow::bail!(
             "print_pdf.route: selected plan must contain only the exact print-interior capability"
         );
+    }
+    if fixed_epub_pages.is_some()
+        && (dag.all_edges().len() != 1
+            || dag.all_edges()[0].capability_id.as_deref() != Some(FIXED_EPUB_CAPABILITY))
+    {
+        anyhow::bail!("fixed_epub.route: selected plan must contain only the exact fixed-layout EPUB capability");
     }
 
     register_builtin_strategy_executors(
@@ -636,6 +668,7 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
         source_format,
         source_members,
         print_pages,
+        fixed_epub_pages,
         targets,
         dag,
         executor,
@@ -853,6 +886,34 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
         executor.register_collection_artifact(
             resolved.source_format,
             Format::Pdf,
+            Arc::new(transform),
+        );
+    }
+    if let Some(pages) = &resolved.fixed_epub_pages {
+        let policy = resolved
+            .spec
+            .execution
+            .fixed_layout_epub
+            .clone()
+            .context("fixed_epub.policy: policy missing from planned EPUB execution")?;
+        let publication = resolved
+            .spec
+            .publication
+            .clone()
+            .context("fixed_epub.metadata.missing")?;
+        let transform = FixedLayoutEpubTransform::new(
+            policy,
+            publication,
+            pages.clone(),
+            source_artifacts
+                .iter()
+                .map(|artifact| artifact.digest().to_string())
+                .collect(),
+            resolved.cancellation.clone(),
+        )?;
+        executor.register_collection_artifact(
+            resolved.source_format,
+            Format::Epub,
             Arc::new(transform),
         );
     }
@@ -2147,6 +2208,154 @@ fn resolve_print_pages(
         }
     }
     Ok(Some(pages))
+}
+
+fn resolve_fixed_epub_pages(
+    spec: &SpecV2,
+    collection: bool,
+    source_format: Format,
+    members: &[ResolvedSourceMember],
+) -> Result<Option<Vec<FixedEpubPage>>> {
+    let Some(policy) = &spec.execution.fixed_layout_epub else {
+        return Ok(None);
+    };
+    policy.validate()?;
+    if spec.execution.print_pdf_interior.is_some() {
+        anyhow::bail!("fixed_epub.policy: print PDF and fixed EPUB policies cannot be combined in one exact route");
+    }
+    if !collection || !matches!(source_format, Format::Png | Format::Jpeg) {
+        anyhow::bail!("fixed_epub.input.format: only a homogeneous ordered PNG or JPEG collection is proven; SVG requires separately reviewed safe XML handling");
+    }
+    if spec.transforms.is_some()
+        || spec.execution.hygiene_policy.is_some()
+        || spec.execution.network != NetworkPolicy::Deny
+        || spec.execution.ai != AiPolicy::Deny
+    {
+        anyhow::bail!("fixed_epub.policy: custom transforms, post-render hygiene, network, and AI execution are unsupported on this route");
+    }
+    if members.is_empty() || members.len() > policy.max_pages {
+        anyhow::bail!("fixed_epub.bounds: collection has no pages or exceeds max_pages");
+    }
+    if policy.cover_member_id != members[0].spec.id {
+        anyhow::bail!("fixed_epub.cover: cover_member_id must name the first ordered page");
+    }
+    let input_bytes = members.iter().try_fold(0_u64, |sum, member| {
+        sum.checked_add(member.intake.source.size_bytes())
+            .context("fixed_epub.bounds: input byte count overflow")
+    })?;
+    if input_bytes > policy.max_input_bytes {
+        anyhow::bail!("fixed_epub.bounds: collection exceeds max_input_bytes");
+    }
+    let publication = spec
+        .publication
+        .as_ref()
+        .context("fixed_epub.metadata.missing: publication contract is required")?;
+    if serde_json::to_vec(publication)?.len() > 1024 * 1024 {
+        anyhow::bail!("fixed_epub.bounds: publication metadata exceeds 1 MiB");
+    }
+    validate_fixed_epub_publication(publication)?;
+    if let Some(role) = publication.output_roles.get("ebook") {
+        if role.format != "epub"
+            || role
+                .geometry
+                .as_ref()
+                .is_some_and(|geometry| geometry != &publication.geometry)
+        {
+            anyhow::bail!("fixed_epub.publication.constraints: ebook role format or geometry differs from the EPUB route");
+        }
+    }
+    let mut pages = Vec::with_capacity(members.len());
+    for member in members {
+        let geometry = member.spec.geometry.as_ref().with_context(|| {
+            format!(
+                "fixed_epub.geometry.missing: '{}' requires explicit page geometry",
+                member.spec.id
+            )
+        })?;
+        if geometry != &publication.geometry
+            || geometry.unit != "mm"
+            || !geometry.width.is_finite()
+            || !geometry.height.is_finite()
+            || geometry.width <= 0.0
+            || geometry.height <= 0.0
+            || geometry.width > 10_000.0
+            || geometry.height > 10_000.0
+            || geometry.bleed.is_some_and(|bleed| bleed != 0.0)
+            || geometry.margin.is_some()
+            || geometry.safe_area.is_some()
+        {
+            anyhow::bail!("fixed_epub.geometry.unsupported: '{}' requires matching positive millimeter publication geometry without bleed, margin, or safe area", member.spec.id);
+        }
+        let image = inspect_print_image(&member.path, source_format).with_context(|| {
+            format!(
+                "fixed_epub.image.unreadable: '{}' did not pass bounded image preflight",
+                member.spec.id
+            )
+        })?;
+        let pixel_ratio = f64::from(image.width_px) / f64::from(image.height_px);
+        let page_ratio = geometry.width / geometry.height;
+        if (pixel_ratio - page_ratio).abs() > 0.01 {
+            anyhow::bail!(
+                "fixed_epub.geometry.aspect: '{}' page and image aspect ratios differ",
+                member.spec.id
+            );
+        }
+        let source_path = member
+            .spec
+            .path
+            .as_deref()
+            .context("fixed_epub.metadata.alt_text")?;
+        let mut matching = publication
+            .artwork
+            .iter()
+            .filter(|artwork| artwork.role == "page" && artwork.path == source_path);
+        let artwork = matching.next().with_context(|| {
+            format!("fixed_epub.metadata.alt_text: '{}' requires artwork with role=page and matching source path", member.spec.id)
+        })?;
+        let alt_text = artwork.alt_text.as_deref().unwrap_or_default().trim();
+        if matching.next().is_some() || alt_text.is_empty() || alt_text.len() > 4096 {
+            anyhow::bail!("fixed_epub.metadata.alt_text: '{}' needs exactly one bounded nonempty page description", member.spec.id);
+        }
+        pages.push(FixedEpubPage {
+            source_id: member.spec.id.clone(),
+            format: source_format,
+            width_px: image.width_px,
+            height_px: image.height_px,
+            alt_text: alt_text.to_string(),
+            digest: member.intake.source.digest().value().to_string(),
+        });
+    }
+    Ok(Some(pages))
+}
+
+fn register_fixed_epub_edge(
+    graph: &mut TransformGraph,
+    tools: &ToolRegistry,
+    source_format: Format,
+    policy: &FixedLayoutEpubPolicy,
+    publication: &crate::publication::PublicationContract,
+) -> Result<()> {
+    tools
+        .get(FIXED_EPUB_PROVIDER)
+        .context("fixed_epub.provider: native provider descriptor missing")?;
+    graph.add_transform(
+        TransformEdge::with_input_kind(
+            source_format,
+            Format::Epub,
+            0.1,
+            1.0,
+            InputKind::Collection,
+        )
+        .with_provider(FIXED_EPUB_PROVIDER, FIXED_EPUB_CAPABILITY)
+        .with_variant(env!("CARGO_PKG_VERSION"))
+        .with_evidence("transform_id", FIXED_EPUB_CAPABILITY)
+        .with_evidence("fixed_epub_policy_sha256", sha256_serialized(policy)?.value)
+        .with_evidence(
+            "fixed_epub_publication_sha256",
+            sha256_serialized(publication)?.value,
+        ),
+    );
+    Ok(())
 }
 
 fn register_print_pdf_edge(

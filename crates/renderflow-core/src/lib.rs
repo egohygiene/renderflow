@@ -22,6 +22,7 @@ pub mod dna;
 pub mod ebook;
 pub mod error;
 pub mod evidence;
+pub mod fixed_layout_epub;
 pub mod font;
 pub mod graph;
 pub mod hygiene;

@@ -3,7 +3,7 @@ schema: aether.architecture-document/v1
 id: renderflow-roadmap
 title: Renderflow Roadmap
 kind: architecture-document
-version: 0.1.4
+version: 0.1.5
 status: draft
 owners:
   - egohygiene
@@ -25,6 +25,29 @@ supersedes: []
 ---
 
 # Renderflow Roadmap
+
+## 2026-09-28 fixed-layout EPUB implementation handoff
+
+[#417](https://github.com/egohygiene/renderflow/issues/417) adds the exact
+`ebook.generate.epub.fixed-layout` route to the canonical ordered-collection
+planner. The initial native packager accepts only homogeneous local PNG or JPEG
+pages with frozen IDs, digests, order, and geometry. A declared publication
+contract supplies title, issue identity, date, language, contributor, rights,
+cover selection, per-page descriptions, and accessibility metadata. Explicit
+LTR/RTL progression never mirrors source artwork. SVG is refused until safe
+parsing and fixture evidence support it. Deterministic package members, bounded
+inputs/output, retained run provenance, and unchanged source files are the #417
+review boundary.
+
+After #417 review and merge,
+[#418](https://github.com/egohygiene/renderflow/issues/418) independently
+validates fixed-layout EPUB 3.3 output and advertises exact capability truth;
+[#419](https://github.com/egohygiene/renderflow/issues/419) packages the
+immutable Renderflow integration candidate for
+[Flow #52](https://github.com/egohygiene/flow/issues/52). Neither this route nor
+the first three-input [#433](https://github.com/egohygiene/renderflow/issues/433)
+gallery claims fixed-layout KEPUB, retailer acceptance, complete accessibility,
+or publication approval. Later gallery expansion remains tracked by #412.
 
 ## 2026-09-28 artifact gallery review handoff
 

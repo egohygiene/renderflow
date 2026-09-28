@@ -126,6 +126,16 @@
         "budgets": {
           "$ref": "#/$defs/budgets"
         },
+        "fixed_layout_epub": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/fixedLayoutEpub"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "hygiene_policy": {
           "anyOf": [
             {
@@ -226,6 +236,47 @@
           "$ref": "#/$defs/validation"
         }
       },
+      "type": "object"
+    },
+    "fixedLayoutEpub": {
+      "additionalProperties": false,
+      "properties": {
+        "cover_member_id": {
+          "$ref": "#/$defs/stableId"
+        },
+        "max_input_bytes": {
+          "maximum": 536870912,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "max_output_bytes": {
+          "maximum": 536870912,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "max_pages": {
+          "maximum": 1000,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "page_progression_direction": {
+          "enum": [
+            "ltr",
+            "rtl"
+          ]
+        },
+        "spread": {
+          "const": "none"
+        }
+      },
+      "required": [
+        "page_progression_direction",
+        "spread",
+        "cover_member_id",
+        "max_pages",
+        "max_input_bytes",
+        "max_output_bytes"
+      ],
       "type": "object"
     },
     "hygienePolicy": {
