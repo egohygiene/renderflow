@@ -1,771 +1,383 @@
-name: Release
+name: Release integration candidate
 
-# Triggered automatically when bump-version pushes a version tag.
-# Because GITHUB_TOKEN pushes do not trigger other workflows, bump-version
-# explicitly dispatches this workflow via `gh workflow run` after pushing the
-# tag.  The workflow_dispatch trigger below enables that code path.
-# You can also run this workflow manually from the Actions tab for any tag.
+# Run after the version/metadata PR is reviewed and merged. Create a NEW
+# annotated tag at the reviewed main commit, then dispatch on the tag ref:
+# gh workflow run release.yml --ref v0.3.0-rc.1 --field expected_commit=<40-hex-sha>
+# Tag pushes alone never publish a release; the historical v0.2.1 tag is not reused.
 on:
-  push:
-    tags:
-      - 'v*'
   workflow_dispatch:
+    inputs:
+      expected_commit:
+        description: "Full reviewed main commit SHA to which the new tag resolves"
+        required: true
+        type: string
 
 concurrency:
   group: release-${{ github.ref_name }}
   cancel-in-progress: false
 
 jobs:
-  # ── 1. Changelog & GitHub Release ────────────────────────────────────────
-
-  generate-changelog:
-    name: Generate changelog and create GitHub Release
-    runs-on: ubuntu-latest
-    concurrency:
-      group: changelog-${{ github.repository }}
-      cancel-in-progress: false
+  candidate:
+    name: Verify, attest, and publish Linux x86_64 candidate
+    runs-on: ubuntu-24.04
     permissions:
+      actions: read
+      artifact-metadata: write
       contents: write
+      id-token: write
+      attestations: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: ${{ github.ref_name }}
+      EXPECTED_COMMIT: ${{ inputs.expected_commit }}
+      RELEASE_TARGET: x86_64-unknown-linux-gnu
+      RELEASE_ASSETS: release-assets
 
     steps:
-      - name: Checkout repository (main branch)
-        uses: actions/checkout@v4
+      - name: Check out the exact tag
+        uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.repository.default_branch }}
-          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ github.ref }}
           fetch-depth: 0
+          persist-credentials: false
 
-      - name: Fetch tags
-        run: git fetch --tags
-
-      - name: Install git-cliff
-        uses: taiki-e/install-action@v2
+      - name: Install Python for release tooling and documentation
+        uses: actions/setup-python@v5
         with:
-          tool: git-cliff
+          python-version: "3.12"
 
-      - name: Generate full changelog
-        run: git cliff -o CHANGELOG.md
-
-      - name: Generate release notes
-        run: git cliff --latest --strip header -o RELEASE_NOTES.md
-
-      - name: Commit changelog
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add CHANGELOG.md
-          if git diff --staged --quiet; then
-            echo "Changelog already up to date, no commit needed."
-          else
-            git commit -m "chore(release): update changelog for ${{ github.ref_name }}"
-            git push origin ${{ github.event.repository.default_branch }}
-          fi
-
-      - name: Upload release notes artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: release-notes
-          path: RELEASE_NOTES.md
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          body_path: RELEASE_NOTES.md
-
-  lint-release:
-    name: Lint before release
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: "1.94"
-          components: clippy
-
-      - name: Lint (clippy)
-        run: cargo clippy --workspace -- -D warnings
-
-  # ── 2a. Release binaries (all platforms) ─────────────────────────────────
-
-  build-binaries:
-    name: Build binary (${{ matrix.target }})
-    runs-on: ${{ matrix.runner }}
-    needs: [generate-changelog, lint-release]
-    permissions:
-      contents: write
-
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          # ── Linux x86_64 ──────────────────────────────────────────────────
-          - target: x86_64-unknown-linux-musl
-            artifact_name: renderflow-x86_64-unknown-linux-musl
-            binary: target/x86_64-unknown-linux-musl/release/renderflow
-            runner: ubuntu-latest
-            use_cross: true
-          - target: x86_64-unknown-linux-gnu
-            artifact_name: renderflow-x86_64-unknown-linux-gnu
-            binary: target/x86_64-unknown-linux-gnu/release/renderflow
-            runner: ubuntu-latest
-            use_cross: true
-          # ── Linux aarch64 ─────────────────────────────────────────────────
-          - target: aarch64-unknown-linux-musl
-            artifact_name: renderflow-aarch64-unknown-linux-musl
-            binary: target/aarch64-unknown-linux-musl/release/renderflow
-            runner: ubuntu-latest
-            use_cross: true
-          - target: aarch64-unknown-linux-gnu
-            artifact_name: renderflow-aarch64-unknown-linux-gnu
-            binary: target/aarch64-unknown-linux-gnu/release/renderflow
-            runner: ubuntu-latest
-            use_cross: true
-          # ── Linux ARMv7 ───────────────────────────────────────────────────
-          - target: armv7-unknown-linux-musleabihf
-            artifact_name: renderflow-armv7-unknown-linux-musleabihf
-            binary: target/armv7-unknown-linux-musleabihf/release/renderflow
-            runner: ubuntu-latest
-            use_cross: true
-          # ── Linux i686 ────────────────────────────────────────────────────
-          - target: i686-unknown-linux-musl
-            artifact_name: renderflow-i686-unknown-linux-musl
-            binary: target/i686-unknown-linux-musl/release/renderflow
-            runner: ubuntu-latest
-            use_cross: true
-          # ── Windows ───────────────────────────────────────────────────────
-          - target: x86_64-pc-windows-gnu
-            artifact_name: renderflow-x86_64-pc-windows-gnu.exe
-            binary: target/x86_64-pc-windows-gnu/release/renderflow.exe
-            runner: ubuntu-latest
-            use_cross: true
-          - target: x86_64-pc-windows-msvc
-            artifact_name: renderflow-x86_64-pc-windows-msvc.exe
-            binary: target/x86_64-pc-windows-msvc/release/renderflow.exe
-            runner: windows-latest
-            use_cross: false
-          # ── macOS ─────────────────────────────────────────────────────────
-          - target: x86_64-apple-darwin
-            artifact_name: renderflow-x86_64-apple-darwin
-            binary: target/x86_64-apple-darwin/release/renderflow
-            runner: macos-13
-            use_cross: false
-          - target: aarch64-apple-darwin
-            artifact_name: renderflow-aarch64-apple-darwin
-            binary: target/aarch64-apple-darwin/release/renderflow
-            runner: macos-latest
-            use_cross: false
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: "1.94"
-          targets: ${{ matrix.target }}
-
-      - name: Install cross
-        if: matrix.use_cross
-        uses: taiki-e/install-action@v2
-        with:
-          tool: cross
-
-      - name: Build release binary (cross)
-        if: matrix.use_cross
-        run: cross build --target ${{ matrix.target }} --release
-
-      - name: Build release binary (cargo)
-        if: "!matrix.use_cross"
-        run: cargo build --target ${{ matrix.target }} --release
-
-      - name: Copy binary to artifact name
+      - name: Verify immutable release input
         shell: bash
-        run: cp ${{ matrix.binary }} ${{ matrix.artifact_name }}
-
-      - name: Generate SHA256 checksum
-        shell: bash
-        run: |
-          if command -v sha256sum &>/dev/null; then
-            sha256sum "${{ matrix.artifact_name }}" > "${{ matrix.artifact_name }}.sha256"
-          else
-            shasum -a 256 "${{ matrix.artifact_name }}" > "${{ matrix.artifact_name }}.sha256"
-          fi
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.artifact_name }}
-          path: |
-            ${{ matrix.artifact_name }}
-            ${{ matrix.artifact_name }}.sha256
-
-      - name: Attach binary to GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            ${{ matrix.artifact_name }}
-            ${{ matrix.artifact_name }}.sha256
-
-  # ── 2b. Linux packages (.deb, .rpm) ──────────────────────────────────────
-
-  package-deb-x86_64:
-    name: Package .deb (x86_64)
-    runs-on: ubuntu-latest
-    needs: [generate-changelog, lint-release]
-    permissions:
-      contents: write
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: "1.94"
-
-      - name: Install cargo-deb
-        uses: taiki-e/install-action@v2
-        with:
-          tool: cargo-deb
-
-      - name: Build release binary
-        run: cargo build --release --package renderflow-cli
-
-      - name: Build .deb package
-        run: cargo deb --no-build
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: renderflow-deb-x86_64
-          path: target/debian/*.deb
-
-      - name: Attach .deb to GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: target/debian/*.deb
-
-  package-deb-aarch64:
-    name: Package .deb (aarch64)
-    runs-on: ubuntu-latest
-    needs: [generate-changelog, lint-release]
-    permissions:
-      contents: write
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: "1.94"
-          targets: aarch64-unknown-linux-gnu
-
-      - name: Install cross-compilation toolchain
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu
-
-      - name: Install cargo-deb
-        uses: taiki-e/install-action@v2
-        with:
-          tool: cargo-deb
-
-      - name: Build release binary for aarch64
-        run: cargo build --release --package renderflow-cli --target aarch64-unknown-linux-gnu
         env:
-          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
-
-      - name: Build .deb for aarch64
-        run: cargo deb --no-build --target aarch64-unknown-linux-gnu
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: renderflow-deb-aarch64
-          path: target/aarch64-unknown-linux-gnu/debian/*.deb
-
-      - name: Attach .deb to GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: target/aarch64-unknown-linux-gnu/debian/*.deb
-
-  package-rpm-x86_64:
-    name: Package .rpm (x86_64)
-    runs-on: ubuntu-latest
-    needs: [generate-changelog, lint-release]
-    permissions:
-      contents: write
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: "1.94"
-
-      - name: Install cargo-generate-rpm
-        uses: taiki-e/install-action@v2
-        with:
-          tool: cargo-generate-rpm
-
-      - name: Build release binary
-        run: cargo build --release --package renderflow-cli
-
-      - name: Build .rpm package
-        run: cargo generate-rpm
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: renderflow-rpm-x86_64
-          path: target/generate-rpm/*.rpm
-
-      - name: Attach .rpm to GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: target/generate-rpm/*.rpm
-
-  package-rpm-aarch64:
-    name: Package .rpm (aarch64)
-    runs-on: ubuntu-latest
-    needs: [generate-changelog, lint-release]
-    permissions:
-      contents: write
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: "1.94"
-          targets: aarch64-unknown-linux-gnu
-
-      - name: Install cross-compilation toolchain
+          RELEASE_SETTINGS_READ_TOKEN: ${{ secrets.RELEASE_SETTINGS_READ_TOKEN }}
         run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu
-
-      - name: Install cargo-generate-rpm
-        uses: taiki-e/install-action@v2
-        with:
-          tool: cargo-generate-rpm
-
-      - name: Build release binary for aarch64
-        run: cargo build --release --package renderflow-cli --target aarch64-unknown-linux-gnu
-        env:
-          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
-
-      - name: Build .rpm for aarch64
-        run: cargo generate-rpm --target aarch64-unknown-linux-gnu
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: renderflow-rpm-aarch64
-          path: target/aarch64-unknown-linux-gnu/generate-rpm/*.rpm
-
-      - name: Attach .rpm to GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: target/aarch64-unknown-linux-gnu/generate-rpm/*.rpm
-
-  # ── 2c. Snap ──────────────────────────────────────────────────────────────
-
-  snap-package:
-    name: Build Snap package
-    runs-on: ubuntu-latest
-    needs: [generate-changelog, lint-release]
-    permissions:
-      contents: write
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Fetch tags
-        run: git fetch --tags
-
-      - name: Inject version into snapcraft.yaml
-        run: |
-          VERSION="${{ github.ref_name }}"
-          VERSION="${VERSION#v}"
-          sed -i "s/^version: .*/version: '${VERSION}'/" snap/snapcraft.yaml
-
-      - name: Build Snap
-        uses: snapcore/action-build@v1
-        id: snap-build
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: renderflow-snap
-          path: ${{ steps.snap-build.outputs.snap }}
-
-      - name: Attach Snap to GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: ${{ steps.snap-build.outputs.snap }}
-
-  # ── 2d. Chocolatey ────────────────────────────────────────────────────────
-
-  package-chocolatey:
-    name: Package Chocolatey
-    runs-on: windows-latest
-    needs: build-binaries
-    permissions:
-      contents: write
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Download Windows MSVC binary artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: renderflow-x86_64-pc-windows-msvc.exe
-          path: pkg/chocolatey/tools
-
-      - name: Capture checksum and update package files
-        shell: pwsh
-        run: |
-          $version = "${{ github.ref_name }}".TrimStart('v')
-          # Read sha256 before the binary is renamed
-          $sha256  = (Get-Content "pkg\chocolatey\tools\renderflow-x86_64-pc-windows-msvc.exe.sha256" -Raw).Trim().Split(' ')[0]
-          $url     = "https://github.com/egohygiene/renderflow/releases/download/${{ github.ref_name }}/renderflow-x86_64-pc-windows-msvc.exe"
-
-          # Rename binary so Chocolatey shims it correctly
-          Rename-Item -Path "pkg\chocolatey\tools\renderflow-x86_64-pc-windows-msvc.exe" `
-                      -NewName "renderflow.exe"
-
-          # nuspec version
-          (Get-Content "pkg\chocolatey\renderflow.nuspec") `
-            -replace '<version>[^<]*</version>', "<version>$version</version>" |
-            Set-Content "pkg\chocolatey\renderflow.nuspec"
-
-          # install script URL + checksum
-          # Use double-quoted replacement for checksum so the capture group from
-          # `(-Checksum64\s+)` (`$1`, escaped as `` `$1 `` in the string) and
-          # `$sha256` are both interpolated.
-          (Get-Content "pkg\chocolatey\tools\chocolateyinstall.ps1") `
-            -replace 'https://github.com/egohygiene/renderflow/releases/download/v[^/]+/renderflow-x86_64-pc-windows-msvc.exe', $url `
-            -replace "(-Checksum64\s+)'[^']*'", "`$1'$sha256'" `
-            -replace '(-Checksum64\s+)"[^"]*"', "`$1'$sha256'" |
-            Set-Content "pkg\chocolatey\tools\chocolateyinstall.ps1"
-
-      - name: Pack Chocolatey package
-        shell: pwsh
-        run: choco pack pkg\chocolatey\renderflow.nuspec --output-directory pkg\chocolatey\out
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: renderflow-chocolatey
-          path: pkg/chocolatey/out/*.nupkg
-
-      - name: Attach Chocolatey package to GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: pkg/chocolatey/out/*.nupkg
-
-  # ── 3. Manifest updates ───────────────────────────────────────────────────
-  # Sequential to avoid concurrent pushes to the default branch.
-
-  update-homebrew-formula:
-    name: Update Homebrew formula
-    runs-on: ubuntu-latest
-    needs: [generate-changelog, lint-release]
-    continue-on-error: true
-    permissions:
-      contents: write
-
-    steps:
-      - name: Checkout repository (main branch)
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.repository.default_branch }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-          fetch-depth: 0
-
-      - name: Compute source tarball SHA256
-        id: formula
-        run: |
-          VERSION="${{ github.ref_name }}"
-          URL="https://github.com/egohygiene/renderflow/archive/refs/tags/${VERSION}.tar.gz"
-          SHA256=$(curl -fsSL "$URL" | sha256sum | awk '{print $1}')
-          echo "url=${URL}"       >> "$GITHUB_OUTPUT"
-          echo "sha256=${SHA256}" >> "$GITHUB_OUTPUT"
-
-      - name: Update formula url and sha256
-        run: |
-          sed -i 's|url "https://github.com/egohygiene/renderflow/archive/refs/tags/.*"|url "${{ steps.formula.outputs.url }}"|' Formula/renderflow.rb
-          sed -i 's|sha256 ".*"|sha256 "${{ steps.formula.outputs.sha256 }}"|' Formula/renderflow.rb
-
-      - name: Commit and push updated formula
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add Formula/renderflow.rb
-          if git diff --staged --quiet; then
-            echo "Formula already up to date, no commit needed."
-          else
-            git commit -m "chore: update Homebrew formula to ${{ github.ref_name }}"
-            BRANCH="${{ github.event.repository.default_branch }}"
-            for attempt in 1 2 3 4 5; do
-              git fetch origin "${BRANCH}"
-              if git rebase "origin/${BRANCH}"; then
-                if git push origin "HEAD:${BRANCH}"; then
-                  echo "Pushed Homebrew formula update on attempt ${attempt}."
-                  exit 0
-                fi
-              else
-                git rebase --abort || true
-              fi
-              echo "Push attempt ${attempt} failed; retrying..."
-              sleep $((2 ** attempt < 10 ? 2 ** attempt : 10))
-            done
-            echo "::warning::Unable to push Homebrew update after retries; continuing release."
-          fi
-
-  update-scoop-manifest:
-    name: Update Scoop manifest
-    runs-on: ubuntu-latest
-    needs: [build-binaries, update-homebrew-formula]
-    continue-on-error: true
-    permissions:
-      contents: write
-
-    steps:
-      - name: Checkout repository (main branch)
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.repository.default_branch }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-          fetch-depth: 0
-
-      - name: Download Windows MSVC binary artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: renderflow-x86_64-pc-windows-msvc.exe
-          path: /tmp/windows-msvc
-
-      - name: Update Scoop manifest
-        run: |
-          VERSION="${{ github.ref_name }}"
-          VERSION="${VERSION#v}"
-          SHA256=$(awk '{print $1}' /tmp/windows-msvc/renderflow-x86_64-pc-windows-msvc.exe.sha256)
-          URL="https://github.com/egohygiene/renderflow/releases/download/${{ github.ref_name }}/renderflow-x86_64-pc-windows-msvc.exe"
-          python3 - <<EOF
-          import json
-
-          with open("pkg/scoop/renderflow.json") as f:
-              d = json.load(f)
-
-          d["version"]                              = "${VERSION}"
-          d["architecture"]["64bit"]["url"]         = "${URL}#/renderflow.exe"
-          d["architecture"]["64bit"]["hash"]        = "${SHA256}"
-
-          with open("pkg/scoop/renderflow.json", "w") as f:
-              json.dump(d, f, indent=4)
-              f.write("\n")
-
-          print(f"Updated Scoop manifest to {d['version']}")
-          EOF
-
-      - name: Commit and push updated manifest
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add pkg/scoop/renderflow.json
-          if git diff --staged --quiet; then
-            echo "Scoop manifest already up to date, no commit needed."
-          else
-            git commit -m "chore: update Scoop manifest to ${{ github.ref_name }}"
-            BRANCH="${{ github.event.repository.default_branch }}"
-            for attempt in 1 2 3 4 5; do
-              git fetch origin "${BRANCH}"
-              if git rebase "origin/${BRANCH}"; then
-                if git push origin "HEAD:${BRANCH}"; then
-                  echo "Pushed Scoop manifest update on attempt ${attempt}."
-                  exit 0
-                fi
-              else
-                git rebase --abort || true
-              fi
-              echo "Push attempt ${attempt} failed; retrying..."
-              sleep $((2 ** attempt < 10 ? 2 ** attempt : 10))
-            done
-            echo "::warning::Unable to push Scoop update after retries; continuing release."
-          fi
-
-  update-aur-pkgbuild:
-    name: Update AUR PKGBUILD
-    runs-on: ubuntu-latest
-    needs: update-scoop-manifest
-    continue-on-error: true
-    permissions:
-      contents: write
-
-    steps:
-      - name: Checkout repository (main branch)
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.repository.default_branch }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-          fetch-depth: 0
-
-      - name: Compute source tarball SHA256
-        id: aur
-        run: |
-          VERSION="${{ github.ref_name }}"
-          VERSION="${VERSION#v}"
-          URL="https://github.com/egohygiene/renderflow/archive/refs/tags/${{ github.ref_name }}.tar.gz"
-          SHA256=$(curl -fsSL "$URL" | sha256sum | awk '{print $1}')
-          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-          echo "sha256=${SHA256}"   >> "$GITHUB_OUTPUT"
-
-      - name: Update PKGBUILD version and checksum
-        run: |
-          sed -i "s/^pkgver=.*/pkgver=${{ steps.aur.outputs.version }}/" pkg/aur/renderflow/PKGBUILD
-          sed -i "s/^pkgrel=.*/pkgrel=1/"                                pkg/aur/renderflow/PKGBUILD
-          sed -i "s/^sha256sums=.*/sha256sums=('${{ steps.aur.outputs.sha256 }}')/" pkg/aur/renderflow/PKGBUILD
-
-      - name: Commit and push updated PKGBUILD
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add pkg/aur/renderflow/PKGBUILD
-          if git diff --staged --quiet; then
-            echo "PKGBUILD already up to date, no commit needed."
-          else
-            git commit -m "chore: update AUR PKGBUILD to ${{ github.ref_name }}"
-            BRANCH="${{ github.event.repository.default_branch }}"
-            for attempt in 1 2 3 4 5; do
-              git fetch origin "${BRANCH}"
-              if git rebase "origin/${BRANCH}"; then
-                if git push origin "HEAD:${BRANCH}"; then
-                  echo "Pushed AUR update on attempt ${attempt}."
-                  exit 0
-                fi
-              else
-                git rebase --abort || true
-              fi
-              echo "Push attempt ${attempt} failed; retrying..."
-              sleep $((2 ** attempt < 10 ? 2 ** attempt : 10))
-            done
-            echo "::warning::Unable to push AUR update after retries; continuing release."
-          fi
-
-  # ── 4. Verify release ─────────────────────────────────────────────────────
-
-  verify-release:
-    name: Verify release assets
-    runs-on: ubuntu-latest
-    # Manifest jobs are intentionally excluded so release artifact verification
-    # remains authoritative even when best-effort package manager sync jobs fail.
-    needs:
-      - build-binaries
-      - package-deb-x86_64
-      - package-deb-aarch64
-      - package-rpm-x86_64
-      - package-rpm-aarch64
-      - snap-package
-      - package-chocolatey
-    permissions:
-      contents: read
-
-    steps:
-      - name: Check GitHub Release assets
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          TAG="${{ github.ref_name }}"
-          REPO="${{ github.repository }}"
-
-          echo "Verifying release assets for ${TAG}..."
-
-          EXPECTED=(
-            "renderflow-x86_64-unknown-linux-musl"
-            "renderflow-x86_64-unknown-linux-musl.sha256"
-            "renderflow-x86_64-unknown-linux-gnu"
-            "renderflow-x86_64-unknown-linux-gnu.sha256"
-            "renderflow-aarch64-unknown-linux-musl"
-            "renderflow-aarch64-unknown-linux-musl.sha256"
-            "renderflow-aarch64-unknown-linux-gnu"
-            "renderflow-aarch64-unknown-linux-gnu.sha256"
-            "renderflow-armv7-unknown-linux-musleabihf"
-            "renderflow-armv7-unknown-linux-musleabihf.sha256"
-            "renderflow-i686-unknown-linux-musl"
-            "renderflow-i686-unknown-linux-musl.sha256"
-            "renderflow-x86_64-pc-windows-gnu.exe"
-            "renderflow-x86_64-pc-windows-gnu.exe.sha256"
-            "renderflow-x86_64-pc-windows-msvc.exe"
-            "renderflow-x86_64-pc-windows-msvc.exe.sha256"
-            "renderflow-x86_64-apple-darwin"
-            "renderflow-x86_64-apple-darwin.sha256"
-            "renderflow-aarch64-apple-darwin"
-            "renderflow-aarch64-apple-darwin.sha256"
-          )
-          EXPECTED_PATTERNS=(
-            '^renderflow_.*_amd64\.deb$'
-            '^renderflow_.*_arm64\.deb$'
-            '^renderflow-.*\.x86_64\.rpm$'
-            '^renderflow-.*\.aarch64\.rpm$'
-            '^renderflow_.*\.snap$'
-            '^renderflow\..*\.nupkg$'
-          )
-
-          # Fetch the list of uploaded assets from the GitHub Release.
-          ASSET_LINES="$(gh release view "${TAG}" --repo "${REPO}" --json assets --jq '.assets[].name')"
-
-          MISSING=()
-          for ASSET in "${EXPECTED[@]}"; do
-            if ! printf '%s\n' "${ASSET_LINES}" | grep -Fxq "${ASSET}"; then
-              MISSING+=("${ASSET}")
-            fi
-          done
-
-          for PATTERN in "${EXPECTED_PATTERNS[@]}"; do
-            if ! printf '%s\n' "${ASSET_LINES}" | grep -Eq "${PATTERN}"; then
-              MISSING+=("pattern:${PATTERN}")
-            fi
-          done
-
-          SOURCE_TARBALL_URL="https://github.com/egohygiene/renderflow/archive/refs/tags/${TAG}.tar.gz"
-          tarball_ok=false
-          for attempt in 1 2 3; do
-            if curl -fsSI "${SOURCE_TARBALL_URL}" >/dev/null; then
-              tarball_ok=true
-              break
-            fi
-            sleep "${attempt}"
-          done
-          if [ "${tarball_ok}" != "true" ]; then
-            MISSING+=("source-tarball:${SOURCE_TARBALL_URL}")
-          fi
-
-          if [ ${#MISSING[@]} -gt 0 ]; then
-            echo "ERROR: The following expected release assets are missing:"
-            for M in "${MISSING[@]}"; do
-              echo "  - ${M}"
-            done
+          set -euo pipefail
+          if [[ "$GITHUB_REF" != "refs/tags/$RELEASE_TAG" ]]; then
+            echo "::error::Dispatch this workflow with --ref on the new version tag."
             exit 1
           fi
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-rc\.[1-9][0-9]*$ ]]; then
+            echo "::error::Expected a new SemVer release-candidate tag."
+            exit 1
+          fi
+          if [[ ! "$EXPECTED_COMMIT" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::expected_commit must be the full reviewed commit SHA."
+            exit 1
+          fi
+          git fetch origin main --tags
+          if [[ "$(git cat-file -t "refs/tags/$RELEASE_TAG")" != "tag" ]] ||
+             [[ "$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")" != "$EXPECTED_COMMIT" ]] ||
+             [[ "$(git rev-parse HEAD)" != "$EXPECTED_COMMIT" ]] ||
+             [[ "$(git rev-parse origin/main)" != "$EXPECTED_COMMIT" ]] ||
+             [[ "$GITHUB_SHA" != "$EXPECTED_COMMIT" ]]; then
+            echo "::error::The annotated tag, checkout, event, and current main must resolve to the same reviewed commit."
+            exit 1
+          fi
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::error::This tag already has a release; never overwrite or reuse it."
+            exit 1
+          fi
+          if [[ -z "$RELEASE_SETTINGS_READ_TOKEN" ]]; then
+            echo "::error::Set RELEASE_SETTINGS_READ_TOKEN with repository Administration read permission."
+            exit 1
+          fi
+          if [[ "$(GH_TOKEN="$RELEASE_SETTINGS_READ_TOKEN" gh api --header "X-GitHub-Api-Version: 2026-03-10" "repos/$GITHUB_REPOSITORY/immutable-releases" --jq '.enabled')" != "true" ]]; then
+            echo "::error::Enable GitHub release immutability before publishing."
+            exit 1
+          fi
+          python3 - <<'PY'
+          import os
+          import tomllib
 
-          echo "All expected release assets are present."
-          echo "Release ${TAG} verified successfully."
+          with open("Cargo.toml", "rb") as source:
+              version = tomllib.load(source)["workspace"]["package"]["version"]
+          with open("Cargo.lock", "rb") as source:
+              packages = tomllib.load(source)["package"]
+          expected = {"renderflow", "renderflow-cli", "renderflow-plugin-sdk"}
+          local = {p["name"]: p["version"] for p in packages if p["name"] in expected}
+          assert os.environ["RELEASE_TAG"] == f"v{version}"
+          assert local == dict.fromkeys(expected, version), local
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as output:
+              output.write(f"RELEASE_VERSION={version}\n")
+          PY
+          git diff --exit-code
+
+      - name: Require exact-commit CI, docs, conformance, and scheduled evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          require_green_run() {
+            local workflow="$1" event="$2"
+            gh api "repos/$GITHUB_REPOSITORY/actions/workflows/$workflow/runs?head_sha=$EXPECTED_COMMIT&per_page=100" |
+              jq --exit-status --arg sha "$EXPECTED_COMMIT" --arg event "$event" \
+                '[.workflow_runs[] | select(.head_sha == $sha and .event == $event)] | length > 0 and .[0].conclusion == "success"' >/dev/null || {
+                  echo "::error::The latest $workflow $event run for $EXPECTED_COMMIT is not green."
+                  exit 1
+                }
+          }
+          require_green_run ci.yml push
+          require_green_run docs.yml push
+          require_green_run conformance.yml workflow_dispatch
+          scheduled_json="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/conformance.yml/runs?event=schedule&per_page=1")"
+          SCHEDULED_JSON="$scheduled_json" python3 - <<'PY'
+          import datetime as dt
+          import json
+          import os
+
+          runs = json.loads(os.environ["SCHEDULED_JSON"])["workflow_runs"]
+          if len(runs) != 1:
+              raise SystemExit("::error::No scheduled maximal conformance run was found")
+          run = runs[0]
+          completed = dt.datetime.fromisoformat(run["updated_at"].replace("Z", "+00:00"))
+          age_days = (dt.datetime.now(dt.timezone.utc) - completed).total_seconds() / 86400
+          print(f"Latest scheduled maximal conformance: run {run['id']}, "
+                f"head {run['head_sha']}, completed {run['updated_at']}, "
+                f"age {age_days:.2f} days, conclusion {run['conclusion']}")
+          if run["conclusion"] != "success" or not 0 <= age_days <= 8:
+              raise SystemExit("::error::Latest scheduled maximal conformance is red or older than eight days")
+          PY
+
+      - name: Install Rust MSRV toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.94"
+          components: clippy, rustfmt
+
+      - name: Verify release manifest and refusal fixtures
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --disable-pip-version-check "jsonschema>=4,<5"
+          python3 -m unittest discover --start-directory scripts/release \
+            --pattern "test_*.py" --verbose
+
+      - name: Verify source and native conformance
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo fmt --all -- --check
+          cargo clippy --workspace --locked -- --deny warnings
+          cargo test --workspace --locked
+          RENDERFLOW_CONFORMANCE_TIER=fast cargo test --package renderflow --test golden_conformance --locked
+
+      - name: Verify documentation build
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --disable-pip-version-check mkdocs-material mike pyyaml
+          mkdocs build --strict
+
+      - name: Install exact optional PDF provider for downloaded binary smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/renderflow-img2pdf"
+          "$RUNNER_TEMP/renderflow-img2pdf/bin/python" -m pip install \
+            --disable-pip-version-check "img2pdf==0.6.3"
+          [[ "$("$RUNNER_TEMP/renderflow-img2pdf/bin/img2pdf" --version)" == "img2pdf 0.6.3" ]]
+          echo "$RUNNER_TEMP/renderflow-img2pdf/bin" >> "$GITHUB_PATH"
+
+      - name: Build the supported binary and preliminary release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo build --release --locked --package renderflow-cli --target "$RELEASE_TARGET"
+          mkdir -p "$RELEASE_ASSETS"
+          cp "target/$RELEASE_TARGET/release/renderflow" "$RELEASE_ASSETS/renderflow-$RELEASE_TARGET"
+          [[ "$(getconf GNU_LIBC_VERSION)" == "glibc 2.39" ]] || {
+            echo "::error::The build runner's glibc differs from the declared Ubuntu 24.04 baseline."
+            exit 1
+          }
+          required_glibc="$(readelf --version-info "$RELEASE_ASSETS/renderflow-$RELEASE_TARGET" |
+            grep --only-matching --extended-regexp 'GLIBC_[0-9]+\.[0-9]+' |
+            sed 's/GLIBC_//' | sort --version-sort --unique | tail --lines=1)"
+          if [[ -z "$required_glibc" ]] ||
+             [[ "$(printf '%s\n' "$required_glibc" '2.39' | sort --version-sort | tail --lines=1)" != "2.39" ]]; then
+            echo "::error::Binary references GLIBC $required_glibc above the reviewed 2.39 baseline."
+            exit 1
+          fi
+          printf 'Built on Ubuntu 24.04 / glibc 2.39; binary max GLIBC requirement: %s\n' "$required_glibc"
+          python3 scripts/release/release_assets.py prepare \
+            --artifact-dir "$RELEASE_ASSETS" --version "$RELEASE_VERSION" \
+            --tag "$RELEASE_TAG" --commit "$EXPECTED_COMMIT" --target "$RELEASE_TARGET"
+
+      - name: Freeze binary attestation subject
+        id: binary_subject
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha256="$(sha256sum "$RELEASE_ASSETS/renderflow-$RELEASE_TARGET" | cut --delimiter=' ' --fields=1)"
+          [[ "$sha256" =~ ^[0-9a-f]{64}$ ]]
+          printf 'digest=sha256:%s\n' "$sha256" >> "$GITHUB_OUTPUT"
+
+      - name: Sign GitHub build provenance for the binary
+        id: provenance
+        uses: actions/attest@v4
+        with:
+          subject-name: renderflow-x86_64-unknown-linux-gnu
+          subject-digest: ${{ steps.binary_subject.outputs.digest }}
+
+      - name: Sign GitHub SBOM attestation for the binary
+        id: sbom
+        uses: actions/attest@v4
+        with:
+          subject-name: renderflow-x86_64-unknown-linux-gnu
+          subject-digest: ${{ steps.binary_subject.outputs.digest }}
+          sbom-path: release-assets/renderflow-sbom.spdx.json
+
+      - name: Complete manifest and verify staged assets
+        shell: bash
+        env:
+          PROVENANCE_BUNDLE: ${{ steps.provenance.outputs.bundle-path }}
+          SBOM_BUNDLE: ${{ steps.sbom.outputs.bundle-path }}
+        run: |
+          set -euo pipefail
+          cp "$PROVENANCE_BUNDLE" "$RELEASE_ASSETS/renderflow-attestation.json"
+          cp "$SBOM_BUNDLE" "$RELEASE_ASSETS/renderflow-sbom-attestation.json"
+          python3 scripts/release/release_assets.py manifest \
+            --artifact-dir "$RELEASE_ASSETS" --version "$RELEASE_VERSION" \
+            --tag "$RELEASE_TAG" --commit "$EXPECTED_COMMIT" --target "$RELEASE_TARGET" \
+            --attestation-bundle "$RELEASE_ASSETS/renderflow-attestation.json" \
+            --sbom-attestation-bundle "$RELEASE_ASSETS/renderflow-sbom-attestation.json"
+          python3 scripts/release/release_assets.py verify \
+            --artifact-dir "$RELEASE_ASSETS" --version "$RELEASE_VERSION" \
+            --tag "$RELEASE_TAG" --commit "$EXPECTED_COMMIT" --target "$RELEASE_TARGET" \
+            --verify-attestations --smoke --installer-script scripts/install.sh
+          gh attestation verify "$RELEASE_ASSETS/renderflow-$RELEASE_TARGET" \
+            --repo "$GITHUB_REPOSITORY" --bundle "$RELEASE_ASSETS/renderflow-attestation.json" \
+            --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/release.yml" \
+            --source-ref "$GITHUB_REF" --source-digest "$EXPECTED_COMMIT"
+          gh attestation verify "$RELEASE_ASSETS/renderflow-$RELEASE_TARGET" \
+            --repo "$GITHUB_REPOSITORY" --bundle "$RELEASE_ASSETS/renderflow-sbom-attestation.json" \
+            --predicate-type "https://spdx.dev/Document/v2.3" \
+            --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/release.yml" \
+            --source-ref "$GITHUB_REF" --source-digest "$EXPECTED_COMMIT"
+
+      - name: Create draft prerelease with verified assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/release-notes.md" <<EOF
+          Renderflow $RELEASE_TAG is the first integration candidate for Flow.
+
+          Reviewed source commit: $EXPECTED_COMMIT
+          Verified portable binary: Linux x86_64 GNU on Ubuntu 24.04 with
+          glibc 2.39; the binary's maximum required GLIBC symbol is checked.
+          Other hosts/platforms and package-manager channels are unverified
+          or unpublished by this candidate.
+
+          The release includes SHA-256 checksums, an SPDX SBOM, dependency/license
+          notices, a machine-readable provider-lock manifest, and GitHub-signed
+          provenance and SBOM attestation bundles. The binary and tag have no
+          separate maintainer signature. Verify the asset digest and attestation
+          before installation. Historical v0.2.1 remains an unsigned tag.
+          EOF
+          gh release create "$RELEASE_TAG" "$RELEASE_ASSETS"/* \
+            --repo "$GITHUB_REPOSITORY" --verify-tag --target "$EXPECTED_COMMIT" \
+            --title "Renderflow $RELEASE_TAG integration candidate" \
+            --notes-file "$RUNNER_TEMP/release-notes.md" \
+            --draft --prerelease --latest=false
+
+      - name: Download draft assets and independently verify before publication
+        shell: bash
+        run: |
+          set -euo pipefail
+          download_dir="$(mktemp -d)"
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --dir "$download_dir"
+          diff --unified \
+            <(find "$RELEASE_ASSETS" -maxdepth 1 -type f -printf '%f\n' | sort) \
+            <(find "$download_dir" -maxdepth 1 -type f -printf '%f\n' | sort)
+          python3 scripts/release/release_assets.py verify \
+            --artifact-dir "$download_dir" --version "$RELEASE_VERSION" \
+            --tag "$RELEASE_TAG" --commit "$EXPECTED_COMMIT" --target "$RELEASE_TARGET" \
+            --verify-attestations --smoke --installer-script scripts/install.sh
+          gh attestation verify "$download_dir/renderflow-$RELEASE_TARGET" \
+            --repo "$GITHUB_REPOSITORY" --bundle "$download_dir/renderflow-attestation.json" \
+            --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/release.yml" \
+            --source-ref "$GITHUB_REF" --source-digest "$EXPECTED_COMMIT"
+          gh attestation verify "$download_dir/renderflow-$RELEASE_TARGET" \
+            --repo "$GITHUB_REPOSITORY" --bundle "$download_dir/renderflow-sbom-attestation.json" \
+            --predicate-type "https://spdx.dev/Document/v2.3" \
+            --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/release.yml" \
+            --source-ref "$GITHUB_REF" --source-digest "$EXPECTED_COMMIT"
+          git fetch origin main --tags
+          [[ "$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")" == "$EXPECTED_COMMIT" ]]
+          [[ "$(git rev-parse origin/main)" == "$EXPECTED_COMMIT" ]]
+          gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,tagName |
+            jq --exit-status --arg tag "$RELEASE_TAG" '.isDraft == true and .tagName == $tag' >/dev/null
+          echo "RELEASE_DOWNLOAD_DIR=$download_dir" >> "$GITHUB_ENV"
+
+      - name: Smoke downloaded assets on a clean offline Ubuntu 24.04 host
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v docker >/dev/null || {
+            echo "::error::Docker is required for no-checkout release verification."
+            exit 1
+          }
+          docker info >/dev/null
+          context_dir="$(mktemp -d)"
+          cat > "$context_dir/Dockerfile" <<'EOF'
+          FROM ubuntu:24.04
+          RUN apt-get update && apt-get install --yes --no-install-recommends \
+              ca-certificates python3 python3-venv python3-pip \
+              && python3 -m venv /opt/renderflow-provider \
+              && /opt/renderflow-provider/bin/python -m pip install \
+                 --disable-pip-version-check "img2pdf==0.6.3" \
+              && rm -rf /var/lib/apt/lists/*
+          ENV PATH="/opt/renderflow-provider/bin:${PATH}"
+          EOF
+          # The Docker build context contains only this Dockerfile: no source
+          # tree, local binary, credentials, fixtures, or generated artifacts.
+          image="renderflow-clean-host:$GITHUB_RUN_ID"
+          docker build --pull --tag "$image" "$context_dir"
+          docker image inspect "$image" --format 'Clean-host image ID: {{.Id}}'
+          verifier="$RUNNER_TEMP/release-verifier.py"
+          cp scripts/release/release_assets.py "$verifier"
+          # The image was assembled with network access; the actual release
+          # execution has no network and only two read-only mounts.
+          docker run --rm --network none --read-only \
+            --security-opt no-new-privileges --cap-drop ALL \
+            --tmpfs "/tmp:rw,nosuid,nodev,size=256m" \
+            --mount "type=bind,source=$RELEASE_DOWNLOAD_DIR,target=/assets,readonly" \
+            --mount "type=bind,source=$verifier,target=/verify.py,readonly" \
+            --env "RELEASE_VERSION=$RELEASE_VERSION" \
+            --env "RELEASE_TAG=$RELEASE_TAG" \
+            --env "EXPECTED_COMMIT=$EXPECTED_COMMIT" \
+            --env "RELEASE_TARGET=$RELEASE_TARGET" \
+            "$image" bash -euo pipefail -c '
+              . /etc/os-release
+              [[ "$ID" == "ubuntu" && "$VERSION_ID" == "24.04" ]]
+              [[ "$(getconf GNU_LIBC_VERSION)" == "glibc 2.39" ]]
+              [[ "$(img2pdf --version)" == "img2pdf 0.6.3" ]]
+              printf "Clean host: Ubuntu %s, %s, %s\n" \
+                "$VERSION_ID" "$(getconf GNU_LIBC_VERSION)" "$(img2pdf --version)"
+              python3 /verify.py verify \
+                --artifact-dir /assets --version "$RELEASE_VERSION" \
+                --tag "$RELEASE_TAG" --commit "$EXPECTED_COMMIT" \
+                --target "$RELEASE_TARGET" --smoke
+            '
+
+      - name: Publish verified immutable prerelease
+        shell: bash
+        env:
+          RELEASE_SETTINGS_READ_TOKEN: ${{ secrets.RELEASE_SETTINGS_READ_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$RELEASE_SETTINGS_READ_TOKEN" ]] ||
+             [[ "$(GH_TOKEN="$RELEASE_SETTINGS_READ_TOKEN" gh api \
+               --header "X-GitHub-Api-Version: 2026-03-10" \
+               "repos/$GITHUB_REPOSITORY/immutable-releases" --jq '.enabled')" != "true" ]]; then
+            echo "::error::Repository release immutability is no longer enabled. Draft remains unpublished."
+            exit 1
+          fi
+          gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+            --draft=false --prerelease --latest=false --verify-tag
+          gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+            --json isDraft,isImmutable,isPrerelease,tagName,url |
+            jq --exit-status --arg tag "$RELEASE_TAG" \
+              'select(.isDraft == false and .isImmutable == true and .isPrerelease == true and .tagName == $tag) | .url'
+          gh release verify "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY"
+          gh release verify-asset "$RELEASE_TAG" \
+            "$RELEASE_DOWNLOAD_DIR/renderflow-$RELEASE_TARGET" \
+            --repo "$GITHUB_REPOSITORY"

@@ -1,8 +1,9 @@
 # Maintainer: Ego Hygiene <egohygiene@users.noreply.github.com>
+# Unpublished source-development template; AUR distribution is unverified.
 pkgname=renderflow-git
 pkgver=r1.c97b893
 pkgrel=1
-pkgdesc="Spec-driven document rendering engine"
+pkgdesc="Unpublished source-development template for Renderflow"
 arch=('x86_64' 'aarch64')
 url="https://github.com/egohygiene/renderflow"
 license=('MIT')

@@ -1,0 +1,131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-release-manifest-v1.schema.json",
+  "title": "Renderflow integration-candidate release lock v1",
+  "description": "A reviewed commit, exact CLI asset digest, contract matrix, and separately verifiable supply-chain evidence. A checksum is not a signature.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "repository", "version", "tag", "commit", "channel", "binary", "contracts", "compatibility", "assets", "security"],
+  "properties": {
+    "schema": { "const": "renderflow.release-manifest/v1" },
+    "repository": { "const": "egohygiene/renderflow" },
+    "version": { "$ref": "#/$defs/version" },
+    "tag": { "type": "string", "pattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+-[0-9A-Za-z.-]+$" },
+    "commit": { "$ref": "#/$defs/commit" },
+    "channel": { "const": "integration-candidate" },
+    "binary": {
+      "type": "object", "additionalProperties": false,
+      "required": ["name", "url", "target", "sha256", "size"],
+      "properties": {
+        "name": { "const": "renderflow-x86_64-unknown-linux-gnu" },
+        "url": { "$ref": "#/$defs/asset_url" },
+        "target": { "const": "x86_64-unknown-linux-gnu" },
+        "sha256": { "$ref": "#/$defs/digest" },
+        "size": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "contracts": {
+      "type": "object", "additionalProperties": false,
+      "required": ["cli_version", "core_crate_version", "plugin_sdk_crate_version", "plugin_contract", "provider_contract", "artifact_manifest_contract", "flow_artifact_contract", "tool_registry_contract", "capabilities", "schemas"],
+      "properties": {
+        "cli_version": { "$ref": "#/$defs/version" },
+        "core_crate_version": { "$ref": "#/$defs/version" },
+        "plugin_sdk_crate_version": { "$ref": "#/$defs/version" },
+        "plugin_contract": { "const": "renderflow.plugin/v2alpha1" },
+        "provider_contract": { "const": "renderflow.provider/v1" },
+        "artifact_manifest_contract": { "const": "renderflow.artifact-manifest/v1" },
+        "flow_artifact_contract": { "const": "flow.artifact/v1" },
+        "tool_registry_contract": { "const": "renderflow.tool-registry/v1" },
+        "capabilities": {
+          "type": "array", "minItems": 2,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["id", "provider_id", "availability", "input_kind", "ordered_collection", "source_mutation", "output_format", "required_external_tools"],
+            "properties": {
+              "id": { "type": "string", "minLength": 1 },
+              "provider_id": { "type": "string", "minLength": 1 },
+              "availability": { "enum": ["native", "requires_external_tool"] },
+              "input_kind": { "const": "collection" },
+              "ordered_collection": { "const": true },
+              "source_mutation": { "const": false },
+              "output_format": { "enum": ["pdf", "epub"] },
+              "required_external_tools": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+            }
+          }
+        },
+        "schemas": {
+          "type": "array", "minItems": 5,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["name", "identifier", "sha256", "source_path"],
+            "properties": {
+              "name": { "type": "string", "minLength": 1 },
+              "identifier": { "type": "string", "minLength": 1 },
+              "sha256": { "$ref": "#/$defs/digest" },
+              "source_path": { "type": "string", "pattern": "^schemas/[A-Za-z0-9_.-]+\\.json$" }
+            }
+          }
+        }
+      }
+    },
+    "compatibility": {
+      "type": "object", "additionalProperties": false,
+      "required": ["supported_platforms", "verified_host", "gnu_libc_minimum", "other_platforms", "external_tools"],
+      "properties": {
+        "supported_platforms": { "type": "array", "minItems": 1, "maxItems": 1, "items": { "const": "x86_64-unknown-linux-gnu" } },
+        "verified_host": { "const": "ubuntu-24.04-x86_64" },
+        "gnu_libc_minimum": { "const": "2.39" },
+        "other_platforms": { "const": "unsupported_unverified" },
+        "external_tools": {
+          "type": "array", "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["name", "constraint", "required_for"],
+            "properties": {
+              "name": { "type": "string", "minLength": 1 },
+              "constraint": { "type": "string", "minLength": 1 },
+              "required_for": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
+      }
+    },
+    "assets": { "type": "array", "minItems": 10, "items": { "$ref": "#/$defs/asset" } },
+    "security": {
+      "type": "object", "additionalProperties": false,
+      "required": ["asset_signing", "provenance", "attestation_bundles"],
+      "properties": {
+        "asset_signing": { "const": "unsigned" },
+        "provenance": { "const": "github_sigstore_bundle_attached_verify_separately" },
+        "attestation_bundles": {
+          "type": "array", "minItems": 2, "maxItems": 2,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["subject", "bundle"],
+            "properties": {
+              "subject": { "type": "string", "minLength": 1 },
+              "bundle": { "$ref": "#/$defs/asset_name" }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "commit": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+    "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+-[0-9A-Za-z.-]+$" },
+    "asset_name": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$" },
+    "asset": {
+      "type": "object", "additionalProperties": false,
+      "required": ["name", "url", "kind", "sha256", "size"],
+      "properties": {
+        "name": { "$ref": "#/$defs/asset_name" },
+        "url": { "$ref": "#/$defs/asset_url" },
+        "kind": { "enum": ["cli-binary", "checksum", "spdx-sbom", "dependency-notices", "provenance-bundle", "sbom-attestation-bundle"] },
+        "sha256": { "$ref": "#/$defs/digest" },
+        "size": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "asset_url": { "type": "string", "pattern": "^https://github\\.com/egohygiene/renderflow/releases/download/v[0-9]+\\.[0-9]+\\.[0-9]+-[0-9A-Za-z.-]+/[A-Za-z0-9][A-Za-z0-9_.-]*$" }
+  }
+}

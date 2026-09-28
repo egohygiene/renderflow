@@ -2,12 +2,11 @@
 # frozen_string_literal: true
 
 class Renderflow < Formula
-  desc "Spec-driven document rendering engine"
+  desc "Unpublished source-development formula for Renderflow"
   homepage "https://github.com/egohygiene/renderflow"
-  # url and sha256 are updated automatically by CI on each tagged release.
-  # Until the first release is published, install via: brew install --HEAD renderflow
-  url "https://github.com/egohygiene/renderflow/archive/refs/tags/v0.2.1.tar.gz"
-  sha256 "0000000000000000000000000000000000000000000000000000000000000000"
+  # HEAD-only source-development template. No candidate Homebrew channel has
+  # been published or independently verified. Do not add a stable URL until
+  # its exact source archive and checksum have release evidence.
   license "MIT"
   head "https://github.com/egohygiene/renderflow.git", branch: "main"
 

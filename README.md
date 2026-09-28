@@ -103,98 +103,32 @@ dist/
 
 ## Installation
 
-### Via Homebrew (macOS and Linux)
+The first integration candidate is proposed as `v0.3.0-rc.1`. A Cargo version
+or checked-in package recipe does **not** mean an installable release exists.
+Check the [GitHub releases](https://github.com/egohygiene/renderflow/releases)
+for the immutable tag, actual assets, checksums, and release manifest before
+installing. Historical `v0.2.1` was an unsigned tag with no GitHub release and
+must not be treated as the verified candidate.
+
+The first verified binary environment is intended to be Ubuntu 24.04 x86_64
+(GNU libc 2.39 or newer). The asset target name is
+`renderflow-x86_64-unknown-linux-gnu`; other distributions and libc baselines
+have not been clean-install verified.
+Other platforms and Homebrew, Scoop, Chocolatey, Snap, AUR, `.deb`, `.rpm`, and
+crates.io distribution are **unverified or unpublished** for this candidate;
+checked-in recipes are preparation, not evidence of availability. Consult the
+[installation and release-status guide](docs/getting-started/installation.md)
+for a digest-pinned install procedure once the asset is published.
+
+To build the reviewed source locally with Rust 1.94 or newer:
 
 ```bash
-brew trust egohygiene/renderflow
-brew tap egohygiene/renderflow https://github.com/egohygiene/renderflow
-brew install renderflow
+cargo install --locked --path "crates/renderflow-cli"
 ```
 
-> **Note:** The `brew trust` step is required before tapping because this is a third-party tap. Without it, Homebrew will refuse to load the formula with an "untrusted tap" error.
-
-Pandoc is installed automatically as a dependency.
-
-### Via Scoop (Windows)
-
-```powershell
-scoop bucket add egohygiene https://github.com/egohygiene/renderflow
-scoop install renderflow
-```
-
-### Via Chocolatey (Windows)
-
-```powershell
-choco install renderflow
-```
-
-### Via Snap (Linux)
-
-```bash
-snap install renderflow --classic
-```
-
-### Portable install script (macOS/Linux)
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/egohygiene/renderflow/main/scripts/install.sh | sh
-```
-
-You can pin a release version with `RENDERFLOW_VERSION` and override install location with `RENDERFLOW_INSTALL_DIR`.
-
-### Via AUR (Arch Linux)
-
-Stable release:
-
-```bash
-yay -S renderflow
-```
-
-Latest git build:
-
-```bash
-yay -S renderflow-git
-```
-
-### Via Debian / Ubuntu (.deb)
-
-Download the `.deb` for your architecture from the [Releases page](https://github.com/egohygiene/renderflow/releases/latest) and install:
-
-```bash
-sudo dpkg -i renderflow_*.deb
-```
-
-### Via RHEL / Fedora / openSUSE (.rpm)
-
-Download the `.rpm` for your architecture from the [Releases page](https://github.com/egohygiene/renderflow/releases/latest) and install:
-
-```bash
-sudo rpm -i renderflow-*.rpm
-```
-
-### Download pre-built binary (all platforms)
-
-Pre-built binaries are available for Linux (x86_64, aarch64, ARMv7, i686), macOS (Intel, Apple Silicon), and Windows (x86_64) on the [Releases page](https://github.com/egohygiene/renderflow/releases/latest).
-
-| Platform | Binary |
-|---|---|
-| Linux x86_64 (musl) | `renderflow-x86_64-unknown-linux-musl` |
-| Linux x86_64 (glibc) | `renderflow-x86_64-unknown-linux-gnu` |
-| Linux aarch64 (musl) | `renderflow-aarch64-unknown-linux-musl` |
-| Linux aarch64 (glibc) | `renderflow-aarch64-unknown-linux-gnu` |
-| Linux ARMv7 | `renderflow-armv7-unknown-linux-musleabihf` |
-| Linux i686 | `renderflow-i686-unknown-linux-musl` |
-| macOS Intel | `renderflow-x86_64-apple-darwin` |
-| macOS Apple Silicon | `renderflow-aarch64-apple-darwin` |
-| Windows x86_64 | `renderflow-x86_64-pc-windows-msvc.exe` |
-
-### Build from source
-
-Requires [Rust](https://rustup.rs) and [Pandoc](https://pandoc.org/installing.html).
-
-```bash
-cargo install --path .
-```
+External providers such as Pandoc and the exact `img2pdf` 0.6.3 needed by
+the print-interior route are separate host tools. The fixed-layout EPUB
+packager is native; EPUBCheck v5 is optional, separate evidence.
 
 ### Verify installation
 
@@ -231,11 +165,11 @@ renderflow build --debug
 
 ### Using Renderflow as a Rust library
 
-Renderflow also ships as a reusable Rust crate for embedding in your own tools.
-
-```bash
-cargo add renderflow
-```
+The `renderflow` workspace crate provides the reusable SDK. The first
+integration candidate does not claim a verified crates.io publication; run
+the examples from a reviewed checkout until that distribution route is
+independently verified. Flow's production adapter will consume the released
+binary and manifest by version and digest, without importing this source.
 
 Runnable SDK examples are included in this repository:
 
@@ -717,27 +651,35 @@ The CLI does not reimplement planning or execution logic; it delegates to the co
 
 ### Compatibility policy
 
-- The `renderflow` public API follows semantic versioning.
-- New APIs may be added in minor releases; breaking changes are reserved for major releases.
-- Deprecated APIs remain available for at least one minor release before removal.
+- The first integration candidate is a `0.3.0-rc.1` prerelease. Flow must pin
+  its binary digest and declared contracts; a matching crate version alone is
+  insufficient compatibility evidence.
+- The plugin-facing contract is `renderflow.plugin/v2alpha1`. It is an alpha
+  API, not a stable third-party ABI guarantee. Changes require explicit
+  contract/version and downstream migration review.
+- Stable API and deprecation windows will be set after integration evidence;
+  do not infer v1 guarantees from this candidate.
 
 ---
 
 ## Release Process
 
-Releases are fully automated. Run the **Bump Version** workflow from GitHub Actions:
+The `v0.3.0-rc.1` integration candidate begins with a reviewed version PR and
+maintainer merge. After local and required CI gates pass, the maintainer creates
+an annotated tag at the **exact** reviewed commit and explicitly dispatches the
+tag-ref release workflow. Staged artifacts must pass downloaded-byte and
+clean-install verification before the GitHub prerelease is published. No
+version-bump workflow may mutate `main` or create a tag on its own.
+The immutable-releases setting must be enabled and a read-only
+`RELEASE_SETTINGS_READ_TOKEN` secret must allow the workflow to verify it;
+missing evidence blocks publication.
 
-1. Navigate to **Actions → Bump Version → Run workflow**.
-2. Select the bump level (`patch` / `minor` / `major`) or enter an explicit version.
-3. The workflow bumps `Cargo.toml`, updates the workspace package version in `Cargo.lock`, updates package manifest versions, creates an annotated tag, pushes to `main`, and dispatches the release pipeline.
-
-The **Release** workflow then:
-- Generates `CHANGELOG.md` and release notes with `git-cliff`.
-- Cross-compiles release binaries for all 10 supported targets.
-- Builds `.deb`, `.rpm`, `.snap`, and `.nupkg` packages.
-- Uploads all artifacts to the GitHub Release.
-- Updates Homebrew, Scoop, and AUR package manifests with retry/rebase safeguards.
-- Verifies required binaries, checksums, package artifacts, and source tarball availability.
+The gate includes checksums, a machine-readable Flow lock manifest,
+SBOM/notices, provenance, and a recorded signing decision. Historical `v0.2.1`
+remains untouched. Publication and package-channel availability are reported
+only after verification; see the [release-candidate guide](docs/release-candidate.md)
+for the matrix, rollback, and compromised-release response. The old broad
+package-manager templates do not establish supported distribution.
 
 ---
 
@@ -746,7 +688,7 @@ The **Release** workflow then:
 - [ ] Built-in stylesheet themes
 - [ ] SVG / emoji embedding in PDFs
 - [ ] More example configs and templates
-- [x] Automated release workflow for pre-built binaries
+- [ ] First verified, immutable Ubuntu 24.04 x86_64 GNU integration-candidate release
 - [x] Graph engine with DAG-based transform planner
 - [x] AI transform integration (Ollama / OpenAI)
 - [x] Audio and image format conversion via FFmpeg
