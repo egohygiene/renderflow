@@ -88,30 +88,30 @@ export const architectureLinks: readonly ExternalLink[] = [
 
 export const installationMethods: readonly InstallationMethod[] = [
 	{
-		identifier: "cargo",
-		title: "Cargo",
-		command: "cargo install renderflow",
-		notes: "Available for Rust-centric workflows and local source builds.",
+		identifier: "source-checkout",
+		title: "Reviewed source checkout",
+		command: "cargo install --locked --path crates/renderflow-cli",
+		notes:
+			"Run from the reviewed repository root with Rust 1.94 or newer. This does not verify a downloaded release artifact or crates.io publication.",
 		status: "available",
 		documentationPath:
 			"https://github.com/egohygiene/renderflow/blob/main/docs/getting-started/installation.md",
 	},
 	{
-		identifier: "homebrew",
-		title: "Homebrew",
-		command: "brew install egohygiene/tap/renderflow",
-		notes: "Documented first-party macOS and Linux package channel.",
-		status: "available",
+		identifier: "linux-release",
+		title: "Ubuntu 24.04 x86_64 GNU candidate",
+		notes:
+			"v0.3.0-rc.1 is proposed for glibc 2.39 or newer on Ubuntu 24.04. Other distro baselines are unverified. Install only after the exact tag, binary, checksum, manifest, and clean-host evidence are published.",
+		status: "planned",
 		documentationPath:
 			"https://github.com/egohygiene/renderflow/blob/main/docs/getting-started/installation.md",
 	},
 	{
-		identifier: "portable-installer",
-		title: "Portable installer",
-		command:
-			"curl -fsSL https://raw.githubusercontent.com/egohygiene/renderflow/main/scripts/install.sh | sh",
-		notes: "Supports version pinning and install directory overrides.",
-		status: "available",
+		identifier: "package-managers",
+		title: "Package-manager channels",
+		notes:
+			"Homebrew, Scoop, Chocolatey, Snap, AUR, Debian/RPM, and crates.io are unpublished or unverified for the first integration candidate.",
+		status: "planned",
 		documentationPath:
 			"https://github.com/egohygiene/renderflow/blob/main/docs/getting-started/installation.md",
 	},

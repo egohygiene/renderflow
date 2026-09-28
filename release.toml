@@ -1,14 +1,13 @@
-# cargo-release configuration
+# Legacy cargo-release configuration. The integration candidate follows
+# docs/release-candidate.md: review/merge first, then a separately created
+# annotated tag on the exact green main commit and manual tag-ref dispatch.
 # https://github.com/crate-ci/cargo-release/blob/master/docs/reference.md
 
-# Create a git tag for each release (e.g. v0.2.0)
-tag = true
+# Never create a tag as a side effect of a local cargo-release invocation.
+tag = false
 
 # Tag name format
 tag-name = "v{{version}}"
-
-# Tag message
-tag-message = "chore(release): release version {{version}}"
 
 # Do not push commits and tags to remote automatically
 push = false
@@ -18,9 +17,6 @@ pre-release-commit-message = "chore(release): bump version to {{version}}"
 
 # Do not publish to crates.io by default
 publish = false
-
-# Sign tags with GPG if available
-sign-tag = false
 
 # Allow dirty working directories (no staged changes required)
 allow-branch = ["main"]

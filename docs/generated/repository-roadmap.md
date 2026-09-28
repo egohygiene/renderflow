@@ -1,5 +1,12 @@
 # Repository Maturity Roadmap
 
+> **Historical audit snapshot.** This 2026-07-21 generated document describes
+> a former multi-platform goal, not observed current release support. The
+> active [Renderflow roadmap](https://github.com/egohygiene/renderflow/blob/main/ROADMAP.md) and
+> [integration-candidate release guide](../release-candidate.md) govern the
+> `v0.3.0-rc.1` scope: Ubuntu 24.04 x86_64 GNU (glibc 2.39 or newer) only
+> after publication and verification; other distributions are unverified.
+
 > Generated: 2026-07-21
 > Based on: v1.0.0 release readiness audit, canonical repository specification
 > Specification: `.github/specs/repository/repository.spec.md`

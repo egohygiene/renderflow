@@ -168,10 +168,11 @@ export default function HomePage() {
 			<section className="section-grid" aria-labelledby="installation-title">
 				<div>
 					<p className="section-kicker">Installation</p>
-					<h2 id="installation-title">Only documented installation paths</h2>
+					<h2 id="installation-title">Installation and release status</h2>
 					<p>
-						Commands below are limited to installation methods already documented in this
-						repository, with planned distribution targets called out explicitly.
+						The proposed v0.3.0-rc.1 candidate has no verified download yet. The first verified
+						environment is Ubuntu 24.04 x86_64 GNU; install it only after the immutable release and
+						digest evidence are published.
 					</p>
 				</div>
 				<div className="installation-grid">

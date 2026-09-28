@@ -2,7 +2,7 @@
 set -eu
 
 REPO="${RENDERFLOW_REPO:-egohygiene/renderflow}"
-VERSION="${RENDERFLOW_VERSION:-latest}"
+VERSION="${RENDERFLOW_VERSION:-}"
 INSTALL_DIR="${RENDERFLOW_INSTALL_DIR:-/usr/local/bin}"
 
 log() {
@@ -28,7 +28,7 @@ download() {
   esac
 
   if need_cmd curl; then
-    curl --proto '=https' --tlsv1.2 -fsSL "$src" -o "$dest"
+    curl --proto '=https' --tlsv1.2 --fail --silent --show-error --location "$src" --output "$dest"
   elif need_cmd wget; then
     wget -qO "$dest" "$src"
   else
@@ -64,25 +64,20 @@ detect_target() {
   os="$(uname -s | tr '[:upper:]' '[:lower:]')"
   arch="$(uname -m)"
 
-  case "$os" in
-    linux) os_part="unknown-linux-gnu" ;;
-    darwin) os_part="apple-darwin" ;;
-    *)
-      err "unsupported operating system: $os"
-      exit 1
-      ;;
+  if [ "$os" != "linux" ] || [ "$arch" != "x86_64" ]; then
+    err "no verified release binary for $os/$arch; only x86_64-unknown-linux-gnu is supported"
+    exit 1
+  fi
+  libc="$(getconf GNU_LIBC_VERSION 2>/dev/null || true)"
+  case "$libc" in
+    "glibc "*) libc_version="${libc#glibc }" ;;
+    *) err "this candidate requires GNU libc 2.39 or newer"; exit 1 ;;
   esac
-
-  case "$arch" in
-    x86_64|amd64) arch_part="x86_64" ;;
-    aarch64|arm64) arch_part="aarch64" ;;
-    *)
-      err "unsupported architecture: $arch"
-      exit 1
-      ;;
-  esac
-
-  printf '%s-%s' "$arch_part" "$os_part"
+  if ! printf '%s\n' "$libc_version" | awk -F. '{exit !($1 > 2 || ($1 == 2 && $2 >= 39))}'; then
+    err "this candidate requires GNU libc 2.39 or newer (found $libc_version)"
+    exit 1
+  fi
+  printf '%s' "x86_64-unknown-linux-gnu"
 }
 
 resolve_base_url() {
@@ -91,18 +86,22 @@ resolve_base_url() {
     return
   fi
 
-  if [ "$VERSION" = "latest" ]; then
-    printf 'https://github.com/%s/releases/latest/download' "$REPO"
-  else
-    case "$VERSION" in
-      v*) tag="$VERSION" ;;
-      *) tag="v$VERSION" ;;
-    esac
-    printf 'https://github.com/%s/releases/download/%s' "$REPO" "$tag"
-  fi
+  printf 'https://github.com/%s/releases/download/%s' "$REPO" "$tag"
 }
 
 main() {
+  case "$VERSION" in
+    ""|latest|*[!a-zA-Z0-9.+-]*)
+      err "set RENDERFLOW_VERSION to an exact release tag (for example v0.3.0-rc.1)"
+      exit 1
+      ;;
+    v*) tag="$VERSION"; expected_version="${VERSION#v}" ;;
+    *) tag="v$VERSION"; expected_version="$VERSION" ;;
+  esac
+  if ! printf '%s\n' "$expected_version" | LC_ALL=C grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?(\+[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$'; then
+    err "RENDERFLOW_VERSION is not an exact SemVer release tag"
+    exit 1
+  fi
   target="$(detect_target)"
   base_url="$(resolve_base_url)"
   asset="renderflow-$target"
@@ -115,12 +114,24 @@ main() {
   checksum_path="$tmp_dir/$checksum_asset"
 
   log "Installing Renderflow for target: $target"
+  log "Candidate verified on Ubuntu 24.04 x86_64 GNU; other distro baselines remain unverified."
   log "Downloading: $base_url/$asset"
   download "$base_url/$asset" "$bin_path"
   log "Downloading checksum: $base_url/$checksum_asset"
   download "$base_url/$checksum_asset" "$checksum_path"
 
-  expected="$(awk '{print $1}' "$checksum_path")"
+  if [ "$(wc -l < "$checksum_path" | tr -d ' ')" != "1" ]; then
+    err "checksum file must have exactly one newline-terminated entry"
+    exit 1
+  fi
+  read -r expected checksum_name extra < "$checksum_path"
+  case "$expected" in
+    *[!0-9a-f]*|"") err "checksum is not lowercase SHA-256"; exit 1 ;;
+  esac
+  if [ "${#expected}" -ne 64 ] || [ "$checksum_name" != "$asset" ] || [ -n "${extra:-}" ]; then
+    err "checksum record does not identify the exact release asset"
+    exit 1
+  fi
   actual="$(checksum_file "$bin_path")"
   if [ "$expected" != "$actual" ]; then
     err "checksum verification failed for $asset"
@@ -130,6 +141,13 @@ main() {
   fi
   log "Checksum verification passed."
 
+  chmod 0755 "$bin_path"
+  observed_version="$("$bin_path" --version)"
+  if [ "$observed_version" != "renderflow $expected_version" ]; then
+    err "downloaded binary version differs from pinned release: $observed_version"
+    exit 1
+  fi
+
   if ! is_install_dir_writable "$INSTALL_DIR" && [ -z "${RENDERFLOW_INSTALL_DIR:-}" ]; then
     INSTALL_DIR="${HOME}/.local/bin"
     log "No write access to /usr/local/bin; falling back to $INSTALL_DIR"
@@ -138,10 +156,7 @@ main() {
   mkdir -p "$INSTALL_DIR"
   install -m 0755 "$bin_path" "$INSTALL_DIR/renderflow"
   log "Installed renderflow to $INSTALL_DIR/renderflow"
-
-  if command -v "$INSTALL_DIR/renderflow" >/dev/null 2>&1; then
-    "$INSTALL_DIR/renderflow" --version || true
-  fi
+  log "$observed_version"
 }
 
 main "$@"

@@ -1,174 +1,96 @@
-# Installation
+# Installation and distribution status
 
-Renderflow is distributed through multiple package channels and can also be built from source.
+`v0.3.0-rc.1` is the proposed first integration candidate. Until its immutable
+tag, GitHub prerelease, and verified assets exist, there is no supported
+download for this candidate. The historical `v0.2.1` tag was unsigned and
+never accompanied by a GitHub release. Do not install it as the verified
+integration candidate.
 
-## Requirements
+## Supported target and channels
 
-- Rust 1.94+ for source builds
-- Pandoc for document rendering
-- Tectonic for PDF output
-- FFmpeg for audio/image conversion
+| Route | Candidate status | Boundary |
+| --- | --- | --- |
+| GitHub Release, Ubuntu 24.04 x86_64 GNU binary | Planned for first verified candidate | `renderflow-x86_64-unknown-linux-gnu`, glibc 2.39 or newer, exact tag and SHA-256 required; other distribution baselines unverified |
+| Rust source checkout | Local development | Rust 1.94+ and the locked workspace dependencies; not a downloaded binary smoke test |
+| macOS, Windows, Linux ARM/musl/other binary targets | Unverified | Existing build configuration alone does not establish supported artifacts |
+| crates.io, Homebrew, Scoop, Chocolatey, Snap, AUR, Debian/RPM | Unpublished or unverified for this candidate | Checked-in packaging files and release jobs are not proof of working distribution |
 
-!!! note
-    Package manager installs may already pull some dependencies for you, but the runtime still needs the external tools required by the outputs you choose.
+This matrix describes the intended `v0.3.0-rc.1` scope **before publication**.
+For the post-publication state, inspect the [actual GitHub release](https://github.com/egohygiene/renderflow/releases)
+and its [release evidence](../release-candidate.md). Do not assume that
+`/releases/latest` resolves to a prerelease: pin the exact tag and digest.
 
-## Cargo
+## Install the candidate after publication
 
-Install from crates.io:
+First verify that `v0.3.0-rc.1` appears as an immutable GitHub prerelease with
+the Ubuntu 24.04 x86_64 GNU binary, its `.sha256`, and
+`renderflow-release-manifest-v1.json` with its `.sha256`. Download the assets
+from that exact tag and compare the binary hash to the checksum file and
+manifest. A successful comparison proves byte identity with
+the published digest, not the safety of an unreviewed upstream binary.
 
-```bash
-cargo install renderflow
-```
-
-To install from a local checkout instead:
-
-```bash
-cargo install --path .
-```
-
-## Homebrew
-
-```bash
-brew install egohygiene/tap/renderflow
-```
-
-If Homebrew refuses to use the third-party tap, trust and tap it explicitly:
-
-```bash
-brew trust egohygiene/renderflow
-brew tap egohygiene/renderflow https://github.com/egohygiene/renderflow
-brew install renderflow
-```
-
-## Portable install script (macOS/Linux)
-
-Use the first-party installer to auto-detect OS/architecture, download the matching release asset, verify SHA256 checksums, and install `renderflow`:
+The first-party installer can download and verify the matching per-asset
+SHA-256 before replacing a local executable. Fetch the script from the pinned
+tag so later `main` edits do not change this installation procedure:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/egohygiene/renderflow/main/scripts/install.sh | sh
+curl --fail --show-error --silent --location \
+  --output "renderflow-install.sh" \
+  "https://raw.githubusercontent.com/egohygiene/renderflow/v0.3.0-rc.1/scripts/install.sh"
+RENDERFLOW_VERSION="v0.3.0-rc.1" \
+RENDERFLOW_INSTALL_DIR="$HOME/.local/bin" \
+  sh "renderflow-install.sh"
+"$HOME/.local/bin/renderflow" --version
 ```
 
-Or with `wget`:
+This route is verified only on Ubuntu 24.04 x86_64 with GNU libc 2.39 or newer;
+other distribution and libc baselines have not been verified. The installer cannot
+establish SBOM, provenance, or signing status on its own; review those
+separately on the release. An absent asset, checksum, or manifest is a failed
+install gate, not evidence of a supported platform. The script requires an
+exact `RENDERFLOW_VERSION`; mutable `latest` is refused.
+
+## Build from source for development
+
+Use an exact reviewed checkout, Rust 1.94 or newer, and its committed lockfile:
 
 ```bash
-wget -qO- https://raw.githubusercontent.com/egohygiene/renderflow/main/scripts/install.sh | sh
-```
-
-Optional environment variables:
-
-- `RENDERFLOW_VERSION` (default: `latest`) — install a specific release (for example `0.2.1` or `v0.2.1`)
-- `RENDERFLOW_INSTALL_DIR` (default: `/usr/local/bin`, fallback: `~/.local/bin`)
-
-## Scoop (Windows)
-
-Renderflow ships a Scoop manifest in `pkg/scoop/renderflow.json`.
-
-```powershell
-scoop bucket add egohygiene https://github.com/egohygiene/renderflow
-scoop install renderflow
-```
-
-## AUR (Arch Linux)
-
-Stable package:
-
-```bash
-yay -S renderflow
-```
-
-Git package:
-
-```bash
-yay -S renderflow-git
-```
-
-## Snap
-
-```bash
-snap install renderflow --classic
-```
-
-## Binary downloads
-
-Prebuilt binaries are published on the [GitHub Releases page](https://github.com/egohygiene/renderflow/releases/latest).
-
-Typical assets include:
-
-- `renderflow-x86_64-unknown-linux-musl`
-- `renderflow-x86_64-unknown-linux-gnu`
-- `renderflow-aarch64-unknown-linux-gnu`
-- `renderflow-aarch64-apple-darwin`
-- `renderflow-x86_64-apple-darwin`
-- `renderflow-x86_64-pc-windows-msvc.exe`
-
-Download the binary for your platform, place it on your `PATH`, and make it executable on Unix-like systems:
-
-```bash
-chmod +x renderflow-*
-mv renderflow-* /usr/local/bin/renderflow
-```
-
-## From source
-
-```bash
-git clone https://github.com/egohygiene/renderflow.git
-cd renderflow
-cargo build --release
-cargo install --path .
-```
-
-## Verify the install
-
-```bash
+cargo install --locked --path "crates/renderflow-cli"
 renderflow --version
-renderflow version
-renderflow env
-renderflow doctor
 renderflow --help
+renderflow doctor
 ```
 
-## Upgrade
+Building from source does not substitute for an independently verified release
+asset. Avoid treating the checked-in Homebrew/Scoop/Chocolatey/AUR templates as
+installable release metadata while they retain placeholder checksums or refer
+to a tag without a published package.
 
-Use your package manager's native upgrade flow when installed from a package channel.
+## External providers
 
-Examples:
+The CLI has several exact and optional provider routes. The binary does not
+bundle Pandoc, Tectonic, FFmpeg, `img2pdf`, EPUBCheck, HandBrakeCLI, or other
+host tools. Install only providers needed for the chosen action and inspect
+`renderflow doctor` or `renderflow tools list` on that host.
 
-```bash
-brew upgrade renderflow
-scoop update renderflow
-snap refresh renderflow
-```
+| Route | Tool boundary |
+| --- | --- |
+| Standard document rendering | Pandoc; PDF variants may additionally require Tectonic or TeX components |
+| Ordered print-interior PDF | Explicit local `img2pdf` 0.6.3, plus bounded PNG/JPEG and page-geometry contract |
+| Ordered fixed-layout EPUB | Native packager for the declared PNG/JPEG route; optional EPUBCheck v5 supplies separate external evidence |
+| Media conversions | FFmpeg or the selected external adapter, when that route is used |
 
-If you installed with the portable installer, re-run the installer command to fetch the latest release or set `RENDERFLOW_VERSION` for a pinned upgrade.
+An installed CLI is not proof that every format, provider, reading system,
+printer, or retailer is supported. See the [release compatibility contract](../release-candidate.md)
+and each route's user guide before running it on personal files.
 
-## Uninstall
+## Upgrade, rollback, and compromised releases
 
-Package-manager uninstall examples:
-
-```bash
-brew uninstall renderflow
-scoop uninstall renderflow
-snap remove renderflow
-```
-
-Portable installer uninstall:
-
-```bash
-rm -f /usr/local/bin/renderflow
-# or:
-rm -f ~/.local/bin/renderflow
-```
-
-## Additional distribution targets (status)
-
-| Target | Status |
-|---|---|
-| Docker / OCI images | Planned |
-| Dev Container (`.devcontainer`) | Available |
-| GitHub Codespaces | Supported via Dev Container |
-| Nix / Nix Flakes | Planned |
-| Alpine package | Planned |
-| Winget | Planned |
-| pkgx | Planned |
-| mise | Planned |
-| asdf | Planned |
+Use exact tags and recorded digests for upgrades. Keep the last verified
+binary and manifest outside the installation path; a rollback restores those
+same bytes after rechecking their digest, rather than moving an old tag. If a
+release is suspected compromised, stop distribution, quarantine its digest in
+downstream lockfiles, publish an advisory and revoked status, investigate the
+tag and attestation, then issue a newly numbered, reviewed replacement. Never
+retag or silently replace a published asset. The
+[release-candidate guide](../release-candidate.md) has the response checklist.

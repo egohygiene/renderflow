@@ -26,6 +26,28 @@ supersedes: []
 
 # Renderflow Roadmap
 
+## 2026-09-28 integration-candidate release review handoff
+
+[#418](https://github.com/egohygiene/renderflow/issues/418) merged in
+[PR #436](https://github.com/egohygiene/renderflow/pull/436) at
+`ff6a76f4bad17541d6554e514ccb345f7c3d3e3c`, and #414 was reconciled
+and closed. [#419](https://github.com/egohygiene/renderflow/issues/419) owns
+the first verified, immutable integration candidate for
+[Flow #52](https://github.com/egohygiene/flow/issues/52).
+
+The proposed version is `v0.3.0-rc.1`; it is not released by a version edit
+or a review branch. A maintainer merge, exact green commit, manually created
+annotated tag, staged artifact checks, independent clean-install smoke, and
+verified prerelease are the gates. Initial binary scope is Ubuntu 24.04 x86_64
+GNU (glibc 2.39 or newer); other distribution baselines are unverified.
+Other binaries and package-manager channels are unverified or unpublished for
+this candidate. Historical unsigned `v0.2.1` is preserved without retagging.
+The [release guide](docs/release-candidate.md) records exact contracts,
+provider/platform limits, provenance and signing status, rollback, and
+compromised-release response. Flow consumes only the published immutable
+version and digest; no Renderflow source import or automatic #52 start is
+implied by this branch.
+
 ## 2026-09-28 fixed-layout EPUB validation review handoff
 
 [#417](https://github.com/egohygiene/renderflow/issues/417) merged in

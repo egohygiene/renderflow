@@ -2,8 +2,15 @@
 
 Renderflow is a spec-driven rendering engine for turning a single source document into repeatable outputs such as HTML, PDF, DOCX, audio, and images. It combines a YAML configuration file, an in-memory transform pipeline, and a DAG-based planner for graph-driven conversions.
 
+The first Flow integration candidate is proposed as `v0.3.0-rc.1`. Its
+[installation status](getting-started/installation.md) and
+[release evidence gate](release-candidate.md) distinguish the planned Linux
+x86_64 GNU asset from published, independently verified binaries and package
+channels.
+
 !!! note
-    Use the version selector in the site header to switch between the latest published docs and tagged release snapshots.
+    Documentation snapshots do not establish a released binary. Use the exact
+    release tag and artifact digest when installing a verified candidate.
 
 ## Why Renderflow?
 
@@ -68,6 +75,7 @@ owner of temporal segmentation, segment manifests, and reconstruction.
 ## Start here
 
 - [Installation](getting-started/installation.md)
+- [Release candidate and evidence](release-candidate.md)
 - [Quick Start](getting-started/quickstart.md)
 - [Configuration](user-guide/configuration.md)
 - [Supported Formats](user-guide/supported-formats.md)

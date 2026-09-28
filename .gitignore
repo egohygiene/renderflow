@@ -29,3 +29,6 @@ site/
 node_modules/
 apps/web/coverage/
 apps/web/.vitest/
+
+# Python release helper bytecode
+__pycache__/

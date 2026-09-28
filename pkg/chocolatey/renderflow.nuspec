@@ -2,7 +2,7 @@
 <package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
   <metadata>
     <id>renderflow</id>
-    <version>0.2.1</version>
+    <version>0.3.0-rc.1</version>
     <title>renderflow</title>
     <authors>Ego Hygiene</authors>
     <projectUrl>https://github.com/egohygiene/renderflow</projectUrl>
@@ -10,7 +10,9 @@
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <projectSourceUrl>https://github.com/egohygiene/renderflow</projectSourceUrl>
     <bugTrackerUrl>https://github.com/egohygiene/renderflow/issues</bugTrackerUrl>
-    <description>Spec-driven document rendering engine for transforming Markdown into PDF, HTML, and DOCX output.
+    <description>UNPUBLISHED TEMPLATE: no verified Windows artifact or Chocolatey channel exists for this candidate. This package is not installable until reviewed release assets and checksums replace the placeholders.
+
+Spec-driven document rendering engine for transforming Markdown into PDF, HTML, and DOCX output.
 
 Define your output spec in YAML. Point it at your Markdown. Run one command.
 

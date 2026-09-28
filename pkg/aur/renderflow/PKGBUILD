@@ -1,7 +1,8 @@
 # Maintainer: Ego Hygiene <egohygiene@users.noreply.github.com>
-# pkgver and sha256sums are updated automatically by CI on each tagged release.
+# UNPUBLISHED TEMPLATE: no verified AUR channel exists for this candidate.
+# The placeholder checksum deliberately prevents installation.
 pkgname=renderflow
-pkgver=0.2.1
+pkgver=0.3.0rc1
 pkgrel=1
 pkgdesc="Spec-driven document rendering engine"
 arch=('x86_64' 'aarch64')
@@ -9,7 +10,7 @@ url="https://github.com/egohygiene/renderflow"
 license=('MIT')
 depends=('pandoc')
 makedepends=('rust')
-source=("$pkgname-$pkgver.tar.gz::https://github.com/egohygiene/renderflow/archive/refs/tags/v$pkgver.tar.gz")
+source=("$pkgname-$pkgver.tar.gz::https://github.com/egohygiene/renderflow/archive/refs/tags/v0.3.0-rc.1.tar.gz")
 sha256sums=('PLACEHOLDER_SHA256')
 
 build() {

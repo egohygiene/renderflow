@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Proposed integration candidate
+
+- `v0.3.0-rc.1` is the proposed first verified Flow integration candidate;
+  this entry is not evidence of an existing GitHub release. It packages the
+  reviewed exact ordered-collection, print-interior PDF, fixed-layout EPUB,
+  and independent EPUB inspection routes (#415–#418), subject to the release
+  gate in #419. Initial binary support is scoped to Ubuntu 24.04 x86_64 GNU
+  (glibc 2.39 or newer) after
+  downloaded-asset verification. Other binary and package-manager channels
+  remain unverified or unpublished for this candidate.
+- Historical `v0.2.1` is an unsigned tag without a GitHub release. It is not
+  reused as the integration candidate.
+
 ### Features
 
 - Add a typed, bounded HandBrakeCLI adapter for whole-file video derivatives,
@@ -52,4 +65,3 @@ All notable changes to this project will be documented in this file.
 ### Improvements
 
 - Update select_strategy to accept references instead of owned values
-
