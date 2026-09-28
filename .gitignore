@@ -20,6 +20,7 @@ Thumbs.db
 
 # Renderflow build outputs and cache
 dist/
+gallery-output/
 
 # MkDocs build output
 site/

@@ -22,6 +22,7 @@ renderflow = { path = "../renderflow-core", package = "renderflow" }
 [dev-dependencies]
 tempfile = "3"
 serde_json = "1"
+sha2 = "0.10"
 
 [[test]]
 name = "cli_tests"
@@ -30,6 +31,10 @@ path = "../../tests/cli_tests.rs"
 [[test]]
 name = "ordered_collection_cli"
 path = "../../tests/ordered_collection_cli.rs"
+
+[[test]]
+name = "artifact_gallery_cli"
+path = "../../tests/artifact_gallery_cli.rs"
 
 [[test]]
 name = "graph_integration_test"

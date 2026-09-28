@@ -5,6 +5,11 @@ redistribution-safe acceptance harness. The corpus contains synthetic payloads
 only. It does not contain publication, comic, customer, or third-party content,
 and no fixture requires network or AI access.
 
+For a small, retained source-to-output run through the public CLI and real
+local providers, see the [inspectable artifact gallery](artifact-gallery.md).
+The gallery is explicitly invoked on a local machine; it complements this
+versioned conformance corpus and does not silently bless changed outputs.
+
 ## Contracts
 
 The canonical manifest is
