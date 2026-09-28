@@ -4,8 +4,10 @@ A `renderflow/v2` collection names immutable local artifacts in the exact order 
 collection-input transform receives them. The public `renderflow spec validate`,
 `renderflow build --dry-run`, `renderflow build`, and Rust
 `planning::{resolve, execute}` surfaces use the same canonical plan and run
-evidence. The exact [print-interior PDF](print-interior-pdf.md) route now consumes
-homogeneous PNG or JPEG page collections. Fixed-layout EPUB remains separate.
+evidence. The exact [print-interior PDF](print-interior-pdf.md) and
+[fixed-layout EPUB](fixed-layout-epub.md) routes each consume homogeneous PNG or
+JPEG page collections under separate policies. Neither route takes an implicit
+file-system directory order as publication order.
 
 ```yaml
 schema: renderflow/v2
@@ -85,5 +87,6 @@ rules.
 
 The currently supported canonical execution path requires all root collection
 members to share a format and the first edge to consume a collection. Mixed
-media, same-format aggregation output, arbitrary root fan-out, fixed-layout
-EPUB generation, and publication approval remain outside this checkpoint.
+media, same-format aggregation output, arbitrary root fan-out, and publication
+approval remain outside this checkpoint. The bounded image-based PDF and EPUB
+routes enforce their own input, metadata, and output constraints.

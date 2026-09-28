@@ -1,6 +1,22 @@
 schema: renderflow.tool-registry/v1
 
 tools:
+  - id: tool.renderflow-epub
+    name: Renderflow fixed-layout EPUB packager
+    discovery:
+      kind: virtual
+    operating_systems: [linux, macos, windows]
+    capabilities:
+      - ebook.generate.epub.fixed-layout
+    input_media_types: [image/png, image/jpeg]
+    output_media_types: [application/epub+zip]
+    determinism: deterministic
+    locality: local
+    fidelity: lossless
+    support_tier: experimental
+    license_notes: "In-process Renderflow implementation; see the Renderflow repository license."
+    distribution_notes: "Exact bounded ordered-page PNG/JPEG route only; SVG, reflowable EPUB, fixed-layout KEPUB, retailer acceptance, and independent EPUB 3.3 conformance are separate contracts."
+
   - id: tool.lulu-rules
     name: Pinned Lulu publication rule pack
     discovery:

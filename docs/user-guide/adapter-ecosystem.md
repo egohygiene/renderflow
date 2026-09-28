@@ -50,9 +50,11 @@ registers an edge and executor.
 | Archives | ZIP | Experimental | Normalize ordering and timestamps before promotion |
 | Generic image-to-PDF | img2pdf | Experimental | Does not claim print-interior validation |
 | Ordered print-interior PDF | img2pdf 0.6.3 | Integrated exact route | PNG or JPEG collection; inspect ordered streams and page boxes |
+| Fixed-layout EPUB | Renderflow native packager | Exact route under #417 | Ordered PNG or JPEG collection; SVG refused; #418 owns independent conformance |
 | PDF processing | Ghostscript | Experimental | Require explicit licensing and fidelity policy |
 | Local image AI | Upscayl NCNN | Experimental | Require model identity, license evidence, and AI opt-in |
-| E-books | Calibre evaluation | Deferred to #344 | Integrate as ordinary providers |
+| Reflowable EPUB / KEPUB | Pandoc / Kepubify | Integrated | Retain separate document and Kobo conversion edges |
+| Calibre evaluation | Calibre | Deferred | Requires a separate bounded adapter and conformance case |
 | Video transcode | HandBrakeCLI evaluation | Deferred to #345 | Preserve the Aniflow ownership boundary |
 | Searchable PDF OCR | OCRmyPDF evaluation | Adapt | Add searchable-PDF validation after the Tesseract base pack |
 | Structured data | jq | Experimental | Constrain filters and validate declared output schemas |
@@ -60,6 +62,13 @@ registers an edge and executor.
 
 The catalog also documents rejected candidates and why. Rejection prevents accidental dependency
 growth while leaving the decision inspectable and revisable.
+
+The fixed-layout EPUB packager is in process and has the virtual
+`tool.renderflow-epub` capability in the tool registry. The current adapter-pack
+catalog schema describes command-backed `renderflow.process/v1` execution; it
+does not model an in-process packager as an external executable. The EPUB route
+is selected by the canonical graph and documented in the
+[fixed-layout EPUB guide](fixed-layout-epub.md).
 
 ## Adding an Adapter
 

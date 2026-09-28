@@ -27,6 +27,7 @@ without editing this built-in catalog.
 | `tool.kepubify` | Kepubify | executable: `kepubify` | optional | configuration_dependent | local |
 | `tool.lulu-rules` | Pinned Lulu publication rule pack | virtual | optional | deterministic | local |
 | `tool.pandoc` | Pandoc | executable: `pandoc` | required | configuration_dependent | local |
+| `tool.renderflow-epub` | Renderflow fixed-layout EPUB packager | virtual | experimental | deterministic | local |
 | `tool.tectonic` | Tectonic | executable: `tectonic` | optional | configuration_dependent | network_optional |
 | `tool.tesseract` | Tesseract OCR | executable: `tesseract` | experimental | configuration_dependent | local |
 | `tool.upscayl-ncnn` | Upscayl NCNN | executable: `upscayl-ncnn`, `upscayl-bin` | experimental | configuration_dependent | local |
@@ -57,6 +58,7 @@ without editing this built-in catalog.
 | `publication.lulu.print-direct.preflight` | `tool.lulu-rules` |
 | `document.convert` | `tool.pandoc` |
 | `document.generate` | `tool.pandoc` |
+| `ebook.generate.epub.fixed-layout` | `tool.renderflow-epub` |
 | `latex.compile` | `tool.tectonic` |
 | `pdf.typeset` | `tool.tectonic` |
 | `ocr.extract.text` | `tool.tesseract` |

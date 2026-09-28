@@ -96,6 +96,7 @@ Spec v2 describes source intent, derivative selection, execution policy, and det
 | --- | --- | --- | --- |
 | `ai` | `deny` / `local_only` / `allow` | no | `"deny"` |
 | `budgets` | `budgets` | no | — |
+| `fixed_layout_epub` | `object` | no | — |
 | `hygiene_policy` | `object` | no | — |
 | `max_parallel` | `integer` | no | `1` |
 | `minimum_fidelity` | `number` / `null` | no | — |
@@ -126,6 +127,17 @@ Spec v2 describes source intent, derivative selection, execution policy, and det
 | `rotation` | `"none"` | yes | — |
 | `scaling` | `"fit"` | yes | — |
 | `timeout_seconds` | `integer` | yes | — |
+
+## Fixed-layout EPUB policy
+
+| Field | Type | Required | Default |
+| --- | --- | --- | --- |
+| `cover_member_id` | `stableId` | yes | — |
+| `max_input_bytes` | `integer` | yes | — |
+| `max_output_bytes` | `integer` | yes | — |
+| `max_pages` | `integer` | yes | — |
+| `page_progression_direction` | `ltr` / `rtl` | yes | — |
+| `spread` | `"none"` | yes | — |
 
 ## Output layout
 

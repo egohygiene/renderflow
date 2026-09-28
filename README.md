@@ -404,6 +404,10 @@ When `input_format` is omitted, Renderflow auto-detects the format from the file
 | `epub` | Renders a reflowable EPUB 3   | Pandoc            |
 | `kepub` | Renders EPUB 3, then Kobo enhancements | Pandoc + Kepubify |
 
+These document-source outputs are reflowable. The exact
+[fixed-layout EPUB route](docs/user-guide/fixed-layout-epub.md) uses an explicit,
+ordered PNG or JPEG collection with its own policy and publication metadata.
+
 Not every input → output combination is supported. For example, `epub` and `latex` inputs cannot currently be converted to `docx`. Renderflow reports a clear error when an unsupported combination is specified.
 
 **Image formats** (via FFmpeg):
