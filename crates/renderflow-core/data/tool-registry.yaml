@@ -176,6 +176,7 @@ tools:
     operating_systems: [linux, macos, windows]
     capabilities:
       - image.aggregate.pdf
+      - publication.generate.pdf.interior
     input_media_types: [image/*]
     output_media_types: [application/pdf]
     determinism: deterministic
@@ -183,7 +184,7 @@ tools:
     fidelity: lossless
     support_tier: experimental
     license_notes: "Consult the img2pdf upstream license for redistribution terms."
-    distribution_notes: "Used by lossless image-to-PDF aggregation when configured."
+    distribution_notes: "Generic aggregation is experimental; the exact print-interior route requires a pinned compatible version and independent page inspection."
 
   - id: tool.ghostscript
     name: Ghostscript

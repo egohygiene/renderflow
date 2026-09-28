@@ -3,12 +3,12 @@ schema: aether.architecture-document/v1
 id: renderflow-roadmap
 title: Renderflow Roadmap
 kind: architecture-document
-version: 0.1.3
+version: 0.1.4
 status: draft
 owners:
   - egohygiene
 created: 2026-08-19
-updated: 2026-09-27
+updated: 2026-09-28
 governed_by:
   - architecture-roadmap
 depends_on:
@@ -25,6 +25,23 @@ supersedes: []
 ---
 
 # Renderflow Roadmap
+
+## 2026-09-28 print-interior PDF review handoff
+
+Checkpoint #416 adds the exact `publication.generate.pdf.interior` capability
+through canonical ordered-collection planning and execution. The initial route
+uses homogeneous local PNG or JPEG pages, explicit uniform trim geometry and
+bleed, the observed img2pdf 0.6.3 provider, bounded direct argv, and independent
+PDF page/box/image-stream inspection before materialization. Synthetic tests
+cover the two-page route, a generated 44-page recipe, refusal, interruption,
+immutable source bytes, and reproducible clean builds. The tool and adapter
+catalogs advertise only this bounded route; generic image aggregation remains
+experimental. No real publication pages, printer, retailer, or upload were used.
+
+After review and merge, #417 may proceed independently for fixed-layout EPUB.
+#418 independently validates that EPUB capability; #419 releases the exact
+integration candidate consumed by Flow #52. PDF physical proof and retailer
+acceptance remain outside #416.
 
 ## 2026-09-27 ordered collection review handoff
 

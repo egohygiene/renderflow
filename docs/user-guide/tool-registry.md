@@ -47,6 +47,7 @@ without editing this built-in catalog.
 | `video.transcode.whole_file` | `tool.handbrake` |
 | `image.convert` | `tool.imagemagick` |
 | `image.aggregate.pdf` | `tool.img2pdf` |
+| `publication.generate.pdf.interior` | `tool.img2pdf` |
 | `data.json.transform` | `tool.jq` |
 | `ebook.convert.kepub` | `tool.kepubify` |
 | `publication.lulu.bookstore.preflight` | `tool.lulu-rules` |

@@ -48,7 +48,8 @@ registers an edge and executor.
 | Images/audio | FFmpeg; ImageMagick fallback | Integrated/experimental | Keep choices typed and delegates provenance-visible |
 | Video/subtitles | FFmpeg | Partial | Register only concrete implemented graph edges |
 | Archives | ZIP | Experimental | Normalize ordering and timestamps before promotion |
-| Image-to-PDF | img2pdf | Experimental | Promote with collection/aggregation fixtures |
+| Generic image-to-PDF | img2pdf | Experimental | Does not claim print-interior validation |
+| Ordered print-interior PDF | img2pdf 0.6.3 | Integrated exact route | PNG or JPEG collection; inspect ordered streams and page boxes |
 | PDF processing | Ghostscript | Experimental | Require explicit licensing and fidelity policy |
 | Local image AI | Upscayl NCNN | Experimental | Require model identity, license evidence, and AI opt-in |
 | E-books | Calibre evaluation | Deferred to #344 | Integrate as ordinary providers |

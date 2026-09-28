@@ -194,7 +194,33 @@ providers:
     validation: [validator.core.pdf]
     provenance: [provider_id, provider_version, argv_digest, ordered_input_digests, output_digest]
     upstream: https://gitlab.mister-muffin.de/josch/img2pdf
-    rationale: Strong lossless image-to-PDF candidate; collection execution remains experimental until Transform v2 aggregation coverage lands.
+    rationale: Generic image aggregation remains experimental; the separately registered print-interior route has narrower inputs, a pinned provider, and independent validation.
+
+  - id: adapter.publication.print-interior
+    runtime_tool: tool.img2pdf
+    name: Ordered print-interior PDF adapter
+    families: [publication, images, pdf]
+    maturity: integrated
+    selection_priority: 10
+    capabilities: [publication.generate.pdf.interior]
+    input_media_types: [image/png, image/jpeg]
+    output_media_types: [application/pdf]
+    determinism: deterministic
+    locality: local
+    fidelity: lossless
+    execution: *bounded_local
+    configuration_schema:
+      source: homogeneous_ordered_immutable_collection
+      geometry: uniform_explicit_trim_mm_and_bleed_mm
+      boxes: media_bleed_trim_inset
+      rotation: none
+      scaling: fit_with_exact_aspect
+      color: preserve_rgb_gray
+      provider: exact_observed_img2pdf_version
+    validation: [validator.print_pdf.interior]
+    provenance: [provider_id, provider_version, configuration_digest, ordered_input_digests, inspected_page_stream_digests, output_digest]
+    upstream: https://gitlab.mister-muffin.de/josch/img2pdf
+    rationale: Canonical v2 print-interior path verifies every ordered page stream, geometry, boxes, and source lineage before materialization.
 
   - id: adapter.pdf.ghostscript
     runtime_tool: tool.ghostscript
