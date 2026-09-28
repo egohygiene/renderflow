@@ -52,6 +52,7 @@ struct Fixture {
     filename: String,
     encoding: String,
     payload: String,
+    sha256: Option<String>,
     expected_format: Option<String>,
     expected_media_type: String,
     family: String,
@@ -72,6 +73,21 @@ struct Scenario {
     id: String,
     tier: String,
     fixtures: Vec<String>,
+    #[serde(default)]
+    expected_artifacts: Vec<ExpectedArtifact>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ExpectedArtifact {
+    case_id: String,
+    role: String,
+    format: String,
+    media_type: String,
+    provider_id: String,
+    provider_version: Option<String>,
+    oracle_path: String,
+    source_ids: Vec<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -224,6 +240,21 @@ fn materialize_fixture(root: &Path, fixture: &Fixture) -> Result<PathBuf> {
         "hex" => decode_hex(&fixture.payload)?,
         other => anyhow::bail!("unsupported fixture encoding '{other}'"),
     };
+    if let Some(expected) = &fixture.sha256 {
+        anyhow::ensure!(
+            expected.len() == 64
+                && expected
+                    .bytes()
+                    .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte)),
+            "fixture '{}' has an invalid lowercase SHA-256 declaration",
+            fixture.id
+        );
+        anyhow::ensure!(
+            format!("{:x}", Sha256::digest(&bytes)) == *expected,
+            "fixture '{}' differs from its declared SHA-256",
+            fixture.id
+        );
+    }
     let path = root.join(&fixture.filename);
     fs::write(&path, bytes)?;
     Ok(path)
@@ -306,8 +337,8 @@ fn golden_artifact_forest_conformance() -> Result<()> {
         .map(|fixture| fixture.id.as_str())
         .collect::<BTreeSet<_>>();
     assert_eq!(fixture_ids.len(), corpus.fixtures.len());
-    assert_eq!(corpus.fixtures.len(), 12);
-    assert_eq!(corpus.collections.len(), 1);
+    assert_eq!(corpus.fixtures.len(), 14);
+    assert_eq!(corpus.collections.len(), 2);
     for collection in &corpus.collections {
         assert!(collection.id.starts_with("fixture.collection."));
         assert!(collection
@@ -325,7 +356,93 @@ fn golden_artifact_forest_conformance() -> Result<()> {
             fixture_ids.contains(fixture.as_str())
                 || corpus.collections.iter().any(|value| value.id == *fixture)
         }));
+        let mut included_sources = BTreeSet::new();
+        for member in &declared.fixtures {
+            if let Some(collection) = corpus.collections.iter().find(|item| item.id == *member) {
+                included_sources.extend(collection.members.iter().map(String::as_str));
+            } else {
+                included_sources.insert(member.as_str());
+            }
+        }
+        let mut case_ids = BTreeSet::new();
+        for artifact in &declared.expected_artifacts {
+            anyhow::ensure!(
+                case_ids.insert(artifact.case_id.as_str()),
+                "scenario '{}' repeats case '{}'",
+                declared.id,
+                artifact.case_id
+            );
+            anyhow::ensure!(
+                !artifact.role.is_empty()
+                    && !artifact.format.is_empty()
+                    && artifact.media_type.contains('/')
+                    && artifact.provider_id.starts_with("tool.")
+                    && artifact
+                        .provider_version
+                        .as_deref()
+                        .is_none_or(|value| !value.is_empty()),
+                "scenario '{}' has incomplete expected artifact '{}'",
+                declared.id,
+                artifact.case_id
+            );
+            anyhow::ensure!(
+                !artifact.source_ids.is_empty()
+                    && artifact
+                        .source_ids
+                        .iter()
+                        .all(|source| included_sources.contains(source.as_str())),
+                "scenario '{}' case '{}' names a source outside the scenario",
+                declared.id,
+                artifact.case_id
+            );
+            let relative = Path::new(&artifact.oracle_path);
+            anyhow::ensure!(
+                relative.starts_with("expected")
+                    && relative
+                        .components()
+                        .all(|part| matches!(part, std::path::Component::Normal(_))),
+                "scenario '{}' has an unsafe oracle locator",
+                declared.id
+            );
+            let oracle = corpus_path().parent().unwrap().join(relative);
+            let metadata = fs::symlink_metadata(&oracle).with_context(|| {
+                format!(
+                    "scenario '{}' oracle '{}' is absent",
+                    declared.id,
+                    oracle.display()
+                )
+            })?;
+            anyhow::ensure!(
+                metadata.file_type().is_file()
+                    && metadata.len() > 0
+                    && metadata.len() <= 1024 * 1024,
+                "scenario '{}' oracle '{}' must be a nonempty regular file within 1 MiB",
+                declared.id,
+                oracle.display()
+            );
+        }
     }
+    let gallery = corpus
+        .scenarios
+        .iter()
+        .find(|item| item.id == "real_artifact_gallery")
+        .context("real artifact gallery scenario missing")?;
+    assert_eq!(gallery.tier, "tool_backed");
+    assert_eq!(gallery.fixtures.len(), 2);
+    assert_eq!(gallery.expected_artifacts.len(), 2);
+    let gallery_sources = gallery
+        .expected_artifacts
+        .iter()
+        .flat_map(|artifact| artifact.source_ids.iter().map(String::as_str))
+        .collect::<BTreeSet<_>>();
+    assert_eq!(
+        gallery_sources,
+        BTreeSet::from([
+            "fixture.document.markdown",
+            "fixture.image.print-page001",
+            "fixture.image.print-page002",
+        ])
+    );
 
     let work = tempfile::tempdir()?;
     let fixture_root = work.path().join("fixtures");
@@ -954,6 +1071,28 @@ fn golden_artifact_forest_conformance() -> Result<()> {
         },
     ));
     results.insert((
+        "real_artifact_gallery".to_string(),
+        ScenarioEvidence {
+            id: "real_artifact_gallery".to_string(),
+            status: if requested_rank == 0 {
+                "excluded"
+            } else {
+                "unavailable"
+            }
+            .to_string(),
+            assertions: vec![
+                "source digests and expected oracle files are checked in the fast tier; real CLI artifact generation requires the separate gallery runner".to_string(),
+            ],
+            providers: Vec::new(),
+            reason: Some(if requested_rank == 0 {
+                "tool-backed gallery execution was not requested"
+            } else {
+                "this API corpus does not execute the real artifact gallery; run its CLI harness for generation evidence"
+            }
+            .to_string()),
+        },
+    ));
+    results.insert((
         "maximal_release_matrix".to_string(),
         ScenarioEvidence {
             id: "maximal_release_matrix".to_string(),
@@ -995,7 +1134,7 @@ fn golden_artifact_forest_conformance() -> Result<()> {
     let encoded = serde_json::to_vec_pretty(&report)?;
     let decoded: serde_json::Value = serde_json::from_slice(&encoded)?;
     assert_eq!(decoded["schema_version"], REPORT_SCHEMA);
-    assert_eq!(decoded["fixtures"].as_array().map(Vec::len), Some(12));
+    assert_eq!(decoded["fixtures"].as_array().map(Vec::len), Some(14));
     if let Some(path) = std::env::var_os("RENDERFLOW_CONFORMANCE_REPORT") {
         fs::write(path, encoded)?;
     }

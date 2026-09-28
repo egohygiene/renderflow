@@ -26,6 +26,20 @@ supersedes: []
 
 # Renderflow Roadmap
 
+## 2026-09-28 artifact gallery review handoff
+
+[#433](https://github.com/egohygiene/renderflow/issues/433) is the first bounded
+[#412](https://github.com/egohygiene/renderflow/issues/412) corpus checkpoint.
+Its explicit local runner creates HTML from one synthetic Markdown input and a
+two-page print PDF from two synthetic RGB PNG inputs through the public CLI and
+real providers. It retains both builds and compares the outputs to reviewed
+oracles, independent PDF structure evidence, and typed run manifests. The normal
+workspace suite checks the corpus contract without treating missing external
+providers as a pass. Later fixture expansion remains in #412. The independent
+fixed-layout EPUB lane [#417](https://github.com/egohygiene/renderflow/issues/417)
+remains the next production capability after this review; #433 does not claim
+EPUB or physical print validation.
+
 ## 2026-09-28 print-interior PDF review handoff
 
 Checkpoint #416 adds the exact `publication.generate.pdf.interior` capability

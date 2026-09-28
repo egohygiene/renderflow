@@ -1,6 +1,6 @@
 {
   "schema_version": "renderflow.golden-corpus/v1",
-  "corpus_version": "1.0.0",
+  "corpus_version": "1.1.0",
   "license": "CC0-1.0",
   "redistribution": "Synthetic fixtures created for Renderflow conformance; no publication or third-party content.",
   "fixtures": [
@@ -9,6 +9,7 @@
       "filename": "synthetic.md",
       "encoding": "utf8",
       "payload": "# Synthetic artifact\n\nA bounded, redistribution-safe Renderflow fixture.\n",
+      "sha256": "05a7ce0f745ed256ffbb4a7d900f815d63904fe2c66eb6ede18caa5616ef6378",
       "expected_format": "markdown",
       "expected_media_type": "text/markdown",
       "family": "document",
@@ -29,6 +30,28 @@
       "filename": "pixel.png",
       "encoding": "hex",
       "payload": "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d49444154089963000100000500010d0a2db40000000049454e44ae426082",
+      "expected_format": "png",
+      "expected_media_type": "image/png",
+      "family": "image",
+      "expected_outcome": "accepted"
+    },
+    {
+      "id": "fixture.image.print-page001",
+      "filename": "print-page-001.png",
+      "encoding": "hex",
+      "payload": "89504e470d0a1a0a0000000d4948445200000064000000640802000000ff800203000000ec49444154789cedd0410dc02000c040c0d004e0df046a66617d9125770a9aceb39fc137eb76c09f98159815981598159815981598159815981598159815981598159815981598159815981598159815981598159815981598159815981598159815981598159815981598159815981598159815981598159815981598159815981598159815981598159815981598159815981598159815981598159815981598159815981598159815981598159815981598159815981598159815981598159815981598159815981598159815981598159815981598159815981598159815981598159815981598159815bc3c44020cfae786800000000049454e44ae426082",
+      "sha256": "4504b942743ef33c894e01de1c66b1d5b283bcb8006672e55a35423697a5d970",
+      "expected_format": "png",
+      "expected_media_type": "image/png",
+      "family": "image",
+      "expected_outcome": "accepted"
+    },
+    {
+      "id": "fixture.image.print-page002",
+      "filename": "print-page-002.png",
+      "encoding": "hex",
+      "payload": "89504e470d0a1a0a0000000d4948445200000064000000640802000000ff800203000000eb49444154789cedd0410dc02000c04040cc04211a5db3b0bec8923b054de7b3cfe09b753be04fcc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0acc0a5e79600206fc9723aa0000000049454e44ae426082",
+      "sha256": "2dbeeb63e82b4d839e9cd18a37b36010c54b771e58432d30c72a83acb5c751ad",
       "expected_format": "png",
       "expected_media_type": "image/png",
       "family": "image",
@@ -129,6 +152,10 @@
     {
       "id": "fixture.collection.ordered-pages",
       "members": ["fixture.document.markdown", "fixture.data.json"]
+    },
+    {
+      "id": "fixture.collection.print-pages",
+      "members": ["fixture.image.print-page001", "fixture.image.print-page002"]
     }
   ],
   "scenarios": [
@@ -150,6 +177,32 @@
     { "id": "everything_profile", "tier": "fast", "fixtures": ["fixture.document.markdown"] },
     { "id": "magazine_release_bundle", "tier": "fast", "fixtures": ["fixture.document.markdown", "fixture.image.png"] },
     { "id": "optional_tool_providers", "tier": "tool_backed", "fixtures": ["fixture.document.markdown", "fixture.video.mp4"] },
+    {
+      "id": "real_artifact_gallery",
+      "tier": "tool_backed",
+      "fixtures": ["fixture.document.markdown", "fixture.collection.print-pages"],
+      "expected_artifacts": [
+        {
+          "case_id": "markdown_html",
+          "role": "web",
+          "format": "html",
+          "media_type": "text/html",
+          "provider_id": "tool.pandoc",
+          "oracle_path": "expected/markdown.html",
+          "source_ids": ["fixture.document.markdown"]
+        },
+        {
+          "case_id": "ordered_print_pdf",
+          "role": "interior",
+          "format": "pdf",
+          "media_type": "application/pdf",
+          "provider_id": "tool.img2pdf",
+          "provider_version": "0.6.3",
+          "oracle_path": "expected/print-interior.json",
+          "source_ids": ["fixture.image.print-page001", "fixture.image.print-page002"]
+        }
+      ]
+    },
     { "id": "maximal_release_matrix", "tier": "maximal", "fixtures": ["fixture.document.markdown", "fixture.image.png", "fixture.audio.wav", "fixture.video.mp4"] }
   ]
 }

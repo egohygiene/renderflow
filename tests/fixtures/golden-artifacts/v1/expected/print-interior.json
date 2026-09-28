@@ -1,0 +1,24 @@
+{
+  "schema": "renderflow.gallery-print-oracle/v1",
+  "page_count": 2,
+  "media_width_pt": 283.46456692913387,
+  "media_height_pt": 283.46456692913387,
+  "trim_inset_pt": 14.173228346456694,
+  "rotation": 0,
+  "color_space": "DeviceRGB",
+  "image_filter": "FlateDecode",
+  "pages": [
+    {
+      "source_id": "fixture.image.print-page001",
+      "pixel_width": 100,
+      "pixel_height": 100,
+      "image_stream_sha256": "8fe456445985359dbda191a34986eac959a62abc9544d8a7b9f77c5c001e03d8"
+    },
+    {
+      "source_id": "fixture.image.print-page002",
+      "pixel_width": 100,
+      "pixel_height": 100,
+      "image_stream_sha256": "fdcae1699d6d5291dab9e205e656d7193597913e39792a606a59dab67e600953"
+    }
+  ]
+}
