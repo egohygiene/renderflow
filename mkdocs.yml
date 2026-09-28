@@ -68,6 +68,7 @@ nav:
       - Configuration: user-guide/configuration.md
       - Spec v2 Reference: user-guide/spec-v2-reference.md
       - Ordered Collections: user-guide/ordered-collections.md
+      - Print-interior PDF: user-guide/print-interior-pdf.md
       - Supported Formats: user-guide/supported-formats.md
       - Tool Registry: user-guide/tool-registry.md
       - Adapter Ecosystem: user-guide/adapter-ecosystem.md

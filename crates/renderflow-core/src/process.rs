@@ -312,6 +312,7 @@ pub struct ProcessExpectedOutput {
     kind: ExpectedOutputKind,
     require_non_empty: bool,
     require_change: bool,
+    max_bytes: Option<u64>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -328,6 +329,7 @@ impl ProcessExpectedOutput {
             kind: ExpectedOutputKind::Any,
             require_non_empty: false,
             require_change: false,
+            max_bytes: None,
         }
     }
 
@@ -337,6 +339,7 @@ impl ProcessExpectedOutput {
             kind: ExpectedOutputKind::File,
             require_non_empty: false,
             require_change: false,
+            max_bytes: None,
         }
     }
 
@@ -346,6 +349,7 @@ impl ProcessExpectedOutput {
             kind: ExpectedOutputKind::Directory,
             require_non_empty: false,
             require_change: false,
+            max_bytes: None,
         }
     }
 
@@ -356,6 +360,13 @@ impl ProcessExpectedOutput {
 
     pub fn require_change(mut self) -> Self {
         self.require_change = true;
+        self
+    }
+
+    /// Stop a command whose declared output grows beyond this file-size bound.
+    /// Polled while the process is running, then checked once more after exit.
+    pub fn max_bytes(mut self, limit: u64) -> Self {
+        self.max_bytes = Some(limit);
         self
     }
 
@@ -680,6 +691,18 @@ impl ProcessExecutor {
         };
 
         let termination = loop {
+            if request.expected_outputs.iter().any(|expected| {
+                expected.max_bytes.is_some_and(|limit| {
+                    fs::metadata(&expected.path).is_ok_and(|metadata| metadata.len() > limit)
+                })
+            }) {
+                terminate_process_tree(&mut child, request.tree_mode).map_err(|error| {
+                    ProcessError::Io(redactor.redact(&format!(
+                        "failed to terminate process after output limit: {error}"
+                    )))
+                })?;
+                break ProcessTermination::OutputLimitExceeded;
+            }
             if request
                 .cancellation
                 .as_ref()
@@ -848,6 +871,7 @@ pub enum ProcessTermination {
     Signaled,
     TimedOut,
     Cancelled,
+    OutputLimitExceeded,
 }
 
 impl ProcessTermination {
@@ -987,6 +1011,12 @@ impl ProcessResult {
             }
             ProcessTermination::Cancelled => {
                 format!("Command `{}` was cancelled", self.command_display)
+            }
+            ProcessTermination::OutputLimitExceeded => {
+                format!(
+                    "Command `{}` exceeded its declared output byte limit",
+                    self.command_display
+                )
             }
         };
 
@@ -1137,6 +1167,15 @@ impl ProcessExpectedOutput {
         if self.require_non_empty && after.is_file && after.len == Some(0) {
             return Some(format!(
                 "expected output '{}' is empty",
+                self.path.display()
+            ));
+        }
+        if self
+            .max_bytes
+            .is_some_and(|limit| after.len.is_some_and(|len| len > limit))
+        {
+            return Some(format!(
+                "expected output '{}' exceeded its declared byte limit",
                 self.path.display()
             ));
         }
@@ -1501,6 +1540,32 @@ mod tests {
             )
             .unwrap();
         assert_eq!(result.termination(), ProcessTermination::TimedOut);
+        assert!(started.elapsed() < Duration::from_secs(2));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn declared_output_limit_terminates_process_before_timeout() {
+        let directory = tempfile::tempdir().unwrap();
+        let output = directory.path().join("oversized.bin");
+        let started = Instant::now();
+        let result = ProcessExecutor::new()
+            .execute(
+                ProcessRequest::shell("sh")
+                    .args([
+                        "-c".to_string(),
+                        "printf '%0500d' 1 > \"$1\"; sleep 5".to_string(),
+                        "sh".to_string(),
+                        output.display().to_string(),
+                    ])
+                    .expect_output(ProcessExpectedOutput::file(&output).max_bytes(128))
+                    .timeout(Duration::from_secs(3)),
+            )
+            .unwrap();
+        assert_eq!(
+            result.termination(),
+            ProcessTermination::OutputLimitExceeded
+        );
         assert!(started.elapsed() < Duration::from_secs(2));
     }
 

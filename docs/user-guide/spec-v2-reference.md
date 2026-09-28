@@ -101,6 +101,7 @@ Spec v2 describes source intent, derivative selection, execution policy, and det
 | `minimum_fidelity` | `number` / `null` | no | — |
 | `network` | `deny` / `allow` | no | `"deny"` |
 | `optimization` | `speed` / `quality` / `balanced` / `pareto` | no | `"balanced"` |
+| `print_pdf_interior` | `object` | no | — |
 | `publication_policy` | `string` / `null` | no | — |
 | `redaction_policy` | `string` / `null` | no | — |
 | `reject_loss_classes` | `array` | no | `[]` |
@@ -110,6 +111,21 @@ Spec v2 describes source intent, derivative selection, execution policy, and det
 | `tools` | `allowDeny` | no | — |
 | `transforms` | `allowDeny` | no | — |
 | `validation` | `validation` | no | — |
+
+## Print-interior PDF policy
+
+| Field | Type | Required | Default |
+| --- | --- | --- | --- |
+| `box_policy` | `"media_bleed_trim_inset"` | yes | — |
+| `color_policy` | `"preserve_rgb_gray"` | yes | — |
+| `executable` | `string` | yes | — |
+| `max_input_bytes` | `integer` | yes | — |
+| `max_output_bytes` | `integer` | yes | — |
+| `max_pages` | `integer` | yes | — |
+| `provider_version` | `"0.6.3"` | yes | — |
+| `rotation` | `"none"` | yes | — |
+| `scaling` | `"fit"` | yes | — |
+| `timeout_seconds` | `integer` | yes | — |
 
 ## Output layout
 

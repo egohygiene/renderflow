@@ -505,6 +505,50 @@ pub struct ExecutionPolicy {
     /// Named hygiene policy applied to the complete selected publication bundle.
     #[serde(default)]
     pub hygiene_policy: Option<String>,
+    /// Exact, bounded print-interior route for an ordered PNG/JPEG collection.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub print_pdf_interior: Option<PrintPdfInteriorPolicy>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PrintPdfInteriorPolicy {
+    pub executable: String,
+    pub provider_version: String,
+    pub box_policy: String,
+    pub rotation: String,
+    pub scaling: String,
+    pub color_policy: String,
+    pub max_pages: usize,
+    pub max_input_bytes: u64,
+    pub max_output_bytes: u64,
+    pub timeout_seconds: u64,
+}
+
+impl PrintPdfInteriorPolicy {
+    pub fn validate(&self) -> Result<()> {
+        if self.executable.trim().is_empty() || self.executable.contains('\0') {
+            anyhow::bail!("print_pdf.provider: executable must name a local img2pdf command");
+        }
+        if self.provider_version != "0.6.3" {
+            anyhow::bail!("print_pdf.provider: the proven route requires img2pdf version 0.6.3");
+        }
+        if self.box_policy != "media_bleed_trim_inset"
+            || self.rotation != "none"
+            || self.scaling != "fit"
+            || self.color_policy != "preserve_rgb_gray"
+        {
+            anyhow::bail!("print_pdf.policy: supported route requires box_policy=media_bleed_trim_inset, rotation=none, scaling=fit, color_policy=preserve_rgb_gray");
+        }
+        if !(1..=1000).contains(&self.max_pages)
+            || !(1..=536_870_912).contains(&self.max_input_bytes)
+            || !(1..=536_870_912).contains(&self.max_output_bytes)
+            || !(1..=3600).contains(&self.timeout_seconds)
+        {
+            anyhow::bail!("print_pdf.bounds: max_pages (1..1000), input/output bytes (1..512 MiB), and timeout_seconds (1..3600) are required");
+        }
+        Ok(())
+    }
 }
 
 impl Default for ExecutionPolicy {
@@ -526,6 +570,7 @@ impl Default for ExecutionPolicy {
             publication_policy: None,
             redaction_policy: None,
             hygiene_policy: None,
+            print_pdf_interior: None,
         }
     }
 }
@@ -647,6 +692,15 @@ impl SpecV2 {
                 "schema.unsupported",
                 format!("expected schema '{SPEC_V2_ID}', got '{}'", self.schema),
             ));
+        }
+        if let Some(print) = &self.execution.print_pdf_interior {
+            if let Err(error) = print.validate() {
+                diagnostics.push(SpecDiagnostic::new(
+                    "$.execution.print_pdf_interior",
+                    "print_pdf.policy.invalid",
+                    error.to_string(),
+                ));
+            }
         }
 
         if self.sources.is_empty() {
@@ -1726,6 +1780,22 @@ pub fn json_schema() -> Value {
                     "allow_unavailable": {"type": "boolean", "default": false}
                 }
             },
+            "printPdfInterior": {
+                "type": "object", "additionalProperties": false,
+                "required": ["executable", "provider_version", "box_policy", "rotation", "scaling", "color_policy", "max_pages", "max_input_bytes", "max_output_bytes", "timeout_seconds"],
+                "properties": {
+                    "executable": {"type": "string", "minLength": 1},
+                    "provider_version": {"const": "0.6.3"},
+                    "box_policy": {"const": "media_bleed_trim_inset"},
+                    "rotation": {"const": "none"},
+                    "scaling": {"const": "fit"},
+                    "color_policy": {"const": "preserve_rgb_gray"},
+                    "max_pages": {"type": "integer", "minimum": 1, "maximum": 1000},
+                    "max_input_bytes": {"type": "integer", "minimum": 1, "maximum": 536870912},
+                    "max_output_bytes": {"type": "integer", "minimum": 1, "maximum": 536870912},
+                    "timeout_seconds": {"type": "integer", "minimum": 1, "maximum": 3600}
+                }
+            },
             "executionPolicy": {
                 "type": "object",
                 "additionalProperties": false,
@@ -1751,6 +1821,7 @@ pub fn json_schema() -> Value {
                     "publication_policy": {"type": ["string", "null"]},
                     "redaction_policy": {"type": ["string", "null"]},
                     "hygiene_policy": {"anyOf": [{"$ref": "#/$defs/stableId"}, {"type": "null"}]}
+                    ,"print_pdf_interior": {"anyOf": [{"$ref": "#/$defs/printPdfInterior"}, {"type": "null"}]}
                 }
             },
             "outputLayout": {

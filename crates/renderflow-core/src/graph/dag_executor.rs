@@ -156,6 +156,13 @@ fn failed_step(
 ) -> StepEvidence {
     let message = redact_sensitive_text(&format!("{error:#}"));
     let step_id = format!("step:{}-to-{}", edge.from, edge.to);
+    let provider_failure = error
+        .chain()
+        .find_map(|cause| cause.downcast_ref::<crate::print_pdf::PrintPdfProviderError>());
+    let inspection_failure = error.chain().find_map(|cause| {
+        cause.downcast_ref::<crate::print_pdf_inspect::PrintPdfInspectionError>()
+    });
+    let cancelled = provider_failure.is_some_and(|failure| failure.cancelled);
     StepEvidence {
         step_id: step_id.clone(),
         transform: edge_identity(edge),
@@ -175,9 +182,15 @@ fn failed_step(
         started_at_unix_ms,
         completed_at_unix_ms: unix_time_ms(),
         duration_ms,
-        state: StepState::Failed,
+        state: if cancelled {
+            StepState::Cancelled
+        } else {
+            StepState::Failed
+        },
         cache: CacheDisposition::Miss,
-        validation: if message.contains("returned artifact format") {
+        validation: if cancelled {
+            ValidationState::Skipped
+        } else if message.contains("returned artifact format") {
             ValidationState::Invalid
         } else {
             ValidationState::Unavailable
@@ -185,8 +198,16 @@ fn failed_step(
         fidelity: edge_fidelity(edge),
         skip_reason: None,
         diagnostics: vec![ExecutionDiagnostic {
-            severity: DiagnosticSeverity::FatalFailure,
-            code: "execution.transform_failed".to_string(),
+            severity: if cancelled {
+                DiagnosticSeverity::Cancelled
+            } else {
+                DiagnosticSeverity::FatalFailure
+            },
+            code: provider_failure
+                .map(|failure| failure.code)
+                .or_else(|| inspection_failure.map(|failure| failure.code))
+                .unwrap_or("execution.transform_failed")
+                .to_string(),
             message,
             step_id: Some(step_id),
         }],
@@ -398,6 +419,17 @@ impl DagExecutor {
             }
         }
         Ok(self)
+    }
+
+    /// Register a collection-input transform for the `from → to` edge.
+    pub fn register_collection_artifact(
+        &mut self,
+        from: Format,
+        to: Format,
+        transform: Arc<dyn ArtifactCollectionTransform>,
+    ) -> &mut Self {
+        self.collection_transforms.insert((from, to), transform);
+        self
     }
 
     /// Register a collection-input transform for the `from → to` edge.
@@ -672,16 +704,9 @@ impl DagExecutor {
                             started_at_unix_ms,
                             duration_ms,
                         );
-                        diagnostics.push(ExecutionDiagnostic {
-                            severity: DiagnosticSeverity::FatalFailure,
-                            code: "execution.transform_failed".to_string(),
-                            message: step
-                                .diagnostics
-                                .first()
-                                .map(|diagnostic| diagnostic.message.clone())
-                                .unwrap_or_else(|| "Transform failed".to_string()),
-                            step_id: Some(step.step_id.clone()),
-                        });
+                        if let Some(diagnostic) = step.diagnostics.first() {
+                            diagnostics.push(diagnostic.clone());
+                        }
                         steps.push(step);
                     }
                 }

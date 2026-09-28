@@ -82,6 +82,7 @@ def main() -> None:
     )
     lines.extend(render_properties("Target selection", definitions["targetSelection"]))
     lines.extend(render_properties("Execution policy", definitions["executionPolicy"]))
+    lines.extend(render_properties("Print-interior PDF policy", definitions["printPdfInterior"]))
     lines.extend(render_properties("Output layout", definitions["outputLayout"]))
     lines.extend(
         [

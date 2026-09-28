@@ -223,9 +223,32 @@ impl ToolVersionRequirement {
 struct NumericVersion([u64; 3]);
 
 fn parse_numeric_version(text: &str) -> Option<NumericVersion> {
-    for token in text.split(|character: char| !(character.is_ascii_digit() || character == '.')) {
+    let bytes = text.as_bytes();
+    for (start, byte) in bytes.iter().enumerate() {
+        if !byte.is_ascii_digit() {
+            continue;
+        }
+        // A number embedded in a product name is not its version: the `2` in
+        // `img2pdf 0.6.3` used to masquerade as version 2.0.0. Accept a `v`
+        // prefix only when that prefix begins a separate token.
+        if start > 0 {
+            let previous = bytes[start - 1];
+            let prefixed = matches!(previous, b'v' | b'V')
+                && (start == 1
+                    || !(bytes[start - 2].is_ascii_alphanumeric() || bytes[start - 2] == b'_'));
+            if !prefixed
+                && (previous.is_ascii_alphanumeric() || previous == b'_' || previous == b'.')
+            {
+                continue;
+            }
+        }
+        let end = bytes[start..]
+            .iter()
+            .position(|byte| !(byte.is_ascii_digit() || *byte == b'.'))
+            .map_or(bytes.len(), |length| start + length);
+        let token = &text[start..end];
         let token = token.trim_matches('.');
-        if token.is_empty() || !token.chars().next().is_some_and(|c| c.is_ascii_digit()) {
+        if token.is_empty() {
             continue;
         }
         let mut parts = [0_u64; 3];
@@ -1283,6 +1306,46 @@ mod tests {
             inventory.tools[0].status,
             ToolAvailabilityStatus::UnsupportedVersion
         );
+    }
+
+    #[test]
+    fn version_parser_skips_digits_embedded_in_executable_names() {
+        assert_eq!(
+            parse_numeric_version("img2pdf 0.6.3"),
+            Some(NumericVersion([0, 6, 3]))
+        );
+        assert_eq!(parse_numeric_version("img2pdf"), None);
+        assert_eq!(
+            parse_numeric_version("ffmpeg version 7.1.1 Copyright"),
+            Some(NumericVersion([7, 1, 1]))
+        );
+        assert_eq!(
+            parse_numeric_version("tool v1.94.0"),
+            Some(NumericVersion([1, 94, 0]))
+        );
+        assert_eq!(
+            parse_numeric_version("tool-v1.2.3"),
+            Some(NumericVersion([1, 2, 3]))
+        );
+    }
+
+    #[test]
+    fn img2pdf_observed_version_satisfies_exact_patch_requirement() {
+        let mut descriptor = test_descriptor("tool.img2pdf", "img2pdf");
+        descriptor.version.min_inclusive = Some("0.6.3".to_string());
+        descriptor.version.max_exclusive = Some("0.6.4".to_string());
+        let mut registry = ToolRegistry::new();
+        registry.register(descriptor).unwrap();
+        let probe = FakeProbe::default().with(
+            "img2pdf",
+            ProcessProbeStatus::Available,
+            Some("img2pdf 0.6.3"),
+        );
+        let inventory =
+            registry.assess_all_with(&probe, &ToolRuntimeContext::for_platform("linux", "x86_64"));
+        let tool = inventory.get("tool.img2pdf").unwrap();
+        assert_eq!(tool.status, ToolAvailabilityStatus::Available);
+        assert_eq!(tool.normalized_version.as_deref(), Some("0.6.3"));
     }
 
     #[test]

@@ -165,6 +165,16 @@
             "pareto"
           ]
         },
+        "print_pdf_interior": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/printPdfInterior"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "publication_policy": {
           "type": [
             "string",
@@ -345,6 +355,63 @@
       "required": [
         "width",
         "height"
+      ],
+      "type": "object"
+    },
+    "printPdfInterior": {
+      "additionalProperties": false,
+      "properties": {
+        "box_policy": {
+          "const": "media_bleed_trim_inset"
+        },
+        "color_policy": {
+          "const": "preserve_rgb_gray"
+        },
+        "executable": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "max_input_bytes": {
+          "maximum": 536870912,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "max_output_bytes": {
+          "maximum": 536870912,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "max_pages": {
+          "maximum": 1000,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "provider_version": {
+          "const": "0.6.3"
+        },
+        "rotation": {
+          "const": "none"
+        },
+        "scaling": {
+          "const": "fit"
+        },
+        "timeout_seconds": {
+          "maximum": 3600,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "executable",
+        "provider_version",
+        "box_policy",
+        "rotation",
+        "scaling",
+        "color_policy",
+        "max_pages",
+        "max_input_bytes",
+        "max_output_bytes",
+        "timeout_seconds"
       ],
       "type": "object"
     },

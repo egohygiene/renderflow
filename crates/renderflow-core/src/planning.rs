@@ -22,28 +22,32 @@ use crate::checkpoint::CheckpointContext;
 use crate::evidence::{
     redact_sensitive_text, run_id, sha256_serialized, unix_time_ms, ArtifactEvidence,
     ArtifactManifest, ArtifactRole, DiagnosticSeverity, ExecutionDiagnostic, FidelityDeclaration,
-    ProducerEvidence, RunManifest, RunState, StepEvidence, StepState, ValidationState,
-    ARTIFACT_MANIFEST_SCHEMA_V1, RUN_MANIFEST_SCHEMA_V1,
+    ProducerEvidence, RunManifest, RunState, StepEvidence, StepState, ValidationDiagnostic,
+    ValidationState, ValidatorEvidence, ARTIFACT_MANIFEST_SCHEMA_V1, RUN_MANIFEST_SCHEMA_V1,
 };
 use crate::graph::capability::{FormatCapabilityRegistry, FormatFamily};
 use crate::graph::{
     ArtifactForest, DagExecutionReport, DagExecutor, DiagnosticLevel, ExecutionPlan, ForestBranch,
-    ForestBranchState, Format, MultiTargetDag, PlanCollectionMember, PlanSourceArtifact,
+    ForestBranchState, Format, InputKind, MultiTargetDag, PlanCollectionMember, PlanSourceArtifact,
     PlanSourceCollection, TransformEdge, TransformGraph,
 };
 use crate::hygiene::{HygieneEngine, HygieneEvidence};
 use crate::intake::{IntakeEngine, IntakeReport, IntakeRequest, ResolvedArtifactProfile};
 use crate::optimization::OptimizationMode;
+use crate::print_pdf::{PrintInteriorPdfTransform, PRINT_PDF_CAPABILITY, PRINT_PDF_PROVIDER};
+use crate::print_pdf_image::{inspect_print_image, PrintImageColorSpace};
+use crate::print_pdf_inspect::ExpectedPrintPage;
 use crate::publication::write_release_metadata;
 use crate::spec::{
     load_spec, AiPolicy, CollisionPolicy, DerivativeProfile, HygienePolicy, IntermediatePolicy,
-    RejectedLossClass, SelectorSet, SourceKind, SourceSpec, SourceSpecVersion, SpecV2,
-    TargetRequirement, TargetSelection, TargetSpec, ValidationFailureMode,
+    PrintPdfInteriorPolicy, RejectedLossClass, SelectorSet, SourceKind, SourceSpec,
+    SourceSpecVersion, SpecV2, TargetRequirement, TargetSelection, TargetSpec,
+    ValidationFailureMode,
 };
 use crate::super_resolution::{select_upscayl_variants, UpscaylModelCatalog};
 use crate::toolchain::{
-    transform_capability_id, CapabilityId, ToolDeterminism, ToolId, ToolLocality, ToolRegistry,
-    ToolRuntimeContext, ToolchainSnapshot,
+    transform_capability_id, CapabilityId, ToolDeterminism, ToolDiscovery, ToolFidelity, ToolId,
+    ToolLocality, ToolRegistry, ToolRuntimeContext, ToolVersionRequirement, ToolchainSnapshot,
 };
 use crate::transforms::yaml_loader::build_graph_executor_and_tools_from_yaml;
 use crate::validation::{ArtifactValidationOutcome, ValidationRegistry};
@@ -166,6 +170,7 @@ pub struct ResolvedExecution {
     source_path: PathBuf,
     source_format: Format,
     source_members: Vec<ResolvedSourceMember>,
+    print_pages: Option<Vec<ExpectedPrintPage>>,
     targets: Vec<ResolvedTarget>,
     dag: MultiTargetDag,
     executor: DagExecutor,
@@ -223,7 +228,9 @@ impl ResolvedExecution {
         self
     }
 
-    pub(crate) fn with_cancellation_flag(mut self, cancellation: Arc<AtomicBool>) -> Self {
+    /// Attach a cooperative cancellation flag to this resolved execution.
+    /// Providers that support cancellation receive the same shared flag.
+    pub fn with_cancellation_flag(mut self, cancellation: Arc<AtomicBool>) -> Self {
         self.cancellation = Some(cancellation);
         self
     }
@@ -408,6 +415,7 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
     let source_format = source_format.context("source collection has no members")?;
     let source_path = source_members[0].path.clone();
     let source_intake = &source_members[0].intake;
+    let print_pages = resolve_print_pages(&spec, collection, source_format, &source_members)?;
 
     let (mut graph, mut executor, mut tool_registry) =
         if let Some(transforms_path) = &spec.transforms {
@@ -431,6 +439,9 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
         };
 
     register_builtin_strategy_edges(&mut graph, &mut tool_registry)?;
+    if let Some(policy) = &spec.execution.print_pdf_interior {
+        register_print_pdf_edge(&mut graph, &mut tool_registry, source_format, policy)?;
+    }
     let policy_graph = apply_execution_policy(&graph, &tool_registry, &spec);
     let policy_graph = if collection {
         policy_graph
@@ -443,6 +454,14 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
         anyhow::bail!("target selection resolved to no executable artifact formats");
     }
     validate_publication_target_roles(&spec, &requested_targets)?;
+    if print_pages.is_some()
+        && (requested_targets.len() != 1
+            || requested_targets[0].format != Format::Pdf
+            || requested_targets[0].role.as_deref() != Some("interior")
+            || requested_targets[0].requirement != TargetRequirement::Required)
+    {
+        anyhow::bail!("print_pdf.target: exactly one required PDF target with role 'interior' must be selected");
+    }
 
     let provider_inventory = tool_registry.assess_ids_current(policy_graph.provider_ids());
     let available_graph =
@@ -495,6 +514,14 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
             || targets.iter().any(|target| target.format == source_format))
     {
         anyhow::bail!("collection.transform.unsupported: a collection requires a registered collection-input transform and a distinct output format");
+    }
+    if print_pages.is_some()
+        && (dag.all_edges().len() != 1
+            || dag.all_edges()[0].capability_id.as_deref() != Some(PRINT_PDF_CAPABILITY))
+    {
+        anyhow::bail!(
+            "print_pdf.route: selected plan must contain only the exact print-interior capability"
+        );
     }
 
     register_builtin_strategy_executors(
@@ -559,6 +586,9 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
 
     let selected_ids = selected_provider_ids(&dag);
     let selected_inventory = tool_registry.assess_ids_current(selected_ids.iter());
+    if let Some(policy) = &spec.execution.print_pdf_interior {
+        validate_print_provider_version(&selected_inventory, policy)?;
+    }
     for blocked in selected_inventory
         .tools
         .iter()
@@ -605,6 +635,7 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
         source_path,
         source_format,
         source_members,
+        print_pages,
         targets,
         dag,
         executor,
@@ -802,7 +833,29 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
     }
     let source_artifact = source_artifacts[0].clone();
 
-    let executor = std::mem::take(&mut resolved.executor);
+    let mut executor = std::mem::take(&mut resolved.executor);
+    if let Some(pages) = &resolved.print_pages {
+        let policy = resolved
+            .spec
+            .execution
+            .print_pdf_interior
+            .clone()
+            .context("print_pdf.policy: policy missing from planned print execution")?;
+        let transform = PrintInteriorPdfTransform::new(
+            policy,
+            pages.clone(),
+            source_artifacts
+                .iter()
+                .map(|artifact| artifact.digest().to_string())
+                .collect(),
+            resolved.cancellation.clone(),
+        )?;
+        executor.register_collection_artifact(
+            resolved.source_format,
+            Format::Pdf,
+            Arc::new(transform),
+        );
+    }
     let checkpoint_context = CheckpointContext {
         execution_plan_digest: sha256_serialized(&resolved.plan)?,
         source_spec_digest: sha256_serialized(&resolved.spec)?,
@@ -979,7 +1032,21 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
             continue;
         };
 
-        let outcome = if resolved.spec.execution.validation.required {
+        let mut outcome = if resolved.print_pages.is_some() {
+            if resolved.spec.execution.validation.validators.is_empty() {
+                ArtifactValidationOutcome {
+                    state: ValidationState::Valid,
+                    validators: Vec::new(),
+                }
+            } else {
+                validation_registry.validate_in_store(
+                    artifact,
+                    target.format,
+                    &resolved.spec.execution.validation.validators,
+                    &store,
+                )
+            }
+        } else if resolved.spec.execution.validation.required {
             validation_registry.validate_in_store(
                 artifact,
                 target.format,
@@ -992,6 +1059,38 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
                 validators: Vec::new(),
             }
         };
+        if resolved.print_pages.is_some() {
+            let expected_sources = source_artifacts
+                .iter()
+                .map(|source| source.id())
+                .collect::<Vec<_>>();
+            let valid = artifact
+                .metadata()
+                .contains_key("renderflow.print_pdf.inspection")
+                && artifact.sources().iter().collect::<Vec<_>>() == expected_sources;
+            let state = if valid {
+                ValidationState::Valid
+            } else {
+                ValidationState::Invalid
+            };
+            outcome.validators.push(ValidatorEvidence {
+                validator_id: "validator.print_pdf.interior".to_string(),
+                validator_version: env!("CARGO_PKG_VERSION").to_string(),
+                provider: "renderflow.core".to_string(),
+                state,
+                diagnostics: if valid {
+                    Vec::new()
+                } else {
+                    vec![ValidationDiagnostic {
+                        code: "print_pdf.validation.evidence".to_string(),
+                        message: "PDF inspection or ordered source lineage is missing".to_string(),
+                    }]
+                },
+            });
+            if !valid {
+                outcome.state = ValidationState::Invalid;
+            }
+        }
         let step_id = producing_step_id(artifact, &report.steps);
         if let Some(step) = report.steps.iter_mut().find(|step| {
             step.output_artifacts
@@ -1909,6 +2008,189 @@ fn intake_source(source: &SourceSpec, path: &Path, store: &ArtifactStore) -> Res
         .with_context(|| format!("source.intake.failed: '{}'", source.id))
 }
 
+fn resolve_print_pages(
+    spec: &SpecV2,
+    collection: bool,
+    source_format: Format,
+    members: &[ResolvedSourceMember],
+) -> Result<Option<Vec<ExpectedPrintPage>>> {
+    let Some(policy) = &spec.execution.print_pdf_interior else {
+        return Ok(None);
+    };
+    policy.validate()?;
+    if !collection || !matches!(source_format, Format::Png | Format::Jpeg) {
+        anyhow::bail!("print_pdf.input.format: print interior requires a homogeneous ordered PNG or JPEG collection");
+    }
+    if spec.transforms.is_some() || spec.execution.hygiene_policy.is_some() {
+        anyhow::bail!("print_pdf.policy: custom transforms and post-render hygiene are unsupported for this exact route");
+    }
+    if members.len() > policy.max_pages {
+        anyhow::bail!("print_pdf.bounds: collection exceeds max_pages");
+    }
+    let input_bytes = members.iter().try_fold(0_u64, |sum, member| {
+        sum.checked_add(member.intake.source.size_bytes())
+            .context("print_pdf.bounds: input byte count overflow")
+    })?;
+    if input_bytes > policy.max_input_bytes {
+        anyhow::bail!("print_pdf.bounds: collection exceeds max_input_bytes");
+    }
+    let mut pages = Vec::with_capacity(members.len());
+    let mut common_geometry = None;
+    for member in members {
+        let geometry = member.spec.geometry.as_ref().with_context(|| {
+            format!(
+                "print_pdf.geometry.missing: '{}' requires explicit trim size and bleed",
+                member.spec.id
+            )
+        })?;
+        let bleed = geometry.bleed.with_context(|| {
+            format!(
+                "print_pdf.geometry.bleed: '{}' requires explicit bleed, including zero",
+                member.spec.id
+            )
+        })?;
+        if geometry.unit != "mm"
+            || !geometry.width.is_finite()
+            || !geometry.height.is_finite()
+            || !bleed.is_finite()
+            || geometry.width <= 0.0
+            || geometry.height <= 0.0
+            || bleed < 0.0
+            || geometry.margin.is_some()
+            || geometry.safe_area.is_some()
+        {
+            anyhow::bail!("print_pdf.geometry.unsupported: '{}' requires positive trim width/height in mm, nonnegative bleed, and no undeclared margin/safe-area policy", member.spec.id);
+        }
+        if let Some(common) = &common_geometry {
+            if common != geometry {
+                anyhow::bail!("print_pdf.geometry.mixed: current img2pdf route requires uniform page geometry");
+            }
+        } else {
+            common_geometry = Some(geometry.clone());
+        }
+        let image = inspect_print_image(&member.path, source_format).with_context(|| {
+            format!(
+                "print_pdf.image.unreadable: '{}' did not pass image preflight",
+                member.spec.id
+            )
+        })?;
+        let media_width_pt = (geometry.width + 2.0 * bleed) * 72.0 / 25.4;
+        let media_height_pt = (geometry.height + 2.0 * bleed) * 72.0 / 25.4;
+        if !media_width_pt.is_finite()
+            || !media_height_pt.is_finite()
+            || media_width_pt > 14_400.0
+            || media_height_pt > 14_400.0
+        {
+            anyhow::bail!("print_pdf.geometry.bounds: page exceeds PDF media bounds");
+        }
+        let scaled_width_pt =
+            media_height_pt * f64::from(image.width_px) / f64::from(image.height_px);
+        if (media_width_pt - scaled_width_pt).abs() > 0.02 {
+            anyhow::bail!("print_pdf.scaling.aspect: '{}' aspect ratio would leave a border or require crop/stretch", member.spec.id);
+        }
+        pages.push(ExpectedPrintPage {
+            media_width_pt,
+            media_height_pt,
+            trim_inset_pt: bleed * 72.0 / 25.4,
+            pixel_width: image.width_px,
+            pixel_height: image.height_px,
+            rotation: 0,
+            color_space: match image.color_space {
+                PrintImageColorSpace::Rgb => "DeviceRGB".to_string(),
+                PrintImageColorSpace::Gray => "DeviceGray".to_string(),
+            },
+            image_filter: match source_format {
+                Format::Png => "FlateDecode".to_string(),
+                Format::Jpeg => "DCTDecode".to_string(),
+                _ => unreachable!("source format checked above"),
+            },
+            image_stream_sha256: image.image_stream_sha256,
+        });
+    }
+    if let Some(publication) = &spec.publication {
+        let geometry = common_geometry
+            .as_ref()
+            .context("print_pdf.geometry.missing")?;
+        if &publication.geometry != geometry
+            || publication
+                .color_policy
+                .as_deref()
+                .is_some_and(|color| color != policy.color_policy)
+        {
+            anyhow::bail!("print_pdf.publication.constraints: publication geometry or color policy differs from the selected interior");
+        }
+        if let Some(role) = publication.output_roles.get("interior") {
+            if role.format != "pdf"
+                || role
+                    .geometry
+                    .as_ref()
+                    .is_some_and(|declared| declared != geometry)
+                || role
+                    .color_policy
+                    .as_deref()
+                    .is_some_and(|color| color != policy.color_policy)
+                || role.require_embedded_fonts
+                || !role.validators.is_empty()
+            {
+                anyhow::bail!("print_pdf.publication.constraints: unsupported or inconsistent interior role constraint");
+            }
+            if let Some(dpi) = role.minimum_image_dpi {
+                let media_width_in = pages[0].media_width_pt / 72.0;
+                let media_height_in = pages[0].media_height_pt / 72.0;
+                if pages.iter().any(|page| {
+                    f64::from(page.pixel_width) / media_width_in < f64::from(dpi)
+                        || f64::from(page.pixel_height) / media_height_in < f64::from(dpi)
+                }) {
+                    anyhow::bail!("print_pdf.publication.dpi: page is below minimum_image_dpi");
+                }
+            }
+        }
+    }
+    Ok(Some(pages))
+}
+
+fn register_print_pdf_edge(
+    graph: &mut TransformGraph,
+    tools: &mut ToolRegistry,
+    source_format: Format,
+    policy: &PrintPdfInteriorPolicy,
+) -> Result<()> {
+    let mut descriptor = tools
+        .get(PRINT_PDF_PROVIDER)
+        .context("print_pdf.provider: img2pdf tool descriptor missing")?
+        .clone();
+    let patch = policy
+        .provider_version
+        .rsplit('.')
+        .next()
+        .context("print_pdf.provider: invalid version")?
+        .parse::<u64>()?
+        .checked_add(1)
+        .context("print_pdf.provider: patch version overflow")?;
+    let prefix = policy.provider_version.rsplit_once('.').unwrap().0;
+    descriptor.discovery = ToolDiscovery::Executable {
+        candidates: vec![policy.executable.clone()],
+        version_args: vec!["--version".to_string()],
+    };
+    descriptor.version = ToolVersionRequirement {
+        min_inclusive: Some(policy.provider_version.clone()),
+        max_exclusive: Some(format!("{prefix}.{patch}")),
+    };
+    descriptor.determinism = ToolDeterminism::Deterministic;
+    descriptor.locality = ToolLocality::Local;
+    descriptor.fidelity = ToolFidelity::Lossless;
+    tools.register(descriptor)?;
+    let capability = CapabilityId::new(PRINT_PDF_CAPABILITY)?;
+    tools.add_capability(&ToolId::new(PRINT_PDF_PROVIDER)?, capability)?;
+    graph.add_transform(
+        TransformEdge::with_input_kind(source_format, Format::Pdf, 0.1, 1.0, InputKind::Collection)
+            .with_provider(PRINT_PDF_PROVIDER, PRINT_PDF_CAPABILITY)
+            .with_evidence("transform_id", PRINT_PDF_CAPABILITY)
+            .with_evidence("print_policy_sha256", sha256_serialized(policy)?.value),
+    );
+    Ok(())
+}
+
 fn resolve_path_relative_to_config(config_path: &Path, value: &str) -> PathBuf {
     let path = PathBuf::from(value);
     if path.is_absolute() {
@@ -2623,8 +2905,14 @@ fn selected_provider_ids(dag: &MultiTargetDag) -> BTreeSet<String> {
 }
 
 fn preflight_selected_providers(resolved: &ResolvedExecution) -> Result<()> {
+    if resolved.print_pages.is_some() && resolved.plan.toolchain.is_none() {
+        anyhow::bail!("print_pdf.provider.unavailable: print interior was planned without an observed compatible img2pdf toolchain; re-plan when it is installed");
+    }
     let ids = selected_provider_ids(&resolved.dag);
     let inventory = resolved.tool_registry.assess_ids_current(ids.iter());
+    if let Some(policy) = &resolved.spec.execution.print_pdf_interior {
+        validate_print_provider_version(&inventory, policy)?;
+    }
     let blocked: Vec<String> = inventory
         .tools
         .iter()
@@ -2636,6 +2924,21 @@ fn preflight_selected_providers(resolved: &ResolvedExecution) -> Result<()> {
             "execution preflight failed before any transform ran:\n{}",
             blocked.join("\n")
         );
+    }
+    Ok(())
+}
+
+fn validate_print_provider_version(
+    inventory: &crate::toolchain::ToolInventory,
+    policy: &PrintPdfInteriorPolicy,
+) -> Result<()> {
+    if let Some(provider) = inventory.get(PRINT_PDF_PROVIDER) {
+        let expected_line = format!("img2pdf {}", policy.provider_version);
+        if provider.is_available()
+            && provider.version_line.as_deref() != Some(expected_line.as_str())
+        {
+            anyhow::bail!("print_pdf.provider.version: observed img2pdf version line does not exactly match the proven 0.6.3 release");
+        }
     }
     Ok(())
 }
