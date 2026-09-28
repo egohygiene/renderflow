@@ -144,6 +144,7 @@ nav:
       - font: cli-reference/font.md
       - tools & capabilities: cli-reference/tools.md
       - publication: cli-reference/publication.md
+      - ebook: cli-reference/ebook.md
       - spec: cli-reference/spec.md
   - Transform Reference:
       - Overview: transform-reference/index.md

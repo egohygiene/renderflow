@@ -406,7 +406,10 @@ When `input_format` is omitted, Renderflow auto-detects the format from the file
 
 These document-source outputs are reflowable. The exact
 [fixed-layout EPUB route](docs/user-guide/fixed-layout-epub.md) uses an explicit,
-ordered PNG or JPEG collection with its own policy and publication metadata.
+ordered PNG or JPEG collection with its own bounded policy and publication
+metadata. `renderflow ebook inspect` checks the package structure and reports
+typed evidence; optional local EPUBCheck v5 supplies separate conformance
+evidence when available. SVG input and fixed-layout KEPUB are unsupported.
 
 Not every input → output combination is supported. For example, `epub` and `latex` inputs cannot currently be converted to `docx`. Renderflow reports a clear error when an unsupported combination is specified.
 

@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://renderflow.dev/schemas/renderflow-ebook-capabilities-v1.schema.json",
+  "title": "Renderflow e-book capabilities v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema", "epub_reflow_generation", "epub_fixed_layout_generation",
+    "kepub_reflow_generation", "kepub_fixed_layout_generation", "structural_inspection",
+    "page_list_evidence", "accessibility_evidence",
+    "retailer_acceptance_requires_provider_profile"
+  ],
+  "properties": {
+    "schema": { "const": "renderflow.ebook-capabilities/v1" },
+    "epub_reflow_generation": { "type": "boolean" },
+    "epub_fixed_layout_generation": { "type": "boolean" },
+    "kepub_reflow_generation": { "type": "boolean" },
+    "kepub_fixed_layout_generation": { "type": "boolean" },
+    "structural_inspection": { "type": "boolean" },
+    "page_list_evidence": { "type": "boolean" },
+    "accessibility_evidence": { "type": "boolean" },
+    "retailer_acceptance_requires_provider_profile": { "type": "boolean" },
+    "fixed_layout_epub_route": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capability", "provider_id", "source_formats", "target_format",
+        "ordered_collection_required", "homogeneous_local_sources_required",
+        "explicit_execution_policy_required", "page_progression_directions",
+        "spread_policies", "native_validation", "optional_epubcheck_v5"
+      ],
+      "properties": {
+        "capability": { "const": "ebook.generate.epub.fixed-layout" },
+        "provider_id": { "const": "tool.renderflow-epub" },
+        "source_formats": { "type": "array", "items": { "enum": ["png", "jpeg"] }, "minItems": 2, "uniqueItems": true },
+        "target_format": { "const": "epub" },
+        "ordered_collection_required": { "type": "boolean" },
+        "homogeneous_local_sources_required": { "type": "boolean" },
+        "explicit_execution_policy_required": { "type": "boolean" },
+        "page_progression_directions": { "type": "array", "items": { "enum": ["ltr", "rtl"] }, "minItems": 2, "uniqueItems": true },
+        "spread_policies": { "type": "array", "items": { "const": "none" }, "minItems": 1, "maxItems": 1 },
+        "native_validation": { "type": "boolean" },
+        "optional_epubcheck_v5": { "type": "boolean" }
+      }
+    }
+  }
+}

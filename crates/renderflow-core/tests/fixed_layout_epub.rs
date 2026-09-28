@@ -7,11 +7,15 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::{atomic::AtomicBool, Arc};
 
+use renderflow::ebook::{
+    inspect_ebook, inspect_ebook_with_manifest, EbookCapabilityContract, EbookDiagnosticSeverity,
+    EbookLayout, EbookProvenanceStatus,
+};
 use renderflow::evidence::{sha256_serialized, ArtifactRole, RunState, StepState};
 use renderflow::planning::{execute, resolve, CanonicalExecutionResult, PlanningRequest};
 use sha2::{Digest, Sha256};
 use tempfile::TempDir;
-use zip::{CompressionMethod, ZipArchive};
+use zip::{write::SimpleFileOptions, CompressionMethod, ZipArchive, ZipWriter};
 
 const PNG_FIRST: &[u8] = include_bytes!("fixtures/print-pdf/page-001.png");
 const PNG_SECOND: &[u8] = include_bytes!("fixtures/print-pdf/page-002.png");
@@ -137,6 +141,43 @@ fn published_epub(result: &CanonicalExecutionResult) -> &Path {
     let path = Path::new(epubs[0]);
     assert!(path.is_file(), "EPUB missing at {}", path.display());
     path
+}
+
+fn rewrite_member(members: &mut [(String, Vec<u8>)], name: &str, before: &str, after: &str) {
+    let content = members
+        .iter_mut()
+        .find(|(path, _)| path == name)
+        .unwrap_or_else(|| panic!("missing ZIP member {name}"));
+    let text = String::from_utf8(content.1.clone()).unwrap();
+    assert!(
+        text.contains(before),
+        "missing replacement marker in {name}: {before}"
+    );
+    content.1 = text.replacen(before, after, 1).into_bytes();
+}
+
+fn tampered_epub(
+    source: &Path,
+    destination: &Path,
+    change: impl FnOnce(&mut Vec<(String, Vec<u8>)>),
+) {
+    let mut original = ZipArchive::new(File::open(source).unwrap()).unwrap();
+    let mut members = Vec::new();
+    for index in 0..original.len() {
+        let mut entry = original.by_index(index).unwrap();
+        let name = entry.name().to_string();
+        let mut bytes = Vec::new();
+        entry.read_to_end(&mut bytes).unwrap();
+        members.push((name, bytes));
+    }
+    change(&mut members);
+    let mut archive = ZipWriter::new(File::create(destination).unwrap());
+    let options = SimpleFileOptions::default().compression_method(CompressionMethod::Stored);
+    for (name, bytes) in members {
+        archive.start_file(name, options).unwrap();
+        std::io::Write::write_all(&mut archive, &bytes).unwrap();
+    }
+    archive.finish().unwrap();
 }
 
 fn assert_publication_sidecars(result: &CanonicalExecutionResult, fixture: &Fixture) {
@@ -516,6 +557,395 @@ fn metadata_and_page_order_change_the_execution_plan_identity() {
         initial_digest, order_digest,
         "member order not bound to the plan"
     );
+}
+
+#[test]
+fn native_inspection_proves_generated_package_and_honest_capabilities() {
+    for (format, direction) in [("png", "ltr"), ("jpeg", "rtl")] {
+        let fixture = Fixture::new(format, direction);
+        let result = execute(
+            resolve(PlanningRequest::from_path(&fixture.config)).unwrap(),
+            false,
+        )
+        .unwrap();
+        assert_eq!(result.run_manifest.state, RunState::Complete);
+        let inspection = inspect_ebook(published_epub(&result), false).unwrap();
+        assert!(inspection.valid, "{:?}", inspection.diagnostics);
+        assert_eq!(inspection.layout, EbookLayout::PrePaginated);
+        assert_eq!(inspection.spine_items, 2);
+        assert_eq!(inspection.xhtml_documents, 3);
+        assert!(inspection.navigation);
+        assert!(inspection.page_list);
+        assert!(inspection.metadata.title);
+        assert!(inspection.metadata.creator);
+        assert!(inspection.metadata.language);
+        assert!(inspection.metadata.identifier);
+        assert!(inspection.metadata.rights);
+        assert!(inspection.accessibility.accessibility_summary);
+        assert!(inspection.accessibility.access_modes > 0);
+        assert!(inspection.accessibility.accessibility_features > 0);
+        assert!(inspection.accessibility.accessibility_hazards > 0);
+        assert!(inspection.epubcheck.is_none());
+        fixture.unchanged();
+    }
+
+    let capability = EbookCapabilityContract::builtin();
+    assert_eq!(capability.schema, "renderflow.ebook-capabilities/v1");
+    assert!(capability.epub_fixed_layout_generation);
+    assert!(!capability.kepub_fixed_layout_generation);
+    let route = capability.fixed_layout_epub_route.as_ref().unwrap();
+    assert_eq!(route.capability, "ebook.generate.epub.fixed-layout");
+    assert_eq!(route.provider_id, "tool.renderflow-epub");
+    assert_eq!(
+        route.source_formats,
+        ["png".to_string(), "jpeg".to_string()]
+    );
+    assert_eq!(route.target_format, "epub");
+    assert!(route.ordered_collection_required);
+    assert!(route.homogeneous_local_sources_required);
+    assert!(route.explicit_execution_policy_required);
+    assert_eq!(
+        route.page_progression_directions,
+        ["ltr".to_string(), "rtl".to_string()]
+    );
+    assert_eq!(route.spread_policies, ["none".to_string()]);
+    assert!(route.native_validation);
+    assert!(route.optional_epubcheck_v5);
+}
+
+#[test]
+fn native_inspection_rejects_adversarial_package_mutations() {
+    let fixture = Fixture::new("png", "ltr");
+    let result = execute(
+        resolve(PlanningRequest::from_path(&fixture.config)).unwrap(),
+        false,
+    )
+    .unwrap();
+    assert_eq!(result.run_manifest.state, RunState::Complete);
+    let generated = published_epub(&result);
+    let cases = [
+        ("duplicate_spine_item", "spine"),
+        ("missing_page_list", "navigation"),
+        ("reversed_page_list", "navigation"),
+        ("missing_cover", "cover"),
+        ("wrong_cover", "cover"),
+        ("wrong_viewport", "viewport"),
+        ("empty_alt_text", "accessibility"),
+        ("missing_accessibility_summary", "accessibility"),
+        ("active_page_head", "unsafe_markup"),
+        ("upper_case_css_url", "unsafe_markup"),
+        ("unsafe_script", "unsafe_markup"),
+        ("external_image", "unsafe_markup"),
+        ("external_srcset", "unsafe_markup"),
+        ("external_xml_base", "unsafe_markup"),
+        ("inline_style", "unsafe_markup"),
+        ("malformed_xml", "xml"),
+        ("external_entity", "unsafe_markup"),
+        ("missing_image", "resource"),
+        ("unreadable_image", "resource"),
+        ("duplicate_zip_member", "member"),
+        ("path_traversal", "member"),
+        ("wrong_mimetype", "mimetype"),
+        ("mimetype_not_first", "mimetype"),
+    ];
+    for (case, expected_code) in cases {
+        let tampered = fixture.dir.path().join(format!("tampered-{case}.epub"));
+        tampered_epub(generated, &tampered, |members| {
+            match case {
+            "duplicate_spine_item" => rewrite_member(
+                members,
+                "EPUB/book.opf",
+                "<itemref idref=\"page-0002\"/>",
+                "<itemref idref=\"page-0001\"/>",
+            ),
+            "missing_page_list" => rewrite_member(
+                members,
+                "EPUB/nav.xhtml",
+                "<nav epub:type=\"page-list\">",
+                "<nav epub:type=\"landmarks\">",
+            ),
+            "reversed_page_list" => rewrite_member(
+                members,
+                "EPUB/nav.xhtml",
+                "<li><a href=\"pages/page-0001.xhtml\">1</a></li>\n<li><a href=\"pages/page-0002.xhtml\">2</a></li>",
+                "<li><a href=\"pages/page-0002.xhtml\">2</a></li>\n<li><a href=\"pages/page-0001.xhtml\">1</a></li>",
+            ),
+            "missing_cover" => rewrite_member(
+                members,
+                "EPUB/book.opf",
+                " properties=\"cover-image\"",
+                "",
+            ),
+            "wrong_cover" => {
+                rewrite_member(members, "EPUB/book.opf", " properties=\"cover-image\"", "");
+                rewrite_member(
+                    members,
+                    "EPUB/book.opf",
+                    "href=\"images/page-0002.png\" media-type=\"image/png\"",
+                    "href=\"images/page-0002.png\" media-type=\"image/png\" properties=\"cover-image\"",
+                );
+            }
+            "wrong_viewport" => rewrite_member(
+                members,
+                "EPUB/pages/page-0001.xhtml",
+                "content=\"width=100, height=100\"",
+                "content=\"width=900, height=100\"",
+            ),
+            "empty_alt_text" => rewrite_member(
+                members,
+                "EPUB/pages/page-0001.xhtml",
+                "alt=\"Synthetic page 1 with a geometric mark.\"",
+                "alt=\"\"",
+            ),
+            "missing_accessibility_summary" => rewrite_member(
+                members,
+                "EPUB/book.opf",
+                "property=\"schema:accessibilitySummary\"",
+                "property=\"schema:alternateName\"",
+            ),
+            "active_page_head" => rewrite_member(
+                members,
+                "EPUB/pages/page-0001.xhtml",
+                "</head>",
+                "<style>@import url(https://example.invalid/stylesheet.css);</style></head>",
+            ),
+            "upper_case_css_url" => rewrite_member(
+                members,
+                "EPUB/styles.css",
+                "object-fit:contain;",
+                "object-fit:contain; background:URL(https://example.invalid/tracker.png);",
+            ),
+            "unsafe_script" => rewrite_member(
+                members,
+                "EPUB/pages/page-0001.xhtml",
+                "</body>",
+                "<script>alert(1)</script></body>",
+            ),
+            "external_image" => rewrite_member(
+                members,
+                "EPUB/pages/page-0001.xhtml",
+                "src=\"../images/page-0001.png\"",
+                "src=\"https://example.invalid/tracker.png\"",
+            ),
+            "external_srcset" => rewrite_member(
+                members,
+                "EPUB/pages/page-0001.xhtml",
+                "<img class=\"page\"",
+                "<img srcset=\"https://example.invalid/tracker.png 1x\" class=\"page\"",
+            ),
+            "external_xml_base" => rewrite_member(
+                members,
+                "EPUB/pages/page-0001.xhtml",
+                "<html xmlns=\"http://www.w3.org/1999/xhtml\"",
+                "<html xml:base=\"https://example.invalid/\" xmlns=\"http://www.w3.org/1999/xhtml\"",
+            ),
+            "inline_style" => rewrite_member(
+                members,
+                "EPUB/pages/page-0001.xhtml",
+                "<img class=\"page\"",
+                "<img style=\"background:url(https://example.invalid/tracker.png)\" class=\"page\"",
+            ),
+            "malformed_xml" => rewrite_member(
+                members,
+                "EPUB/pages/page-0001.xhtml",
+                "</html>",
+                "</broken>",
+            ),
+            "external_entity" => rewrite_member(
+                members,
+                "EPUB/book.opf",
+                "<package ",
+                "<!DOCTYPE package [<!ENTITY leaked SYSTEM \"file:///tmp/fixture-secret\">]><package ",
+            ),
+            "missing_image" => members.retain(|(name, _)| name != "EPUB/images/page-0002.png"),
+            "unreadable_image" => {
+                members
+                    .iter_mut()
+                    .find(|(name, _)| name == "EPUB/images/page-0002.png")
+                    .unwrap()
+                    .1 = b"not a PNG image".to_vec();
+            }
+            "duplicate_zip_member" => {
+                let original = members
+                    .iter()
+                    .find(|(name, _)| name == "EPUB/pages/page-0001.xhtml")
+                    .unwrap()
+                    .clone();
+                members.push(("EPUB/pages/page-0099.xhtml".to_string(), original.1));
+            }
+            "path_traversal" => members.push(("../outside.xhtml".to_string(), b"<html/>".to_vec())),
+            "wrong_mimetype" => members[0].1 = b"application/epub+zip\n".to_vec(),
+            "mimetype_not_first" => members.swap(0, 1),
+            _ => unreachable!(),
+        }
+        });
+        if case == "duplicate_zip_member" {
+            // ZipWriter refuses duplicate names. Rewrite the equal-length
+            // local and central filenames in a completed, otherwise valid ZIP.
+            let mut bytes = fs::read(&tampered).unwrap();
+            let marker = b"EPUB/pages/page-0099.xhtml";
+            let duplicate = b"EPUB/pages/page-0001.xhtml";
+            let positions = bytes
+                .windows(marker.len())
+                .enumerate()
+                .filter_map(|(index, window)| (window == marker).then_some(index))
+                .collect::<Vec<_>>();
+            assert_eq!(positions.len(), 2);
+            for index in positions {
+                bytes[index..index + marker.len()].copy_from_slice(duplicate);
+            }
+            fs::write(&tampered, bytes).unwrap();
+        }
+        let inspection = inspect_ebook(&tampered, false).unwrap();
+        let errors = inspection
+            .diagnostics
+            .iter()
+            .filter(|item| item.severity == EbookDiagnosticSeverity::Error)
+            .collect::<Vec<_>>();
+        assert!(
+            !inspection.valid && !errors.is_empty(),
+            "{case} unexpectedly passed native inspection: fixed={:?}, diagnostics={:?}",
+            inspection.fixed_layout,
+            inspection.diagnostics
+        );
+        assert!(
+            errors
+                .iter()
+                .any(|item| item.code == format!("ebook.fixed_layout.{expected_code}")),
+            "{case} lost distinct typed diagnostic identity: {errors:?}"
+        );
+        assert!(!fixture.dir.path().join("outside.xhtml").exists());
+    }
+    fixture.unchanged();
+}
+
+#[test]
+fn run_manifest_binding_distinguishes_verified_stale_and_corrupt_evidence() {
+    let fixture = Fixture::new("png", "ltr");
+    let result = execute(
+        resolve(PlanningRequest::from_path(&fixture.config)).unwrap(),
+        false,
+    )
+    .unwrap();
+    assert_eq!(result.run_manifest.state, RunState::Complete);
+    let epub = published_epub(&result);
+    let manifest = Path::new(result.manifest_path.as_ref().unwrap());
+    let original = fs::read(epub).unwrap();
+
+    let verified = inspect_ebook_with_manifest(epub, false, manifest).unwrap();
+    assert!(verified.valid, "{:?}", verified.diagnostics);
+    assert_eq!(
+        verified.provenance.as_ref().unwrap().status,
+        EbookProvenanceStatus::Verified
+    );
+    assert_eq!(
+        verified.provenance.as_ref().unwrap().run_id.as_deref(),
+        Some(result.run_manifest.run_id.as_str())
+    );
+
+    let altered = fixture
+        .dir
+        .path()
+        .join("same-structure-different-digest.epub");
+    tampered_epub(epub, &altered, |members| {
+        rewrite_member(
+            members,
+            "EPUB/book.opf",
+            "<dc:title>Synthetic Fixed EPUB</dc:title>",
+            "<dc:title>Synthetic Fixed EPUB Revised</dc:title>",
+        );
+    });
+    fs::write(epub, fs::read(altered).unwrap()).unwrap();
+    let stale = inspect_ebook_with_manifest(epub, false, manifest).unwrap();
+    assert!(!stale.valid);
+    assert_eq!(
+        stale.provenance.as_ref().unwrap().status,
+        EbookProvenanceStatus::Stale
+    );
+    assert!(stale
+        .diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.code == "ebook.provenance.stale"));
+    assert_eq!(
+        stale.fixed_layout.as_ref().unwrap().status,
+        renderflow::ebook::FixedLayoutStatus::Validated
+    );
+
+    fs::write(epub, &original).unwrap();
+    let mut altered_lineage: serde_json::Value =
+        serde_json::from_slice(&fs::read(manifest).unwrap()).unwrap();
+    let source = altered_lineage["artifact_manifest"]["artifacts"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|artifact| artifact["lifecycle"] == "source")
+        .unwrap();
+    source["digest"]["value"] = serde_json::Value::String("0".repeat(64));
+    let false_lineage = fixture.dir.path().join("false-source-lineage.json");
+    fs::write(
+        &false_lineage,
+        serde_json::to_vec(&altered_lineage).unwrap(),
+    )
+    .unwrap();
+    let lineage = inspect_ebook_with_manifest(epub, false, &false_lineage).unwrap();
+    assert!(!lineage.valid);
+    assert_eq!(
+        lineage.provenance.as_ref().unwrap().status,
+        EbookProvenanceStatus::Stale
+    );
+    assert!(lineage
+        .diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.code == "ebook.provenance.stale"));
+
+    let malformed_manifest = fixture.dir.path().join("corrupt-run.json");
+    fs::write(&malformed_manifest, b"{not valid JSON").unwrap();
+    let corrupt = inspect_ebook_with_manifest(epub, false, &malformed_manifest).unwrap();
+    assert!(!corrupt.valid);
+    assert_eq!(
+        corrupt.provenance.as_ref().unwrap().status,
+        EbookProvenanceStatus::Corrupt
+    );
+    assert!(corrupt
+        .diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.code == "ebook.provenance.corrupt"));
+    assert_eq!(fs::read(epub).unwrap(), original);
+    fixture.unchanged();
+}
+
+#[test]
+fn multiple_accessibility_hazards_are_inspected_as_declared_metadata() {
+    let fixture = Fixture::new("png", "ltr");
+    fixture.rewrite("hazards: [none]", "hazards: [flashing, sound]");
+    let result = execute(
+        resolve(PlanningRequest::from_path(&fixture.config)).unwrap(),
+        false,
+    )
+    .unwrap();
+    assert_eq!(result.run_manifest.state, RunState::Complete);
+    let inspection = inspect_ebook(published_epub(&result), false).unwrap();
+    assert!(inspection.valid, "{:?}", inspection.diagnostics);
+    assert_eq!(inspection.accessibility.accessibility_hazards, 2);
+    fixture.unchanged();
+}
+
+#[test]
+fn unreadable_zip_is_a_typed_invalid_inspection() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = dir.path().join("malformed.epub");
+    fs::write(
+        &source,
+        b"PK\x03\x04truncated member and no central directory",
+    )
+    .unwrap();
+    let inspection = inspect_ebook(&source, false).unwrap();
+    assert!(!inspection.valid);
+    assert!(inspection
+        .diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.code == "ebook.container.invalid"));
+    assert!(inspection.epubcheck.is_none());
 }
 
 #[test]

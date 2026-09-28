@@ -525,6 +525,12 @@ pub enum EbookCommands {
         /// Run the optional local EPUBCheck provider and include its report.
         #[arg(long)]
         epubcheck: bool,
+        /// Require exact native validation of the ordered PNG/JPEG fixed-layout route.
+        #[arg(long)]
+        fixed_layout: bool,
+        /// Bind the inspected EPUB to an explicit completed run manifest.
+        #[arg(long, value_name = "FILE")]
+        run_manifest: Option<String>,
     },
     /// Print the honest built-in EPUB/KEPUB capability contract.
     Capabilities {

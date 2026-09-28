@@ -59,6 +59,7 @@ petgraph = "0.8"
 
 tempfile = "3"
 zip = { version = "2.4", default-features = false, features = ["deflate"] }
+roxmltree = "=0.20.0"
 
 ureq = { version = "2", features = ["json"] }
 

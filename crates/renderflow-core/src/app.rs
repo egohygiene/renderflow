@@ -288,7 +288,15 @@ pub fn run_cli(cli: Cli) -> Result<()> {
                 input,
                 format,
                 epubcheck,
-            } => commands::ebook::run_inspect(&input, &format, epubcheck)?,
+                fixed_layout,
+                run_manifest,
+            } => commands::ebook::run_inspect(
+                &input,
+                &format,
+                epubcheck,
+                fixed_layout,
+                run_manifest.as_deref(),
+            )?,
             EbookCommands::Capabilities { format } => commands::ebook::run_capabilities(&format)?,
         },
         Some(Commands::Publication { subcommand }) => match subcommand {

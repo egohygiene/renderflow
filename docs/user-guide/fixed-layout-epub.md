@@ -93,7 +93,11 @@ Run the public validation, planning, and execution path:
 renderflow spec validate --config "renderflow.yaml"
 renderflow build --config "renderflow.yaml" --dry-run
 renderflow build --config "renderflow.yaml"
-renderflow ebook inspect --input "dist/source.pages/ebook.epub" --format json
+renderflow ebook inspect --input "dist/source.pages/ebook.epub" --fixed-layout --format json
+renderflow ebook inspect --input "dist/source.pages/ebook.epub" --run-manifest "dist/renderflow-run.json" --format json
+renderflow ebook inspect --input "dist/source.pages/ebook.epub" --format json --epubcheck
+renderflow ebook capabilities --format json
+renderflow capabilities --matrix --format json
 ```
 
 The output path above follows the default naming template; use the path in the
@@ -116,12 +120,54 @@ XHTML page references the matching local image and its declared description.
 The package targets EPUB 3.3 while the OPF `package` element
 uses `version="3.0"`, as shown in the [EPUB 3.3 specification](https://www.w3.org/TR/epub-33/).
 That OPF value does not mean the publication is limited to an older EPUB
-release. Native structural inspection reports the resulting package shape;
-independent EPUB 3.3 conformance and exact capability advertisement belong to
-[#418](https://github.com/egohygiene/renderflow/issues/418). Optional local
-EPUBCheck evidence may be requested by adding `--epubcheck` to the inspection
-command above.
-A missing EPUBCheck executable is reported as unavailable, never as a pass.
+release.
+
+## Validate the generated package
+
+The native fixed-layout inspection checks the ZIP/container, OPF and local
+manifest references, ordered spine and page members, declared page viewports,
+navigation and page-list destinations, cover relationship, and the accessibility
+evidence actually present. It checks the resulting EPUB independently of the
+planner's claim that a package was produced. Structured diagnostics distinguish
+a malformed or unsafe package from a complete one. A local
+`renderflow ebook inspect` can inspect a file without replaying the generation
+plan. Use `--fixed-layout` when requesting proof of this exact route: it fails
+if the route markers are absent or the native validator does not pass. Pass
+`--run-manifest` to bind inspection to the recorded output digest
+and run provenance. The binding reports `verified`, `stale`, or `corrupt`;
+stale/corrupt evidence makes the inspection invalid. Its exact fixed-layout
+result is `validated`, `invalid`, or `unsupported`, with
+`ebook.fixed_layout.*` diagnostics for failures. Do not treat a stale manifest
+or a clean inspection of a different file as evidence for the current output.
+
+`--epubcheck` additionally asks the optional local EPUBCheck v5 executable for
+conformance evidence. The inspection records the observed provider identity,
+version, invocation, and result separately from native checks. A missing or
+incompatible executable is unavailable, never a pass; a requested unavailable
+or failed provider produces a nonzero CLI exit after reporting structured
+evidence. Native structural validity is not an EPUBCheck pass, accessibility
+certification, or retailer approval. These are separate checks with different
+authority.
+
+| Evidence | What it establishes |
+| --- | --- |
+| Native `validated` | This package satisfies the bounded fixed-layout structural checks. |
+| Native `invalid` | A required package or page relationship is missing, malformed, or unsafe. |
+| Native `unsupported` | The package is outside the proven fixed-layout route. |
+| Provenance `verified` | The inspected path, bytes, page order, and image digests match the supplied completed run's recorded output and source lineage. |
+| Provenance `stale` or `corrupt` | The requested binding failed; inspect the manifest and output rather than claiming a completed validated artifact. |
+| EPUBCheck pass | The observed EPUBCheck v5 invocation accepted these bytes. |
+| EPUBCheck unavailable | No external conformance pass was obtained. |
+
+The native result and the optional provider result should both be retained
+when a consumer needs conformance evidence. Inspecting a ZIP without an
+EPUBCheck pass cannot establish EPUB 3.3 conformance.
+
+The capability summary advertises generation for this exact PNG/JPEG route
+only. The generated conformance matrix describes its fixture, validator,
+provider, and platform evidence. A positive fixed-layout generation value is
+not a promise that arbitrary EPUBs are valid, that SVG is safe to package, or
+that a KEPUB fixed-layout route exists.
 
 Planning freezes each member's ID, path, digest, media type, geometry, and
 position. Execution checks the sources again before import. The output records

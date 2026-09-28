@@ -31,6 +31,9 @@ pub const FIXED_EPUB_PROVIDER: &str = "tool.renderflow-epub";
 const MIMETYPE: &[u8] = b"application/epub+zip";
 const CONTAINER: &str = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<container version=\"1.0\" xmlns=\"urn:oasis:names:tc:opendocument:xmlns:container\"><rootfiles><rootfile full-path=\"EPUB/book.opf\" media-type=\"application/oebps-package+xml\"/></rootfiles></container>\n";
 const CSS: &str = "@charset \"UTF-8\";\nhtml,body{width:100%;height:100%;margin:0;padding:0;}\nbody{overflow:hidden;}\nimg.page{display:block;width:100%;height:100%;object-fit:contain;}\n";
+pub(crate) fn generated_stylesheet() -> &'static str {
+    CSS
+}
 const BUFFER_SIZE: usize = 64 * 1024;
 
 /// A machine-readable refusal that can be propagated into DAG step evidence.

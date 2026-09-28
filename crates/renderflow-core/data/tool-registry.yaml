@@ -15,7 +15,7 @@ tools:
     fidelity: lossless
     support_tier: experimental
     license_notes: "In-process Renderflow implementation; see the Renderflow repository license."
-    distribution_notes: "Exact bounded ordered-page PNG/JPEG route only; SVG, reflowable EPUB, fixed-layout KEPUB, retailer acceptance, and independent EPUB 3.3 conformance are separate contracts."
+    distribution_notes: "Exact bounded ordered-page PNG/JPEG route only; SVG, reflowable EPUB, fixed-layout KEPUB, retailer acceptance, and optional EPUBCheck conformance are separate contracts."
 
   - id: tool.lulu-rules
     name: Pinned Lulu publication rule pack
