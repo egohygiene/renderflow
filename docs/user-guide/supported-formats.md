@@ -31,6 +31,9 @@ strategy.
 ## Transform graph identifiers
 
 These are the canonical node names used in transform YAML files and graph output.
+A registered identifier does not itself provide a converter. The
+[screenplay guide](screenplay.md) distinguishes native format recognition
+from canonical JSON inspection and deferred screenplay adapters.
 
 | Identifier |
 | --- |
@@ -43,6 +46,10 @@ These are the canonical node names used in transform YAML files and graph output
 | `rst` |
 | `latex` |
 | `fountain` |
+| `fdx` |
+| `fadein` |
+| `osf` |
+| `screenplay_json` |
 | `jpeg` |
 | `png` |
 | `tiff` |
@@ -68,6 +75,10 @@ These are the canonical node names used in transform YAML files and graph output
 | `tar.xz` |
 | `srt` |
 | `vtt` |
+| `ass` |
+| `ssa` |
+| `ttml` |
+| `timed_transcript_json` |
 
 ## Audio format identifiers
 

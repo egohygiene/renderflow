@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-screenplay-inspection-v1.schema.json",
+  "title": "Renderflow screenplay inspection v1",
+  "description": "Observed canonical JSON identity and semantic counts, separate from unverified upstream source declarations and canonical-model adapter policies. This inspection does not select or inventory separately configured native conversion routes.",
+  "$comment": "Application produces counts from a validated canonical model, an SHA-256 of the exact inspected bytes, five independent import policies and seven independent export policies. Preservation describes canonical model retention only; no native roundtrip or original source completeness is asserted.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "input_sha256", "input_bytes", "source", "source_identity_verified", "title_page_fields", "elements", "element_counts", "dual_dialogue_groups", "extension_entries", "prior_losses", "native_adapters_available", "import_assessments", "export_assessments"],
+  "properties": {
+    "schema_version": { "const": "renderflow.screenplay-inspection/v1" },
+    "input_sha256": { "$ref": "renderflow-screenplay-v1.schema.json#/$defs/sha256" },
+    "input_bytes": { "type": "integer", "minimum": 1, "maximum": 16777216 },
+    "source": { "$ref": "renderflow-screenplay-v1.schema.json#/$defs/source" },
+    "source_identity_verified": { "const": false },
+    "title_page_fields": { "type": "integer", "minimum": 0, "maximum": 256 },
+    "elements": { "type": "integer", "minimum": 1, "maximum": 100000 },
+    "element_counts": {
+      "type": "object", "minProperties": 1, "maxProperties": 12,
+      "propertyNames": { "$ref": "renderflow-screenplay-v1.schema.json#/$defs/element_kind" },
+      "additionalProperties": { "type": "integer", "minimum": 1, "maximum": 100000 }
+    },
+    "dual_dialogue_groups": { "type": "integer", "minimum": 0, "maximum": 10000 },
+    "extension_entries": { "type": "integer", "minimum": 0, "maximum": 100000 },
+    "prior_losses": { "type": "array", "maxItems": 1024, "items": { "$ref": "renderflow-screenplay-v1.schema.json#/$defs/loss" } },
+    "native_adapters_available": { "const": false },
+    "import_assessments": { "type": "array", "minItems": 5, "maxItems": 5, "items": { "$ref": "#/$defs/import_assessment" } },
+    "export_assessments": { "type": "array", "minItems": 7, "maxItems": 7, "items": { "$ref": "#/$defs/export_assessment" } }
+  },
+  "$defs": {
+    "review_required": { "type": "array", "maxItems": 11, "uniqueItems": true, "items": { "$ref": "renderflow-screenplay-v1.schema.json#/$defs/loss_kind" } },
+    "detail": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "import_assessment": {
+      "type": "object", "additionalProperties": false,
+      "required": ["source_format", "adapter_available", "preservation", "review_required", "detail"],
+      "properties": {
+        "source_format": { "enum": ["screenplay_json", "fountain", "fdx", "fadein", "osf"] },
+        "adapter_available": { "type": "boolean" },
+        "preservation": { "enum": ["canonical_model", "unassessed"] },
+        "review_required": { "$ref": "#/$defs/review_required" },
+        "detail": { "$ref": "#/$defs/detail" }
+      },
+      "allOf": [{
+        "if": { "properties": { "source_format": { "const": "screenplay_json" } } },
+        "then": { "properties": { "adapter_available": { "const": true }, "preservation": { "const": "canonical_model" }, "review_required": { "maxItems": 0 } } },
+        "else": { "properties": { "adapter_available": { "const": false }, "preservation": { "const": "unassessed" } } }
+      }]
+    },
+    "export_assessment": {
+      "type": "object", "additionalProperties": false,
+      "required": ["target", "adapter_available", "preservation", "review_required", "detail"],
+      "properties": {
+        "target": { "enum": ["screenplay_json", "fountain", "fdx", "fadein", "osf", "pdf", "text"] },
+        "adapter_available": { "type": "boolean" },
+        "preservation": { "enum": ["canonical_model", "unassessed"] },
+        "review_required": { "$ref": "#/$defs/review_required" },
+        "detail": { "$ref": "#/$defs/detail" }
+      },
+      "allOf": [{
+        "if": { "properties": { "target": { "const": "screenplay_json" } } },
+        "then": { "properties": { "adapter_available": { "const": true }, "preservation": { "const": "canonical_model" }, "review_required": { "maxItems": 0 } } },
+        "else": { "properties": { "adapter_available": { "const": false }, "preservation": { "const": "unassessed" } } }
+      }]
+    }
+  }
+}

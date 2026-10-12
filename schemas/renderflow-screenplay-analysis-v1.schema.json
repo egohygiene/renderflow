@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-screenplay-analysis-v1.schema.json",
+  "title": "Renderflow independent screenplay body analysis v1",
+  "description": "Deterministic counts derived by renderflow-core from actual bytes in the adopted printable ASCII, LF, strict Fountain body profile. This is not an afterwriting report or PDF layout analysis.",
+  "$comment": "This schema checks report shape, not source authenticity, parser acceptance, count sums, ordering, or source digest equality. A consumer must obtain the source bytes and independently recompute the report with the identified algorithm. Qualification remains unqualified until the deferred test and native qualification work is completed. Scene headings are exact ordered occurrences, not inferred physical locations; character map keys are exact cues, not normalized identities.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "algorithm", "source", "qualification", "scope", "token_unit", "element_counts", "total_elements", "scene_headings", "characters", "action_word_count", "dialogue_word_count"],
+  "properties": {
+    "schema_version": { "const": "renderflow.screenplay-analysis/v1" },
+    "algorithm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "origin"],
+      "properties": {
+        "id": { "const": "renderflow.strict-fountain-body-counts" },
+        "version": { "const": 1 },
+        "origin": { "const": "renderflow-core" }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["format", "sha256", "size_bytes"],
+      "properties": {
+        "format": { "const": "fountain" },
+        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "size_bytes": { "type": "integer", "minimum": 1, "maximum": 16777216 }
+      }
+    },
+    "qualification": { "const": "unqualified" },
+    "scope": { "const": "Printable ASCII and LF, body-only Fountain accepted by Renderflow's strict native parser. Scene headings and character cues are exact source text; repeated headings remain separate occurrences. Counts do not infer locations, character identities, spoken duration, or PDF layout and are not afterwriting statistics." },
+    "token_unit": { "const": "ASCII whitespace-delimited tokens; punctuation remains attached and parentheticals are excluded from dialogue word counts." },
+    "element_counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scene_heading", "action", "character", "dialogue", "parenthetical", "transition"],
+      "properties": {
+        "scene_heading": { "type": "integer", "minimum": 1, "maximum": 100000 },
+        "action": { "$ref": "#/$defs/elementCount" },
+        "character": { "$ref": "#/$defs/elementCount" },
+        "dialogue": { "$ref": "#/$defs/elementCount" },
+        "parenthetical": { "$ref": "#/$defs/elementCount" },
+        "transition": { "$ref": "#/$defs/elementCount" }
+      }
+    },
+    "total_elements": { "type": "integer", "minimum": 1, "maximum": 100000 },
+    "scene_headings": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 100000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["element_index", "text"],
+        "properties": {
+          "element_index": { "type": "integer", "minimum": 0, "maximum": 99999, "description": "Zero-based position in the independently parsed element sequence, retaining encounter order." },
+          "text": { "$ref": "#/$defs/exactText" }
+        }
+      }
+    },
+    "characters": {
+      "type": "object",
+      "maxProperties": 100000,
+      "description": "Serialized in ascending exact cue-text order by Renderflow. Cue suffixes and punctuation remain significant; this does not identify people or characters across differently spelled cues.",
+      "propertyNames": { "$ref": "#/$defs/exactText" },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["cue_occurrences", "dialogue_count", "dialogue_word_count"],
+        "properties": {
+          "cue_occurrences": { "type": "integer", "minimum": 1, "maximum": 100000 },
+          "dialogue_count": { "$ref": "#/$defs/elementCount" },
+          "dialogue_word_count": { "$ref": "#/$defs/wordCount" }
+        }
+      }
+    },
+    "action_word_count": { "$ref": "#/$defs/wordCount" },
+    "dialogue_word_count": { "$ref": "#/$defs/wordCount" }
+  },
+  "$defs": {
+    "elementCount": { "type": "integer", "minimum": 0, "maximum": 100000 },
+    "wordCount": { "type": "integer", "minimum": 0, "maximum": 16777216 },
+    "exactText": { "type": "string", "minLength": 1, "maxLength": 65536, "pattern": "^[ -~]+$" }
+  }
+}

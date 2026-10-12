@@ -2,7 +2,7 @@ use anyhow::{bail, Result};
 use std::{env, io::Write, path::PathBuf};
 
 use crate::cli::DoctorReportFormat;
-use crate::creative_doctor::{CreativeDoctorReport, CREATIVE_DISCOVERY_ONLY_TOOL_IDS};
+use crate::creative_doctor::{CreativeDoctorReport, CREATIVE_OPTIONAL_TOOL_IDS};
 use crate::toolchain::{ToolRegistry, ToolSupportTier};
 
 pub fn run_version() {
@@ -27,7 +27,7 @@ pub fn run_doctor(strict: bool) -> Result<()> {
     let registry = ToolRegistry::builtins();
     let inventory = registry.assess_ids_current(
         registry.all()
-            .filter(|tool| !CREATIVE_DISCOVERY_ONLY_TOOL_IDS.contains(&tool.id.as_str()))
+            .filter(|tool| !CREATIVE_OPTIONAL_TOOL_IDS.contains(&tool.id.as_str()))
             .map(|tool| tool.id.as_str()),
     );
 
@@ -231,7 +231,7 @@ mod tests {
         assert!(text.contains("Route readiness:"));
         assert!(text.contains("not_implemented"));
         assert!(text.contains("Strict mode covers supported discovery probes only"));
-        assert!(text.contains("Unprobed profile tools: 1"));
+        assert!(text.contains("Unprobed profile tools: 2"));
         for route in &report.routes {
             assert!(text.contains(&route.id));
             assert!(text.contains(&route.detail));

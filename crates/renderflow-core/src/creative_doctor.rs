@@ -17,9 +17,9 @@ pub const CREATIVE_DOCTOR_SCHEMA: &str = "renderflow.creative-doctor/v1";
 pub const CREATIVE_DOCTOR_PROFILE: &str = "creative-publishing";
 pub const CREATIVE_FINGERPRINT_SCOPE: &str = "provider-discovery-observations/v1";
 
-/// Candidates introduced by the optional profile; plain `doctor` need not
-/// probe them. Explicit complete tool inventories may still discover them.
-pub const CREATIVE_DISCOVERY_ONLY_TOOL_IDS: [&str; 4] = [
+/// Optional creative tools excluded from plain `doctor`. Explicit profile and
+/// complete inventories may report them without selecting execution providers.
+pub const CREATIVE_OPTIONAL_TOOL_IDS: [&str; 4] = [
     "tool.scripttool", "tool.node", "tool.afterwriting", "tool.pdftotext",
 ];
 
@@ -174,7 +174,7 @@ pub fn assess_with(
     routes.sort_by(|left, right| left.id.cmp(&right.id));
     let requirements = vec![
         requirement("ocr.language_data", "unobserved", "Tesseract language data, its exact identity, and its separate license are not inspected by doctor; OCR graph integration remains pending."),
-        requirement("screenplay.fonts", "unobserved", "Screenplay PDF fonts and embedding/redistribution rights require separate selection and review; executable licensing does not cover fonts."),
+        requirement("screenplay.fonts", "unobserved", "The fixed A4/US Letter screenplay PDF profiles require pinned Courier and Helvetica font metrics in the selected package. Base14 Courier remains unembedded; viewer substitution, visual fidelity, and exact asset licensing are unqualified. Doctor does not inspect package or font bytes."),
         requirement("speech.model.configuration", "configuration_required", "Local speech execution requires an explicit model path, model ID, expected model SHA-256, and a pinned provider path/SHA-256. Doctor does not inspect model files or infer those settings from PATH."),
         requirement("speech.model.license", "operator_review_required", "Review the exact speech model's license separately from the executable and linked-library licenses before use or redistribution."),
     ];
@@ -191,7 +191,7 @@ pub fn assess_with(
         requirements,
         limitations: vec![
             "The fingerprint covers selected registry declarations, observed discovery states/versions, platform labels, and report policy. It is not an executable-byte, model, font, linked-library, or environment attestation and must not be used as an execution cache key.".to_owned(),
-            "Available providers do not establish implemented or qualified conversion routes. Strict success concerns assessable provider discovery only; candidates without a reviewed probe remain not_probed and do not fail strict mode. Explicit source/configuration requirements and runtime qualification still apply.".to_owned(),
+            "Available providers do not establish qualified conversion routes or select execution providers. Strict success concerns assessable provider discovery only. Node and Afterwriting remain not_probed here because their exact installation is observed only by configured screenplay PDF preflight; they do not fail strict mode. Explicit source/configuration requirements and runtime qualification still apply.".to_owned(),
             "Doctor requests declared local discovery probes only. It does not install providers, download models, inspect user media, run recognition, or mutate planner eligibility.".to_owned(),
         ],
     };
@@ -228,14 +228,24 @@ fn route_definitions() -> Vec<RouteDefinition> {
             detail: "The standalone offline alignment exporter needs no external executable. It verifies saved evidence and applies an explicit operator map; it does not infer or attest original-video synchronization.",
         },
         RouteDefinition {
-            id: "screenplay.scripttool", implementation: NotImplemented,
-            providers: &["tool.scripttool"], required_configuration: &[],
-            detail: "Candidate discovery only; the screenplay conversion adapter is not implemented. Installing scripttool does not add graph edges.",
+            id: "screenplay.scripttool", implementation: AuthoredUnqualified,
+            providers: &["tool.scripttool"], required_configuration: &[
+                "execution.screenplay", "execution.screenplay.executable",
+                "execution.screenplay.executable_sha256", "execution.screenplay.allow_unqualified",
+                "supported_body_only_native_import",
+            ],
+            detail: "Bounded body-only FDX/OSF/Fade In imports to Fountain are authored. Execution requires an explicitly pinned scripttool 0.0.10, opt-in policy, and independent semantic comparison. Doctor's PATH observation does not select that executable or add graph edges; reverse exports and runtime qualification remain unavailable.",
         },
         RouteDefinition {
-            id: "screenplay.pdf.afterwriting", implementation: NotImplemented,
-            providers: &["tool.node", "tool.afterwriting"], required_configuration: &["screenplay.fonts"],
-            detail: "Candidate discovery only; Node.js and afterwriting are reported independently. The screenplay PDF adapter is not implemented.",
+            id: "screenplay.pdf.afterwriting", implementation: AuthoredUnqualified,
+            providers: &["tool.node", "tool.afterwriting"], required_configuration: &[
+                "execution.screenplay_pdf", "execution.screenplay_pdf.node_executable",
+                "execution.screenplay_pdf.node_sha256", "execution.screenplay_pdf.expected_node_version",
+                "execution.screenplay_pdf.package_root", "execution.screenplay_pdf.package_tree_sha256",
+                "execution.screenplay_pdf.expected_provider_version", "execution.screenplay_pdf.profile",
+                "execution.screenplay_pdf.allow_unqualified", "strict_ascii_fountain_body", "screenplay.fonts",
+            ],
+            detail: "Direct original strict ASCII Fountain to PDF is authored with fixed A4/US Letter profiles and independent analysis/PDF inspection. Node and Afterwriting remain unobserved by doctor: explicit pinned clear-environment preflight reads package identity without a fabricated provider version command. Chained native imports, runtime/visual fidelity, and reproducibility remain unqualified.",
         },
         RouteDefinition {
             id: "pdf.extract.text", implementation: NotImplemented,
@@ -348,7 +358,9 @@ mod tests {
         let (registry, probe, context) = fixture();
         let report = assess_with(&registry, &probe, &context).unwrap();
         assert!(report.strict_success());
-        assert_eq!(route(&report, "screenplay.scripttool").implementation, CreativeRouteImplementation::NotImplemented);
+        assert_eq!(route(&report, "screenplay.scripttool").implementation, CreativeRouteImplementation::AuthoredUnqualified);
+        assert_eq!(route(&report, "screenplay.pdf.afterwriting").implementation, CreativeRouteImplementation::AuthoredUnqualified);
+        assert_eq!(route(&report, "pdf.extract.text").implementation, CreativeRouteImplementation::NotImplemented);
         assert_eq!(route(&report, "speech.transcribe").implementation, CreativeRouteImplementation::AuthoredUnqualified);
         assert_eq!(report.requirements.iter().find(|requirement| requirement.id == "speech.model.configuration").unwrap().status, "configuration_required");
     }
@@ -423,5 +435,47 @@ mod tests {
         assert_eq!(route(&report, "screenplay.pdf.afterwriting").provider_status, CreativeProviderStatus::Unobserved);
         assert!(!probe.calls.lock().unwrap().iter().any(|call| call == "tool.afterwriting"));
         assert_eq!(route(&report, "subtitle.convert.plain").provider_status, CreativeProviderStatus::Available);
+    }
+
+    #[test]
+    fn builtin_profile_keeps_pinned_pdf_providers_unobserved_without_launching_them() {
+        let registry = ToolRegistry::builtins();
+        let probe = FakeProbe::default();
+        let report = assess_with(
+            &registry, &probe, &ToolRuntimeContext::for_platform("linux", "x86_64"),
+        ).unwrap();
+        assert_eq!(report.unprobed_tool_count(), 2);
+        let pdf = route(&report, "screenplay.pdf.afterwriting");
+        assert_eq!(pdf.implementation, CreativeRouteImplementation::AuthoredUnqualified);
+        assert_eq!(pdf.provider_status, CreativeProviderStatus::Unobserved);
+        assert_eq!(pdf.blocked_providers, vec!["tool.afterwriting", "tool.node"]);
+        assert!(pdf.required_configuration.iter().any(|key| key == "execution.screenplay_pdf.node_sha256"));
+        assert!(pdf.required_configuration.iter().any(|key| key == "execution.screenplay_pdf.package_tree_sha256"));
+        for id in ["tool.node", "tool.afterwriting"] {
+            let tool = report.tools.iter().find(|tool| tool.availability.id.as_str() == id).unwrap();
+            assert_eq!(tool.availability.status, ToolAvailabilityStatus::NotProbed);
+            assert!(tool.availability.selected_executable.is_none());
+            assert!(tool.availability.version_line.is_none());
+        }
+        let calls = probe.calls.lock().unwrap();
+        assert!(calls.iter().any(|call| call == "scripttool"));
+        assert!(!calls.iter().any(|call| call == "node" || call == "afterwriting"));
+    }
+
+    #[test]
+    fn runtime_service_hints_cannot_qualify_global_pdf_provider_descriptors() {
+        let registry = ToolRegistry::builtins();
+        let probe = FakeProbe::default();
+        let context = ToolRuntimeContext::for_platform("linux", "x86_64")
+            .with_runtime_service("renderflow.configured-node")
+            .with_runtime_service("renderflow.configured-afterwriting")
+            .with_runtime_service("renderflow.configured.node")
+            .with_runtime_service("renderflow.configured.afterwriting");
+        let inventory = registry.assess_ids_with(["tool.node", "tool.afterwriting"], &probe, &context);
+        assert!(inventory.available_ids().is_empty());
+        assert!(inventory.tools.iter().all(|tool| tool.status == ToolAvailabilityStatus::NotProbed));
+        assert!(probe.calls.lock().unwrap().is_empty());
+        assert!(registry.get("tool.afterwriting").unwrap().capabilities.iter()
+            .any(|capability| capability.as_str() == "screenplay.render.fountain.pdf"));
     }
 }

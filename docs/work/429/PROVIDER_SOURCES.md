@@ -3,15 +3,19 @@
 Source review: 2026-10-12. No provider, version probe, installer, build, test,
 schema validator, or CI job was run for this checkpoint. These records explain
 the doctor descriptors; they do not qualify conversion behavior or redistribution.
-The four new candidates register no capabilities, media types, or graph edges.
-Plain doctor excludes these candidates; the explicit creative profile and
-complete registry inventories may report them.
+The original doctor checkpoint added four candidate declarations. Merge
+reconciliation with #423–#425 retains one canonical descriptor per ID and the
+authored scripttool/Afterwriting adapter capabilities; pdftotext remains
+discovery-only. Plain doctor excludes these four optional providers; the
+explicit creative profile and complete inventories may report them. Node and
+Afterwriting are `not_probed` in those inventories so discovery cannot bypass
+the configured PDF adapter's pinned, clear-environment preflight.
 
 | Registry ID | Discovery argv | Evidence and limit |
 | --- | --- | --- |
-| `tool.scripttool` | `scripttool -version` | Upstream documents and handles this option before input processing. No release compatibility range has been qualified. |
-| `tool.node` | `node --version` | Official CLI documentation identifies the version-only option. Node discovery does not identify an Afterwriting package. |
-| `tool.afterwriting` | None; `not_probed` | Reviewed CLI has no version-only option. Help output is not package identity. |
+| `tool.scripttool` | `scripttool -version` | Upstream handles this before input processing. The authored adapter declares exactly 0.0.10, with runtime qualification still deferred; doctor does not select the execution path. |
+| `tool.node` | None; `not_probed` | The official version-only flag is source evidence. Only explicitly configured PDF preflight may invoke the pinned runtime with a cleared environment. Generic discovery does not launch Node. |
+| `tool.afterwriting` | None; `not_probed` | Reviewed CLI has no version-only option. Configured PDF preflight reads pinned package/tree identity statically; help output is not package identity. |
 | `tool.pdftotext` | `pdftotext -v` | Poppler source prints its version to stderr and exits successfully. The executable name alone does not attest the provider distribution. |
 
 ## scripttool
@@ -30,8 +34,8 @@ Reviewed commit:
 - [`LICENSE`](https://github.com/rsdoiel/scripttool/blob/ea8ed24020b6f6989e01df44eef64febdfa7bfb2/LICENSE)
   contains AGPL version 3, while the reviewed entry-point file retains a BSD
   2-Clause header. Preserve this distinction in an exact-release packaging
-  review; candidate discovery grants no packaging approval. The screenplay
-  interchange adapter remains issue #424.
+  review; candidate discovery grants no packaging approval. The authored
+  screenplay imports and their limits are recorded under [#424](../424/PROVIDER_EVALUATION.md).
 
 ## Node.js and Afterwriting
 
@@ -43,6 +47,9 @@ documents `--version` (blob `fcca81b159874779be9347fe503cd12819b06609`).
 distinguishes Node's license from its externally maintained components. Obtain
 an appropriate supported distribution through [nodejs.org](https://nodejs.org/);
 this source pin is not a recommended runtime release or compatibility claim.
+The [#425 adapter evaluation](../425/PROVIDER_EVALUATION.md) records the stricter
+configured runtime invocation. The existence of `--version` does not permit
+doctor to launch a PATH-selected Node under an inherited environment.
 
 Afterwriting reviewed commit:
 [`f1912c08d0905bac42e1805830a1e72f98b88c2f`](https://github.com/ifrost/afterwriting-labs/commit/f1912c08d0905bac42e1805830a1e72f98b88c2f).

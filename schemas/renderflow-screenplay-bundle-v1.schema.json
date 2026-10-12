@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-screenplay-bundle-v1.schema.json",
+  "title": "Renderflow standalone screenplay import bundle v1",
+  "description": "Completion receipt published last in a new output directory after an explicitly enabled native screenplay import. Retain both listed artifacts together with bundle.json.",
+  "$comment": "JSON Schema cannot establish receipt publication order, file existence, byte lengths, digest equality, or that a provider ran. Consumers must verify both listed files, parse provider-evidence.json against renderflow-scripttool-evidence-v1.schema.json, and bind screenplay.fountain to that evidence's output_sha256. Completed means this bundle was published; it does not mean native provider qualification, complete fidelity, or native-application acceptance.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "status", "runtime_qualified", "files", "limits"],
+  "properties": {
+    "schema_version": { "const": "renderflow.screenplay-bundle/v1" },
+    "status": { "const": "completed" },
+    "runtime_qualified": { "const": false },
+    "files": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": false,
+      "prefixItems": [
+        {
+          "allOf": [{ "$ref": "#/$defs/file" }],
+          "properties": {
+            "path": { "const": "screenplay.fountain" },
+            "size_bytes": { "maximum": 16777216 }
+          }
+        },
+        { "allOf": [{ "$ref": "#/$defs/file" }], "properties": { "path": { "const": "provider-evidence.json" } } }
+      ]
+    },
+    "limits": {
+      "const": "A successful run validates only the adopted body profile and observed tool invocation; native application acceptance and complete screenplay fidelity remain unqualified."
+    }
+  },
+  "$defs": {
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "size_bytes"],
+      "properties": {
+        "path": { "type": "string" },
+        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "size_bytes": { "type": "integer", "minimum": 1 }
+      }
+    }
+  }
+}

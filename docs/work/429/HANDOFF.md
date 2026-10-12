@@ -1,6 +1,21 @@
 # Renderflow #429 — creative doctor checkpoint 1
 
-## Authority and base
+## Merge reconciliation — 2026-10-12
+
+The maintainer explicitly approved merging the current implementation and
+deferring the deep test session. #442, #443, and #444 are merged. This #441
+update reconciles the doctor with those changes: one registry entry per tool,
+the three scripttool import capabilities, the configured Fountain-to-PDF
+capability, and generic Node/afterwriting discovery left unprobed. Doctor route
+rows describe these adapters as authored and unqualified. Obtain the final
+merge commit from #441; no execution or release qualification is implied.
+
+No tests, build, lint, native probes, or CI run during this integration. Existing
+#429 retains recovery integration and qualification work; create new audit
+issues only when the later deep testing session produces actual findings.
+The original checkpoint record follows.
+
+## Original authority and base
 
 - Existing issue: https://github.com/egohygiene/renderflow/issues/429 under #421.
 - The user authorized merging the existing work and advancing existing
@@ -26,10 +41,11 @@
 - `doctor --profile creative-publishing --format text|json` assesses eight
   selected tool IDs independently through the existing bounded discovery layer.
   Text is the default; format selection requires an explicit profile.
-- Four discovery-only candidates enter the catalog: scripttool, Node.js,
-  Afterwriting, and Poppler pdftotext. They have no conversion capabilities,
-  media types, or graph edges. Plain doctor filters them before probing;
-  explicit complete inventories may report them.
+- The original checkpoint added scripttool, Node.js, afterwriting, and Poppler
+  pdftotext as discovery-only candidates. The merge preserves #424/#425's
+  capability-bearing entries for the first three; Poppler remains discovery-only.
+  Explicit screenplay policies own execution and pinned preflight. Plain doctor
+  preserves its previous scope; the creative profile reports these candidates.
 - The source-reviewed Afterwriting CLI has no safe version-only query. Additive
   `ToolDiscovery::Unprobed` / `ToolAvailabilityStatus::NotProbed` represent that
   absence without a process launch or an installation claim. `is_available`
@@ -54,30 +70,34 @@
 
 ## Evidence and limits
 
-Seventeen test functions were authored: nine core report/fingerprint/probe
+Nineteen test functions are authored: eleven core report/fingerprint/probe
 tests, three argument-parser tests, three report-presentation tests, and two
 fake-probe graph-isolation regressions. None were executed. Independent source
 review found no blocking issue; this is not compilation or runtime evidence.
 No external provider was run and no real creative report was generated.
+The two reconciliation regressions cover pinned PDF providers staying
+unobserved in the creative profile and generic runtime-service hints being
+unable to qualify those global descriptors.
 
 Existing per-edge planner filtering already prunes unavailable providers while
 preserving unrelated routes. This checkpoint adds source-authored regression
 coverage, not a new planner algorithm. Speech keeps its separate explicit
 provider/model pins and unobserved-until-execution policy.
 
-Issue #429 remains open. Screenplay model/adapters (#423–#426) are absent,
-Afterwriting discovery/package identity needs a dedicated contract, and actual
-fixture/release tool versions and supported-platform installation remain
-unqualified. Source pins establish what was inspected, not a known-good tool
+Issue #429 remains open. #423–#425 now provide the model, imports, and pinned PDF
+adapter; #426 recovery remains unimplemented. Generic doctor observations do not
+attest to the adapter's configured package/runtime pins. Actual fixture/release
+tool versions and supported-platform installation remain unqualified. Source
+pins establish what was inspected, not a known-good tool
 release. The generated general tool-registry reference has not been refreshed;
 the profile guide and canonical YAML record these additions.
 
 ## Resume
 
-1. Review and, when authorized, merge this checkpoint without mistaking that
-   operation for qualification.
-2. Advance the existing screenplay model/adapter dependency chain before
-   claiming complete creative routing or #430 integration proof.
+1. Preserve the integrated doctor/adapter registry and configured preflight
+   boundary; do not infer qualification from merge status.
+2. Complete #426 recovery, then reconcile its actual tool/data requirements
+   before claiming complete creative routing or #430 integration proof.
 3. When execution checks are reauthorized, run focused authored coverage,
    compile, validate report/schema parity, reconcile generated documentation,
    and record the exact tested provider/platform/asset versions.

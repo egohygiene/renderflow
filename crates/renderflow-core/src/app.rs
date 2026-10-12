@@ -3,8 +3,9 @@ use clap::Parser;
 use tracing::info;
 
 use crate::cli::{
-    AiCommands, AiSkillCommands, Cli, Commands, DnaCommands, DoctorProfile, DoctorReportFormat, EbookCommands, FontCommands,
-    GraphCommands, LuluCommands, PluginCommands, PublicationCommands, SpecCommands, SpeechCommands, SubtitleCommands, ToolCommands,
+    AiCommands, AiSkillCommands, Cli, Commands, DnaCommands, DoctorProfile, DoctorReportFormat,
+    EbookCommands, FontCommands, GraphCommands, LuluCommands, PluginCommands, PublicationCommands,
+    ScreenplayCommands, SpecCommands, SpeechCommands, SubtitleCommands, ToolCommands,
     VideoCommands,
 };
 use crate::video::HandBrakeLimits;
@@ -356,6 +357,17 @@ pub fn run_cli(cli: Cli) -> Result<()> {
                     epubcheck,
                 )?,
             },
+        },
+        Some(Commands::Screenplay { subcommand }) => match subcommand {
+            ScreenplayCommands::Inspect { input, format } => {
+                commands::screenplay::run_inspect(&input, &format)?
+            }
+            ScreenplayCommands::Convert(arguments) => commands::screenplay::run_convert(arguments)?,
+            ScreenplayCommands::Analyze { input } => commands::screenplay_pdf::run_analyze(&input)?,
+            ScreenplayCommands::Pdf(arguments) => commands::screenplay_pdf::run_pdf(arguments)?,
+            ScreenplayCommands::PackageFingerprint { package_root } => {
+                commands::screenplay_pdf::run_package_fingerprint(&package_root)?
+            }
         },
         Some(Commands::Speech { subcommand }) => match subcommand {
             SpeechCommands::Inspect(arguments) => commands::speech::run_inspect(arguments)?,

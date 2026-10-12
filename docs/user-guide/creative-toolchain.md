@@ -13,8 +13,9 @@ renderflow doctor --profile "creative-publishing" --format "json" --strict
 
 Text is the default. `--format` requires an explicit profile. Plain
 `renderflow doctor` retains its previous provider scope and required-tool
-strict behavior. The four new candidate descriptors also appear in explicitly
-requested complete registry inventories such as `renderflow tools check-all`.
+strict behavior. Scripttool, Node, Afterwriting, and pdftotext are included only
+in the explicit creative profile or complete inventories such as
+`renderflow tools check-all`; they remain outside plain doctor's scope.
 
 ## Reading the report
 
@@ -32,23 +33,30 @@ The report separates three questions:
 
 | Tool ID | Discovery | Role and limit |
 | --- | --- | --- |
-| `tool.scripttool` | `scripttool -version` | Screenplay interchange candidate; adapter pending #424. |
-| `tool.node` | `node --version` | Runtime candidate; does not establish an Afterwriting installation. |
-| `tool.afterwriting` | `not_probed` | Reviewed CLI has no version-only query; PDF adapter pending #425. |
+| `tool.scripttool` | `scripttool -version` | Authored strict body-only imports to Fountain require a separately pinned 0.0.10 executable; discovery does not select it. |
+| `tool.node` | `not_probed` | Only configured PDF preflight may observe the pinned executable with a cleared environment; doctor never launches Node from PATH. |
+| `tool.afterwriting` | `not_probed` | Authored Fountain PDF adapter reads pinned package identity statically; the CLI has no version-only query. |
 | `tool.pdftotext` | `pdftotext -v` | PDF text candidate; recovery adapter pending #426. |
 | `tool.ffmpeg` | Existing registry version probe | Authored subtitle extraction and audio preparation require additional input policies. |
 | `tool.ffprobe` | Existing registry version probe | Authored stream inspection and extraction support. |
 | `tool.tesseract` | Existing registry version probe | OCR candidate; language-data and confidence integration remain pending. |
 | `tool.whisper_cpp` | Existing registry version probe | Authored local recognition still requires explicit executable/model pins. |
 
-The new candidates declare no conversion capabilities or graph edges. No
-release compatibility range has been qualified for them. Supported-platform
-declarations describe candidate scope, not a tested package matrix.
+The registry preserves the authored scripttool and Afterwriting capabilities;
+doctor does not add graph edges or select execution providers. The
+[scripttool](scripttool.md) and [screenplay PDF](screenplay-pdf.md) routes require
+their explicit execution policies, exact tool/package pins, bounded input
+profiles, and `allow_unqualified` opt-ins. pdftotext remains a discovery-only
+candidate without conversion capabilities. Supported-platform and version
+declarations remain candidate scope, not a tested package matrix.
 
-Afterwriting is intentionally `not_probed`: doctor neither launches it nor
-claims it is installed or missing. Its route reports providers as `unobserved`
-when this is the only unresolved discovery result; a missing Node installation
-instead makes the provider group `unavailable`.
+Node and Afterwriting are intentionally `not_probed`: doctor neither launches
+them nor claims either installation is present or missing. Their PDF route
+reports providers as `unobserved` on a declared platform. Unsupported platforms
+remain `unavailable`. Only an explicitly configured screenplay PDF operation
+checks the pinned Node executable, package tree/manifest, font assets, and
+selected formatting profile. Those observations never come from doctor or
+generic runtime-service declarations.
 
 Built-in plain timed-text conversion and the standalone saved-result alignment
 exporter appear without external providers. Missing FFmpeg therefore does not
@@ -87,7 +95,12 @@ When invoked, doctor requests only the selected registry's bounded local
 version probes. It does not transform media, run recognition, inspect model
 files, download assets, or install packages. Speech planning retains its
 explicit pinned-provider contract; PATH observations do not select or replace
-the executable/model used by a speech job.
+the executable/model used by a speech job. Screenplay imports likewise use
+their configured scripttool path and SHA-256. PDF execution uses pinned Node
+and package paths; discovery does not inspect those paths, launch either
+provider, or attest its compatibility. Fixed PDF profiles use unembedded
+base14 Courier and pinned package font metrics, whose fidelity and exact
+licensing remain unqualified.
 
 Install optional providers separately using their upstream guidance. The
 [source evidence](../work/429/PROVIDER_SOURCES.md) records reviewed commands,
@@ -96,7 +109,8 @@ added to the default devcontainer. Executable licenses, speech model licenses,
 OCR language-data licenses, and font embedding/redistribution terms require
 separate exact-asset review.
 
-Issue #429 remains open for actual adapter integration, fixture/release version
-records, supported-platform qualification, and execution of the authored
-coverage. This checkpoint ran no tests, builds, schema validators, formatting,
-linting, native probes/inference, or CI.
+Issue #429 remains open for the remaining recovery adapter dependency,
+fixture/release version records, supported-platform qualification, and execution
+of authored coverage. Screenplay #423–#425 and doctor implementation have been
+reconciled at source level. No tests, builds, schema validators, formatting,
+linting, native probes/inference, or CI were run for this reconciliation.

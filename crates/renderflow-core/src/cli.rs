@@ -334,6 +334,13 @@ pub enum Commands {
         subcommand: SpeechCommands,
     },
 
+    /// Inspect, analyze, convert, or render explicitly configured screenplay profiles.
+    #[command(subcommand_required = true, arg_required_else_help = true)]
+    Screenplay {
+        #[command(subcommand)]
+        subcommand: ScreenplayCommands,
+    },
+
     /// List stable provider capability IDs and their implementations.
     Capabilities {
         /// Output format: text (default), json, or yaml.
@@ -429,6 +436,101 @@ mod doctor_arguments_tests {
             assert!(Cli::try_parse_from(arguments).is_err());
         }
     }
+}
+
+#[derive(Subcommand)]
+pub enum ScreenplayCommands {
+    /// Validate canonical screenplay JSON and report structure and retained evidence.
+    #[command(after_help = "Only the renderflow.screenplay/v1 JSON model is accepted.\n\
+        Native conversion uses the separate explicitly configured convert command; inspect\n\
+        does not invoke tools, convert a screenplay, or verify upstream source bytes.")]
+    Inspect {
+        /// Canonical screenplay JSON file (16 MiB maximum); input is read only.
+        #[arg(long, value_name = "FILE")]
+        input: String,
+        /// Report format; output is written only to standard output.
+        #[arg(long, default_value = "json", value_parser = ["json", "text"], value_name = "FORMAT")]
+        format: String,
+    },
+    /// Convert a supported native screenplay body with an explicitly pinned scripttool.
+    #[command(after_help = "Authored, unqualified import routes only: FDX/OSF/FadeIn to Fountain.\n\
+        Reverse native conversions and scripttool JSON are rejected. Unsupported\n\
+        structure or changed semantic content causes failure; no silent fallback.")]
+    Convert(ScreenplayConvertArguments),
+    /// Analyze the strict ASCII Fountain body profile without launching a provider.
+    #[command(after_help = "Counts are independently derived by Renderflow, not afterwriting statistics.\n\
+        The authored profile rejects title pages, styling, multiline paragraphs,\n\
+        XML markers, and non-ASCII text. No PDF is created or page count estimated.")]
+    Analyze {
+        /// Local Fountain input, at most 16 MiB; JSON report goes to stdout.
+        #[arg(long, value_name = "FILE")]
+        input: String,
+    },
+    /// Render a strict Fountain body to PDF using a pinned afterwriting installation.
+    #[command(after_help = "Authored, unqualified Fountain-to-PDF profile only.\n\
+        Requires a JSON config with explicit Node/package pins and allow_unqualified=true.\n\
+        Fixed A4 or US Letter, Courier base14, no title page or native FDX input.\n\
+        PDF structure is checked independently; visual fidelity and reproducibility remain unqualified.")]
+    Pdf(ScreenplayPdfArguments),
+    /// Hash a local afterwriting installation without launching Node or installing anything.
+    #[command(after_help = "Reports the bounded package-content fingerprint needed by the PDF config.\n\
+        A fingerprint identifies local bytes; it does not establish trust, dependency\n\
+        completeness, source provenance, or runtime compatibility.")]
+    PackageFingerprint {
+        /// Absolute path to an already installed afterwriting package directory.
+        #[arg(long, value_name = "DIRECTORY")]
+        package_root: String,
+    },
+}
+
+#[derive(clap::Args)]
+pub struct ScreenplayPdfArguments {
+    /// Local Fountain source; the original is read only.
+    #[arg(long, value_name = "FILE")]
+    pub input: String,
+    /// JSON AfterwritingConfig containing explicit runtime, installation, and profile pins.
+    #[arg(long, value_name = "FILE")]
+    pub config: String,
+    /// New bundle directory; its parent must already exist.
+    #[arg(long, value_name = "DIRECTORY")]
+    pub output_dir: String,
+    /// Optional expected lowercase SHA-256 of the source bytes.
+    #[arg(long, value_name = "SHA256")]
+    pub source_sha256: Option<String>,
+}
+
+#[derive(clap::Args)]
+pub struct ScreenplayConvertArguments {
+    /// Local native screenplay input; the original is read only.
+    #[arg(long, value_name = "FILE")]
+    pub input: String,
+    /// Explicit native source format.
+    #[arg(long, value_parser = ["fountain", "fdx", "osf", "fadein"], value_name = "FORMAT")]
+    pub input_format: String,
+    /// Explicit native target; this checkpoint adopts only Fountain outputs.
+    #[arg(long, value_parser = ["fountain", "fdx", "osf", "fadein"], value_name = "FORMAT")]
+    pub output_format: String,
+    /// New bundle directory; its parent must exist. Existing paths are refused.
+    #[arg(long, value_name = "DIRECTORY")]
+    pub output_dir: String,
+    /// Absolute path to the selected external scripttool executable.
+    #[arg(long, value_name = "FILE")]
+    pub scripttool_path: String,
+    /// Expected lowercase SHA-256 of that exact executable.
+    #[arg(long, value_name = "SHA256")]
+    pub scripttool_sha256: String,
+    /// Expected numeric provider version; only 0.0.10 is adopted by this source profile.
+    #[arg(long, default_value = "0.0.10", value_name = "VERSION")]
+    pub expected_version: String,
+    /// Optional expected SHA-256 of the original source bytes.
+    #[arg(long, value_name = "SHA256")]
+    pub source_sha256: Option<String>,
+    /// Maximum provider invocation duration in seconds.
+    #[arg(long, default_value_t = 30, value_name = "SECONDS")]
+    pub timeout_seconds: u64,
+    /// Explicitly accept that this authored provider profile has not been runtime-qualified.
+    #[arg(long)]
+    pub allow_unqualified: bool,
 }
 
 #[derive(Subcommand)]
@@ -1251,4 +1353,126 @@ pub enum GraphCommands {
         #[arg(long, value_name = "MODE")]
         optimization: Option<OptimizationMode>,
     },
+}
+
+#[cfg(test)]
+mod screenplay_cli_tests {
+    use super::*;
+
+    #[test]
+    fn screenplay_inspect_defaults_to_json_report() {
+        let cli = Cli::try_parse_from([
+            "renderflow", "screenplay", "inspect", "--input", "script.screenplay.json",
+        ]).unwrap();
+        match cli.command {
+            Some(Commands::Screenplay {
+                subcommand: ScreenplayCommands::Inspect { input, format },
+            }) => {
+                assert_eq!(input, "script.screenplay.json");
+                assert_eq!(format, "json");
+            }
+            _ => panic!("expected screenplay inspect command"),
+        }
+    }
+
+    #[test]
+    fn screenplay_inspect_accepts_text_report() {
+        let cli = Cli::try_parse_from([
+            "renderflow", "screenplay", "inspect", "--input", "script.screenplay.json",
+            "--format", "text",
+        ]).unwrap();
+        assert!(matches!(cli.command, Some(Commands::Screenplay {
+            subcommand: ScreenplayCommands::Inspect { format, .. },
+        }) if format == "text"));
+    }
+
+    #[test]
+    fn screenplay_requires_an_inspect_command_and_explicit_input() {
+        assert!(Cli::try_parse_from(["renderflow", "screenplay"]).is_err());
+        assert!(Cli::try_parse_from(["renderflow", "screenplay", "inspect"]).is_err());
+    }
+
+    #[test]
+    fn screenplay_inspect_rejects_unsupported_format_and_output_flags() {
+        assert!(Cli::try_parse_from([
+            "renderflow", "screenplay", "inspect", "--input", "script.screenplay.json",
+            "--format", "yaml",
+        ]).is_err());
+        assert!(Cli::try_parse_from([
+            "renderflow", "screenplay", "inspect", "--input", "script.screenplay.json",
+            "--output", "converted.fdx",
+        ]).is_err());
+        assert!(Cli::try_parse_from(["renderflow", "screenplay", "convert"]).is_err());
+    }
+
+    fn conversion_arguments() -> Vec<&'static str> {
+        vec!["renderflow", "screenplay", "convert", "--input", "scene.fdx",
+            "--input-format", "fdx", "--output-format", "fountain",
+            "--output-dir", "new-bundle", "--scripttool-path", "/opt/scripttool",
+            "--scripttool-sha256", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]
+    }
+
+    #[test]
+    fn screenplay_conversion_requires_explicit_unqualified_opt_in() {
+        let cli = Cli::try_parse_from(conversion_arguments()).unwrap();
+        match cli.command {
+            Some(Commands::Screenplay { subcommand: ScreenplayCommands::Convert(arguments) }) => {
+                assert!(!arguments.allow_unqualified);
+                assert_eq!(arguments.expected_version, "0.0.10");
+                assert_eq!(arguments.timeout_seconds, 30);
+            }
+            _ => panic!("expected screenplay convert"),
+        }
+        let mut argv = conversion_arguments();
+        argv.push("--allow-unqualified");
+        let cli = Cli::try_parse_from(argv).unwrap();
+        assert!(matches!(cli.command, Some(Commands::Screenplay {
+            subcommand: ScreenplayCommands::Convert(arguments),
+        }) if arguments.allow_unqualified));
+    }
+
+    #[test]
+    fn screenplay_conversion_rejects_provider_json_and_missing_binary_pin() {
+        let mut argv = conversion_arguments();
+        let index = argv.iter().position(|arg| *arg == "--output-format").unwrap() + 1;
+        argv[index] = "json";
+        assert!(Cli::try_parse_from(argv).is_err());
+        let mut argv = conversion_arguments();
+        argv.truncate(argv.len() - 2);
+        assert!(Cli::try_parse_from(argv).is_err());
+    }
+
+    #[test]
+    fn screenplay_pdf_requires_explicit_config_and_new_bundle_destination() {
+        let argv = ["renderflow", "screenplay", "pdf", "--input", "scene.fountain",
+            "--config", "afterwriting.json", "--output-dir", "new-pdf-bundle"];
+        let cli = Cli::try_parse_from(argv).unwrap();
+        assert!(matches!(cli.command, Some(Commands::Screenplay {
+            subcommand: ScreenplayCommands::Pdf(arguments),
+        }) if arguments.input == "scene.fountain" && arguments.config == "afterwriting.json"
+            && arguments.output_dir == "new-pdf-bundle" && arguments.source_sha256.is_none()));
+        assert!(Cli::try_parse_from(&argv[..7]).is_err());
+        assert!(Cli::try_parse_from(["renderflow", "screenplay", "pdf", "--input", "scene.fountain",
+            "--output-dir", "new-bundle"]).is_err());
+    }
+
+    #[test]
+    fn screenplay_analysis_is_separate_from_provider_pdf_generation() {
+        let cli = Cli::try_parse_from(["renderflow", "screenplay", "analyze", "--input", "scene.fountain"]).unwrap();
+        assert!(matches!(cli.command, Some(Commands::Screenplay {
+            subcommand: ScreenplayCommands::Analyze { input },
+        }) if input == "scene.fountain"));
+        assert!(Cli::try_parse_from(["renderflow", "screenplay", "analyze", "--input", "scene.fountain",
+            "--config", "afterwriting.json"]).is_err());
+    }
+
+    #[test]
+    fn screenplay_package_fingerprint_requires_explicit_root() {
+        let cli = Cli::try_parse_from(["renderflow", "screenplay", "package-fingerprint",
+            "--package-root", "/opt/afterwriting"]).unwrap();
+        assert!(matches!(cli.command, Some(Commands::Screenplay {
+            subcommand: ScreenplayCommands::PackageFingerprint { package_root },
+        }) if package_root == "/opt/afterwriting"));
+        assert!(Cli::try_parse_from(["renderflow", "screenplay", "package-fingerprint"]).is_err());
+    }
 }

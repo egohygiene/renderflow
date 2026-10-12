@@ -27,6 +27,14 @@ pub enum Format {
     Latex,
     /// Fountain screenplay plain-text format.
     Fountain,
+    /// Final Draft screenplay XML (`.fdx`); native conversion is not registered.
+    Fdx,
+    /// Fade In screenplay archive (`.fadein`); native conversion is not registered.
+    FadeIn,
+    /// Open Screenplay Format XML (`.osf`); native conversion is not registered.
+    Osf,
+    /// Renderflow's versioned screenplay JSON (`.screenplay.json`).
+    ScreenplayJson,
 
     // ── Image formats ──────────────────────────────────────────────────────────
     /// JPEG raster image format.
@@ -169,6 +177,10 @@ impl fmt::Display for Format {
             Format::Rst => "rst",
             Format::Latex => "latex",
             Format::Fountain => "fountain",
+            Format::Fdx => "fdx",
+            Format::FadeIn => "fadein",
+            Format::Osf => "osf",
+            Format::ScreenplayJson => "screenplay_json",
             // Image
             Format::Jpeg => "jpeg",
             Format::Png => "png",
@@ -260,6 +272,10 @@ impl FromStr for Format {
             "rst" => Ok(Format::Rst),
             "latex" | "tex" => Ok(Format::Latex),
             "fountain" => Ok(Format::Fountain),
+            "fdx" => Ok(Format::Fdx),
+            "fadein" | "fade_in" => Ok(Format::FadeIn),
+            "osf" => Ok(Format::Osf),
+            "screenplay_json" | "screenplay-json" | "screenplay.json" => Ok(Format::ScreenplayJson),
             // Images
             "jpeg" | "jpg" => Ok(Format::Jpeg),
             "png" => Ok(Format::Png),
@@ -326,7 +342,7 @@ impl FromStr for Format {
             "timed_transcript_json" | "timed-transcript.json" => Ok(Format::TimedTranscriptJson),
             _ => anyhow::bail!(
                 "'{}' is not a known format. \
-                 Documents: markdown, html, pdf, docx, epub, kepub, rst, latex, fountain. \
+                 Documents: markdown, html, pdf, docx, epub, kepub, rst, latex, fountain, fdx, fadein, osf, screenplay_json. \
                  Images: jpeg, png, tiff, webp, gif, bmp, avif, svg, cbz. \
                  Audio: wav, aiff, bwf, pcm, flac, m4a_alac, wv, ape, tta, dsf, dff, shn, \
                  mp3, m4a, aac, ogg, opus, wma, amr, mp2, ra, oma, \
@@ -344,6 +360,28 @@ impl FromStr for Format {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn screenplay_formats_have_distinct_canonical_ids_and_aliases() {
+        for (format, canonical, aliases) in [
+            (Format::Fountain, "fountain", &["fountain", "FOUNTAIN"][..]),
+            (Format::Fdx, "fdx", &["fdx", "FDX"][..]),
+            (Format::FadeIn, "fadein", &["fadein", "fade_in", "FADEIN"][..]),
+            (Format::Osf, "osf", &["osf", "OSF"][..]),
+            (
+                Format::ScreenplayJson,
+                "screenplay_json",
+                &["screenplay_json", "screenplay-json", "screenplay.json", "SCREENPLAY.JSON"][..],
+            ),
+        ] {
+            assert_eq!(format.to_string(), canonical);
+            for alias in aliases {
+                assert_eq!(alias.parse::<Format>().unwrap(), format);
+            }
+        }
+        assert_ne!(Format::ScreenplayJson, Format::Json);
+        assert_ne!(Format::FadeIn, Format::Osf);
+    }
 
     #[test]
     fn test_display_markdown() {

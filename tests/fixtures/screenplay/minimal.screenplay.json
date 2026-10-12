@@ -1,0 +1,97 @@
+{
+  "schema_version": "renderflow.screenplay/v1",
+  "source": {
+    "sha256": "28bffdc4110b7607fb0cdca3887b1b854015912e7bdfdeb75a78cce9bb088e1d",
+    "format": "fountain",
+    "extensions": {
+      "renderflow.fixture:source_association": {
+        "path": "minimal.fountain",
+        "relationship": "manually_authored_expansion",
+        "conversion_performed": false,
+        "detail": "The digest identifies the original narrative seed; the additional dialogue, note, scene number, and grouping were authored directly in canonical JSON."
+      }
+    }
+  },
+  "title_page": [
+    {
+      "id": "title-1",
+      "key": "Title",
+      "value": "lantern station"
+    },
+    {
+      "id": "author-1",
+      "key": "Author",
+      "value": "Renderflow fixtures"
+    }
+  ],
+  "elements": [
+    {
+      "id": "scene-1",
+      "kind": "scene_heading",
+      "text": "INT. LANTERN STATION - NIGHT",
+      "scene_number": "1"
+    },
+    {
+      "id": "action-1",
+      "kind": "action",
+      "text": "Mira places a blue lantern beside the window.",
+      "extensions": {
+        "renderflow.fixture:review_tag": "original-story-text"
+      }
+    },
+    {
+      "id": "character-mira-1",
+      "kind": "character",
+      "text": "MIRA"
+    },
+    {
+      "id": "parenthetical-mira-1",
+      "kind": "parenthetical",
+      "text": "quietly",
+      "character_id": "character-mira-1"
+    },
+    {
+      "id": "dialogue-mira-1",
+      "kind": "dialogue",
+      "text": "The signal says: café, Łódź, 星.",
+      "character_id": "character-mira-1"
+    },
+    {
+      "id": "character-ori-1",
+      "kind": "character",
+      "text": "ORI"
+    },
+    {
+      "id": "dialogue-ori-1",
+      "kind": "dialogue",
+      "text": "Then somebody is still listening.",
+      "character_id": "character-ori-1"
+    },
+    {
+      "id": "note-1",
+      "kind": "note",
+      "text": "Both voices share the final beat; page layout is unspecified."
+    },
+    {
+      "id": "transition-1",
+      "kind": "transition",
+      "text": "CUT TO:"
+    }
+  ],
+  "dual_dialogue": [
+    {
+      "id": "dual-1",
+      "left_character_id": "character-mira-1",
+      "right_character_id": "character-ori-1"
+    }
+  ],
+  "losses": [],
+  "extensions": {
+    "renderflow.fixture:provenance": {
+      "authorship": "original_renderflow_fixture",
+      "license": "MIT",
+      "native_application_export": false,
+      "qualification": "authored_unrun"
+    }
+  }
+}
