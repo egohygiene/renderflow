@@ -1514,6 +1514,14 @@ pub fn migrate_v1_str(content: &str) -> Result<SpecV2> {
 }
 
 fn legacy_source_format(config: &Config) -> String {
+    // Preserve the explicit JSON subtype carried by a multipart filename.
+    // Leave ordinary legacy extension/default semantics unchanged.
+    if let Some(
+        format @ (crate::graph::Format::ScreenplayJson | crate::graph::Format::TimedTranscriptJson),
+    ) = crate::detect::detect_from_extension(&config.input)
+    {
+        return format.to_string();
+    }
     std::path::Path::new(&config.input)
         .extension()
         .and_then(|extension| extension.to_str())
@@ -2349,5 +2357,25 @@ variables:
         let migrated = migrate_v1_config(&config);
         assert!(matches!(config.outputs[0].output_type, OutputType::Pdf));
         assert_eq!(migrated.targets.exact[0].format.as_deref(), Some("pdf"));
+    }
+
+    #[test]
+    fn legacy_migration_preserves_multipart_json_identity_without_new_routes() {
+        for (input, format) in [
+            ("scene.screenplay.json", "screenplay_json"),
+            ("SCENE.SCREENPLAY.JSON", "screenplay_json"),
+            ("captions.timed-transcript.json", "timed_transcript_json"),
+            ("scene.json", "json"),
+            ("scene.fountain", "fountain"),
+            ("scene.fdx", "fdx"),
+            ("document.md", "md"),
+            ("input.unknown", "unknown"),
+            ("README", "markdown"),
+        ] {
+            let yaml = format!("outputs:\n  - type: pdf\ninput: {input}\n");
+            let config: Config = serde_yaml_ng::from_str(&yaml).unwrap();
+            assert_eq!(legacy_source_format(&config), format);
+            assert_eq!(migrate_v1_config(&config).sources[0].format.as_deref(), Some(format));
+        }
     }
 }

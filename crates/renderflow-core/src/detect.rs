@@ -132,6 +132,9 @@ pub fn detect_from_bytes(buf: &[u8]) -> Option<Format> {
 /// Returns `None` when the extension is missing or unrecognised.
 pub fn detect_from_extension(path: &str) -> Option<Format> {
     let filename = Path::new(path).file_name()?.to_str()?.to_ascii_lowercase();
+    if filename.ends_with(".screenplay.json") {
+        return Some(Format::ScreenplayJson);
+    }
     if filename.ends_with(".timed-transcript.json") {
         return Some(Format::TimedTranscriptJson);
     }
@@ -189,6 +192,25 @@ pub fn detect_from_path(path: &str, content: Option<&[u8]>) -> DetectionResult {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn screenplay_extensions_preserve_native_and_canonical_identity() {
+        for (path, format) in [
+            ("scene.fountain", Format::Fountain),
+            ("scene.FDX", Format::Fdx),
+            ("scene.fadein", Format::FadeIn),
+            ("scene.OSF", Format::Osf),
+            ("scene.screenplay.json", Format::ScreenplayJson),
+            ("SCENE.SCREENPLAY.JSON", Format::ScreenplayJson),
+            ("scene.json", Format::Json),
+            ("screenplay.json", Format::Json),
+            ("screenplay.json/scene.json", Format::Json),
+            ("scene.xml", Format::Xml),
+        ] {
+            assert_eq!(detect_from_extension(path), Some(format));
+            assert_eq!(detect_from_path(path, None), DetectionResult::ExtensionOnly { format });
+        }
+    }
 
     #[test]
     fn subtitle_extensions_remain_distinct_from_generic_data_formats() {

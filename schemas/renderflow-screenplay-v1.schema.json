@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-screenplay-v1.schema.json",
+  "title": "Renderflow screenplay v1",
+  "description": "Provider-neutral ordered screenplay semantics with declared upstream source identity, explicit dialogue relationships, directional loss evidence, and namespaced opaque source data. The canonical model does not attest to original native layout or source completeness.",
+  "$comment": "Application validation additionally enforces 16 MiB input and compact-model/output bounds, 65536 UTF-8 bytes per text value, 16 MiB aggregate text, globally unique stable IDs, current preceding character-block ownership, adjacent left-then-right dual blocks with dialogue on both sides and no reused character block, and all byte/depth/node extension bounds. Parsing rejects duplicate keys at every depth and positional arrays for records. JSON numeric tokens must be lexical integers fitting signed i64 or unsigned u64; fractions, exponents, and oversized integers are refused rather than rounded. Retain other native numeric tokens as strings. JSON Schema alone cannot enforce these lexical and cross-field constraints.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "source", "title_page", "elements", "dual_dialogue", "losses"],
+  "properties": {
+    "schema_version": { "const": "renderflow.screenplay/v1" },
+    "source": { "$ref": "#/$defs/source" },
+    "title_page": { "type": "array", "maxItems": 256, "items": { "$ref": "#/$defs/title_page_field" } },
+    "elements": { "type": "array", "minItems": 1, "maxItems": 100000, "items": { "$ref": "#/$defs/element" } },
+    "dual_dialogue": { "type": "array", "maxItems": 10000, "items": { "$ref": "#/$defs/dual_dialogue" } },
+    "losses": { "type": "array", "maxItems": 1024, "items": { "$ref": "#/$defs/loss" } },
+    "extensions": { "$ref": "#/$defs/extensions" }
+  },
+  "$defs": {
+    "label": { "type": "string", "minLength": 1, "allOf": [{ "pattern": "\\S" }, { "not": { "pattern": "[\\u0000-\\u001f\\u007f-\\u009f]" } }] },
+    "id": { "allOf": [{ "$ref": "#/$defs/label" }, { "maxLength": 128 }] },
+    "format": { "allOf": [{ "$ref": "#/$defs/label" }, { "maxLength": 64 }] },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "text": { "type": "string", "maxLength": 65536, "not": { "pattern": "[\\u0000-\\u0008\\u000b-\\u001f\\u007f-\\u009f]" } },
+    "nonempty_text": { "allOf": [{ "$ref": "#/$defs/text" }, { "pattern": "\\S" }] },
+    "extension_value": {
+      "description": "Opaque JSON semantic values; only exact lexical i64/u64 integers are supported as numbers. Raw source lexemes requiring other numeric representations must be stored as strings. Application limits: 65536 encoded bytes per top-level extension value, depth 16, 100000 aggregate nodes, 1 MiB aggregate key/value bytes.",
+      "anyOf": [
+        { "type": "null" },
+        { "type": "boolean" },
+        { "type": "string" },
+        { "type": "integer", "minimum": -9223372036854775808, "maximum": 18446744073709551615 },
+        { "type": "array", "items": { "$ref": "#/$defs/extension_value" } },
+        { "type": "object", "additionalProperties": { "$ref": "#/$defs/extension_value" } }
+      ]
+    },
+    "extensions": {
+      "type": "object",
+      "maxProperties": 64,
+      "propertyNames": { "allOf": [{ "$ref": "#/$defs/id" }, { "pattern": "^[^:]*[^:\\s][^:]*:.*\\S.*$" }] },
+      "additionalProperties": { "$ref": "#/$defs/extension_value" }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sha256", "format"],
+      "properties": {
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "format": { "$ref": "#/$defs/format" },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "title_page_field": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "key", "value"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "key": { "$ref": "#/$defs/id" },
+        "value": { "$ref": "#/$defs/text" },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "element_kind": { "enum": ["scene_heading", "action", "character", "dialogue", "parenthetical", "transition", "lyrics", "centered", "section", "synopsis", "note", "unknown"] },
+    "element": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "text"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "kind": { "$ref": "#/$defs/element_kind" },
+        "text": { "$ref": "#/$defs/text" },
+        "character_id": { "anyOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }] },
+        "scene_number": { "anyOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }] },
+        "section_level": { "anyOf": [{ "type": "integer", "minimum": 1, "maximum": 6 }, { "type": "null" }] },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "kind": { "enum": ["dialogue", "parenthetical"] } } },
+          "then": { "required": ["character_id"], "properties": { "character_id": { "$ref": "#/$defs/id" } } },
+          "else": { "properties": { "character_id": { "type": "null" } } }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "section" } } },
+          "then": { "required": ["section_level"], "properties": { "section_level": { "type": "integer", "minimum": 1, "maximum": 6 } } },
+          "else": { "properties": { "section_level": { "type": "null" } } }
+        },
+        {
+          "if": { "properties": { "kind": { "not": { "const": "scene_heading" } } } },
+          "then": { "properties": { "scene_number": { "type": "null" } } }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "unknown" } } },
+          "then": { "required": ["extensions"], "properties": { "extensions": { "minProperties": 1 } } },
+          "else": { "properties": { "text": { "$ref": "#/$defs/nonempty_text" } } }
+        }
+      ]
+    },
+    "dual_dialogue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "left_character_id", "right_character_id"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "left_character_id": { "$ref": "#/$defs/id" },
+        "right_character_id": { "$ref": "#/$defs/id" },
+        "extensions": { "$ref": "#/$defs/extensions" }
+      }
+    },
+    "loss_kind": { "enum": ["title_page", "element_kinds", "stable_ids", "dual_dialogue", "text_styling", "layout", "pagination", "source_extensions", "source_provenance", "unknown_source_data", "prior_loss_evidence"] },
+    "loss": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["direction", "format", "kind", "detail"],
+      "properties": {
+        "direction": { "enum": ["import", "export"] },
+        "format": { "$ref": "#/$defs/format" },
+        "kind": { "$ref": "#/$defs/loss_kind" },
+        "detail": { "$ref": "#/$defs/nonempty_text" }
+      }
+    }
+  }
+}

@@ -113,6 +113,7 @@ impl ValidationRegistry {
         registry.register(Arc::new(NonEmptyValidator));
         registry.register(Arc::new(Utf8Validator));
         registry.register(Arc::new(TimedTextValidator));
+        registry.register(Arc::new(ScreenplayValidator));
         registry.register(Arc::new(JsonValidator));
         registry.register(Arc::new(YamlValidator));
         registry.register(Arc::new(MarkupValidator));
@@ -239,6 +240,7 @@ impl ValidationRegistry {
                 Some("validator.core.timed_text")
             }
             Format::Json => Some("validator.core.json"),
+            Format::ScreenplayJson => Some("validator.core.screenplay"),
             Format::Yaml => Some("validator.core.yaml"),
             Format::Html | Format::Xml | Format::Svg => Some("validator.core.markup"),
             Format::Csv | Format::Tsv => Some("validator.core.delimited_text"),
@@ -251,7 +253,6 @@ impl ValidationRegistry {
             Format::Markdown
             | Format::Rst
             | Format::Latex
-            | Format::Fountain
             | Format::Toml => Some("validator.core.utf8"),
             _ => Some("validator.core.declared_signature"),
         };
@@ -441,6 +442,51 @@ impl ArtifactValidator for TimedTextValidator {
 }
 
 struct JsonValidator;
+
+/// Structural validation of canonical screenplay JSON only. Native screenplay
+/// formats deliberately keep unavailable structural validation until their
+/// parsers land; UTF-8 or ZIP recognition does not validate a screenplay.
+struct ScreenplayValidator;
+
+impl ArtifactValidator for ScreenplayValidator {
+    fn descriptor(&self) -> ValidatorDescriptor {
+        descriptor(
+            "validator.core.screenplay",
+            &[Format::ScreenplayJson],
+            ValidatorSupportTier::Experimental,
+        )
+    }
+
+    fn validate(&self, artifact: &Artifact, store: &ArtifactStore) -> Result<ValidationCheck> {
+        use crate::screenplay::{parse_json, MAX_INPUT_BYTES};
+
+        let too_large = || {
+            ValidationCheck::invalid(
+                "validation.screenplay_too_large",
+                "Screenplay artifact exceeds the canonical JSON input limit",
+            )
+        };
+        if artifact.size_bytes() > MAX_INPUT_BYTES as u64 {
+            return Ok(too_large());
+        }
+        let file = store.open(artifact)?;
+        if file.metadata()?.len() > MAX_INPUT_BYTES as u64 {
+            return Ok(too_large());
+        }
+        let mut bytes = Vec::new();
+        file.take(MAX_INPUT_BYTES as u64 + 1).read_to_end(&mut bytes)?;
+        if bytes.len() > MAX_INPUT_BYTES {
+            return Ok(too_large());
+        }
+        match parse_json(&bytes) {
+            Ok(_) => Ok(ValidationCheck::valid()),
+            Err(error) => Ok(ValidationCheck::invalid(
+                "validation.invalid_screenplay",
+                error.to_string(),
+            )),
+        }
+    }
+}
 
 impl ArtifactValidator for JsonValidator {
     fn descriptor(&self) -> ValidatorDescriptor {
@@ -923,6 +969,58 @@ mod tests {
             )
             .unwrap();
         ValidationRegistry::builtins().validate_in_store(&artifact, format, &[], &store)
+    }
+
+    #[test]
+    fn canonical_screenplay_validation_rejects_generic_json_and_broken_references() {
+        let bytes = include_bytes!("../../../tests/fixtures/screenplay/minimal.screenplay.json");
+        let outcome = timed_text_outcome(Format::ScreenplayJson, bytes);
+        assert_eq!(outcome.state, ValidationState::Valid);
+        assert!(outcome.validators.iter().any(|evidence| {
+            evidence.validator_id == "validator.core.screenplay"
+                && evidence.state == ValidationState::Valid
+        }));
+        assert_eq!(timed_text_outcome(Format::ScreenplayJson, b"{}").state, ValidationState::Invalid);
+        assert_eq!(timed_text_outcome(Format::Json, b"{}").state, ValidationState::Valid);
+
+        let mut invalid: serde_json::Value = serde_json::from_slice(bytes).unwrap();
+        invalid["dual_dialogue"][0]["right_character_id"] = serde_json::json!("missing-character");
+        let outcome = timed_text_outcome(Format::ScreenplayJson, &serde_json::to_vec(&invalid).unwrap());
+        assert_eq!(outcome.state, ValidationState::Invalid);
+        assert!(outcome.validators.iter().any(|evidence| {
+            evidence.diagnostics.iter().any(|diagnostic| diagnostic.code == "validation.invalid_screenplay")
+        }));
+    }
+
+    #[test]
+    fn native_screenplay_defaults_do_not_claim_structural_validation() {
+        for format in [Format::Fountain, Format::Fdx, Format::FadeIn, Format::Osf] {
+            let outcome = timed_text_outcome(format, b"nonempty text is not a validated screenplay");
+            assert_eq!(outcome.state, ValidationState::Unavailable);
+            assert!(!outcome.validators.iter().any(|evidence| {
+                evidence.validator_id == "validator.core.utf8"
+                    || evidence.validator_id == "validator.core.screenplay"
+            }));
+        }
+    }
+
+    #[test]
+    fn screenplay_validator_bounds_actual_store_payload_before_read() {
+        let directory = tempfile::tempdir().unwrap();
+        let store = ArtifactStore::new(directory.path()).unwrap();
+        let artifact = store.put_bytes(
+            b"small",
+            ArtifactDescriptor::for_format(Format::ScreenplayJson, ArtifactStorageClass::Terminal),
+        ).unwrap();
+        std::fs::OpenOptions::new()
+            .write(true)
+            .open(store.payload_path(&artifact).unwrap())
+            .unwrap()
+            .set_len(crate::screenplay::MAX_INPUT_BYTES as u64 + 1)
+            .unwrap();
+        let check = ScreenplayValidator.validate(&artifact, &store).unwrap();
+        assert_eq!(check.state, ValidationState::Invalid);
+        assert_eq!(check.diagnostics[0].code, "validation.screenplay_too_large");
     }
 
     #[test]

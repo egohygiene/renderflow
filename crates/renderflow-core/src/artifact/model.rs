@@ -166,7 +166,13 @@ impl MediaType {
             Format::Kepub => "application/epub+zip",
             Format::Rst => "text/x-rst",
             Format::Latex => "application/x-latex",
-            Format::Fountain => "text/plain",
+            Format::Fountain => "text/x-fountain",
+            // Project-defined identity labels; these do not assert official
+            // upstream MIME registration for the native screenplay formats.
+            Format::Fdx => "application/vnd.renderflow.fdx+xml",
+            Format::FadeIn => "application/vnd.renderflow.fadein+zip",
+            Format::Osf => "application/vnd.renderflow.osf+xml",
+            Format::ScreenplayJson => "application/vnd.renderflow.screenplay+json",
             Format::Jpeg => "image/jpeg",
             Format::Png => "image/png",
             Format::Tiff => "image/tiff",

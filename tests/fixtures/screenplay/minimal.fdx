@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FinalDraft DocumentType="Script" Template="No" Version="1">
+  <Content>
+    <Paragraph Type="Scene Heading">
+      <Text>INT. LANTERN STATION - NIGHT</Text>
+    </Paragraph>
+    <Paragraph Type="Action">
+      <Text>Mira places a blue lantern beside the window.</Text>
+    </Paragraph>
+    <Paragraph Type="Character">
+      <Text>MIRA</Text>
+    </Paragraph>
+    <Paragraph Type="Parenthetical">
+      <Text>(quietly)</Text>
+    </Paragraph>
+    <Paragraph Type="Dialogue">
+      <Text>The signal says: café, Łódź, 星.</Text>
+    </Paragraph>
+    <Paragraph Type="Transition">
+      <Text>CUT TO:</Text>
+    </Paragraph>
+  </Content>
+</FinalDraft>

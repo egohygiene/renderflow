@@ -388,7 +388,7 @@ impl IntakeEngine {
         }
         if let Some(extension) = request.path.extension().and_then(|value| value.to_str()) {
             // Reuse multipart suffix recognition (for example,
-            // *.timed-transcript.json); the final `.json` alone loses subtype
+            // *.timed-transcript.json or *.screenplay.json); `.json` loses subtype
             // identity when a large source exceeds the bounded structure probe.
             let format = request.path.to_str().and_then(|path| {
                 match crate::detect::detect_from_path(path, None) {
@@ -780,6 +780,10 @@ impl ArtifactIntakeProvider for NativeStructureProvider {
                     .and_then(|object| object.get("schema_version"))
                     .and_then(Value::as_str)
                     == Some(crate::timed_text::TIMED_TRANSCRIPT_SCHEMA_V1);
+                let screenplay_schema = value.as_object()
+                    .and_then(|object| object.get("schema_version"))
+                    .and_then(Value::as_str)
+                    == Some(crate::screenplay::SCREENPLAY_SCHEMA_V1);
                 result.format = Some(if transcript_schema {
                     // This identifies the declared JSON subtype only. Full
                     // transcript validation remains the conversion boundary.
@@ -789,6 +793,15 @@ impl ArtifactIntakeProvider for NativeStructureProvider {
                         observed(json!(crate::timed_text::TIMED_TRANSCRIPT_SCHEMA_V1), self.id()),
                     );
                     Format::TimedTranscriptJson
+                } else if screenplay_schema {
+                    // A declared subtype marker does not validate screenplay
+                    // structure, references, provenance, or native fidelity.
+                    result.container_format = Some("json".to_string());
+                    result.metadata.insert(
+                        "data.schema_version".to_string(),
+                        observed(json!(crate::screenplay::SCREENPLAY_SCHEMA_V1), self.id()),
+                    );
+                    Format::ScreenplayJson
                 } else {
                     Format::Json
                 });
@@ -1278,6 +1291,73 @@ mod tests {
             &IntakeRequest::from_path("captions.bin"), truncated,
         ).unwrap();
         assert_eq!(unknown.format, None);
+    }
+
+    #[test]
+    fn screenplay_json_marker_is_identity_evidence_not_validation() {
+        let engine = IntakeEngine::new();
+        let (profile, _) = engine.inspect_profile(
+            &IntakeRequest::from_path("scene.json"),
+            br#"{"schema_version":"renderflow.screenplay/v1"}"#,
+        ).unwrap();
+        assert_eq!(profile.format.as_deref(), Some("screenplay_json"));
+        assert_eq!(profile.container_format.as_deref(), Some("json"));
+        assert!(profile.conflicts.is_empty());
+        for bytes in [
+            &br#"{"schema_version":"renderflow.screenplay/v2"}"#[..],
+            &br#"{"schema":"renderflow.screenplay/v1"}"#[..],
+            &br#"{"schema_version":null}"#[..],
+            &br#"[{"schema_version":"renderflow.screenplay/v1"}]"#[..],
+        ] {
+            let (generic, _) = engine.inspect_profile(
+                &IntakeRequest::from_path("scene.json"), bytes,
+            ).unwrap();
+            assert_eq!(generic.format.as_deref(), Some("json"));
+        }
+        let (mislabeled, _) = engine.inspect_profile(
+            &IntakeRequest::from_path("scene.screenplay.json"),
+            br#"{"title":"Not canonical screenplay JSON"}"#,
+        ).unwrap();
+        assert_eq!(mislabeled.format.as_deref(), Some("json"));
+        assert!(!mislabeled.conflicts.is_empty());
+    }
+
+    #[test]
+    fn bounded_screenplay_probe_preserves_suffix_and_explicit_declaration() {
+        let engine = IntakeEngine::new();
+        let truncated = br#"{"schema_version":"renderflow.screenplay/v1","elements":["#;
+        for request in [
+            IntakeRequest::from_path("scene.screenplay.json"),
+            IntakeRequest::from_path("scene.json").with_format("screenplay_json"),
+        ] {
+            let (profile, _) = engine.inspect_profile(&request, truncated).unwrap();
+            assert_eq!(profile.format.as_deref(), Some("screenplay_json"));
+        }
+        let (generic, _) = engine.inspect_profile(
+            &IntakeRequest::from_path("scene.json"), truncated,
+        ).unwrap();
+        assert_eq!(generic.format.as_deref(), Some("json"));
+    }
+
+    #[test]
+    fn fadein_extension_does_not_claim_native_archive_inspection() {
+        let directory = tempfile::tempdir().unwrap();
+        let source = directory.path().join("scene.fadein");
+        let file = File::create(&source).unwrap();
+        let mut archive = zip::ZipWriter::new(file);
+        archive.start_file("document.xml", zip::write::SimpleFileOptions::default()).unwrap();
+        archive.write_all(b"<document/>\n").unwrap();
+        archive.finish().unwrap();
+        let probe = read_probe(&source).unwrap();
+        let (profile, _) = IntakeEngine::new().inspect_profile(
+            &IntakeRequest::from_path(&source), &probe,
+        ).unwrap();
+        assert_eq!(profile.format.as_deref(), Some("zip"));
+        assert_eq!(profile.container_format.as_deref(), Some("zip"));
+        assert!(profile.conflicts.iter().any(|conflict| {
+            conflict.formats.iter().any(|format| format == "fadein")
+                && conflict.formats.iter().any(|format| format == "zip")
+        }));
     }
 
     #[test]
