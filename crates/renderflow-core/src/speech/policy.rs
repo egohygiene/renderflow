@@ -34,6 +34,14 @@ pub struct SpeechAudioPolicy {
     pub timeout_seconds: u64,
 }
 
+/// Explicit historical result selection. Verification never falls back to a
+/// fresh native run when the selected receipt or its retained files differ.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct SpeechRecoveryPolicy {
+    pub receipt_path: String,
+    pub receipt_sha256: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct SpeechPolicy {
     /// Digest of the original graph input, before any audio preparation.
@@ -43,6 +51,8 @@ pub struct SpeechPolicy {
     pub options: SpeechOptions,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub audio: Option<SpeechAudioPolicy>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub recovery: Option<SpeechRecoveryPolicy>,
 }
 
 fn default_audio_timeout() -> u64 { 300 }
@@ -101,6 +111,16 @@ impl<'de> Deserialize<'de> for SpeechAudioPolicy {
     }
 }
 
+impl<'de> Deserialize<'de> for SpeechRecoveryPolicy {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct Fields { receipt_path: String, receipt_sha256: String }
+        let fields: Fields = deserialize_object(deserializer)?;
+        Ok(Self { receipt_path: fields.receipt_path, receipt_sha256: fields.receipt_sha256 })
+    }
+}
+
 impl<'de> Deserialize<'de> for SpeechPolicy {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         #[derive(Deserialize)]
@@ -113,10 +133,13 @@ impl<'de> Deserialize<'de> for SpeechPolicy {
             options: SpeechOptions,
             #[serde(default)]
             audio: Option<SpeechAudioPolicy>,
+            #[serde(default)]
+            recovery: Option<SpeechRecoveryPolicy>,
         }
         let fields: Fields = deserialize_object(deserializer)?;
         Ok(Self { source_sha256: fields.source_sha256, provider: fields.provider,
-            model: fields.model, options: fields.options, audio: fields.audio })
+            model: fields.model, options: fields.options, audio: fields.audio,
+            recovery: fields.recovery })
     }
 }
 
@@ -143,6 +166,10 @@ impl SpeechPolicy {
             if !(1..=3600).contains(&audio.timeout_seconds) {
                 return Err(invalid("audio.timeout_seconds must be between 1 and 3600"));
             }
+        }
+        if let Some(recovery) = &self.recovery {
+            validate_path(&recovery.receipt_path, "recovery.receipt_path")?;
+            validate_digest(&recovery.receipt_sha256, "recovery.receipt_sha256")?;
         }
         Ok(())
     }

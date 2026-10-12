@@ -54,6 +54,7 @@ use crate::speech::graph::{
     retained_artifacts, retained_artifact_name, SpeechArtifactTransform, SpeechProgressObserver,
 };
 use crate::speech::policy::SpeechPolicy;
+use crate::speech::recovery::{receipt_bytes, SAVED_RESULT_FILENAME, SAVED_RESULT_SCHEMA};
 use crate::speech::WHISPER_PROVIDER_ID;
 use crate::super_resolution::{select_upscayl_variants, UpscaylModelCatalog};
 use crate::timed_text::graph::{
@@ -685,8 +686,12 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
     let selected_inventory = tool_registry.assess_ids_current(
         selected_ids.iter().filter(|id| !deferred_speech_ids.contains(*id)),
     );
-    if spec.execution.speech.is_some() {
-        plan.add_tool_diagnostic("speech.provider.unobserved: explicit provider/model/audio paths and digests are planned intent; native identity and availability are checked only during execution. No observed toolchain, reusable result, calibrated confidence, or video-alignment claim is made.");
+    if let Some(policy) = &spec.execution.speech {
+        if policy.recovery.is_some() {
+            plan.add_tool_diagnostic("speech.saved_result.selected: execution will verify the explicitly pinned historical receipt and complete retained bundle before replay. Planning does not read the receipt or observe current native tools/models. Missing or incompatible evidence fails without native fallback; no current toolchain, recognition accuracy, or video-alignment claim is made.");
+        } else {
+            plan.add_tool_diagnostic("speech.provider.unobserved: explicit provider/model/audio paths and digests are planned intent; native identity and availability are checked only during execution. No observed toolchain, automatically reusable result, calibrated confidence, or video-alignment claim is made.");
+        }
     }
     if let Some(policy) = &spec.execution.print_pdf_interior {
         validate_print_provider_version(&selected_inventory, policy)?;
@@ -1873,6 +1878,18 @@ fn collect_speech_artifacts(
         verify_speech_file(resolved, &store.payload_path(artifact)?, artifact)
             .context("retained speech payload is missing or changed")?;
     }
+    // The receipt commits the canonical record and its supporting records;
+    // canonical lineage never points back to the receipt. Keep it last so a
+    // portable completion marker is published only after every required file.
+    let cancellation = resolved.cancellation.clone()
+        .map(crate::process::ProcessCancellationToken::from_shared).unwrap_or_default();
+    let bytes = receipt_bytes(source, policy, canonical, store, &cancellation)?;
+    speech_not_cancelled(resolved)?;
+    retained.push(store.put_bytes(&bytes,
+        ArtifactDescriptor::for_format(Format::Json, ArtifactStorageClass::Intermediate)
+            .with_source(canonical.id().clone())
+            .with_metadata("renderflow.speech.role", "saved_result")
+            .with_metadata("renderflow.speech.saved_result_schema", SAVED_RESULT_SCHEMA))?);
     Ok(retained)
 }
 
@@ -1919,7 +1936,11 @@ fn publish_speech_artifacts(
     let directory = parent.join(envelope.digest().value());
     let mut destinations = Vec::new();
     for artifact in artifacts {
-        let name = if artifact.format().as_str() == Format::TimedTranscriptJson.to_string() {
+        let name = if artifact.metadata().get("renderflow.speech.role")
+            .and_then(serde_json::Value::as_str) == Some("saved_result")
+        {
+            SAVED_RESULT_FILENAME
+        } else if artifact.format().as_str() == Format::TimedTranscriptJson.to_string() {
             "transcript.timed-transcript.json"
         } else {
             retained_artifact_name(artifact)?
@@ -2933,7 +2954,12 @@ fn register_speech_edges(
         .with_evidence("transform_id", SPEECH_CAPABILITY)
         .with_evidence("family", "speech")
         .with_evidence("speech_policy_sha256", sha256_serialized(policy)?.value)
-        .with_evidence("provider_identity", "declared_unobserved")
+        .with_evidence("provider_identity", if policy.recovery.is_some() {
+            "historical_receipt_unverified"
+        } else { "declared_unobserved" })
+        .with_evidence("speech_execution", if policy.recovery.is_some() {
+            "explicit_saved_result"
+        } else { "native" })
         .with_evidence("quality_interpretation", "unqualified_not_accuracy")
         .with_evidence("cache", "disabled");
     if let Some(audio) = &policy.audio {
@@ -3733,7 +3759,7 @@ fn validate_pre_execution_budgets(resolved: &ResolvedExecution) -> Result<()> {
     }
     if let Some(max_artifacts) = budgets.max_artifacts {
         let retained_count = resolved.spec.execution.speech.as_ref()
-            .map(|policy| if policy.audio.is_some() { 4 } else { 2 }).unwrap_or(0);
+            .map(|policy| if policy.audio.is_some() { 5 } else { 3 }).unwrap_or(0);
         let estimate = (resolved.plan.metadata.total_nodes as u64).checked_add(retained_count)
             .context("execution artifact estimate overflow")?;
         if estimate > max_artifacts {

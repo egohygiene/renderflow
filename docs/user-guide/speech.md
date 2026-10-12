@@ -161,12 +161,13 @@ reported as calibrated confidence. Lyrics and singing need human review.
   do not guarantee CPU-only execution or identical results across builds.
 - Linked libraries, compiled accelerators, and model sidecars are not attested
   by the two file digests. File rechecks detect persistent changes, not hostile
-  temporary replacement. Cache/checkpoint reuse remains disabled/unimplemented.
+  temporary replacement. Automatic cache/checkpoint reuse remains disabled.
 
-The envelope records configuration and prospective reuse identities containing
-source, provider, model, options, and adapter policy. No graph edge or active
-speech cache is registered in this checkpoint. See [the handoff](../work/428/HANDOFF.md)
-for remaining caching, original-media synchronization, and qualification work.
+The envelope records configuration and reuse identities containing source,
+provider, model, options, and adapter policy. The graph route below also supports
+explicit replay of a pinned saved result. This recovers historical output and
+does not attest the current native environment or promise identical new inference.
+See [the handoff](../work/428/HANDOFF.md) for remaining qualification work.
 
 ## Use the planner and Rust SDK
 
@@ -267,7 +268,8 @@ remain visible in final step diagnostics.
 Graph runs publish supporting files under `speech/<envelope-sha256>/` in the
 output bundle: `provider-output.json`, `transcription.json`, and
 `transcript.timed-transcript.json`, plus `audio-probe.json` and `prepared.wav`
-when preparation is enabled. The canonical transcript is retained even for an
+when preparation is enabled. A `saved-result.json` receipt is published after
+these supporting files. The canonical transcript is retained even for an
 SRT-only request. Existing identical evidence can be kept; different bytes and
 symlinks are refused. Selected outputs are withheld if evidence publication
 fails. Cancellation during that publication is reported as a cancelled run;
@@ -282,8 +284,71 @@ export losses. Flow's closed artifact projection retains hashes and lineage,
 while the detailed speech evidence remains in the native manifest and retained
 JSON files. Keep the complete output bundle and its run manifest.
 
-Recognition and its derived subtitle steps bypass result-cache and checkpoint
-reuse without opening shared cache/checkpoint files. SDK resume assessment
-explicitly requests recomputation; configuration
-and source keys are still recorded for a later qualified reuse contract. All
-examples and this integration remain uncompiled and unrun in this checkpoint.
+Recognition and its derived subtitle steps bypass automatic result-cache and
+checkpoint reuse without opening shared cache/checkpoint files. Without an
+explicit saved-result selector, SDK resume assessment requests recomputation.
+All examples and this integration remain uncompiled and unrun.
+
+## Replay a saved result
+
+To regenerate selected transcript/subtitle outputs without another recognition
+run, keep the entire `speech/<envelope-sha256>/` directory. Add the following
+under the original `execution.speech` policy, using the receipt digest recorded
+in the native run manifest:
+
+```yaml
+recovery:
+  receipt_path: "/absolute/path/dist/speech/<envelope-sha256>/saved-result.json"
+  receipt_sha256: "<saved-result-sha256-from-run-manifest>"
+```
+
+Keep the original source digest, declared format, provider/model configuration,
+options, and preparation policy. Select whichever canonical JSON/SRT/WebVTT
+targets are needed, then use the ordinary build command or Engine SDK. The
+original source is imported and checked again. Provider/model paths remain
+recorded configuration; replay does not open them or launch native tools.
+
+Replay verifies the pinned receipt and all retained files, reconstructs the
+normalized result from raw provider output, and restores canonical artifacts
+into the current store. Receipts are limited to 256 KiB; retained payloads keep
+their existing byte limits and cancellation-aware reads. Selected subtitle exports are generated from that
+result. A missing, changed, incompatible, or incomplete saved result fails
+without starting another recognition run. Remove `recovery` to request a fresh
+native run. Progress reports `speech.reuse_saved_result` during replay.
+
+`Engine::assess_resume` verifies an explicit receipt read-only and reports
+whether it can be reused. Execution verifies it again. The receipt identifies
+a historical result; it is not evidence that installed libraries, accelerators,
+or model sidecars would reproduce that result today.
+
+The receipt belongs to the graph output bundle. Existing standalone
+`speech transcribe` bundles and older graph bundles have no saved-result
+receipt and cannot be selected by this recovery policy.
+
+## Inspect transcript timing
+
+Use a graph receipt to inspect the transcript clock before another project
+consumes it:
+
+```bash
+renderflow speech timeline \
+  --receipt "/absolute/path/dist/speech/<envelope-sha256>/saved-result.json" \
+  --receipt-sha256 "<saved-result-sha256-from-run-manifest>"
+```
+
+This prints a JSON assessment after checking the pinned receipt and retained
+files. It does not read the original media, load a model, run a provider, or
+create an artifact store. Source identity and strict-input-WAV duration are
+recorded evidence; prepared WAV bytes are present and checked in prepared
+bundles.
+
+Strict WAV input uses the input WAV's sample clock. Prepared audio always
+reports that original-media mapping is required, including when its recorded
+stream start is zero. A stream start time alone cannot prove that decoding
+preserved gaps, delay, or edits. The assessment does not shift cues or claim
+video mux readiness.
+
+Add `--require-original-media` to print the assessment and then fail when that
+mapping is missing. SDK/library consumers can use the corresponding
+`speech::timeline::assess` and `require_original_media_timeline` APIs with a
+verified saved result.

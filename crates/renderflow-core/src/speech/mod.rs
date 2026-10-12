@@ -9,6 +9,8 @@ pub mod audio;
 pub mod graph;
 pub mod policy;
 pub mod provider;
+pub mod recovery;
+pub mod timeline;
 
 use std::collections::BTreeSet;
 use std::fmt;

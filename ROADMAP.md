@@ -264,8 +264,12 @@ Checkpoint 3 authors explicit graph/SDK speech policy, one recognition edge
 feeding subtitle derivatives, retained evidence artifacts, phase events, and
 typed cancellation. Speech and descendants deliberately bypass cache/checkpoint
 reuse; provider availability stays unobserved until execution. These changes
-also remain uncompiled/unrun. Active reuse, original-media alignment, and
-native qualification remain. Resume from
+also remain uncompiled/unrun. Checkpoint 4 adds explicit digest-pinned replay of
+portable saved results, including complete retained-evidence checks and SDK
+resume assessment. Automatic native-result caching stays disabled. An offline
+timing assessment exposes strict-WAV sample clocks and refuses original-media
+mapping for prepared audio; it does not shift timestamps. Runtime qualification
+and any separately scoped original-media alignment remain. Resume from
 [the #428 handoff](docs/work/428/HANDOFF.md).
 
 The exhaustive planner must materialize each eligible target identity at most

@@ -1994,6 +1994,29 @@ pub fn json_schema() -> Value {
                                     "type": "null"
                                 }
                             ]
+                        },
+                        "recovery": {
+                            "anyOf": [
+                                { "$ref": "#/$defs/speechRecovery" },
+                                { "type": "null" }
+                            ]
+                        }
+                    }
+                },
+                "speechRecovery": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["receipt_path", "receipt_sha256"],
+                    "properties": {
+                        "receipt_path": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 4096,
+                            "description": "Absolute local saved-result receipt path without parent traversal or control characters. Explicit historical replay fails without native fallback."
+                        },
+                        "receipt_sha256": {
+                            "type": "string",
+                            "pattern": "^[0-9a-f]{64}$"
                         }
                     }
                 },

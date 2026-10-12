@@ -8,11 +8,12 @@ use anyhow::{bail, Context, Result};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 
-use crate::cli::{SpeechInspectArguments, SpeechTranscribeArguments};
+use crate::cli::{SpeechInspectArguments, SpeechTimelineArguments, SpeechTranscribeArguments};
 use crate::process::ProcessCancellationToken;
 use crate::speech::audio::{self, AudioInspectRequest, AudioPrepareRequest, AudioTool, PreparedAudio};
 use crate::speech::provider::{self, SpeechRequest};
 use crate::speech::{attach_audio_preparation, SpeechOptions, SpeechTranscription};
+use crate::speech::{recovery, timeline};
 use crate::timed_text::{self, TimedTextFormat, MAX_INPUT_BYTES};
 
 pub fn run_inspect(arguments: SpeechInspectArguments) -> Result<()> {
@@ -27,6 +28,21 @@ pub fn run_inspect(arguments: SpeechInspectArguments) -> Result<()> {
     eprintln!("Inspecting local audio streams; no stream will be selected automatically.");
     let inspection = audio::inspect(&request, cancellation)?;
     std::io::stdout().write_all(&bounded_json(&inspection.inventory)?)?;
+    Ok(())
+}
+
+/// Read only the pinned receipt and its retained sibling files. No source media,
+/// executable, model, artifact store, or output directory is opened or created.
+pub fn run_timeline(arguments: SpeechTimelineArguments) -> Result<()> {
+    let cancellation = command_cancellation()?;
+    let saved = recovery::inspect_saved_bundle(
+        Path::new(&arguments.receipt), &arguments.receipt_sha256, &cancellation,
+    )?;
+    let assessment = timeline::assess(&saved);
+    std::io::stdout().write_all(&bounded_json(&assessment)?)?;
+    if arguments.require_original_media {
+        timeline::require_original_media_timeline(&saved)?;
+    }
     Ok(())
 }
 

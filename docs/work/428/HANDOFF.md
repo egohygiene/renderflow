@@ -1,4 +1,4 @@
-# Renderflow #428 — local speech checkpoint 3
+# Renderflow #428 — local speech checkpoint 4
 
 ## Authority and branch
 
@@ -7,7 +7,7 @@
   `feat/renderflow-428-local-speech`, stacked on subtitle draft PR #438 / branch
   `feat/renderflow-427-timed-text`.
 - The user explicitly deferred tests and authorized continued implementation.
-  The latest instruction was to keep going after checkpoint 2. Tests, builds,
+  The latest instruction approved continuing after checkpoint 3. Tests, builds,
   schema validation, format/lint, native smoke/inference, and GitHub Actions
   remain deferred. No merge or release was requested.
 - Read-only source/Git review, authored coverage, and draft publication are
@@ -19,10 +19,13 @@
 - Checkpoint 2 published head: `0c52d18ed2b5b861a7b85f874e85b628f2d65192`, tree
   `a964a21f915eae54d2f0a07c31a207454e80202b`, matching local commit
   `e179356d56bc4ae64a45c603a0c85bacb7c2f61d`.
+- Checkpoint 3 published head: `471b7ea10e95d26a16b7f357e0d5d2224883bbf2`, tree
+  `50f08430a6d409dc31280d38d43894055269e83a`, matching local commit
+  `a2a14774bd00d61f17186c20b1fbc1787589a5f6`.
 - Stack base: published `14ebc90f35c90c90942a3b9c086ed58b232b662b`, tree
   `53a9d02adc673058ce94c3c5bfa779c1f112eabd`, matching local
   `e72f26ecade13a1cd0b57dc5c0a9c41042f407a2`.
-- Both PRs were still open drafts at checkpoint 3 start. If #438 is merged,
+- Both PRs remain stacked drafts. If #438 is merged,
   reconcile and retarget the stack before later publication. This handoff
   cannot contain the hash of its own commit; use the PR head and body.
 
@@ -42,7 +45,7 @@
 4. The existing recognition adapter consumes that exact WAV once. The speech
    envelope attaches original media, selected stream, probe/extraction tools,
    conversion policy, and prepared WAV evidence. Configuration/reuse identities
-   include preparation; actual cache lookup/reuse remains unimplemented.
+   include preparation; automatic native-result caching remains disabled.
 5. The bundle retains provider JSON, full speech envelope, canonical timed
    transcript, SRT, WebVTT, and text. Prepared-media runs also retain exact
    `audio-probe.json` and `prepared.wav`. A hash/size/loss receipt is published
@@ -68,8 +71,28 @@
    cancellation/failures become step diagnostics. Recognition and subtitle
    descendants bypass cache/checkpoint reuse without opening shared state files.
    Late evidence-publication cancellation also produces a cancelled run and
-   diagnostic. SDK assessment explicitly returns
+   diagnostic. Without an explicit saved result, SDK assessment returns
    `speech.checkpoint_reuse_disabled` and recomputation.
+9. Optional `execution.speech.recovery` selects an absolute receipt path and
+   expected SHA-256. The receipt binds the original source, original execution
+   configuration, canonical record, and retained evidence. Replay validates
+   every retained payload and reconstructs normalization from raw provider JSON
+   before restoring the result. It never opens provider/model paths, invokes
+   native tools, or silently falls back to new inference. Configuration must
+   match with only the recovery selector excluded; execution checks the current
+   source again. This is replay of selected historical output, not a claim of
+   native determinism or complete effective-environment attestation.
+10. Graph publication writes `saved-result.json` after canonical/supporting
+    files, with a separate native manifest artifact and budget accounting. Its
+    parent is the canonical artifact; canonical lineage never points back at
+    the receipt. It records a completed speech result, not successful publication
+    of every requested target. Keep the entire supporting-file directory.
+    Existing standalone and checkpoint-3 bundles have no such receipt.
+11. `speech timeline --receipt PATH --receipt-sha256 SHA` verifies a saved bundle
+    and reports its clock. Strict WAV uses the recorded input WAV sample clock;
+    prepared audio always requires original-media mapping. Stream start time is
+    informational even when zero. `--require-original-media` emits the report
+    then refuses missing mapping. No cues are shifted and no mux route is added.
 
 ## Source locations and interfaces
 
@@ -92,20 +115,29 @@
   Stored-source provider entry points verify expected bytes before launching
   any native process; media preparation takes an explicit graph format instead
   of staging a file with a suffix.
+- `src/speech/recovery.rs`: bounded portable receipt, complete retained-byte
+  and semantic checks, opaque verified saved result, and artifact restoration.
+  `src/speech/timeline.rs`: assessment and explicit original-clock refusal for
+  verified saved results. Offline inspection checks retained files and recorded
+  source identity, not the absent original media. Strict-WAV duration is recorded
+  in the pinned receipt; graph execution verifies the current source separately.
 - `src/planning.rs`, `src/spec.rs`, and `schemas/renderflow-v2.schema.json`:
   policy agreement, source pinning, restricted speech graph, deferred provider
   observation, retained evidence publication/budget accounting, and manifest
-  records. `src/sdk.rs` adapts phase events and refuses checkpoint reuse;
+  records. `src/sdk.rs` adapts phase events and assesses explicit saved results
+  without creating shared state; generic speech checkpoint reuse stays disabled.
   `src/graph/dag_executor.rs` retains typed speech cancellation and error codes.
 - `src/commands/speech.rs`, `src/cli.rs`, and `src/app.rs`: standalone inspect
-  and transcription commands, explicit preparation flags, cancellation, and
-  whole-bundle publication. Public `speech` APIs and the existing Engine SDK
+  and transcription commands, offline timeline assessment, preparation flags,
+  cancellation, and whole-bundle publication. Public `speech` APIs and the existing Engine SDK
   request methods expose the implementation; no separate Flow wire is invented.
 - `schemas/renderflow-audio-inventory-v1.schema.json`: inventory plus shared
   preparation definitions. The speech schema adds optional preparation evidence;
   the bundle schema accepts exactly six ordinary files or eight prepared-media
   files. Receipt itself is not listed or self-hashed. The new
   `renderflow-speech-artifact-v1.schema.json` describes namespaced graph evidence.
+  Saved-result and timeline-assessment schemas describe the new portable
+  recovery and read-only clock reports; schema agreement remains unexecuted.
 - Tool/adapter metadata registers experimental `speech.audio.inspect` and
   `speech.audio.prepare` capabilities. Their bounded preparation is used inside
   the explicit speech edge; this does not establish platform qualification.
@@ -160,7 +192,11 @@ Checkpoint 1 authored fourteen tests. Checkpoint 2 added eight tests for contrac
 selection/argument, duration, identity, and cancellation coverage for later
 execution. Checkpoint 3 adds thirty tests for graph/SDK/policy, evidence
 propagation, stored-source demuxer selection, cancellation, and phase events.
-All fifty-two #428 tests remain **unrun**. No compiler, schema validator,
+Checkpoint 4 adds seventeen tests: six portable recovery tests, seven
+policy/planner/SDK cases, and four clock-assessment cases. Source review caught
+and corrected graph JSON newline handling and descriptive source metadata
+normalization in receipt verification. All sixty-nine #428 tests remain
+**unrun**. No compiler, schema validator,
 formatter, linter, FFmpeg/FFprobe, whisper inference, model download, or CI job
 was executed for any #428 checkpoint. No user media was processed. Source
 review and matching Git publication establish no runtime qualification.
@@ -168,16 +204,17 @@ Earlier #427 partial smoke/schema evidence does not qualify this code.
 
 ## Next checkpoints
 
-1. Decide actual cache/checkpoint persistence and reuse behavior. Keys exist,
-   but an effective build/sidecar identity profile must precede enabling reuse.
-   The current graph deliberately recomputes speech and its exports. Define
-   original-media timeline mapping/refusal before adding any mux/alignment
-   route; prepared sample times cannot silently become video timestamps.
-2. When the user returns to testing, run focused #427/#428 compilation, Rust
+1. When the user returns to testing, run focused #427/#428 compilation, Rust
    tests, schema/CLI agreement, and a licensed spoken-audio native fixture with
    pinned binaries/model. Cover multiple tracks, changed source, missing/wrong
    duration, nonzero starts/gaps/edit lists, cancellation, errors, limits,
-   no-overwrite publication, and platform/build loading behavior.
+   no-overwrite publication, portable saved-result restore into a new store,
+   corrupt/missing/mismatched recovery evidence, and platform/build behavior.
+2. Automatic native-result cache reuse remains a separate qualification decision:
+   explicit saved-result replay does not attest linked libraries or model
+   sidecars. Original-media alignment requires new sample-to-media evidence or
+   a separately scoped reviewed mapping; the current API deliberately refuses
+   inferred offsets. Neither is silently enabled by this checkpoint.
 
 #427/#428 acceptance and release remain open. Optiflow #111/PR #122 and ACL
 qualification remain paused; Aniflow #36 remains parked.

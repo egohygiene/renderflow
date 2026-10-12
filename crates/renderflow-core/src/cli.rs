@@ -374,6 +374,21 @@ pub enum SpeechCommands {
     Inspect(SpeechInspectArguments),
     /// Produce an unreviewed transcript bundle from WAV or an explicit audio stream.
     Transcribe(SpeechTranscribeArguments),
+    /// Assess transcript clock readiness from a pinned saved-result bundle.
+    Timeline(SpeechTimelineArguments),
+}
+
+#[derive(clap::Args)]
+pub struct SpeechTimelineArguments {
+    /// Saved-result receipt published by a speech graph run.
+    #[arg(long, value_name = "FILE")]
+    pub receipt: String,
+    /// Expected lowercase SHA-256 of the selected receipt.
+    #[arg(long, value_name = "SHA256")]
+    pub receipt_sha256: String,
+    /// Print the assessment, then fail if original-media clock mapping is missing.
+    #[arg(long)]
+    pub require_original_media: bool,
 }
 
 #[derive(clap::Args)]

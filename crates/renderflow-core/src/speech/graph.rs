@@ -3,8 +3,9 @@
 //! The canonical timed-transcript wire stays unchanged. Speech evidence and raw
 //! provider/preparation payloads are retained as artifact objects, with complete
 //! typed records under the native `renderflow.speech` metadata namespace. Result
-//! reuse is disabled because linked native libraries and optional accelerator
-//! sidecars are not fully qualified by the configured executable/model hashes.
+//! Generic result reuse is disabled because linked native libraries and optional
+//! accelerator sidecars are not fully qualified. An explicit pinned historical
+//! bundle may instead be replayed after verifying all retained evidence.
 
 use std::io::{self, Write};
 use std::path::PathBuf;
@@ -40,6 +41,7 @@ const STRICT_WAV_TIMESTAMP_ORIGIN: &str = "input_wav_samples_from_zero";
 #[serde(rename_all = "snake_case")]
 pub enum SpeechProgressPhase {
     VerifyInput,
+    ReuseSavedResult,
     PrepareAudio,
     Transcribe,
     RetainArtifacts,
@@ -50,6 +52,7 @@ impl SpeechProgressPhase {
     pub fn as_str(self) -> &'static str {
         match self {
             Self::VerifyInput => "verify_input",
+            Self::ReuseSavedResult => "reuse_saved_result",
             Self::PrepareAudio => "prepare_audio",
             Self::Transcribe => "transcribe",
             Self::RetainArtifacts => "retain_artifacts",
@@ -164,6 +167,25 @@ impl ArtifactTransform for SpeechArtifactTransform {
         let snapshot = FileSnapshot::read(&source_path, "artifact source", maximum, &self.cancellation)?;
         if snapshot.sha256 != input.digest().value() || snapshot.metadata.len() != input.size_bytes() {
             return Err(SpeechError::SourceChanged("artifact payload does not match its immutable record".to_owned()).into());
+        }
+
+        if let Some(recovery) = &self.policy.recovery {
+            self.phase(SpeechProgressPhase::ReuseSavedResult)?;
+            let saved = super::recovery::inspect_saved_result(
+                std::path::Path::new(&recovery.receipt_path), &recovery.receipt_sha256,
+                &self.policy, self.input_format, Some(input), &self.cancellation,
+            )?;
+            if self.policy.audio.is_none() {
+                let bytes = provider::read_bounded(&source_path, provider::MAX_SOURCE_BYTES, &self.cancellation)?;
+                if provider::sha256(&bytes) != input.digest().value()
+                    || Some(provider::inspect_pcm_wav(&bytes)?) != saved.original_source_wav_duration_ms()
+                { bail!("speech saved-result WAV duration or digest differs from the current original source"); }
+            }
+            snapshot.recheck(&self.cancellation)?;
+            let output = super::recovery::restore_saved_result(&saved, store, &self.cancellation)?;
+            snapshot.recheck(&self.cancellation)?;
+            self.phase(SpeechProgressPhase::Complete)?;
+            return Ok(output);
         }
 
         let prepared = if let Some(audio) = &self.policy.audio {
@@ -359,7 +381,7 @@ fn validate_artifact_id(id: &ArtifactId) -> Result<()> {
     Ok(())
 }
 
-fn bounded_json(value: &impl Serialize, maximum: usize) -> Result<Vec<u8>> {
+pub(super) fn bounded_json(value: &impl Serialize, maximum: usize) -> Result<Vec<u8>> {
     let mut writer = BoundedJsonWriter { bytes: Vec::new(), maximum };
     serde_json::to_writer(&mut writer, value)?;
     writer.write_all(b"\n")?;
@@ -398,6 +420,7 @@ mod tests {
             },
             options: SpeechOptions::default(),
             audio: None,
+            recovery: None,
         }
     }
 

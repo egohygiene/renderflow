@@ -337,7 +337,7 @@ fn speech_policy_requires_objects_and_rejects_duplicate_fields() {
     let fixture = Fixture::wav(&["timed_transcript_json"]);
     let policy = fixture.spec["execution"]["speech"].clone();
     assert!(serde_json::from_value::<SpeechPolicy>(json!([])).is_err());
-    for field in ["provider", "model", "options", "audio"] {
+    for field in ["provider", "model", "options", "audio", "recovery"] {
         let mut malformed = policy.clone();
         malformed[field] = json!([]);
         assert!(serde_json::from_value::<SpeechPolicy>(malformed).is_err(), "accepted positional {field}");
@@ -345,4 +345,69 @@ fn speech_policy_requires_objects_and_rejects_duplicate_fields() {
     let serialized = serde_json::to_string(&policy).unwrap();
     let duplicate = format!("{{\"source_sha256\":\"{}\",{}", "a".repeat(64), &serialized[1..]);
     assert!(serde_json::from_str::<SpeechPolicy>(&duplicate).is_err());
+}
+
+#[test]
+fn explicit_saved_result_is_planned_without_reading_receipt_or_native_files() {
+    let mut fixture = Fixture::wav(&["srt", "vtt"]);
+    let receipt = fixture.directory.path().join("missing-saved-result.json");
+    fixture.spec["execution"]["speech"]["recovery"] = json!({
+        "receipt_path": receipt,
+        "receipt_sha256": "e".repeat(64)
+    });
+    fixture.write_config();
+    let engine = EngineBuilder::new().build().unwrap();
+    let plan = engine.plan(PlanRequest::from_path(&fixture.config)).unwrap();
+    let speech = plan.edges.iter().find(|edge| edge.from == "wav").unwrap();
+    assert_eq!(speech.evidence["speech_execution"], "explicit_saved_result");
+    assert_eq!(speech.evidence["provider_identity"], "historical_receipt_unverified");
+    assert_eq!(speech.evidence["cache"], "disabled");
+    assert!(!receipt.exists());
+    fixture.assert_untouched();
+}
+
+#[test]
+fn saved_result_selection_rejects_ambiguous_or_unbounded_receipt_identity() {
+    let fixture = Fixture::wav(&["srt"]);
+    let policy = fixture.spec["execution"]["speech"].clone();
+    let path = fixture.directory.path().join("saved-result.json");
+    for recovery in [
+        json!({"receipt_path": "relative.json", "receipt_sha256": "a".repeat(64)}),
+        json!({"receipt_path": "/receipts/../saved-result.json", "receipt_sha256": "a".repeat(64)}),
+        json!({"receipt_path": path, "receipt_sha256": "A".repeat(64)}),
+        json!({"receipt_path": path}),
+        json!({"receipt_path": path, "receipt_sha256": "a".repeat(64), "fallback": "native"}),
+        json!([path, "a".repeat(64)]),
+    ] {
+        let mut malformed = policy.clone();
+        malformed["recovery"] = recovery;
+        assert_invalid_policy(malformed);
+    }
+    let mut valid = policy;
+    valid["recovery"] = json!({"receipt_path": path, "receipt_sha256": "a".repeat(64)});
+    let parsed = serde_json::from_value::<SpeechPolicy>(valid.clone()).unwrap();
+    assert!(parsed.validate().is_ok());
+    let serialized = serde_json::to_string(&valid["recovery"]).unwrap();
+    let duplicate = format!("{{\"receipt_sha256\":\"{}\",{}", "a".repeat(64), &serialized[1..]);
+    let malformed = serde_json::to_string(&valid).unwrap().replace(&serialized, &duplicate);
+    assert!(serde_json::from_str::<SpeechPolicy>(&malformed).is_err());
+    fixture.assert_untouched();
+}
+
+#[test]
+fn selected_receipt_is_part_of_the_frozen_plan_identity() {
+    let mut fixture = Fixture::wav(&["srt"]);
+    let engine = EngineBuilder::new().build().unwrap();
+    fixture.write_config();
+    let native = engine.plan(PlanRequest::from_path(&fixture.config)).unwrap();
+    fixture.spec["execution"]["speech"]["recovery"] = json!({
+        "receipt_path": fixture.directory.path().join("saved-result.json"),
+        "receipt_sha256": "e".repeat(64)
+    });
+    fixture.write_config();
+    let replay = engine.plan(PlanRequest::from_path(&fixture.config)).unwrap();
+    let native_edge = native.edges.iter().find(|edge| edge.from == "wav").unwrap();
+    let replay_edge = replay.edges.iter().find(|edge| edge.from == "wav").unwrap();
+    assert_ne!(native_edge.evidence["speech_policy_sha256"], replay_edge.evidence["speech_policy_sha256"]);
+    fixture.assert_untouched();
 }

@@ -360,6 +360,7 @@ pub fn run_cli(cli: Cli) -> Result<()> {
         Some(Commands::Speech { subcommand }) => match subcommand {
             SpeechCommands::Inspect(arguments) => commands::speech::run_inspect(arguments)?,
             SpeechCommands::Transcribe(arguments) => commands::speech::run_transcribe(arguments)?,
+            SpeechCommands::Timeline(arguments) => commands::speech::run_timeline(arguments)?,
         },
         Some(Commands::Subtitles { subcommand }) => match subcommand {
             SubtitleCommands::Inspect { input } => commands::subtitles::run_inspect(&input)?,

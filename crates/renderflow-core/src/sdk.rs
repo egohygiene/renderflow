@@ -21,6 +21,7 @@ use crate::planning::{
 };
 use crate::toolchain::ToolchainSnapshot;
 use crate::speech::graph::{SpeechProgressObserver, SpeechProgressPhase};
+use crate::speech::recovery::inspect_saved_result;
 
 pub const PROVIDER_CONTRACT_V1: &str = "renderflow.provider/v1";
 pub const PROGRESS_EVENT_V1: &str = "renderflow.progress/v1";
@@ -83,6 +84,7 @@ impl SpeechProgressObserver for SdkSpeechProgressObserver {
             SpeechProgressPhase::VerifyInput => "Verifying pinned speech input and local configuration",
             SpeechProgressPhase::PrepareAudio => "Preparing the selected audio stream on a sample-zero timeline",
             SpeechProgressPhase::Transcribe => "Running local speech recognition",
+            SpeechProgressPhase::ReuseSavedResult => "Verifying and replaying the explicitly selected historical speech result",
             SpeechProgressPhase::RetainArtifacts => "Retaining speech output and provenance artifacts",
             SpeechProgressPhase::Complete => "Speech artifacts retained; run publication is still pending",
         };
@@ -651,17 +653,52 @@ impl Engine {
         let resolved = self.resolve_execution(request)?;
         let (checkpoint_path, artifact_root, context) =
             checkpoint_state(&resolved).map_err(RenderflowError::Execution)?;
-        if resolved.spec().execution.speech.is_some() {
-            let overall = RecoveryDecision {
-                action: RecoveryAction::Recompute,
-                reason_code: "speech.checkpoint_reuse_disabled".to_string(),
-                message: "Speech and its derivatives are recomputed until effective native identity and retained evidence reuse are qualified".to_string(),
-                checkpoint_key: None,
-                artifact_ids: Vec::new(),
+        if let Some(policy) = &resolved.spec().execution.speech {
+            // This branch never creates the persistent runtime artifact store
+            // or opens generic checkpoint/cache state. Resolution binds the actual
+            // original source bytes to policy.source_sha256.
+            let (assessment_path, overall) = if let Some(recovery) = &policy.recovery {
+                let cancellation = self.cancellation_token.as_ref()
+                    .map(|token| crate::process::ProcessCancellationToken::from_shared(token.flag()))
+                    .unwrap_or_default();
+                let result = inspect_saved_result(Path::new(&recovery.receipt_path),
+                    &recovery.receipt_sha256, policy, resolved.source_format(), None, &cancellation);
+                let overall = match result {
+                    Ok(saved) => RecoveryDecision {
+                        action: RecoveryAction::Reuse,
+                        reason_code: "speech.saved_result.verified".to_string(),
+                        message: "The pinned historical speech result and complete retained bundle are compatible. Execution revalidates before replay; this does not attest current native tools or models".to_string(),
+                        checkpoint_key: Some(saved.receipt_sha256().to_owned()),
+                        artifact_ids: vec![saved.canonical().id().to_string()],
+                    },
+                    Err(error) => {
+                        if matches!(error.downcast_ref::<crate::speech::SpeechError>(),
+                            Some(crate::speech::SpeechError::Cancelled))
+                        {
+                            return Err(RenderflowError::Cancelled);
+                        }
+                        RecoveryDecision {
+                            action: RecoveryAction::TerminalIncompatibility,
+                            reason_code: "speech.saved_result.rejected".to_string(),
+                            message: format!("The explicitly selected historical speech result cannot be replayed: {error}. Native fallback is disabled"),
+                            checkpoint_key: Some(recovery.receipt_sha256.clone()),
+                            artifact_ids: Vec::new(),
+                        }
+                    }
+                };
+                (recovery.receipt_path.clone(), overall)
+            } else {
+                (checkpoint_path.display().to_string(), RecoveryDecision {
+                    action: RecoveryAction::Recompute,
+                    reason_code: "speech.checkpoint_reuse_disabled".to_string(),
+                    message: "Generic speech checkpoint reuse is disabled. Select an explicit pinned saved-result receipt to replay historical output; otherwise speech is recomputed".to_string(),
+                    checkpoint_key: None,
+                    artifact_ids: Vec::new(),
+                })
             };
             return Ok(SavedRunAssessment {
                 schema_version: PROVIDER_CONTRACT_V1.to_string(),
-                checkpoint_path: checkpoint_path.display().to_string(),
+                checkpoint_path: assessment_path,
                 overall: overall.clone(),
                 decisions: vec![overall],
             });

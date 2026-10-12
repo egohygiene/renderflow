@@ -389,6 +389,16 @@ fn extraction_arguments(
     Ok(arguments)
 }
 
+/// Re-read retained probe JSON using the same declared-format policy as native
+/// graph preparation. This is parsing only; no executable is opened or run.
+pub(super) fn parse_stored_probe(bytes: &[u8], format: Format, expected_demuxer: &str) -> Result<(String, Vec<AudioStream>), SpeechError> {
+    let container = Container::from_format(format)?;
+    if container.demuxer() != expected_demuxer {
+        return Err(SpeechError::InvalidOutput("saved probe demuxer differs from declared original format".to_owned()));
+    }
+    parse_probe(bytes, container)
+}
+
 fn parse_probe(bytes: &[u8], container: Container) -> Result<(String, Vec<AudioStream>), SpeechError> {
     let invalid = |message: &str| SpeechError::InvalidOutput(format!("invalid audio probe: {message}"));
     if bytes.is_empty() || bytes.len() > MAX_PROBE_BYTES { return Err(invalid("JSON byte limit")); }
