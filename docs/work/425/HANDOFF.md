@@ -79,11 +79,20 @@ graph policy and terminal evidence binding, schemas, and documentation. Authored
 fake-runner PDFs exercise contracts only when later run; they do not demonstrate
 that afterwriting itself succeeds. Fixture hashes identify authored bytes.
 
-Sixty-four focused tests are authored and unrun: fourteen provider/installation,
-eighteen PDF inspection, fifteen graph/planning/spec, ten analysis, and seven
+Sixty-six focused tests are authored and unrun: fourteen provider/installation,
+eighteen PDF inspection, seventeen graph/planning/spec, ten analysis, and seven
 CLI/publication/config cases. Source review also corrected an evidence count
 type mismatch, exact package exclusions, and terminal source/report/policy
 binding. No compile or passing-test claim follows from that review.
+
+The wrap-up source review found and corrected a planning policy bypass: a
+configured afterwriting installation could be probed after policy had excluded
+its PDF edge. Planning and execution refresh now require the exact permitted
+edge before invoking package/runtime preflight. Two added callback-based
+regression cases cover provider/transform denials, restrictive tool allowlists,
+deterministic requirements, and missing/mismatched selected edges without
+launching a process. These tests are also unrun. The provider evaluation's
+`requirejs-text` lockfile version was corrected to `2.0.15`.
 
 The initial profiles intentionally accept less than general Fountain. Normal
 title pages, Unicode, styling, multiline body elements, or application-specific
@@ -91,6 +100,10 @@ native documents need a later independently supported profile. A profile refusal
 is not a claim that the source is invalid in its native application.
 
 ## Remaining completion work
+
+The [qualification runbook](QUALIFICATION.md) supplies the deferred commands,
+two-run evidence comparison, failure cases, and visual acceptance record. It is
+authored guidance, not evidence that these checks ran.
 
 1. Keep #425 open. Once checks are authorized, compile and run focused provider,
    package, parser/analysis, PDF, graph, CLI and schema coverage; resolve actual

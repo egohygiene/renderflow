@@ -58,7 +58,7 @@ or qualified here.
 | `crypto-js` / `linebreak` / `png-js` | `4.2.0` / `1.1.0` / `1.0.0` |
 | `d3` / `handlebars` / `jquery` | `3.5.17` / `4.7.7` / `3.5.0` |
 | `lodash` / `protoplast` | `4.17.21` / `2.0.3` |
-| `requirejs-text` / `stdio` | `0.2.15` / `0.2.7` |
+| `requirejs-text` / `stdio` | `2.0.15` / `0.2.7` |
 
 Sources: [current lockfile](https://github.com/ifrost/afterwriting-labs/blob/f1912c08d0905bac42e1805830a1e72f98b88c2f/package-lock.json),
 [release lockfile](https://github.com/ifrost/afterwriting-labs/blob/876d1b1584a777e3c83ae8dd04ac3a0a19200344/package-lock.json).

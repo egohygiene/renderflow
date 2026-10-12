@@ -637,12 +637,12 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
             !deferred_speech_ids.contains(id) && !is_screenplay_pdf_provider(id, spec.execution.screenplay_pdf.as_ref())),
     );
     apply_screenplay_version_requirement(&mut provider_inventory, spec.execution.screenplay.as_ref());
-    if let Some(policy) = &spec.execution.screenplay_pdf {
-        let observed = afterwriting::preflight(policy, ProcessCancellationToken::default())
+    assess_screenplay_pdf_availability(
+        &mut provider_inventory, &spec, &tool_registry, &policy_graph.all_edges(),
+        |policy| afterwriting::preflight(policy, ProcessCancellationToken::default())
             .map(|observation| (observation.node_version, observation.provider_version))
-            .map_err(|error| error.to_string());
-        append_screenplay_pdf_availability(&mut provider_inventory, policy, observed);
-    }
+            .map_err(|error| error.to_string()),
+    );
     let mut planning_provider_ids = provider_inventory.available_ids();
     planning_provider_ids.extend(deferred_speech_ids.iter().cloned());
     let available_graph = policy_graph.filtered_by_available_providers(&planning_provider_ids);
@@ -3158,6 +3158,30 @@ fn is_screenplay_pdf_provider(id: &str, policy: Option<&AfterwritingConfig>) -> 
     policy.is_some() && matches!(id, AFTERWRITING_PROVIDER_ID | NODE_PROVIDER_ID)
 }
 
+/// A configured installation is not permission to probe a denied route. Use the
+/// surviving planning edges or selected execution edges and reapply the policy
+/// before invoking the callback, including at execution-time refresh.
+fn assess_screenplay_pdf_availability(
+    inventory: &mut ToolInventory,
+    spec: &SpecV2,
+    tools: &ToolRegistry,
+    edges: &[&TransformEdge],
+    probe: impl FnOnce(&AfterwritingConfig) -> std::result::Result<(String, String), String>,
+) -> bool {
+    let Some(policy) = &spec.execution.screenplay_pdf else { return false; };
+    let allowed = edges.iter().any(|edge| {
+        edge.from == Format::Fountain && edge.to == Format::Pdf
+            && edge.evidence.get("adapter").map(String::as_str) == Some(SCREENPLAY_PDF_ADAPTER_EVIDENCE)
+            && edge.provider_id.as_deref() == Some(AFTERWRITING_PROVIDER_ID)
+            && edge.required_provider_ids == vec![NODE_PROVIDER_ID.to_owned()]
+            && edge.capability_id.as_deref() == Some(SCREENPLAY_PDF_CAPABILITY)
+            && edge_allowed(edge, tools, spec)
+    });
+    if !allowed { return false; }
+    append_screenplay_pdf_availability(inventory, policy, probe(policy));
+    true
+}
+
 /// Keep this observation separate from generic executable discovery. The package
 /// has no version command, and Node must never inherit NODE_OPTIONS in a probe.
 fn append_screenplay_pdf_availability(
@@ -4140,12 +4164,17 @@ fn preflight_selected_providers(resolved: &ResolvedExecution) -> Result<()> {
                 && !is_screenplay_pdf_provider(id, resolved.spec.execution.screenplay_pdf.as_ref())),
     );
     apply_screenplay_version_requirement(&mut inventory, resolved.spec.execution.screenplay.as_ref());
-    if let Some(policy) = &resolved.spec.execution.screenplay_pdf {
-        let cancellation = resolved.cancellation.clone().map(ProcessCancellationToken::from_shared).unwrap_or_default();
-        let observed = afterwriting::preflight(policy, cancellation)
+    let screenplay_pdf_probed = assess_screenplay_pdf_availability(
+        &mut inventory, &resolved.spec, &resolved.tool_registry, &resolved.dag.all_edges(),
+        |policy| {
+            let cancellation = resolved.cancellation.clone().map(ProcessCancellationToken::from_shared).unwrap_or_default();
+            afterwriting::preflight(policy, cancellation)
             .map(|observation| (observation.node_version, observation.provider_version))
-            .map_err(|error| error.to_string());
-        append_screenplay_pdf_availability(&mut inventory, policy, observed);
+            .map_err(|error| error.to_string())
+        },
+    );
+    if resolved.spec.execution.screenplay_pdf.is_some() && !screenplay_pdf_probed {
+        anyhow::bail!("screenplay_pdf.provider.denied: selected route is missing or excluded by execution policy; configured providers were not probed");
     }
     if let Some(policy) = &resolved.spec.execution.print_pdf_interior {
         validate_print_provider_version(&inventory, policy)?;
@@ -4658,6 +4687,83 @@ mod tests {
             spec.execution.tools.deny = vec![denied.to_owned()];
             assert!(apply_execution_policy(&graph, &tools, &spec).all_edges().is_empty());
         }
+    }
+
+    #[test]
+    fn screenplay_pdf_denied_routes_never_invoke_the_probe_callback() {
+        let mut graph = TransformGraph::new();
+        let mut tools = ToolRegistry::builtins();
+        register_screenplay_pdf_edge(&mut graph, &mut tools, Format::Fountain, &screenplay_pdf_policy()).unwrap();
+        let mut base = minimal_spec("fountain");
+        base.execution.screenplay_pdf = Some(screenplay_pdf_policy());
+        base.targets.exact = vec![TargetSpec { format: Some("pdf".to_owned()), ..Default::default() }];
+        let mut denied_specs = Vec::new();
+        for provider in [NODE_PROVIDER_ID, AFTERWRITING_PROVIDER_ID] {
+            let mut denied = base.clone();
+            denied.execution.tools.deny.push(provider.to_owned());
+            denied_specs.push(denied);
+            let mut excluded = base.clone();
+            excluded.execution.tools.allow.push(provider.to_owned());
+            denied_specs.push(excluded);
+        }
+        let mut denied_transform = base.clone();
+        denied_transform.execution.transforms.deny.push(SCREENPLAY_PDF_CAPABILITY.to_owned());
+        denied_specs.push(denied_transform);
+        let mut deterministic = base;
+        deterministic.execution.requirements.deterministic = true;
+        denied_specs.push(deterministic);
+
+        for spec in denied_specs {
+            let filtered = apply_execution_policy(&graph, &tools, &spec);
+            // Explicit targets survive intent resolution even when policy
+            // removes their edge, which previously still launched Node.
+            let targets = resolve_target_intent(&spec, &filtered, Format::Fountain).unwrap();
+            assert_eq!(targets.len(), 1);
+            assert_eq!(targets[0].format, Format::Pdf);
+            // Planning sees filtered edges; execution refresh must also refuse
+            // an otherwise selected edge when its current policy denies it.
+            for edges in [filtered.all_edges(), graph.all_edges()] {
+                let mut inventory = ToolInventory { tools: Vec::new() };
+                let mut calls = 0;
+                let probed = assess_screenplay_pdf_availability(&mut inventory, &spec, &tools, &edges, |_| {
+                    calls += 1;
+                    Ok(("v24.0.0".to_owned(), "1.17.3".to_owned()))
+                });
+                assert!(!probed);
+                assert_eq!(calls, 0);
+                assert!(inventory.tools.is_empty());
+            }
+        }
+    }
+
+    #[test]
+    fn screenplay_pdf_probe_requires_its_exact_selected_edge() {
+        let mut graph = TransformGraph::new();
+        let mut tools = ToolRegistry::builtins();
+        register_screenplay_pdf_edge(&mut graph, &mut tools, Format::Fountain, &screenplay_pdf_policy()).unwrap();
+        let mut spec = minimal_spec("fountain");
+        spec.execution.screenplay_pdf = Some(screenplay_pdf_policy());
+        let mut inventory = ToolInventory { tools: Vec::new() };
+        let mut calls = 0;
+        assert!(assess_screenplay_pdf_availability(&mut inventory, &spec, &tools, &graph.all_edges(), |_| {
+            calls += 1;
+            Ok(("v24.0.0".to_owned(), "1.17.3".to_owned()))
+        }));
+        assert_eq!(calls, 1);
+        assert_eq!(inventory.tools.len(), 2);
+        assert!(inventory.tools.iter().all(ToolAvailability::is_available));
+
+        let mut unrelated = graph.all_edges()[0].clone();
+        unrelated.capability_id = Some("screenplay.other".to_owned());
+        let mut unselected = ToolInventory { tools: Vec::new() };
+        for edges in [Vec::new(), vec![&unrelated]] {
+            assert!(!assess_screenplay_pdf_availability(&mut unselected, &spec, &tools, &edges, |_| {
+                calls += 1;
+                Ok(("v24.0.0".to_owned(), "1.17.3".to_owned()))
+            }));
+        }
+        assert_eq!(calls, 1);
+        assert!(unselected.tools.is_empty());
     }
 
     #[test]

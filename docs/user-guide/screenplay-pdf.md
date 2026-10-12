@@ -196,6 +196,9 @@ The opt-in capability is `screenplay.render.fountain.pdf`, with explicit
 `tool.node` and `tool.afterwriting` requirements. Planning uses bounded provider
 preflight and a cleared-environment Node probe. Missing or incompatible
 requirements exclude the route with actionable diagnostics.
+Execution policy is applied before that probe: a denied provider/transform or
+an incompatible deterministic requirement leaves the configured installation
+unprobed. The same rule applies when refreshing the selected execution route.
 
 The policy refuses collections, mixed native policies, custom transforms,
 inherited post-conversion hygiene, same-format copies, and transitive routes.
@@ -207,3 +210,5 @@ attestation remain unavailable. Combined graph evidence is capped at 4 MiB.
 See [provider evaluation](../work/425/PROVIDER_EVALUATION.md) for source,
 release, Node, installation and license observations, and
 [the handoff](../work/425/HANDOFF.md) for remaining qualification work.
+The [qualification runbook](../work/425/QUALIFICATION.md) provides the deferred
+commands and evidence checklist for completing that work.
