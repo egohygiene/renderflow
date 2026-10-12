@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="Open Screenplay Format document" version="20">
+  <paragraphs>
+    <para>
+      <style basestylename="Scene Heading"/>
+      <text>INT. LANTERN STATION - NIGHT</text>
+    </para>
+    <para>
+      <style basestylename="Action"/>
+      <text>Mira places a blue lantern beside the window.</text>
+    </para>
+    <para>
+      <style basestylename="Character"/>
+      <text>MIRA</text>
+    </para>
+    <para>
+      <style basestylename="Parenthetical"/>
+      <text>quietly</text>
+    </para>
+    <para>
+      <style basestylename="Dialogue"/>
+      <text>The signal says: café, Łódź, 星.</text>
+    </para>
+    <para>
+      <style basestylename="Transition"/>
+      <text>CUT TO:</text>
+    </para>
+  </paragraphs>
+</document>

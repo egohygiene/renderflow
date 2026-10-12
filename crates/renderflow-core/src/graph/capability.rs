@@ -483,10 +483,74 @@ impl FormatCapabilityRegistry {
                 extensions: &["fountain"],
                 media_types: &["text/x-fountain"],
                 families: &[Document],
-                capabilities: vec![Detect, Convert],
+                // Extension recognition only; Fountain is not a Pandoc input
+                // format and no native screenplay adapter is registered yet.
+                capabilities: vec![Detect],
                 magic_signatures: vec![],
-                loss_profile: PartialLoss,
-                external_requirements: vec![Pandoc],
+                loss_profile: PathDependent,
+                external_requirements: vec![],
+            },
+        );
+
+        // These media types are Renderflow-owned identity labels, not claims
+        // of IANA registration or vendor-endorsed native MIME types. Generic
+        // XML/ZIP signatures cannot distinguish these screenplay candidates.
+        for (format, id, name, extension, media_type, families) in [
+            (
+                Format::Fdx,
+                "fdx",
+                "Final Draft Screenplay",
+                &["fdx"][..],
+                &["application/vnd.renderflow.fdx+xml"][..],
+                &[Document, Data][..],
+            ),
+            (
+                Format::FadeIn,
+                "fadein",
+                "Fade In Screenplay",
+                &["fadein"][..],
+                &["application/vnd.renderflow.fadein+zip"][..],
+                &[Document, Archive][..],
+            ),
+            (
+                Format::Osf,
+                "osf",
+                "Open Screenplay Format",
+                &["osf"][..],
+                &["application/vnd.renderflow.osf+xml"][..],
+                &[Document, Data][..],
+            ),
+        ] {
+            self.register(
+                format,
+                FormatDescriptor {
+                    id,
+                    name,
+                    extensions: extension,
+                    media_types: media_type,
+                    families,
+                    capabilities: vec![Detect],
+                    magic_signatures: vec![],
+                    loss_profile: PathDependent,
+                    external_requirements: vec![],
+                },
+            );
+        }
+
+        self.register(
+            Format::ScreenplayJson,
+            FormatDescriptor {
+                id: "screenplay_json",
+                name: "Renderflow Screenplay JSON",
+                extensions: &["screenplay.json"],
+                media_types: &["application/vnd.renderflow.screenplay+json"],
+                families: &[Document, Data],
+                capabilities: vec![Detect, Inspect, Validate],
+                // The versioned schema marker is inspected structurally, not
+                // inferred from an ambiguous generic JSON magic signature.
+                magic_signatures: vec![],
+                loss_profile: PathDependent,
+                external_requirements: vec![],
             },
         );
 
@@ -1645,6 +1709,40 @@ mod tests {
         let desc = registry.get(Format::Json).expect("JSON must be registered");
         assert!(desc.has_capability(ArtifactCapability::Inspect));
         assert!(desc.has_capability(ArtifactCapability::Validate));
+    }
+
+    #[test]
+    fn native_screenplay_descriptors_only_recognize_candidates() {
+        let registry = FormatCapabilityRegistry::global();
+        for format in [Format::Fountain, Format::Fdx, Format::FadeIn, Format::Osf] {
+            let descriptor = registry.get(format).unwrap();
+            assert_eq!(descriptor.capabilities, vec![ArtifactCapability::Detect]);
+            assert!(descriptor.is_in_family(FormatFamily::Document));
+            assert!(descriptor.magic_signatures.is_empty());
+            assert!(descriptor.external_requirements.is_empty());
+            assert_eq!(
+                descriptor.media_types[0],
+                crate::artifact::MediaType::for_format(format).as_str(),
+            );
+        }
+    }
+
+    #[test]
+    fn canonical_screenplay_inspection_does_not_claim_native_conversion() {
+        let registry = FormatCapabilityRegistry::global();
+        let descriptor = registry.get(Format::ScreenplayJson).unwrap();
+        assert_eq!(
+            descriptor.capabilities,
+            vec![ArtifactCapability::Detect, ArtifactCapability::Inspect, ArtifactCapability::Validate],
+        );
+        assert!(descriptor.is_in_family(FormatFamily::Document));
+        assert!(descriptor.is_in_family(FormatFamily::Data));
+        assert!(descriptor.external_requirements.is_empty());
+        assert!(descriptor.magic_signatures.is_empty());
+        assert_eq!(
+            descriptor.media_types[0],
+            crate::artifact::MediaType::for_format(Format::ScreenplayJson).as_str(),
+        );
     }
 
     #[test]

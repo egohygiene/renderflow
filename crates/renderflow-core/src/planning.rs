@@ -3974,6 +3974,7 @@ fn render_output_paths(resolved: &ResolvedExecution) -> Result<Vec<PathBuf>> {
 fn artifact_extension(format: Format) -> String {
     match format {
         Format::Kepub => "kepub.epub".to_string(),
+        Format::ScreenplayJson => "screenplay.json".to_string(),
         Format::TimedTranscriptJson => "timed-transcript.json".to_string(),
         _ => format.to_string(),
     }
@@ -4240,5 +4241,26 @@ mod tests {
             assert!(graph.find_path(unsupported, Format::TimedTranscriptJson).is_none());
         }
         assert_eq!(artifact_extension(Format::TimedTranscriptJson), "timed-transcript.json");
+    }
+
+    #[test]
+    fn builtin_strategies_do_not_claim_screenplay_conversion_routes() {
+        let mut graph = TransformGraph::new();
+        let mut tools = ToolRegistry::builtins();
+        register_builtin_strategy_edges(&mut graph, &mut tools).unwrap();
+        assert!(graph.find_path(Format::Markdown, Format::Pdf).is_some());
+        for format in [
+            Format::Fountain,
+            Format::Fdx,
+            Format::FadeIn,
+            Format::Osf,
+            Format::ScreenplayJson,
+        ] {
+            assert!(graph.transforms_from(format).is_empty());
+            assert!(graph.transforms_to(format).is_empty());
+            assert!(graph.find_path(format, Format::Pdf).is_none());
+            assert!(document_input_format(format).is_none());
+        }
+        assert_eq!(artifact_extension(Format::ScreenplayJson), "screenplay.json");
     }
 }

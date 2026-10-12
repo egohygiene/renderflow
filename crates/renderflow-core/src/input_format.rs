@@ -89,6 +89,16 @@ impl<'de> Deserialize<'de> for InputFormat {
 mod tests {
     use super::*;
 
+    #[test]
+    fn screenplay_candidates_are_not_pandoc_input_formats() {
+        for identifier in ["fountain", "fdx", "fadein", "osf", "screenplay_json"] {
+            assert!(serde_yaml_ng::from_str::<InputFormat>(identifier).is_err());
+        }
+        for path in ["scene.fountain", "scene.fdx", "scene.fadein", "scene.osf", "scene.screenplay.json"] {
+            assert_eq!(InputFormat::from_extension(path), None);
+        }
+    }
+
     // --- from_extension ---
 
     #[test]

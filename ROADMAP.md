@@ -236,6 +236,17 @@ provider-neutral screenplay artifact model. `scripttool` and
 recovery is explicitly lossy/review-required. Timed-text work distinguishes
 embedded subtitle extraction from speech recognition.
 
+The first #423 checkpoint authors `renderflow.screenplay/v1`, ordered semantic
+elements and title metadata, explicit dialogue relationships, source-specific
+extensions, and directional loss evidence. Typed FDX/FadeIn/OSF/canonical JSON
+formats are registered, Fountain's incorrect Pandoc conversion claim is
+removed, and `screenplay inspect` validates canonical JSON without an external
+provider. Native screenplay formats remain recognition-only until #424.
+Original synthetic fixtures and source records are authored; compilation,
+tests, schema/native qualification, and CI remain deferred. This does not close
+#423 or provide a released converter. Resume from
+[the #423 handoff](docs/work/423/HANDOFF.md).
+
 The #427 candidate authors a standalone `subtitles inspect/convert/extract`
 CLI, `renderflow.timed-transcript/v1`, strict plain-text SRT/WebVTT codecs,
 and bounded FFprobe/FFmpeg adapters. Its second checkpoint adds opt-in
