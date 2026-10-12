@@ -358,6 +358,7 @@ pub fn run_cli(cli: Cli) -> Result<()> {
             },
         },
         Some(Commands::Speech { subcommand }) => match subcommand {
+            SpeechCommands::Inspect(arguments) => commands::speech::run_inspect(arguments)?,
             SpeechCommands::Transcribe(arguments) => commands::speech::run_transcribe(arguments)?,
         },
         Some(Commands::Subtitles { subcommand }) => match subcommand {

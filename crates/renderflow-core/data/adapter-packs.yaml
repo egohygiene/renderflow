@@ -110,6 +110,50 @@ providers:
     upstream: https://ffmpeg.org/
     rationale: Existing local image/audio adapter; video and subtitle capabilities remain graph-advertised only when an executable edge exists.
 
+  - id: adapter.speech.audio_ffprobe
+    runtime_tool: tool.ffprobe
+    name: Pinned local audio stream inventory
+    families: [audio_video]
+    maturity: experimental
+    selection_priority: 10
+    capabilities: [speech.audio.inspect]
+    input_media_types: [video/x-matroska, audio/x-matroska, video/webm, audio/webm, video/mp4, audio/mp4, video/quicktime, video/x-msvideo, audio/wav, audio/flac, audio/mpeg, audio/ogg, audio/aac]
+    output_media_types: [application/json]
+    determinism: configuration_dependent
+    locality: local
+    fidelity: path_dependent
+    execution: *bounded_local
+    configuration_schema:
+      provider: explicit_local_ffprobe_path_and_expected_sha256
+    validation: []
+    provenance: [source_sha256, source_size_bytes, ffprobe, probe_output_sha256, demuxer, streams]
+    upstream: https://ffmpeg.org/
+    rationale: Unqualified standalone audio inventory for explicit stream selection. No default track selection, installer, graph edge, or speech inference. Forced local demuxers and protocol restrictions are not an OS sandbox.
+
+  - id: adapter.speech.audio_ffmpeg
+    runtime_tool: tool.ffmpeg
+    name: Pinned local speech audio preparation
+    families: [audio_video]
+    maturity: experimental
+    selection_priority: 10
+    capabilities: [speech.audio.prepare]
+    input_media_types: [video/x-matroska, audio/x-matroska, video/webm, audio/webm, video/mp4, audio/mp4, video/quicktime, video/x-msvideo, audio/wav, audio/flac, audio/mpeg, audio/ogg, audio/aac]
+    output_media_types: [audio/wav]
+    determinism: configuration_dependent
+    locality: local
+    fidelity: path_dependent
+    execution: *bounded_local
+    configuration_schema:
+      providers: explicit_local_ffmpeg_and_ffprobe_paths_and_expected_sha256
+      source: expected_sha256_from_inventory
+      stream_index: explicit_global_audio_stream_index
+      output: mono_16000hz_pcm16_riff_wav_at_most_10_minutes
+      timeout_seconds: integer_1_to_3600
+    validation: []
+    provenance: [source_sha256, source_size_bytes, ffprobe, ffmpeg, probe_output_sha256, selected_stream, prepared_wav_sha256, configuration_sha256]
+    upstream: https://ffmpeg.org/
+    rationale: Unqualified standalone selected-stream preparation with retained probe output and WAV. Downmixing/resampling loses source detail and timestamps restart at zero in decoded sample order; original video synchronization is not claimed. Overlong decoded output is refused. No graph edge, cache reuse, or OS resource sandbox.
+
   - id: adapter.speech.whisper_cpp
     runtime_tool: tool.whisper_cpp
     name: Local whisper.cpp speech transcription

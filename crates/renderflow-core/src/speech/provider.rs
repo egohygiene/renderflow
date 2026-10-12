@@ -57,7 +57,7 @@ pub struct SpeechRun {
 ///
 /// The accepted source is a RIFF/WAVE file containing mono, 16 kHz, signed
 /// 16-bit little-endian PCM. Video/container decoding and audio normalization
-/// are deliberately separate future capabilities. Empty recognition output is
+/// are separate explicit operations in the `speech::audio` module. Empty recognition output is
 /// a refusal, not a successful transcript. GPU use is disabled by CLI option;
 /// compiled accelerator integrations and native-library behavior are not
 /// attested by this adapter.
@@ -158,7 +158,7 @@ fn transcription_arguments(
     Ok(arguments)
 }
 
-fn bounded_request(
+pub(super) fn bounded_request(
     executable: &Path,
     work_directory: &Path,
     timeout: Duration,
@@ -174,7 +174,7 @@ fn bounded_request(
         .network_policy(ProcessNetworkPolicy::Deny))
 }
 
-fn run_checked(executor: &ProcessExecutor, request: ProcessRequest) -> Result<ProcessResult, SpeechError> {
+pub(super) fn run_checked(executor: &ProcessExecutor, request: ProcessRequest) -> Result<ProcessResult, SpeechError> {
     let result = executor.execute(request).map_err(|error| match error {
         error @ ProcessError::MissingExecutable { .. } => SpeechError::ProviderUnavailable(error.to_string()),
         error => SpeechError::ProviderFailed(error.to_string()),
@@ -186,7 +186,7 @@ fn run_checked(executor: &ProcessExecutor, request: ProcessRequest) -> Result<Pr
     }
     if result.stdout().truncated() || result.stderr().truncated() {
         return Err(SpeechError::ProviderFailed(
-            "provider exceeded the 64 KiB stdout/stderr capture limit".to_owned(),
+            "provider exceeded its configured stdout/stderr capture limit".to_owned(),
         ));
     }
     if !result.is_success() {
@@ -211,7 +211,7 @@ fn parse_version(bytes: &[u8]) -> Result<String, SpeechError> {
     Ok(line.to_owned())
 }
 
-fn path_text(path: &Path) -> Result<&str, SpeechError> {
+pub(super) fn path_text(path: &Path) -> Result<&str, SpeechError> {
     let text = path.to_str().ok_or_else(|| SpeechError::InvalidRequest(
         "native paths must be UTF-8".to_owned(),
     ))?;
@@ -223,7 +223,7 @@ fn path_text(path: &Path) -> Result<&str, SpeechError> {
     Ok(text)
 }
 
-fn expected_digest(value: &str, name: &str) -> Result<(), SpeechError> {
+pub(super) fn expected_digest(value: &str, name: &str) -> Result<(), SpeechError> {
     if value.len() != 64 || !value.bytes().all(|byte|
         byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
     {
@@ -234,7 +234,7 @@ fn expected_digest(value: &str, name: &str) -> Result<(), SpeechError> {
     Ok(())
 }
 
-fn require_digest(snapshot: &FileSnapshot, expected: &str) -> Result<(), SpeechError> {
+pub(super) fn require_digest(snapshot: &FileSnapshot, expected: &str) -> Result<(), SpeechError> {
     if snapshot.sha256 != expected {
         return Err(SpeechError::InvalidRequest(format!(
             "{} SHA-256 does not match the explicitly supplied digest", snapshot.kind,
@@ -243,16 +243,17 @@ fn require_digest(snapshot: &FileSnapshot, expected: &str) -> Result<(), SpeechE
     Ok(())
 }
 
-struct FileSnapshot {
-    path: PathBuf,
+#[derive(Debug)]
+pub(super) struct FileSnapshot {
+    pub(super) path: PathBuf,
     kind: &'static str,
     maximum: u64,
-    metadata: Metadata,
-    sha256: String,
+    pub(super) metadata: Metadata,
+    pub(super) sha256: String,
 }
 
 impl FileSnapshot {
-    fn read(
+    pub(super) fn read(
         input: &Path, kind: &'static str, maximum: u64,
         cancellation: &ProcessCancellationToken,
     ) -> Result<Self, SpeechError> {
@@ -274,10 +275,10 @@ impl FileSnapshot {
         Ok(Self { path, kind, maximum, metadata, sha256 })
     }
 
-    fn recheck(&self, cancellation: &ProcessCancellationToken) -> Result<(), SpeechError> {
+    pub(super) fn recheck(&self, cancellation: &ProcessCancellationToken) -> Result<(), SpeechError> {
         let (metadata, digest) = hash_file(&self.path, self.kind, self.maximum, cancellation)?;
         if digest != self.sha256 || !same_metadata(&self.metadata, &metadata) {
-            return Err(SpeechError::SourceChanged(format!("{} changed during recognition", self.kind)));
+            return Err(SpeechError::SourceChanged(format!("{} changed during the speech operation", self.kind)));
         }
         Ok(())
     }
@@ -323,7 +324,7 @@ fn hash_file(
     Ok((before, format!("{:x}", digest.finalize())))
 }
 
-fn read_bounded(
+pub(super) fn read_bounded(
     path: &Path, maximum: u64, cancellation: &ProcessCancellationToken,
 ) -> Result<Vec<u8>, SpeechError> {
     let before = regular_metadata(path)?;
@@ -382,17 +383,17 @@ fn same_metadata(left: &Metadata, right: &Metadata) -> bool {
     true
 }
 
-fn ensure_not_cancelled(cancellation: &ProcessCancellationToken) -> Result<(), SpeechError> {
+pub(super) fn ensure_not_cancelled(cancellation: &ProcessCancellationToken) -> Result<(), SpeechError> {
     if cancellation.is_cancelled() { Err(SpeechError::Cancelled) } else { Ok(()) }
 }
 
-fn sha256(bytes: &[u8]) -> String { format!("{:x}", Sha256::digest(bytes)) }
+pub(super) fn sha256(bytes: &[u8]) -> String { format!("{:x}", Sha256::digest(bytes)) }
 
 /// Parse RIFF boundaries before invoking native code. Ancillary chunks are
 /// retained in the source identity but do not alter the single PCM data stream.
 /// RF64, compressed/extensible WAVE, duplicate streams, and trailing data are
 /// refused rather than decoded or normalized implicitly.
-fn inspect_pcm_wav(bytes: &[u8]) -> Result<u64, SpeechError> {
+pub(super) fn inspect_pcm_wav(bytes: &[u8]) -> Result<u64, SpeechError> {
     let invalid = |message: &str| SpeechError::InvalidRequest(format!("unsupported WAV: {message}"));
     if bytes.len() as u64 > MAX_SOURCE_BYTES || bytes.len() < 44
         || &bytes[..4] != b"RIFF" || &bytes[8..12] != b"WAVE"

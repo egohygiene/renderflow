@@ -131,6 +131,7 @@ tools:
       - image.convert
       - video.convert
       - subtitle.extract.plain
+      - speech.audio.prepare
     input_media_types:
       - audio/*
       - image/*
@@ -146,7 +147,7 @@ tools:
     fidelity: path_dependent
     support_tier: optional
     license_notes: "FFmpeg licensing is build-dependent; consult the exact distributed build."
-    distribution_notes: "Used by Renderflow audio, image, and video adapters. Plain subtitle extraction is separately experimental and unqualified; its authored graph route requires explicit execution.subtitles stream selection."
+    distribution_notes: "Used by Renderflow audio, image, and video adapters. Plain subtitle extraction is separately experimental and unqualified; its authored graph route requires explicit execution.subtitles stream selection. Standalone speech audio preparation additionally requires pinned FFprobe/FFmpeg binaries, a source digest, and an explicit global audio stream; it has no graph edge or qualified original-video timing."
 
   - id: tool.ffprobe
     name: FFprobe
@@ -157,6 +158,7 @@ tools:
     operating_systems: [linux, macos, windows]
     capabilities:
       - subtitle.streams.inspect
+      - speech.audio.inspect
     input_media_types:
       - video/x-matroska
       - audio/x-matroska
@@ -164,6 +166,13 @@ tools:
       - audio/webm
       - video/mp4
       - video/quicktime
+      - audio/mp4
+      - video/x-msvideo
+      - audio/wav
+      - audio/flac
+      - audio/mpeg
+      - audio/ogg
+      - audio/aac
     output_media_types:
       - application/json
     determinism: configuration_dependent
@@ -171,7 +180,7 @@ tools:
     fidelity: path_dependent
     support_tier: optional
     license_notes: "FFprobe is part of FFmpeg; licensing and decoder/demuxer support depend on the exact distributed build."
-    distribution_notes: "Optional bounded subtitle-stream inventory provider. Adapter authoring is experimental and unqualified; finding the executable does not prove subtitle extraction support."
+    distribution_notes: "Optional bounded subtitle and speech audio-stream inventories. Speech inspection requires an explicit local executable and expected SHA-256; discovering a tool does not qualify extraction or recognition."
 
   - id: tool.whisper_cpp
     name: whisper.cpp local speech recognition

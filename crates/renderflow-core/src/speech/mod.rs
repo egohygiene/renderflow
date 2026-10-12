@@ -5,8 +5,10 @@
 //! timestamps, token probabilities are not accuracy estimates, and this module
 //! neither invents missing words nor performs alignment or diarization.
 
+pub mod audio;
 pub mod provider;
 
+use std::collections::BTreeSet;
 use std::fmt;
 
 use serde::de::{self, MapAccess, SeqAccess, Visitor};
@@ -20,6 +22,12 @@ use crate::timed_text::{self, TimedCue, TimedTranscript, TranscriptSource, MAX_C
 pub const SPEECH_TRANSCRIPTION_SCHEMA_V1: &str = "renderflow.speech-transcription/v1";
 pub const WHISPER_PROVIDER_ID: &str = "adapter.speech.whisper_cpp";
 pub const MAX_PROVIDER_JSON_BYTES: usize = MAX_INPUT_BYTES;
+pub const AUDIO_INVENTORY_SCHEMA_V1: &str = "renderflow.audio-inventory/v1";
+pub const AUDIO_PREPARATION_PROFILE: &str = "mono_16000_hz_pcm_s16le";
+pub const AUDIO_TIMESTAMP_ORIGIN: &str = "selected_stream_decoded_samples_from_zero";
+pub const MAX_AUDIO_SOURCE_BYTES: u64 = 4 * 1024 * 1024 * 1024;
+pub const MAX_PREPARED_WAV_BYTES: u64 = 32 * 1024 * 1024;
+pub const MAX_PREPARED_AUDIO_DURATION_MS: u64 = 600_000;
 // Shared with the native argv builder so changes to fixed decoding options also
 // change configuration identity. The profile covers PCM input/full-JSON output,
 // translation/VAD remaining disabled, and the bounded process environment.
@@ -112,6 +120,189 @@ pub enum SpeechConfidence {
     Unavailable,
 }
 
+/// Identity of the exact local binary used to inspect or decode the source.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AudioToolIdentity {
+    pub tool_id: String,
+    pub version: String,
+    pub sha256: String,
+}
+
+impl AudioToolIdentity {
+    pub fn validate(&self, expected_id: &str) -> Result<(), SpeechError> {
+        if self.tool_id != expected_id || !is_label(&self.version, 4096) || !is_sha256(&self.sha256) {
+            return Err(invalid("audio tool identity must name the expected tool, a bounded version, and its SHA-256"));
+        }
+        Ok(())
+    }
+}
+
+/// Audio stream metadata from ffprobe. Index is global, not audio-relative.
+/// Missing timing stays unknown; no container duration is substituted.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AudioStream {
+    pub index: u32,
+    pub codec_name: String,
+    pub channels: u32,
+    pub sample_rate: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub duration_ms: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub start_time_ms: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub language: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+}
+
+impl AudioStream {
+    pub fn validate(&self) -> Result<(), SpeechError> {
+        if !is_label(&self.codec_name, 256) || !(1..=64).contains(&self.channels)
+            || !(1..=768_000).contains(&self.sample_rate)
+        {
+            return Err(invalid("audio stream codec, channel count, or sample rate is outside this profile"));
+        }
+        if self.language.as_ref().is_some_and(|value| !is_label(value, 64))
+            || self.title.as_ref().is_some_and(|value| !is_label(value, 1024))
+        {
+            return Err(invalid("audio stream language/title must be bounded labels without controls"));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AudioInventory {
+    pub schema_version: String,
+    pub source_sha256: String,
+    pub source_size_bytes: u64,
+    pub container_format: String,
+    pub demuxer: String,
+    pub ffprobe: AudioToolIdentity,
+    pub probe_output_sha256: String,
+    pub streams: Vec<AudioStream>,
+}
+
+impl AudioInventory {
+    pub fn validate(&self) -> Result<(), SpeechError> {
+        if self.schema_version != AUDIO_INVENTORY_SCHEMA_V1
+            || !is_sha256(&self.source_sha256) || !is_sha256(&self.probe_output_sha256)
+            || !(1..=MAX_AUDIO_SOURCE_BYTES).contains(&self.source_size_bytes)
+            || !is_label(&self.container_format, 256) || !is_audio_demuxer(&self.demuxer)
+            || self.streams.len() > 256
+        {
+            return Err(invalid("audio inventory identity, format, size, or stream count is invalid"));
+        }
+        self.ffprobe.validate("tool.ffprobe")?;
+        let mut indexes = BTreeSet::new();
+        for stream in &self.streams {
+            stream.validate()?;
+            if !indexes.insert(stream.index) {
+                return Err(invalid("audio inventory contains duplicate global stream indexes"));
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AudioPreparationLimits {
+    pub max_source_bytes: u64,
+    pub max_duration_ms: u64,
+    pub max_prepared_wav_bytes: u64,
+}
+
+impl Default for AudioPreparationLimits {
+    fn default() -> Self {
+        Self {
+            max_source_bytes: MAX_AUDIO_SOURCE_BYTES,
+            max_duration_ms: MAX_PREPARED_AUDIO_DURATION_MS,
+            max_prepared_wav_bytes: MAX_PREPARED_WAV_BYTES,
+        }
+    }
+}
+
+/// Provenance of bounded, explicitly selected container audio preparation.
+/// The transcript still addresses the prepared WAV, starting at sample zero.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AudioPreparationEvidence {
+    pub source_sha256: String,
+    pub source_size_bytes: u64,
+    pub container_format: String,
+    pub demuxer: String,
+    pub selected_stream: AudioStream,
+    pub ffprobe: AudioToolIdentity,
+    pub ffmpeg: AudioToolIdentity,
+    pub probe_output_sha256: String,
+    pub prepared_wav_sha256: String,
+    pub prepared_wav_size_bytes: u64,
+    pub prepared_wav_duration_ms: u64,
+    pub profile: String,
+    pub configuration_sha256: String,
+    pub timestamp_origin: String,
+    pub timeout_seconds: u64,
+    pub limits: AudioPreparationLimits,
+    pub limitations: Vec<String>,
+}
+
+impl AudioPreparationEvidence {
+    pub fn validate(&self) -> Result<(), SpeechError> {
+        for value in [&self.source_sha256, &self.probe_output_sha256, &self.prepared_wav_sha256, &self.configuration_sha256] {
+            if !is_sha256(value) {
+                return Err(invalid("audio preparation digests must be lowercase SHA-256 values"));
+            }
+        }
+        if !(1..=MAX_AUDIO_SOURCE_BYTES).contains(&self.source_size_bytes)
+            || !(46..=MAX_PREPARED_WAV_BYTES).contains(&self.prepared_wav_size_bytes)
+            || !(1..=MAX_PREPARED_AUDIO_DURATION_MS).contains(&self.prepared_wav_duration_ms)
+            || !is_label(&self.container_format, 256) || !is_audio_demuxer(&self.demuxer)
+            || self.profile != AUDIO_PREPARATION_PROFILE || self.timestamp_origin != AUDIO_TIMESTAMP_ORIGIN
+            || !(1..=3600).contains(&self.timeout_seconds) || self.limits != AudioPreparationLimits::default()
+        {
+            return Err(invalid("audio preparation must match the bounded PCM profile and declared limits"));
+        }
+        self.ffprobe.validate("tool.ffprobe")?;
+        self.ffmpeg.validate("tool.ffmpeg")?;
+        self.selected_stream.validate()?;
+        if self.selected_stream.duration_ms.is_some_and(|duration| duration == 0 || duration > MAX_PREPARED_AUDIO_DURATION_MS) {
+            return Err(invalid("known selected audio duration must be nonzero and at most ten minutes"));
+        }
+        let unique_limitations: BTreeSet<_> = self.limitations.iter().collect();
+        if self.limitations.is_empty() || self.limitations.len() > 16
+            || unique_limitations.len() != self.limitations.len()
+            || self.limitations.iter().any(|value| !is_label(value, 4096))
+        {
+            return Err(invalid("audio preparation limitations must be nonempty, unique, bounded labels"));
+        }
+        if self.configuration_sha256 != audio_preparation_configuration_digest(self)? {
+            return Err(invalid("audio preparation configuration digest does not match its policy and identities"));
+        }
+        Ok(())
+    }
+}
+
+/// Hash the versioned extraction policy and actual pinned tool/selection inputs.
+/// Original bytes and probe bytes belong to the enclosing reuse identity.
+pub fn audio_preparation_configuration_digest(evidence: &AudioPreparationEvidence) -> Result<String, SpeechError> {
+    json_digest(&(
+        "renderflow.audio-preparation-configuration/v1",
+        audio::audio_fixed_arguments(),
+        &evidence.profile,
+        &evidence.timestamp_origin,
+        &evidence.demuxer,
+        &evidence.selected_stream,
+        &evidence.ffprobe,
+        &evidence.ffmpeg,
+        evidence.timeout_seconds,
+        &evidence.limits,
+    ))
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SpeechEvidence {
@@ -133,6 +324,8 @@ pub struct SpeechEvidence {
     pub confidence: SpeechConfidence,
     pub human_reviewed: bool,
     pub limitations: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub audio_preparation: Option<AudioPreparationEvidence>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -274,12 +467,86 @@ pub fn normalize_whisper_json(
                 "Provider metadata beyond language/model and segment text/offsets is not represented in the transcript.".to_owned(),
                 "Reuse identity is recorded only; no speech cache lookup or reuse is enabled.".to_owned(),
             ],
+            audio_preparation: None,
         },
     };
     if serde_json::to_vec(&transcription).map_err(|error| invalid(error.to_string()))?.len() > MAX_INPUT_BYTES {
         return Err(invalid("normalized speech envelope exceeds the 16 MiB limit"));
     }
     Ok(transcription)
+}
+
+/// Bind prepared audio provenance to an already normalized recognition result.
+/// This preserves the WAV-relative timed transcript and does not enable caching
+/// or reinterpret cues against the original media clock. Reattaching identical
+/// evidence is idempotent; replacing evidence is refused.
+pub fn attach_audio_preparation(
+    transcription: &mut SpeechTranscription,
+    preparation: &AudioPreparationEvidence,
+) -> Result<(), SpeechError> {
+    preparation.validate()?;
+    transcription.evidence.identity.validate()?;
+    transcription.evidence.options.validate()?;
+    timed_text::validate(&transcription.transcript).map_err(|error| invalid(error.to_string()))?;
+    if transcription.schema_version != SPEECH_TRANSCRIPTION_SCHEMA_V1
+        || transcription.transcript.source.format != "wav"
+        || transcription.transcript.source.stream.is_some()
+        || transcription.transcript.source.extraction.is_some()
+        || transcription.evidence.human_reviewed
+        || transcription.evidence.identity.source_sha256 != preparation.prepared_wav_sha256
+        || transcription.transcript.source.sha256 != preparation.prepared_wav_sha256
+        || transcription.transcript.cues.iter().any(|cue| cue.end_ms > preparation.prepared_wav_duration_ms)
+    {
+        return Err(invalid("audio preparation must describe the same unreviewed WAV transcript and cover every cue"));
+    }
+    let speech_configuration = configuration_digest(&transcription.evidence.identity, &transcription.evidence.options)?;
+    let combined_configuration = json_digest(&(
+        "renderflow.prepared-speech-configuration/v1",
+        &speech_configuration,
+        &preparation.configuration_sha256,
+    ))?;
+    let combined_reuse_key = json_digest(&(
+        "renderflow.prepared-speech-reuse/v1",
+        &preparation.source_sha256,
+        preparation.source_size_bytes,
+        &preparation.container_format,
+        &preparation.selected_stream,
+        &preparation.probe_output_sha256,
+        &preparation.prepared_wav_sha256,
+        &combined_configuration,
+    ))?;
+    match &transcription.evidence.audio_preparation {
+        Some(existing) => {
+            if existing != preparation || transcription.evidence.configuration_sha256 != combined_configuration
+                || transcription.evidence.reuse_key != combined_reuse_key
+            {
+                return Err(invalid("existing audio preparation evidence or identity cannot be replaced"));
+            }
+            return Ok(());
+        }
+        None => {
+            let expected_reuse_key = json_digest(&(
+                "renderflow.speech-reuse/v1",
+                &transcription.evidence.identity.source_sha256,
+                &speech_configuration,
+            ))?;
+            if transcription.evidence.configuration_sha256 != speech_configuration
+                || transcription.evidence.reuse_key != expected_reuse_key
+            {
+                return Err(invalid("speech identity must match the normalized result before attaching preparation"));
+            }
+        }
+    }
+    // Check the complete prospective envelope before changing the caller's value.
+    let mut enriched = transcription.clone();
+    enriched.evidence.configuration_sha256 = combined_configuration;
+    enriched.evidence.reuse_key = combined_reuse_key;
+    enriched.evidence.audio_preparation = Some(preparation.clone());
+    if serde_json::to_vec(&enriched).map_err(|error| invalid(error.to_string()))?.len() > MAX_INPUT_BYTES {
+        return Err(invalid("normalized speech envelope exceeds the 16 MiB limit"));
+    }
+    *transcription = enriched;
+    Ok(())
 }
 
 fn configuration_digest(identity: &SpeechIdentity, options: &SpeechOptions) -> Result<String, SpeechError> {
@@ -316,6 +583,14 @@ fn is_language(value: &str) -> bool {
 
 fn is_label(value: &str, maximum: usize) -> bool {
     !value.trim().is_empty() && value.chars().count() <= maximum && !value.chars().any(char::is_control)
+}
+
+fn is_sha256(value: &str) -> bool {
+    value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+}
+
+fn is_audio_demuxer(value: &str) -> bool {
+    matches!(value, "mov" | "matroska" | "avi" | "wav" | "flac" | "mp3" | "ogg" | "aac")
 }
 
 fn object<'a>(value: &'a Value, name: &str) -> Result<&'a Map<String, Value>, SpeechError> {
@@ -525,5 +800,132 @@ mod tests {
         let invalid_identity = SpeechIdentity { model_sha256: "not-a-digest".to_owned(), ..identity() };
         assert!(matches!(normalize_whisper_json(FIXTURE, &invalid_identity, &options()), Err(SpeechError::InvalidRequest(_))));
         assert!(normalize_whisper_json(&vec![b' '; MAX_PROVIDER_JSON_BYTES + 1], &identity(), &options()).is_err());
+    }
+
+    fn preparation() -> AudioPreparationEvidence {
+        let mut evidence = AudioPreparationEvidence {
+            source_sha256: "4".repeat(64),
+            source_size_bytes: 100_000,
+            container_format: "matroska,webm".to_owned(),
+            demuxer: "matroska".to_owned(),
+            selected_stream: AudioStream {
+                index: 2,
+                codec_name: "opus".to_owned(),
+                channels: 2,
+                sample_rate: 48_000,
+                duration_ms: None,
+                start_time_ms: Some(-7),
+                language: Some("eng".to_owned()),
+                title: Some("Synthetic narration".to_owned()),
+            },
+            ffprobe: AudioToolIdentity {
+                tool_id: "tool.ffprobe".to_owned(),
+                version: "ffprobe synthetic fixture".to_owned(),
+                sha256: "5".repeat(64),
+            },
+            ffmpeg: AudioToolIdentity {
+                tool_id: "tool.ffmpeg".to_owned(),
+                version: "ffmpeg synthetic fixture".to_owned(),
+                sha256: "6".repeat(64),
+            },
+            probe_output_sha256: "7".repeat(64),
+            prepared_wav_sha256: identity().source_sha256,
+            prepared_wav_size_bytes: 96_044,
+            prepared_wav_duration_ms: 3000,
+            profile: AUDIO_PREPARATION_PROFILE.to_owned(),
+            configuration_sha256: String::new(),
+            timestamp_origin: AUDIO_TIMESTAMP_ORIGIN.to_owned(),
+            timeout_seconds: 300,
+            limits: AudioPreparationLimits::default(),
+            limitations: vec!["Synthetic metadata only; no native decoding or accuracy claim.".to_owned()],
+        };
+        evidence.configuration_sha256 = audio_preparation_configuration_digest(&evidence).unwrap();
+        evidence
+    }
+
+    #[test]
+    fn optional_audio_preparation_preserves_wav_wire_and_attaches_idempotently() {
+        let mut result = normalize_whisper_json(FIXTURE, &identity(), &options()).unwrap();
+        let original_transcript = result.transcript.clone();
+        let before = serde_json::to_value(&result).unwrap();
+        assert!(before["evidence"].get("audio_preparation").is_none());
+        let old_wire: SpeechTranscription = serde_json::from_value(before).unwrap();
+        assert_eq!(old_wire.evidence.audio_preparation, None);
+        let evidence = preparation();
+        attach_audio_preparation(&mut result, &evidence).unwrap();
+        assert_eq!(result.transcript, original_transcript);
+        assert_eq!(result.evidence.audio_preparation, Some(evidence.clone()));
+        assert_ne!(result.evidence.configuration_sha256, old_wire.evidence.configuration_sha256);
+        assert_ne!(result.evidence.reuse_key, old_wire.evidence.reuse_key);
+        let once = result.clone();
+        attach_audio_preparation(&mut result, &evidence).unwrap();
+        assert_eq!(result, once);
+    }
+
+    #[test]
+    fn preparation_reuse_identity_tracks_original_media_stream_and_decoding_policy() {
+        let recognize = || normalize_whisper_json(FIXTURE, &identity(), &options()).unwrap();
+        let baseline_evidence = preparation();
+        let mut baseline = recognize();
+        attach_audio_preparation(&mut baseline, &baseline_evidence).unwrap();
+        let mut other_source = baseline_evidence.clone();
+        other_source.source_sha256 = "8".repeat(64);
+        let mut source_result = recognize();
+        attach_audio_preparation(&mut source_result, &other_source).unwrap();
+        assert_eq!(baseline.evidence.configuration_sha256, source_result.evidence.configuration_sha256);
+        assert_ne!(baseline.evidence.reuse_key, source_result.evidence.reuse_key);
+        for mut changed in [
+            AudioPreparationEvidence { selected_stream: AudioStream { index: 3, ..baseline_evidence.selected_stream.clone() }, ..baseline_evidence.clone() },
+            AudioPreparationEvidence { timeout_seconds: 301, ..baseline_evidence.clone() },
+            AudioPreparationEvidence { ffmpeg: AudioToolIdentity { sha256: "9".repeat(64), ..baseline_evidence.ffmpeg.clone() }, ..baseline_evidence.clone() },
+        ] {
+            changed.configuration_sha256 = audio_preparation_configuration_digest(&changed).unwrap();
+            let mut result = recognize();
+            attach_audio_preparation(&mut result, &changed).unwrap();
+            assert_ne!(baseline.evidence.configuration_sha256, result.evidence.configuration_sha256);
+            assert_ne!(baseline.evidence.reuse_key, result.evidence.reuse_key);
+        }
+    }
+
+    #[test]
+    fn preparation_refusals_leave_the_transcript_unchanged() {
+        let baseline = normalize_whisper_json(FIXTURE, &identity(), &options()).unwrap();
+        for mut evidence in [
+            AudioPreparationEvidence { prepared_wav_sha256: "a".repeat(64), ..preparation() },
+            AudioPreparationEvidence { prepared_wav_duration_ms: 2499, ..preparation() },
+            AudioPreparationEvidence { timestamp_origin: "original_video_clock".to_owned(), ..preparation() },
+            AudioPreparationEvidence { selected_stream: AudioStream { duration_ms: Some(600_001), ..preparation().selected_stream }, ..preparation() },
+        ] {
+            evidence.configuration_sha256 = audio_preparation_configuration_digest(&evidence).unwrap();
+            let mut result = baseline.clone();
+            assert!(attach_audio_preparation(&mut result, &evidence).is_err());
+            assert_eq!(result, baseline);
+        }
+        let mut changed = preparation();
+        changed.timeout_seconds += 1;
+        assert!(changed.validate().is_err());
+    }
+
+    #[test]
+    fn audio_inventory_preserves_unknown_timing_and_refuses_ambiguous_indexes() {
+        let preparation = preparation();
+        let mut inventory = AudioInventory {
+            schema_version: AUDIO_INVENTORY_SCHEMA_V1.to_owned(),
+            source_sha256: preparation.source_sha256,
+            source_size_bytes: preparation.source_size_bytes,
+            container_format: preparation.container_format,
+            demuxer: preparation.demuxer,
+            ffprobe: preparation.ffprobe,
+            probe_output_sha256: preparation.probe_output_sha256,
+            streams: vec![preparation.selected_stream],
+        };
+        inventory.validate().unwrap();
+        let encoded = serde_json::to_value(&inventory).unwrap();
+        assert!(encoded["streams"][0].get("duration_ms").is_none());
+        assert_eq!(encoded["streams"][0]["start_time_ms"], -7);
+        inventory.streams.push(inventory.streams[0].clone());
+        assert!(inventory.validate().is_err());
+        inventory.streams.clear();
+        inventory.validate().unwrap();
     }
 }

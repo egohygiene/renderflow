@@ -370,14 +370,43 @@ pub enum Commands {
 
 #[derive(Subcommand)]
 pub enum SpeechCommands {
-    /// Produce an unreviewed transcript bundle from mono 16 kHz PCM16 WAV.
+    /// List audio streams using an explicitly pinned local FFprobe executable.
+    Inspect(SpeechInspectArguments),
+    /// Produce an unreviewed transcript bundle from WAV or an explicit audio stream.
     Transcribe(SpeechTranscribeArguments),
 }
 
 #[derive(clap::Args)]
-pub struct SpeechTranscribeArguments {
-    #[arg(long, value_name = "WAV")]
+pub struct SpeechInspectArguments {
+    #[arg(long, value_name = "FILE")]
     pub input: String,
+    #[arg(long, value_name = "FILE")]
+    pub ffprobe: String,
+    #[arg(long, value_name = "SHA256")]
+    pub ffprobe_sha256: String,
+}
+
+#[derive(clap::Args)]
+pub struct SpeechTranscribeArguments {
+    #[arg(long, value_name = "FILE")]
+    pub input: String,
+    /// Global audio stream index from speech inspect; never selected implicitly.
+    #[arg(long, requires_all = ["input_sha256", "ffprobe", "ffprobe_sha256", "ffmpeg", "ffmpeg_sha256"])]
+    pub audio_stream: Option<u32>,
+    /// Source digest from speech inspect, binding the choice to that exact file.
+    #[arg(long, value_name = "SHA256", requires = "audio_stream")]
+    pub input_sha256: Option<String>,
+    #[arg(long, value_name = "FILE", requires = "audio_stream")]
+    pub ffprobe: Option<String>,
+    #[arg(long, value_name = "SHA256", requires = "audio_stream")]
+    pub ffprobe_sha256: Option<String>,
+    #[arg(long, value_name = "FILE", requires = "audio_stream")]
+    pub ffmpeg: Option<String>,
+    #[arg(long, value_name = "SHA256", requires = "audio_stream")]
+    pub ffmpeg_sha256: Option<String>,
+    /// Audio preparation timeout (1–3600 seconds); default 300 for media input.
+    #[arg(long, requires = "audio_stream")]
+    pub audio_timeout_seconds: Option<u64>,
     /// Local whisper-cli executable; never downloaded or selected implicitly.
     #[arg(long, value_name = "FILE")]
     pub provider: String,

@@ -256,8 +256,12 @@ route with explicit executable/model hashes, segment normalization, and a
 separate speech-evidence envelope around the unchanged timed-transcript model.
 One recognition result produces JSON/SRT/WebVTT/text plus retained provider
 output and a bundle receipt. It has not been compiled, tested, or run with a
-model. Audio/video extraction, graph/SDK integration, active cache reuse,
-progress events, and native qualification remain. Resume from
+model. Checkpoint 2 adds pinned local audio inspection, explicit stream/source
+selection, bounded PCM preparation, and retained WAV/probe lineage in the
+standalone bundle. Prepared transcript clocks start at audio sample zero;
+original-video synchronization is not claimed. Both checkpoints remain unrun.
+Graph/SDK integration, active cache reuse, progress events, original-media
+alignment, and native qualification remain. Resume from
 [the #428 handoff](docs/work/428/HANDOFF.md).
 
 The exhaustive planner must materialize each eligible target identity at most

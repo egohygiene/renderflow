@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-audio-inventory-v1.schema.json",
+  "title": "Renderflow audio inventory v1",
+  "description": "Bounded audio stream inventory of one local media source using a pinned ffprobe binary. Stream indexes are global. Missing stream timing remains unknown.",
+  "$comment": "Runtime validation also checks unique global stream indexes, exact source and binary bytes, permitted local demuxer behavior, actual prepared WAV format/duration/size, configuration hashes, and equality of prepared WAV identity with speech and timed-transcript source identity. JSON Schema cannot establish those relationships or validate the media bytes. Preparation timestamps begin at decoded sample zero and do not promise synchronization to the original video clock. Reuse hashes are identity only; no cache lookup is enabled.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "source_sha256", "source_size_bytes", "container_format", "demuxer", "ffprobe", "probe_output_sha256", "streams"],
+  "properties": {
+    "schema_version": { "const": "renderflow.audio-inventory/v1" },
+    "source_sha256": { "$ref": "#/$defs/sha256" },
+    "source_size_bytes": { "$ref": "#/$defs/sourceSize" },
+    "container_format": { "$ref": "#/$defs/format" },
+    "demuxer": { "$ref": "#/$defs/demuxer" },
+    "ffprobe": { "$ref": "#/$defs/ffprobe" },
+    "probe_output_sha256": { "$ref": "#/$defs/sha256" },
+    "streams": {
+      "type": "array",
+      "maxItems": 256,
+      "items": { "$ref": "#/$defs/audioStream" }
+    }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "label": {
+      "type": "string",
+      "minLength": 1,
+      "allOf": [
+        { "pattern": "\\S" },
+        { "not": { "pattern": "[\\u0000-\\u001f\\u007f-\\u009f]" } }
+      ]
+    },
+    "sourceSize": { "type": "integer", "minimum": 1, "maximum": 4294967296 },
+    "format": { "allOf": [{ "$ref": "#/$defs/label" }, { "maxLength": 256 }] },
+    "demuxer": { "enum": ["mov", "matroska", "avi", "wav", "flac", "mp3", "ogg", "aac"] },
+    "toolIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tool_id", "version", "sha256"],
+      "properties": {
+        "tool_id": { "enum": ["tool.ffprobe", "tool.ffmpeg"] },
+        "version": { "allOf": [{ "$ref": "#/$defs/label" }, { "maxLength": 4096 }] },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "ffprobe": {
+      "allOf": [
+        { "$ref": "#/$defs/toolIdentity" },
+        { "properties": { "tool_id": { "const": "tool.ffprobe" } } }
+      ]
+    },
+    "ffmpeg": {
+      "allOf": [
+        { "$ref": "#/$defs/toolIdentity" },
+        { "properties": { "tool_id": { "const": "tool.ffmpeg" } } }
+      ]
+    },
+    "audioStream": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["index", "codec_name", "channels", "sample_rate"],
+      "properties": {
+        "index": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+        "codec_name": { "allOf": [{ "$ref": "#/$defs/label" }, { "maxLength": 256 }] },
+        "channels": { "type": "integer", "minimum": 1, "maximum": 64 },
+        "sample_rate": { "type": "integer", "minimum": 1, "maximum": 768000 },
+        "duration_ms": { "type": "integer", "minimum": 0, "maximum": 18446744073709551615 },
+        "start_time_ms": { "type": "integer", "minimum": -9223372036854775808, "maximum": 9223372036854775807 },
+        "language": { "allOf": [{ "$ref": "#/$defs/label" }, { "maxLength": 64 }] },
+        "title": { "allOf": [{ "$ref": "#/$defs/label" }, { "maxLength": 1024 }] }
+      }
+    },
+    "preparationLimits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max_source_bytes", "max_duration_ms", "max_prepared_wav_bytes"],
+      "properties": {
+        "max_source_bytes": { "const": 4294967296 },
+        "max_duration_ms": { "const": 600000 },
+        "max_prepared_wav_bytes": { "const": 33554432 }
+      }
+    },
+    "audioPreparation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_sha256", "source_size_bytes", "container_format", "demuxer", "selected_stream", "ffprobe", "ffmpeg",
+        "probe_output_sha256", "prepared_wav_sha256", "prepared_wav_size_bytes", "prepared_wav_duration_ms",
+        "profile", "configuration_sha256", "timestamp_origin", "timeout_seconds", "limits", "limitations"
+      ],
+      "properties": {
+        "source_sha256": { "$ref": "#/$defs/sha256" },
+        "source_size_bytes": { "$ref": "#/$defs/sourceSize" },
+        "container_format": { "$ref": "#/$defs/format" },
+        "demuxer": { "$ref": "#/$defs/demuxer" },
+        "selected_stream": {
+          "allOf": [
+            { "$ref": "#/$defs/audioStream" },
+            { "properties": { "duration_ms": { "minimum": 1, "maximum": 600000 } } }
+          ]
+        },
+        "ffprobe": { "$ref": "#/$defs/ffprobe" },
+        "ffmpeg": { "$ref": "#/$defs/ffmpeg" },
+        "probe_output_sha256": { "$ref": "#/$defs/sha256" },
+        "prepared_wav_sha256": { "$ref": "#/$defs/sha256" },
+        "prepared_wav_size_bytes": { "type": "integer", "minimum": 46, "maximum": 33554432 },
+        "prepared_wav_duration_ms": { "type": "integer", "minimum": 1, "maximum": 600000 },
+        "profile": { "const": "mono_16000_hz_pcm_s16le" },
+        "configuration_sha256": { "$ref": "#/$defs/sha256" },
+        "timestamp_origin": { "const": "selected_stream_decoded_samples_from_zero" },
+        "timeout_seconds": { "type": "integer", "minimum": 1, "maximum": 3600 },
+        "limits": { "$ref": "#/$defs/preparationLimits" },
+        "limitations": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": { "allOf": [{ "$ref": "#/$defs/label" }, { "maxLength": 4096 }] }
+        }
+      }
+    }
+  }
+}

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-speech-bundle-v1.schema.json",
   "title": "Renderflow standalone speech bundle v1",
-  "description": "Receipt written last for one unreviewed local speech run and its derivatives. Hashes describe the exact published bytes; keep the speech evidence envelope and raw provider output alongside the canonical transcript.",
+  "description": "Receipt written last for one unreviewed local speech run and its derivatives. Prepared-media runs additionally retain the exact audio probe JSON and recognized WAV. Keep all listed files with the speech evidence envelope.",
   "$comment": "File existence, byte lengths, digest equality, speech evidence, and receipt publication must be verified by the consumer; JSON Schema alone cannot establish them. This is not a Flow artifact envelope or a released provider qualification.",
   "type": "object",
   "additionalProperties": false,
@@ -14,7 +14,8 @@
     "artifacts": {
       "type": "array",
       "minItems": 6,
-      "maxItems": 6,
+      "maxItems": 8,
+      "oneOf": [{ "maxItems": 6 }, { "minItems": 8 }],
       "items": { "$ref": "#/$defs/artifact" },
       "prefixItems": [
         { "allOf": [{ "$ref": "#/$defs/artifact" }], "properties": { "path": { "const": "provider-output.json" } } },
@@ -22,7 +23,9 @@
         { "allOf": [{ "$ref": "#/$defs/artifact" }], "properties": { "path": { "const": "transcript.timed-transcript.json" } } },
         { "allOf": [{ "$ref": "#/$defs/artifact" }], "properties": { "path": { "const": "transcript.srt" } } },
         { "allOf": [{ "$ref": "#/$defs/artifact" }], "properties": { "path": { "const": "transcript.vtt" } } },
-        { "allOf": [{ "$ref": "#/$defs/artifact" }], "properties": { "path": { "const": "transcript.txt" } } }
+        { "allOf": [{ "$ref": "#/$defs/artifact" }], "properties": { "path": { "const": "transcript.txt" } } },
+        { "allOf": [{ "$ref": "#/$defs/artifact" }], "properties": { "path": { "const": "audio-probe.json" } } },
+        { "allOf": [{ "$ref": "#/$defs/artifact" }], "properties": { "path": { "const": "prepared.wav" } } }
       ]
     },
     "export_losses": {
@@ -44,8 +47,18 @@
       "properties": {
         "path": { "type": "string" },
         "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
-        "size_bytes": { "type": "integer", "minimum": 1, "maximum": 16777216 }
-      }
+        "size_bytes": { "type": "integer", "minimum": 1, "maximum": 33554432 }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "path": { "const": "prepared.wav" } } },
+          "else": { "properties": { "size_bytes": { "maximum": 16777216 } } }
+        },
+        {
+          "if": { "properties": { "path": { "const": "audio-probe.json" } } },
+          "then": { "properties": { "size_bytes": { "maximum": 1048576 } } }
+        }
+      ]
     },
     "losses": {
       "type": "array",

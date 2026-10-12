@@ -1,121 +1,145 @@
-# Renderflow #428 — local speech checkpoint 1
+# Renderflow #428 — local speech checkpoint 2
 
-## Authority and starting point
+## Authority and branch
 
-- Parent issue: https://github.com/egohygiene/renderflow/issues/428 under #421;
-  dependent subtitle work remains in draft PR #438 for #427.
-- The user explicitly chose to skip remaining tests and continue implementation
-  after #427's environment-blocked completion pass. Do not attempt another
-  toolchain bootstrap or native qualification under this budget.
-- Strategy: implementation-first checkpoints with durable evidence boundaries.
-  Tests, compilation, lint/format, schemas, local/native smoke, and GitHub
-  Actions are deferred. Read-only source/Git inspection and draft publication
-  are authorized. No merge/release was requested in this continuation.
-- Branch: `feat/renderflow-428-local-speech`, targeting the existing subtitle
-  branch `feat/renderflow-427-timed-text` as a stacked draft.
-- Published base: `14ebc90f35c90c90942a3b9c086ed58b232b662b`, tree
-  `53a9d02adc673058ce94c3c5bfa779c1f112eabd`, matching local commit
+- Issue: https://github.com/egohygiene/renderflow/issues/428 under #421.
+- Draft PR: https://github.com/egohygiene/renderflow/pull/439, head branch
+  `feat/renderflow-428-local-speech`, stacked on subtitle draft PR #438 / branch
+  `feat/renderflow-427-timed-text`.
+- The user explicitly deferred tests and authorized continued implementation.
+  The latest instruction was to keep going after checkpoint 1. Tests, builds,
+  schema validation, format/lint, native smoke/inference, and GitHub Actions
+  remain deferred. No merge or release was requested.
+- Read-only source/Git review, authored coverage, and draft publication are
+  authorized. Keep `[skip ci]` commits and disabled hooks; do not dispatch or
+  poll CI. Do not bootstrap a toolchain under this budget.
+- Checkpoint 1 published head: `5f4cfccfe9f5e314542fdb5a71e578862d4eed63`, tree
+  `d3d9c4d72fcd237477568e7197cfb360c26d89a7`, matching local commit
+  `698511a69efc037cd5e849fa9a1ceddf1d0b8915`.
+- Stack base: published `14ebc90f35c90c90942a3b9c086ed58b232b662b`, tree
+  `53a9d02adc673058ce94c3c5bfa779c1f112eabd`, matching local
   `e72f26ecade13a1cd0b57dc5c0a9c41042f407a2`.
-- That base includes a source-found correction to two #427 integration-test
-  imports: the SDK types are publicly re-exported at the crate root; its `sdk`
-  module is private. The correction remains uncompiled.
+- Both PRs were still open drafts at checkpoint 2 start. If #438 is merged,
+  reconcile and retarget the stack before later publication. This handoff
+  cannot contain the hash of its own commit; use the PR head and body.
 
-Find the current PR by this branch; this handoff cannot contain its own commit
-SHA. If the subtitle PR is merged, reconcile/retarget the stack before further
-publication. Do not merge either draft merely because source review is clean.
+## Authored path
 
-## Authored interfaces
+1. Direct WAV input continues to use `speech transcribe` with explicitly pinned
+   local whisper.cpp executable/model, selected language, and bounded options.
+   The model is never downloaded or selected implicitly.
+2. `speech inspect` accepts local media and a pinned FFprobe executable. Its
+   JSON inventory identifies original media bytes, tool/version, forced demuxer,
+   raw probe digest, and global audio indexes with available metadata. No track
+   is selected automatically, even when only one exists.
+3. `speech transcribe --audio-stream N` additionally requires the original
+   digest from inspection and pinned FFprobe/FFmpeg paths. The source pin binds
+   the index choice to those exact bytes. Preparation re-probes, maps `0:N`,
+   downmixes/resamples to mono 16 kHz PCM16, and inspects the completed RIFF/WAV.
+4. The existing recognition adapter consumes that exact WAV once. The speech
+   envelope attaches original media, selected stream, probe/extraction tools,
+   conversion policy, and prepared WAV evidence. Configuration/reuse identities
+   include preparation; actual cache lookup/reuse remains unimplemented.
+5. The bundle retains provider JSON, full speech envelope, canonical timed
+   transcript, SRT, WebVTT, and text. Prepared-media runs also retain exact
+   `audio-probe.json` and `prepared.wav`. A hash/size/loss receipt is published
+   last. Existing paths are refused; interrupted publication can leave an
+   incomplete new directory, which is not a successful bundle.
 
-- `src/speech/mod.rs` in `crates/renderflow-core` owns provider-neutral options,
-  identity, speech evidence, and the `renderflow.speech-transcription/v1`
-  envelope. `normalize_whisper_json` maps one bounded provider result into the
-  existing `TimedTranscript`. It rejects duplicate JSON keys, translation,
-  language substitution, missing/invalid segments, and unsupported strict text.
-- The canonical #427 timed-transcript model/schema is unchanged. Speech
-  metadata remains in the separate envelope, which must accompany derivatives.
-  Token probabilities do not become calibrated confidence. All text is marked
-  unreviewed, segment-edge trimming is disclosed, and speaker IDs are absent.
-- `src/speech/provider.rs` accepts `SpeechRequest` with local input,
-  executable/model paths and expected SHA-256 digests, model ID, and options.
-  `transcribe` returns `SpeechRun` containing both `SpeechTranscription` and
-  the exact bounded raw provider JSON. It uses the shared `ProcessExecutor`.
-- Input is one mono 16 kHz signed PCM16 RIFF/WAV file, at most ten minutes and
-  32 MiB. The parser refuses compressed/extensible/RF64, malformed boundaries,
-  duplicate format/data chunks, and implicit conversion. Source, model, and
-  executable are read-only and rechecked around native work.
-- The provider version is observed with `--version`; executable/model byte
-  identity is explicitly pinned. Model <=4 GiB; executable <=256 MiB; captures
-  <=64 KiB each; accepted JSON <=16 MiB; bounded hashing/read budgets and native
-  timeout/cancellation. Fixed decoding arguments are shared with the
-  configuration hash to keep argv and identity aligned.
-- `renderflow speech transcribe` exposes the standalone flow. It runs inference
-  once, generates canonical JSON/SRT/WebVTT/text, retains `provider-output.json`
-  and `transcription.json`, and publishes a hash/size/loss receipt last. Existing
-  destinations are refused. Publication failures may leave a partial new
-  directory; consumers need the receipt and matching files, not existence alone.
-- Tool/adapter registries add `tool.whisper_cpp`,
-  `adapter.speech.whisper_cpp`, and `speech.transcribe` as experimental optional
-  capability metadata. No planner graph edge is advertised.
-- [User guide](../../user-guide/speech.md) describes the authored invocation,
-  bundle layout, provenance preservation, and limits. All examples are unrun.
+## Source locations and interfaces
 
-## Source review and evidence boundary
+- `crates/renderflow-core/src/speech/mod.rs`: provider-neutral speech envelope,
+  strict whisper JSON normalization, optional audio preparation evidence,
+  inventory and tool/stream contracts, preparation policy hashing, and
+  `attach_audio_preparation`. Attachment verifies the WAV identity, cue bounds,
+  policy and prior recognition identities; identical reattachment is idempotent
+  and replacing evidence is refused.
+- `src/speech/provider.rs`: original bounded WAV recognition adapter, now sharing
+  local file snapshots, bounded reads, process setup, and WAV inspection with
+  its sibling audio adapter. `SpeechRequest` and `SpeechRun` remain unchanged.
+- `src/speech/audio.rs`: `AudioTool`, `AudioInspectRequest`,
+  `AudioPrepareRequest`, `AudioInspection`, and `PreparedAudio`. Preparation
+  keeps its private temporary directory alive and provides bounded WAV reads
+  plus source/tool stability rechecks after recognition.
+- `src/commands/speech.rs`, `src/cli.rs`, and `src/app.rs`: standalone inspect
+  and transcription commands, explicit preparation flags, cancellation, and
+  whole-bundle publication. Root-level public `speech` APIs are available to
+  callers; planner/Engine SDK speech policy is still absent.
+- `schemas/renderflow-audio-inventory-v1.schema.json`: inventory plus shared
+  preparation definitions. The speech schema adds optional preparation evidence;
+  the bundle schema accepts exactly six ordinary files or eight prepared-media
+  files. Receipt itself is not listed or self-hashed.
+- Tool/adapter metadata registers experimental `speech.audio.inspect` and
+  `speech.audio.prepare` capabilities. These do not advertise executable graph
+  edges or platform qualification.
 
-[Provider evaluation](PROVIDER_EVALUATION.md) pins whisper.cpp source to
-`7e26d3b0d5bced6c8217ef09710ec2f969001241` and records the exact flags, JSON
-fields, model/version behavior, licensing, and backend caveats. Upstream can
-exit zero on invalid CLI arguments; required output/model/language checks must
-remain in place. Routine provider stderr is not automatically a failure.
+The #427 `TimedTranscript` model/schema and closed Flow artifact envelope remain
+unchanged. Its speech source is the recognized WAV, not the original video.
+Keep the separate full speech envelope and raw files to preserve the whole chain.
 
-Source review caught and corrected an initial identity gap: fixed decoding
-flags now participate in the configuration hash and are consumed from the same
-constant by the argv builder. The provider preserves raw output bytes for the
-bundle instead of retaining only their digest. CLI publication checks the raw
-output digest before writing and uses new-file publication for every member.
+## Profile and evidence boundaries
 
-Fourteen test functions are authored and **unrun**: six normalization/identity
-tests, six native-adapter helper/refusal tests, and two publication tests. The
-original synthetic provider-JSON fixture is not generated ASR output. No
-spoken-audio fixture, model, provider binary, compiler, test, schema validator,
-lint, formatter, or CI job was executed/installed for #428.
+- Allowed forced demuxers: Matroska/WebM, MOV/MP4, AVI, WAV, FLAC, MP3, Ogg,
+  and AAC, selected from
+  allowlisted file extensions. No unrestricted format fallback or playlist route.
+- Local original media <=4 GiB; prepared WAV <=32 MiB and <=600 seconds.
+  Provider executables <=256 MiB; model <=4 GiB. Expected SHA-256 values are
+  mandatory for tools/model, and original media in preparation requests.
+- Probe capture <=1 MiB, other native captures <=64 KiB. Probe timeout 30s;
+  preparation timeout 1–3600s (default 300); recognition timeout 1–3600s
+  (default 900). Hash/read budgets are checked between reads for up to 120s.
+- Missing stream duration stays unknown; container duration is not substituted.
+  Known overlong audio is refused. Output `-t 601` is a refusal sentinel:
+  the strict WAV parser refuses >600s, so it never represents a successful
+  intentionally clipped transcript. No trimming or segmentation is offered.
+- Prepared timing is **decoded sample order from zero**. Resampling/downmixing
+  loses audio detail; rebasing collapses original timestamp offsets and gaps.
+  Recorded start time does not establish a general mapping back to the video.
+  Original-video caption synchronization/mux readiness is not claimed.
+- Recognition is unreviewed, with provider segment milliseconds and disclosed
+  segment-edge whitespace trimming. No confidence calibration, translation,
+  diarization, word alignment, or singing accuracy guarantee is invented.
+- Process execution uses direct argv, cleared environment, cancellation,
+  timeouts, input protocol restrictions, and disabled MOV external references.
+  These are not OS disk/RAM/CPU/network/filesystem confinement. Native output
+  files are inspected after exit. Blocked filesystem reads and hostile temporary
+  file replacement are not defeated by digest rechecks.
+- Source/model/tool final path components must not be symlinks; ancestor links
+  are canonicalized. Tool hashes do not attest linked libraries, model sidecars,
+  optional accelerators, build-dependent codecs, or all effective configuration.
+  Model/build licensing and actual platform support remain unqualified.
 
-Earlier #427 provider smoke/schema results do not qualify #428. No passing
-speech evidence, platform compatibility, lyric accuracy, or release readiness
-is claimed. Use `[skip ci]` commits and disabled hooks; do not dispatch/poll CI.
+## Source review; all execution deferred
 
-## Next implementation checkpoints
+[Whisper evaluation](PROVIDER_EVALUATION.md) pins upstream source
+`7e26d3b0d5bced6c8217ef09710ec2f969001241`.
+[Audio preparation evaluation](AUDIO_PREPARATION.md) pins FFmpeg source
+`615b07170e30d79ad5906418ea49f81c3cbd8457` and explains global indexing, demuxer
+aliases, metadata copying, duration sentinel, and sample timeline semantics.
+Source snapshots describe assumptions, not the origin of a supplied binary.
 
-1. Add explicit audio stream discovery/selection and bounded local extraction
-   or preparation for container inputs. Preserve original media digest,
-   selected stream, extraction tool identity, and derived WAV identity. Never
-   select a stream silently or bypass the known WAV input profile.
-2. Wire an explicit speech policy through planner/SDK and native artifact
-   lineage. Keep full speech evidence and raw provider output inspectable;
-   retain the closed Flow artifact envelope. Add structured progress/cancellation
-   events without inventing recognition percentages.
-3. Decide the actual cache/checkpoint contract. The current configuration and
-   reuse keys include provider/model/source/options/adapter policy, but no
-   speech lookup, persistence, or reuse is implemented. Shared libraries,
-   compiled accelerators, and model sidecars are not covered by the two file
-   hashes; qualify an effective execution profile before enabling reuse.
-4. When the user returns to testing, run the focused Rust tests and schema
-   agreement checks, CLI no-overwrite/refusal cases, and a licensed spoken-audio
-   fixture with pinned binary/model. Retain raw output and derivatives; prove
-   timeout, cancellation, source stability, and platform behavior. Inspect
-   Windows/macOS environment/loading requirements and English-only model
-   language behavior. General lint/full-suite/release work stays separate.
+Checkpoint 1 authored fourteen tests. Checkpoint 2 adds eight tests for contract, metadata,
+selection/argument, duration, identity, and cancellation coverage for later
+execution. All #428 tests remain **unrun**. No compiler, schema validator,
+formatter, linter, FFmpeg/FFprobe, whisper inference, model download, or CI job
+was executed for either #428 checkpoint. No user media was processed. Source
+review and matching Git publication establish no runtime qualification.
+Earlier #427 partial smoke/schema evidence does not qualify this code.
 
-## Limits that must remain visible
+## Next checkpoints
 
-There is no video/audio normalization, graph route, diarization, translation,
-word-alignment guarantee, human-approved copy, active cache reuse, or model
-download. CLI progress currently reports phases only. Native stdout/stderr are
-bounded; on-disk provider output is checked after exit, without OS disk/RAM caps.
-Network deny is process-policy intent, not an OS sandbox. GPU-disabled settings
-do not guarantee CPU-only execution. Hashing can observe persistent mutation,
-not hostile temporary path replacement or blocked filesystem reads. The final
-component of input/model/executable paths must not be a symlink; ancestor links
-are canonicalized. Local model licensing remains an operator responsibility.
+1. Add explicit planner/Engine SDK speech policy, artifact lineage, and structured
+   phase/cancellation events. Preserve the full evidence and raw files without
+   extending the closed Flow wire arbitrarily. Do not silently treat prepared
+   sample times as original video times; define mapping/refusal before any mux
+   route advertises alignment.
+2. Decide actual cache/checkpoint persistence and reuse behavior. Keys exist,
+   but an effective build/sidecar identity profile must precede enabling reuse.
+3. When the user returns to testing, run focused #427/#428 compilation, Rust
+   tests, schema/CLI agreement, and a licensed spoken-audio native fixture with
+   pinned binaries/model. Cover multiple tracks, changed source, missing/wrong
+   duration, nonzero starts/gaps/edit lists, cancellation, errors, limits,
+   no-overwrite publication, and platform/build loading behavior.
 
-#427/#428 acceptance and release remain open. Optiflow #111/PR #122 and its ACL
-qualification remain the other paused workstream; Aniflow #36 remains parked.
+#427/#428 acceptance and release remain open. Optiflow #111/PR #122 and ACL
+qualification remain paused; Aniflow #36 remains parked.

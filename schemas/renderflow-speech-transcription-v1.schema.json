@@ -2,8 +2,8 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-speech-transcription-v1.schema.json",
   "title": "Renderflow speech transcription v1",
-  "description": "Unreviewed local speech-recognition segments wrapped with provider, model, source, configuration, normalization, and uncertainty evidence. The embedded timed transcript retains its existing v1 contract.",
-  "$comment": "Application validation additionally enforces a 16 MiB provider input and compact encoded envelope limit; rejects duplicate keys in all provider objects; validates cue byte limits, ordering, durations, unique IDs and plain text; and checks requested/detected language consistency. The runtime adapter checks provider-reported model path against invocation, source duration, and original byte identities. Equality across source.sha256, identity.source_sha256, language fields and recomputed SHA-256 values cannot be established by this schema alone. Provider token probabilities are not calibrated accuracy and are not exported as confidence. Reuse identity records inputs but does not activate caching.",
+  "description": "Unreviewed local speech-recognition segments wrapped with provider, model, source, configuration, normalization, and uncertainty evidence. Optional audio preparation records original media, explicitly selected audio stream, and pinned decoding tools. The embedded timed transcript retains its existing v1 contract and addresses the prepared WAV.",
+  "$comment": "Application validation additionally enforces a 16 MiB provider input and compact encoded envelope limit; rejects duplicate keys in all provider objects; validates cue byte limits, ordering, durations, unique IDs and plain text; and checks requested/detected language consistency. The runtime adapter checks provider-reported model path against invocation, source duration, and original byte identities. Equality across source.sha256, identity.source_sha256, audio_preparation.prepared_wav_sha256, language fields and recomputed SHA-256 values cannot be established by this schema alone. Prepared timestamps count decoded samples from zero, not the original video clock. Provider token probabilities are not calibrated accuracy and are not exported as confidence. Reuse identity includes the original media and selection when preparation is present, but does not activate caching.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "transcript", "evidence"],
@@ -98,6 +98,7 @@
         "trimmed_segment_count": { "type": "integer", "minimum": 0, "maximum": 100000 },
         "confidence": { "const": "unavailable" },
         "human_reviewed": { "const": false },
+        "audio_preparation": { "$ref": "renderflow-audio-inventory-v1.schema.json#/$defs/audioPreparation" },
         "limitations": {
           "type": "array",
           "minItems": 1,
