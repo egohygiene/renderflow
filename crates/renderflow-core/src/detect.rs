@@ -131,6 +131,10 @@ pub fn detect_from_bytes(buf: &[u8]) -> Option<Format> {
 /// Parses the extension from `path` and maps it to a known [`Format`] variant.
 /// Returns `None` when the extension is missing or unrecognised.
 pub fn detect_from_extension(path: &str) -> Option<Format> {
+    let filename = Path::new(path).file_name()?.to_str()?.to_ascii_lowercase();
+    if filename.ends_with(".timed-transcript.json") {
+        return Some(Format::TimedTranscriptJson);
+    }
     let ext = Path::new(path).extension()?.to_str()?;
     ext.to_lowercase().as_str().parse::<Format>().ok()
 }
@@ -185,6 +189,22 @@ pub fn detect_from_path(path: &str, content: Option<&[u8]>) -> DetectionResult {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn subtitle_extensions_remain_distinct_from_generic_data_formats() {
+        for (path, format) in [
+            ("captions.ass", Format::Ass),
+            ("captions.SSA", Format::Ssa),
+            ("captions.ttml", Format::Ttml),
+            ("captions.timed-transcript.json", Format::TimedTranscriptJson),
+            ("CAPTIONS.TIMED-TRANSCRIPT.JSON", Format::TimedTranscriptJson),
+            ("captions.json", Format::Json),
+            ("captions.xml", Format::Xml),
+        ] {
+            assert_eq!(detect_from_extension(path), Some(format));
+            assert_eq!(detect_from_path(path, None), DetectionResult::ExtensionOnly { format });
+        }
+    }
 
     // ── detect_from_bytes ──────────────────────────────────────────────────────
 

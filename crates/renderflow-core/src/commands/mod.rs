@@ -9,6 +9,7 @@ pub mod inspect;
 pub mod plugin;
 pub mod publication;
 pub mod spec;
+pub mod subtitles;
 pub mod system;
 pub mod tools;
 pub mod video;

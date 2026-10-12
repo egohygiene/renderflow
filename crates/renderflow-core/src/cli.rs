@@ -320,6 +320,13 @@ pub enum Commands {
         subcommand: VideoCommands,
     },
 
+    /// Inspect local subtitle streams and convert the supported plain-text profile.
+    #[command(subcommand_required = true, arg_required_else_help = true)]
+    Subtitles {
+        #[command(subcommand)]
+        subcommand: SubtitleCommands,
+    },
+
     /// List stable provider capability IDs and their implementations.
     Capabilities {
         /// Output format: text (default), json, or yaml.
@@ -351,6 +358,41 @@ pub enum Commands {
         /// Exit with non-zero status when required dependencies are missing
         #[arg(long)]
         strict: bool,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum SubtitleCommands {
+    /// Enumerate embedded subtitle streams with FFprobe; emits JSON evidence.
+    Inspect {
+        #[arg(long, value_name = "FILE")]
+        input: String,
+    },
+    /// Convert a strict plain-text SRT/WebVTT or timed-transcript JSON file.
+    Convert {
+        #[arg(long, value_name = "FILE")]
+        input: String,
+        /// Explicit source format; JSON must use renderflow.timed-transcript/v1.
+        #[arg(long, value_parser = ["srt", "vtt", "json"])]
+        input_format: String,
+        /// New destination file; existing files are never replaced.
+        #[arg(long, value_name = "FILE")]
+        output: String,
+        #[arg(long, default_value = "json", value_parser = ["srt", "vtt", "json", "text"])]
+        output_format: String,
+    },
+    /// Extract one explicitly selected supported stream; emits JSON evidence.
+    Extract {
+        #[arg(long, value_name = "FILE")]
+        input: String,
+        /// Absolute stream index reported by `subtitles inspect`.
+        #[arg(long)]
+        stream_index: u32,
+        /// New destination file; existing files are never replaced.
+        #[arg(long, value_name = "FILE")]
+        output: String,
+        #[arg(long, default_value = "json", value_parser = ["srt", "vtt", "json", "text"])]
+        output_format: String,
     },
 }
 

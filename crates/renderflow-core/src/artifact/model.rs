@@ -217,6 +217,10 @@ impl MediaType {
             Format::TarXz => "application/x-xz",
             Format::Srt => "application/x-subrip",
             Format::WebVtt => "text/vtt",
+            Format::Ass => "text/x-ass",
+            Format::Ssa => "text/x-ssa",
+            Format::Ttml => "application/ttml+xml",
+            Format::TimedTranscriptJson => "application/vnd.renderflow.timed-transcript+json",
         };
         Self(value.to_string())
     }

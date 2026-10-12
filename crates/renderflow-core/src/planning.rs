@@ -46,9 +46,12 @@ use crate::spec::{
     load_spec, AiPolicy, CollisionPolicy, DerivativeProfile, FixedLayoutEpubPolicy, HygienePolicy,
     IntermediatePolicy, NetworkPolicy, PrintPdfInteriorPolicy, RejectedLossClass, SelectorSet,
     SourceKind, SourceSpec, SourceSpecVersion, SpecV2, TargetRequirement, TargetSelection,
-    TargetSpec, ValidationFailureMode,
+    SubtitlePolicy, TargetSpec, ValidationFailureMode,
 };
 use crate::super_resolution::{select_upscayl_variants, UpscaylModelCatalog};
+use crate::timed_text::graph::{
+    supports_media_format, SubtitleExtractionTransform, TimedTextArtifactTransform,
+};
 use crate::toolchain::{
     transform_capability_id, CapabilityId, ToolDeterminism, ToolDiscovery, ToolFidelity, ToolId,
     ToolLocality, ToolRegistry, ToolRuntimeContext, ToolVersionRequirement, ToolchainSnapshot,
@@ -57,6 +60,9 @@ use crate::transforms::yaml_loader::build_graph_executor_and_tools_from_yaml;
 use crate::validation::{ArtifactValidationOutcome, ValidationRegistry};
 
 const BUILTIN_ADAPTER_EVIDENCE: &str = "builtin.strategy";
+const SUBTITLE_ADAPTER_EVIDENCE: &str = "builtin.timed_text";
+const SUBTITLE_EXTRACTION_EVIDENCE: &str = "builtin.subtitle_extraction";
+const TIMED_TEXT_PROVIDER: &str = "tool.renderflow-timed-text";
 
 #[derive(Debug, Clone)]
 pub struct PlanningRequest {
@@ -446,6 +452,15 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
         };
 
     register_builtin_strategy_edges(&mut graph, &mut tool_registry)?;
+    if let Some(policy) = &spec.execution.subtitles {
+        register_subtitle_edges(
+            &mut graph,
+            &mut tool_registry,
+            source_format,
+            collection,
+            policy,
+        )?;
+    }
     if let Some(policy) = &spec.execution.print_pdf_interior {
         register_print_pdf_edge(&mut graph, &mut tool_registry, source_format, policy)?;
     }
@@ -867,6 +882,12 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
     let source_artifact = source_artifacts[0].clone();
 
     let mut executor = std::mem::take(&mut resolved.executor);
+    register_subtitle_executors(
+        &mut executor,
+        &resolved.dag,
+        resolved.spec.execution.subtitles.as_ref(),
+        resolved.cancellation.clone(),
+    )?;
     if let Some(pages) = &resolved.print_pages {
         let policy = resolved
             .spec
@@ -2437,6 +2458,113 @@ fn resolve_source_format(
         .with_context(|| "intake selected a format unavailable to the built-in graph")
 }
 
+fn validate_subtitle_policy(
+    source_format: Format,
+    collection: bool,
+    policy: &SubtitlePolicy,
+) -> Result<()> {
+    if collection {
+        anyhow::bail!("subtitle.policy.collection: subtitle steps require one source artifact, not a collection");
+    }
+    if supports_media_format(source_format) {
+        if policy.stream_index.is_none() {
+            anyhow::bail!("subtitle.stream_index.required: media extraction requires execution.subtitles.stream_index from subtitles inspect; the first stream is never selected implicitly");
+        }
+    } else if matches!(source_format, Format::Srt | Format::WebVtt | Format::TimedTranscriptJson) {
+        if policy.stream_index.is_some() {
+            anyhow::bail!("subtitle.stream_index.unexpected: standalone subtitle conversion does not accept an embedded stream index");
+        }
+    } else {
+        anyhow::bail!("subtitle.policy.source: subtitle steps support SRT, WebVTT, timed-transcript JSON, MKV, WebM, MP4, or MOV; source format is '{source_format}'");
+    }
+    Ok(())
+}
+
+/// Subtitle forest edges are deliberately opt-in. Recognition-only formats and
+/// normal document/media planning do not acquire implicit extraction routes.
+fn register_subtitle_edges(
+    graph: &mut TransformGraph,
+    tools: &mut ToolRegistry,
+    source_format: Format,
+    collection: bool,
+    policy: &SubtitlePolicy,
+) -> Result<()> {
+    validate_subtitle_policy(source_format, collection, policy)?;
+    let provider = ToolId::new(TIMED_TEXT_PROVIDER)?;
+    for (from, to) in [
+        (Format::Srt, Format::TimedTranscriptJson),
+        (Format::WebVtt, Format::TimedTranscriptJson),
+        (Format::TimedTranscriptJson, Format::Srt),
+        (Format::TimedTranscriptJson, Format::WebVtt),
+    ] {
+        let capability = CapabilityId::new(format!("subtitle.convert.{from}.{to}"))?;
+        tools.add_capability(&provider, capability.clone())?;
+        graph.add_transform(
+            TransformEdge::new(from, to, 0.1, 0.95)
+                .with_provider(provider.to_string(), capability.to_string())
+                .with_evidence("adapter", SUBTITLE_ADAPTER_EVIDENCE)
+                .with_evidence("family", "subtitle")
+                .with_evidence("transform_id", format!("builtin.subtitle.{from}.{to}")),
+        );
+    }
+    if let Some(stream_index) = policy.stream_index {
+        let capability = CapabilityId::new("subtitle.extract.selected")?;
+        for provider in ["tool.ffmpeg", "tool.ffprobe"] {
+            tools.add_capability(&ToolId::new(provider)?, capability.clone())?;
+        }
+        graph.add_transform(
+            TransformEdge::new(source_format, Format::TimedTranscriptJson, 1.0, 0.95)
+                .with_provider("tool.ffmpeg", capability.to_string())
+                .with_required_provider("tool.ffprobe")
+                .with_evidence("adapter", SUBTITLE_EXTRACTION_EVIDENCE)
+                .with_evidence("family", "subtitle")
+                .with_evidence("transform_id", format!("builtin.subtitle.extract.{source_format}"))
+                .with_evidence("subtitle_stream_index", stream_index.to_string()),
+        );
+    }
+    Ok(())
+}
+
+/// Providers are bound after the resolved execution receives SDK cancellation.
+fn register_subtitle_executors(
+    executor: &mut DagExecutor,
+    dag: &MultiTargetDag,
+    policy: Option<&SubtitlePolicy>,
+    cancellation: Option<Arc<AtomicBool>>,
+) -> Result<()> {
+    for edge in dag.all_edges() {
+        match edge.evidence.get("adapter").map(String::as_str) {
+            Some(SUBTITLE_ADAPTER_EVIDENCE) => {
+                executor.register_artifact(
+                    edge.from,
+                    edge.to,
+                    Arc::new(TimedTextArtifactTransform::new(edge.from, edge.to)?),
+                );
+            }
+            Some(SUBTITLE_EXTRACTION_EVIDENCE) => {
+                let stream_index = policy.and_then(|policy| policy.stream_index)
+                    .context("subtitle.stream_index.required: selected extraction edge has no explicit stream index")?;
+                if edge.to != Format::TimedTranscriptJson
+                    || edge.evidence.get("subtitle_stream_index") != Some(&stream_index.to_string())
+                {
+                    anyhow::bail!("subtitle.plan.inconsistent: extraction edge differs from the frozen stream selection");
+                }
+                executor.register_artifact(
+                    edge.from,
+                    edge.to,
+                    Arc::new(SubtitleExtractionTransform::new(
+                        edge.from,
+                        stream_index,
+                        cancellation.clone(),
+                    )?),
+                );
+            }
+            _ => {}
+        }
+    }
+    Ok(())
+}
+
 fn register_builtin_strategy_edges(
     graph: &mut TransformGraph,
     tools: &mut ToolRegistry,
@@ -3278,6 +3406,7 @@ fn render_output_paths(resolved: &ResolvedExecution) -> Result<Vec<PathBuf>> {
 fn artifact_extension(format: Format) -> String {
     match format {
         Format::Kepub => "kepub.epub".to_string(),
+        Format::TimedTranscriptJson => "timed-transcript.json".to_string(),
         _ => format.to_string(),
     }
 }
@@ -3480,5 +3609,68 @@ mod tests {
     fn output_template_rejects_parent_traversal() {
         assert!(validate_relative_output_path(Path::new("../escape.pdf")).is_err());
         assert!(validate_relative_output_path(Path::new("safe/output.pdf")).is_ok());
+    }
+
+    #[test]
+    fn subtitle_policy_requires_explicit_media_stream_and_rejects_other_inputs() {
+        let conversion = SubtitlePolicy::default();
+        let extraction = SubtitlePolicy { stream_index: Some(0) };
+        for media in [Format::Mkv, Format::WebM, Format::Mp4, Format::Mov] {
+            assert!(validate_subtitle_policy(media, false, &conversion).is_err());
+            assert!(validate_subtitle_policy(media, false, &extraction).is_ok());
+        }
+        for subtitle in [Format::Srt, Format::WebVtt, Format::TimedTranscriptJson] {
+            assert!(validate_subtitle_policy(subtitle, false, &conversion).is_ok());
+            assert!(validate_subtitle_policy(subtitle, false, &extraction).is_err());
+            assert!(validate_subtitle_policy(subtitle, true, &conversion).is_err());
+        }
+        for unsupported in [Format::Json, Format::Ass, Format::Ssa, Format::Ttml, Format::Avi] {
+            assert!(validate_subtitle_policy(unsupported, false, &conversion).is_err());
+            assert!(validate_subtitle_policy(unsupported, false, &extraction).is_err());
+        }
+    }
+
+    #[test]
+    fn subtitle_edges_preserve_required_providers_and_selected_stream_identity() {
+        let mut graph = TransformGraph::new();
+        let mut tools = ToolRegistry::builtins();
+        register_subtitle_edges(
+            &mut graph,
+            &mut tools,
+            Format::Mkv,
+            false,
+            &SubtitlePolicy { stream_index: Some(3) },
+        ).unwrap();
+        let extraction = graph.transforms_from(Format::Mkv);
+        assert_eq!(extraction.len(), 1);
+        let edge = &extraction[0];
+        assert_eq!(edge.to, Format::TimedTranscriptJson);
+        assert_eq!(edge.provider_id.as_deref(), Some("tool.ffmpeg"));
+        assert_eq!(edge.required_provider_ids, vec!["tool.ffprobe".to_string()]);
+        assert_eq!(edge.evidence.get("subtitle_stream_index").map(String::as_str), Some("3"));
+        let mut spec = minimal_spec("mkv");
+        spec.execution.tools.deny.push("tool.ffprobe".to_string());
+        let filtered = apply_execution_policy(&graph, &tools, &spec);
+        assert!(filtered.transforms_from(Format::Mkv).is_empty());
+        assert!(filtered.find_path(Format::Srt, Format::WebVtt).is_some());
+    }
+
+    #[test]
+    fn subtitle_registration_keeps_unrequested_media_and_recognition_only_formats_unreachable() {
+        let mut graph = TransformGraph::new();
+        let mut tools = ToolRegistry::builtins();
+        register_subtitle_edges(
+            &mut graph,
+            &mut tools,
+            Format::Srt,
+            false,
+            &SubtitlePolicy::default(),
+        ).unwrap();
+        assert!(graph.find_path(Format::Srt, Format::WebVtt).is_some());
+        assert!(graph.find_path(Format::Mkv, Format::TimedTranscriptJson).is_none());
+        for unsupported in [Format::Ass, Format::Ssa, Format::Ttml, Format::Json] {
+            assert!(graph.find_path(unsupported, Format::TimedTranscriptJson).is_none());
+        }
+        assert_eq!(artifact_extension(Format::TimedTranscriptJson), "timed-transcript.json");
     }
 }

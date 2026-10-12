@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-subtitle-inspection-v1.schema.json",
+  "title": "Renderflow standalone subtitle inspection v1",
+  "description": "A bounded stream inventory. Supported means eligible for the initial codec profile, not proof that this stream is valid or that a provider version is qualified.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "source_path", "source_sha256", "ffprobe_version", "streams"],
+  "properties": {
+    "schema": { "const": "renderflow.subtitle-inspection/v1" },
+    "source_path": { "type": "string" },
+    "source_sha256": { "$ref": "renderflow-timed-transcript-v1.schema.json#/$defs/sha256" },
+    "ffprobe_version": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "streams": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["index", "codec", "language", "supported", "unsupported_reason"],
+        "properties": {
+          "index": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+          "codec": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9_]+$" },
+          "language": { "anyOf": [{ "type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[A-Za-z0-9_-]+$" }, { "type": "null" }] },
+          "supported": { "type": "boolean" },
+          "unsupported_reason": { "type": ["string", "null"] }
+        }
+      }
+    }
+  }
+}

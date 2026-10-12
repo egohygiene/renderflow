@@ -387,7 +387,15 @@ impl IntakeEngine {
             });
         }
         if let Some(extension) = request.path.extension().and_then(|value| value.to_str()) {
-            let format = extension.to_ascii_lowercase().parse::<Format>().ok();
+            // Reuse multipart suffix recognition (for example,
+            // *.timed-transcript.json); the final `.json` alone loses subtype
+            // identity when a large source exceeds the bounded structure probe.
+            let format = request.path.to_str().and_then(|path| {
+                match crate::detect::detect_from_path(path, None) {
+                    crate::detect::DetectionResult::ExtensionOnly { format } => Some(format),
+                    _ => None,
+                }
+            }).or_else(|| extension.to_ascii_lowercase().parse::<Format>().ok());
             signals.push(IntakeSignal {
                 kind: IntakeSignalKind::Extension,
                 value: extension.to_ascii_lowercase(),
@@ -768,7 +776,22 @@ impl ArtifactIntakeProvider for NativeStructureProvider {
                 observed(json!(text.lines().count()), self.id()),
             );
             if let Ok(value) = serde_json::from_str::<Value>(text) {
-                result.format = Some(Format::Json);
+                let transcript_schema = value.as_object()
+                    .and_then(|object| object.get("schema_version"))
+                    .and_then(Value::as_str)
+                    == Some(crate::timed_text::TIMED_TRANSCRIPT_SCHEMA_V1);
+                result.format = Some(if transcript_schema {
+                    // This identifies the declared JSON subtype only. Full
+                    // transcript validation remains the conversion boundary.
+                    result.container_format = Some("json".to_string());
+                    result.metadata.insert(
+                        "data.schema_version".to_string(),
+                        observed(json!(crate::timed_text::TIMED_TRANSCRIPT_SCHEMA_V1), self.id()),
+                    );
+                    Format::TimedTranscriptJson
+                } else {
+                    Format::Json
+                });
                 result.confidence = 95;
                 result.metadata.insert(
                     "data.shape".to_string(),
@@ -1211,6 +1234,50 @@ mod tests {
             .unwrap();
         assert_eq!(wav_report.profile.format.as_deref(), Some("wav"));
         assert_eq!(wav_report.profile.stream_formats, vec!["pcm"]);
+    }
+
+    #[test]
+    fn transcript_json_schema_identity_is_a_subtype_not_generic_json() {
+        let engine = IntakeEngine::new();
+        let (profile, _) = engine.inspect_profile(
+            &IntakeRequest::from_path("captions.json"),
+            br#"{"schema_version":"renderflow.timed-transcript/v1"}"#,
+        ).unwrap();
+        assert_eq!(profile.format.as_deref(), Some("timed_transcript_json"));
+        assert_eq!(profile.container_format.as_deref(), Some("json"));
+        assert!(profile.conflicts.is_empty());
+        for bytes in [
+            &br#"{"schema_version":"renderflow.timed-transcript/v2"}"#[..],
+            &br#"{"schema":"renderflow.timed-transcript/v1"}"#[..],
+            &br#"{"schema_version":null}"#[..],
+            &br#"[{"schema_version":"renderflow.timed-transcript/v1"}]"#[..],
+        ] {
+            let (generic, _) = engine.inspect_profile(
+                &IntakeRequest::from_path("records.json"), bytes,
+            ).unwrap();
+            assert_eq!(generic.format.as_deref(), Some("json"));
+        }
+    }
+
+    #[test]
+    fn bounded_json_probe_falls_back_to_multipart_suffix_or_explicit_declaration() {
+        let engine = IntakeEngine::new();
+        let truncated = br#"{"schema_version":"renderflow.timed-transcript/v1","cues":["#;
+        for request in [
+            IntakeRequest::from_path("captions.timed-transcript.json"),
+            IntakeRequest::from_path("captions.json").with_format("timed_transcript_json"),
+        ] {
+            let (profile, _) = engine.inspect_profile(&request, truncated).unwrap();
+            assert_eq!(profile.format.as_deref(), Some("timed_transcript_json"));
+        }
+        let (generic, _) = engine.inspect_profile(
+            &IntakeRequest::from_path("captions.json"), truncated,
+        ).unwrap();
+        assert_eq!(generic.format.as_deref(), Some("json"));
+        let (unknown, _) = engine.inspect_profile(
+            &IntakeRequest::from_path("captions.bin"), truncated,
+        ).unwrap();
+        assert_eq!(unknown.format, None);
     }
 
     #[test]

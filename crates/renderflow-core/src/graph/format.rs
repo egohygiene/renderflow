@@ -147,6 +147,14 @@ pub enum Format {
     Srt,
     /// Web Video Text Tracks (`.vtt`).
     WebVtt,
+    /// Advanced SubStation Alpha subtitles (`.ass`); recognition only.
+    Ass,
+    /// SubStation Alpha subtitles (`.ssa`); recognition only.
+    Ssa,
+    /// Timed Text Markup Language (`.ttml`); recognition only.
+    Ttml,
+    /// Renderflow's versioned timed-transcript JSON (`.timed-transcript.json`).
+    TimedTranscriptJson,
 }
 
 impl fmt::Display for Format {
@@ -221,6 +229,10 @@ impl fmt::Display for Format {
             // Subtitles
             Format::Srt => "srt",
             Format::WebVtt => "vtt",
+            Format::Ass => "ass",
+            Format::Ssa => "ssa",
+            Format::Ttml => "ttml",
+            Format::TimedTranscriptJson => "timed_transcript_json",
         };
         write!(f, "{}", s)
     }
@@ -308,6 +320,10 @@ impl FromStr for Format {
             // Subtitles
             "srt" => Ok(Format::Srt),
             "vtt" | "webvtt" => Ok(Format::WebVtt),
+            "ass" => Ok(Format::Ass),
+            "ssa" => Ok(Format::Ssa),
+            "ttml" => Ok(Format::Ttml),
+            "timed_transcript_json" | "timed-transcript.json" => Ok(Format::TimedTranscriptJson),
             _ => anyhow::bail!(
                 "'{}' is not a known format. \
                  Documents: markdown, html, pdf, docx, epub, kepub, rst, latex, fountain. \
@@ -318,7 +334,7 @@ impl FromStr for Format {
                  Video: mp4, mov, mkv, webm, avi. \
                  Data: json, yaml, toml, csv, tsv, xml. \
                  Archives: zip, tar.gz, tar.xz. \
-                 Subtitles: srt, vtt.",
+                 Subtitles: srt, vtt, ass, ssa, ttml, timed_transcript_json.",
                 s
             ),
         }
@@ -706,6 +722,26 @@ mod tests {
     #[test]
     fn test_display_vtt() {
         assert_eq!(Format::WebVtt.to_string(), "vtt");
+    }
+
+    #[test]
+    fn subtitle_format_identifiers_round_trip_without_claiming_generic_json() {
+        for (format, identifier) in [
+            (Format::Ass, "ass"),
+            (Format::Ssa, "ssa"),
+            (Format::Ttml, "ttml"),
+            (Format::TimedTranscriptJson, "timed_transcript_json"),
+        ] {
+            assert_eq!(format.to_string(), identifier);
+            assert_eq!(identifier.parse::<Format>().unwrap(), format);
+            assert_eq!(identifier.to_uppercase().parse::<Format>().unwrap(), format);
+        }
+        assert_eq!("json".parse::<Format>().unwrap(), Format::Json);
+        assert_eq!("xml".parse::<Format>().unwrap(), Format::Xml);
+        assert_eq!(
+            "timed-transcript.json".parse::<Format>().unwrap(),
+            Format::TimedTranscriptJson
+        );
     }
 
     // ── Error message includes all format families ────────────────────────────

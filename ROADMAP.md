@@ -236,6 +236,20 @@ provider-neutral screenplay artifact model. `scripttool` and
 recovery is explicitly lossy/review-required. Timed-text work distinguishes
 embedded subtitle extraction from speech recognition.
 
+The #427 candidate authors a standalone `subtitles inspect/convert/extract`
+CLI, `renderflow.timed-transcript/v1`, strict plain-text SRT/WebVTT codecs,
+and bounded FFprobe/FFmpeg adapters. Its second checkpoint adds opt-in
+`execution.subtitles` graph/SDK routes through a canonical transcript artifact,
+parser-backed validation, and native manifest provenance/loss evidence.
+The third checkpoint authors an opt-in native qualification kit with synthetic
+fixtures and per-case evidence for the later completion pass.
+Checkpoint 4 passed an independent native-command smoke matrix, but the Rust
+completion pass is blocked by an unavailable toolchain. The Rust adapter/SDK
+and qualification harness remain unvalidated; released support and completion
+are not claimed. Executed scope is recorded in
+[the validation record](docs/work/427/VALIDATION.md). Resume from
+[the #427 handoff](docs/work/427/HANDOFF.md); #428 remains separate.
+
 The exhaustive planner must materialize each eligible target identity at most
 once, suppress source-format regeneration unless explicitly requested, avoid
 repeated format nodes inside a path, and retain provider/fidelity/provenance

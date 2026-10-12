@@ -1,0 +1,490 @@
+{
+  "check": "Standard Draft 2020-12 schema self-validation and authored positive/negative samples",
+  "validator": "jsonschema 4.25.1",
+  "schemas_checked": [
+    "renderflow-timed-transcript-v1.schema.json",
+    "renderflow-subtitle-export-v1.schema.json",
+    "renderflow-subtitle-inspection-v1.schema.json",
+    "renderflow-subtitle-qualification-v1.schema.json",
+    "renderflow-v2.schema.json"
+  ],
+  "schema_hashes": {
+    "transcript": "b68d570af90d087d92434196521b2b181c0a772c239113744a2faf744dfaf9d0",
+    "export": "8f119f7001becccfd8f4c2ca1a3e05d0228aa413c9fb25a4932e04e6422155df",
+    "inspection": "ea0609383d5b37c199caf306a22b638c6d53810961bc08262633712440e34c92",
+    "qualification": "68ecfbcda1957a68f7ab0871531786de81610dea61799a2a99c2e555f79124df",
+    "spec": "c7a6aae3ce454b2ca4ab59e7905d59debd6f6fb175f1a6edcf4869248fac4268"
+  },
+  "assertions": 66,
+  "passed": 66,
+  "failed": [],
+  "native_artifacts": "not supplied; Rust output/schema agreement unverified",
+  "limitations": [
+    "Examples are authored representations of fixture/model fields, not evidence of Rust execution.",
+    "Schema cannot prove cross-field timing/order, exact version-string equality, UTF-8 byte budgets, or raw duplicate-key rejection; application checks remain necessary."
+  ],
+  "results": [
+    {
+      "name": "authored-transcript-matching-unicode-fixture",
+      "schema": "transcript",
+      "expected_valid": true,
+      "observed_valid": true,
+      "passed": true
+    },
+    {
+      "name": "transcript-refuses-schema_version-'renderflow.timed-transc",
+      "schema": "transcript",
+      "expected_valid": false,
+      "observed_valid": false,
+      "passed": true
+    },
+    {
+      "name": "transcript-refuses-source/sha256-'AAAAAAAAAAAAAAAAAAAAAAA",
+      "schema": "transcript",
+      "expected_valid": false,
+      "observed_valid": false,
+      "passed": true
+    },
+    {
+      "name": "transcript-refuses-source/sha256-'aaaaaaaaaaaaaaaaaaaaaaa",
+      "schema": "transcript",
+      "expected_valid": false,
+      "observed_valid": false,
+      "passed": true
+    },
+    {
+      "name": "transcript-refuses-source/format-'\\t'",
+      "schema": "transcript",
+      "expected_valid": false,
+      "observed_valid": false,
+      "passed": true
+    },
+    {
+      "name": "transcript-refuses-source/format-'xxxxxxxxxxxxxxxxxxxxxxx",
+      "schema": "transcript",
+      "expected_valid": false,
+      "observed_valid": false,
+      "passed": true
+    },
+    {
+      "name": "transcript-refuses-source/stream-[]",
+      "schema": "transcript",
+      "expected_valid": false,
+      "observed_valid": false,
+      "passed": true
+    },
+    {
+      "name": "transcript-refuses-cues-[]",
+      "schema": "transcript",
+      "expected_valid": false,
+      "observed_valid": false,
+      "passed": true
+    },
+    {
+      "name": "transcript-refuses-cues/0-[]",
+      "schema": "transcript",
+      "expected_valid": false,
+      "observed_valid": false,
+      "passed": true
+    },
+    {
+      "name": "transcript-refuses-cues/0/id-'NOTE content'",
+      "schema": "transcript",
+      "expected_valid": false,
+      "observed_valid": false,
+      "passed": true
+    },
+    {
+      "name": "transcript-refuses-cues/0/id-'WEBVTT'",
+      "schema": "transcript",
+      "expected_valid": false,
+      "observed_valid": false,
+      "passed": true
+    },
+    {
+      "name": "transcript-refuses-cues/0/id-'x --> y'",
+      "schema": "transcript",
+      "expected_valid": false,
+      "observed_valid": false,
+      "passed": true
+    },
+    {
+      "name": "transcript-refuses-cues/0/text-''",
+      "schema": "transcript",
+      "expected_valid": false,
+      "observed_valid": false,
+      "passed": true
+    },
+    {
+      "name": "transcript-refuses-cues/0/text-'hello\\n\\nworld'",
+      "schema": "transcript",
+      "expected_valid": false,
+      "observed_valid": false,
+      "passed": true
+    },
+    {
+      "name": "transcript-refuses-cues/0/text-'hello\\n \\t\\nworld'",
+      "schema": "transcript",
+      "expected_valid": false,
+      "observed_valid": false,
+      "passed": true
+    },
+    {
+      "name": "transcript-refuses-cues/0/text-'hello\\n'",
+      "schema": "transcript",
+      "expected_valid": false,
+      "observed_valid": false,
+      "passed": true
+    },
+    {
+      "name": "transcript-refuses-cues/0/text-'hello\\rworld'",
+      "schema": "transcript",
+      "expected_valid": false,
+      "observed_valid": false,
+      "passed": true
+    },
+    {
+      "name": "transcript-refuses-cues/0/text-'<b>text</b>'",
+      "schema": "transcript",
+      "expected_valid": false,
+      "observed_valid": false,
+      "passed": true
+    },
+    {
+      "name": "transcript-refuses-cues/0/text-'literal & ampersand'",
+      "schema": "transcript",
+      "expected_valid": false,
+      "observed_valid": false,
+      "passed": true
+    },
+    {
+      "name": "transcript-refuses-cues/0/text-'{\\\\i1}style'",
+      "schema": "transcript",
+      "expected_valid": false,
+      "observed_valid": false,
+      "passed": true
+    },
+    {
+      "name": "transcript-refuses-cues/0/text-'xxxxxxxxxxxxxxxxxxxxxxx",
+      "schema": "transcript",
+      "expected_valid": false,
+      "observed_valid": false,
+      "passed": true
+    },
+    {
+      "name": "transcript-refuses-cues/0/start_ms--1",
+      "schema": "transcript",
+      "expected_valid": false,
+      "observed_valid": false,
+      "passed": true
+    },
+    {
+      "name": "transcript-refuses-cues/0/end_ms-360000000",
+      "schema": "transcript",
+      "expected_valid": false,
+      "observed_valid": false,
+      "passed": true
+    },
+    {
+      "name": "transcript-refuses-cues/0/style-'unknown'",
+      "schema": "transcript",
+      "expected_valid": false,
+      "observed_valid": false,
+      "passed": true
+    },
+    {
+      "name": "transcript-refuses-losses-['language', 'language']",
+      "schema": "transcript",
+      "expected_valid": false,
+      "observed_valid": false,
+      "passed": true
+    },
+    {
+      "name": "transcript-refuses-losses-['unrecognized']",
+      "schema": "transcript",
+      "expected_valid": false,
+      "observed_valid": false,
+      "passed": true
+    },
+    {
+      "name": "transcript-refuses-overlap_policy-'repair'",
+      "schema": "transcript",
+      "expected_valid": false,
+      "observed_valid": false,
+      "passed": true
+    },
+    {
+      "name": "transcript-refuses-language-''",
+      "schema": "transcript",
+      "expected_valid": false,
+      "observed_valid": false,
+      "passed": true
+    },
+    {
+      "name": "transcript-refuses-unexpected-True",
+      "schema": "transcript",
+      "expected_valid": false,
+      "observed_valid": false,
+      "passed": true
+    },
+    {
+      "name": "transcript-accepts-language",
+      "schema": "transcript",
+      "expected_valid": true,
+      "observed_valid": true,
+      "passed": true
+    },
+    {
+      "name": "transcript-accepts-source/stream",
+      "schema": "transcript",
+      "expected_valid": true,
+      "observed_valid": true,
+      "passed": true
+    },
+    {
+      "name": "transcript-accepts-cues/0/speaker",
+      "schema": "transcript",
+      "expected_valid": true,
+      "observed_valid": true,
+      "passed": true
+    },
+    {
+      "name": "transcript-accepts-cues/0/text",
+      "schema": "transcript",
+      "expected_valid": true,
+      "observed_valid": true,
+      "passed": true
+    },
+    {
+      "name": "transcript-accepts-cues/1/end_ms",
+      "schema": "transcript",
+      "expected_valid": true,
+      "observed_valid": true,
+      "passed": true
+    },
+    {
+      "name": "extraction-provenance",
+      "schema": "transcript",
+      "expected_valid": true,
+      "observed_valid": true,
+      "passed": true
+    },
+    {
+      "name": "extraction-requires-stream",
+      "schema": "transcript",
+      "expected_valid": false,
+      "observed_valid": false,
+      "passed": true
+    },
+    {
+      "name": "stream-index-bound",
+      "schema": "transcript",
+      "expected_valid": false,
+      "observed_valid": false,
+      "passed": true
+    },
+    {
+      "name": "inspection-sample",
+      "schema": "inspection",
+      "expected_valid": true,
+      "observed_valid": true,
+      "passed": true
+    },
+    {
+      "name": "inspection-empty-inventory",
+      "schema": "inspection",
+      "expected_valid": true,
+      "observed_valid": true,
+      "passed": true
+    },
+    {
+      "name": "inspection-invalid-language",
+      "schema": "inspection",
+      "expected_valid": false,
+      "observed_valid": false,
+      "passed": true
+    },
+    {
+      "name": "inspection-invalid-codec",
+      "schema": "inspection",
+      "expected_valid": false,
+      "observed_valid": false,
+      "passed": true
+    },
+    {
+      "name": "export-sample-with-resolved-transcript",
+      "schema": "export",
+      "expected_valid": true,
+      "observed_valid": true,
+      "passed": true
+    },
+    {
+      "name": "export-format-is-cli-vtt",
+      "schema": "export",
+      "expected_valid": false,
+      "observed_valid": false,
+      "passed": true
+    },
+    {
+      "name": "export-output-byte-limit",
+      "schema": "export",
+      "expected_valid": false,
+      "observed_valid": false,
+      "passed": true
+    },
+    {
+      "name": "export-nested-transcript-enforced",
+      "schema": "export",
+      "expected_valid": false,
+      "observed_valid": false,
+      "passed": true
+    },
+    {
+      "name": "qualification-initial-not-run",
+      "schema": "qualification",
+      "expected_valid": true,
+      "observed_valid": true,
+      "passed": true
+    },
+    {
+      "name": "qualification-authored-complete-shape-not-actual-evidence",
+      "schema": "qualification",
+      "expected_valid": true,
+      "observed_valid": true,
+      "passed": true
+    },
+    {
+      "name": "qualification-refuses-implementation-None",
+      "schema": "qualification",
+      "expected_valid": false,
+      "observed_valid": false,
+      "passed": true
+    },
+    {
+      "name": "qualification-refuses-providers/ffmpeg/expected_version_line-''",
+      "schema": "qualification",
+      "expected_valid": false,
+      "observed_valid": false,
+      "passed": true
+    },
+    {
+      "name": "qualification-refuses-providers/ffmpeg/observed_version_line-None",
+      "schema": "qualification",
+      "expected_valid": false,
+      "observed_valid": false,
+      "passed": true
+    },
+    {
+      "name": "qualification-refuses-providers/ffmpeg/diagnostic-'warning'",
+      "schema": "qualification",
+      "expected_valid": false,
+      "observed_valid": false,
+      "passed": true
+    },
+    {
+      "name": "qualification-refuses-cases/0/status-'not_run'",
+      "schema": "qualification",
+      "expected_valid": false,
+      "observed_valid": false,
+      "passed": true
+    },
+    {
+      "name": "qualification-refuses-cases/0/status-'unavailable'",
+      "schema": "qualification",
+      "expected_valid": false,
+      "observed_valid": false,
+      "passed": true
+    },
+    {
+      "name": "qualification-refuses-cases/0/status-'failed'",
+      "schema": "qualification",
+      "expected_valid": false,
+      "observed_valid": false,
+      "passed": true
+    },
+    {
+      "name": "qualification-refuses-cases/0/required-False",
+      "schema": "qualification",
+      "expected_valid": false,
+      "observed_valid": false,
+      "passed": true
+    },
+    {
+      "name": "qualification-refuses-cases/0/id-'substitute-case'",
+      "schema": "qualification",
+      "expected_valid": false,
+      "observed_valid": false,
+      "passed": true
+    },
+    {
+      "name": "qualification-refuses-cases/0/detail-None",
+      "schema": "qualification",
+      "expected_valid": false,
+      "observed_valid": false,
+      "passed": true
+    },
+    {
+      "name": "qualification-refuses-cases-[{'id': 'fixture_generat",
+      "schema": "qualification",
+      "expected_valid": false,
+      "observed_valid": false,
+      "passed": true
+    },
+    {
+      "name": "qualification-failed-shape",
+      "schema": "qualification",
+      "expected_valid": true,
+      "observed_valid": true,
+      "passed": true
+    },
+    {
+      "name": "policy-empty-opt-in",
+      "schema": "subtitles_policy",
+      "expected_valid": true,
+      "observed_valid": true,
+      "passed": true
+    },
+    {
+      "name": "policy-explicit-index",
+      "schema": "subtitles_policy",
+      "expected_valid": true,
+      "observed_valid": true,
+      "passed": true
+    },
+    {
+      "name": "policy-null-index",
+      "schema": "subtitles_policy",
+      "expected_valid": true,
+      "observed_valid": true,
+      "passed": true
+    },
+    {
+      "name": "policy-negative-index",
+      "schema": "subtitles_policy",
+      "expected_valid": false,
+      "observed_valid": false,
+      "passed": true
+    },
+    {
+      "name": "policy-overflow-index",
+      "schema": "subtitles_policy",
+      "expected_valid": false,
+      "observed_valid": false,
+      "passed": true
+    },
+    {
+      "name": "policy-positional-sequence",
+      "schema": "subtitles_policy",
+      "expected_valid": false,
+      "observed_valid": false,
+      "passed": true
+    },
+    {
+      "name": "policy-unknown-option",
+      "schema": "subtitles_policy",
+      "expected_valid": false,
+      "observed_valid": false,
+      "passed": true
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-subtitle-export-v1.schema.json",
+  "title": "Renderflow standalone subtitle export report v1",
+  "description": "Emitted to stdout after a standalone subtitle output is published. The immediate input hash is distinct from inherited original-source provenance in the transcript.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "input_sha256", "output", "output_format", "output_sha256", "output_size_bytes", "export_losses", "transcript"],
+  "properties": {
+    "schema_version": { "const": "renderflow.subtitle-export/v1" },
+    "input_sha256": { "$ref": "renderflow-timed-transcript-v1.schema.json#/$defs/sha256" },
+    "output": { "type": "string" },
+    "output_format": { "enum": ["srt", "vtt", "json", "text"] },
+    "output_sha256": { "$ref": "renderflow-timed-transcript-v1.schema.json#/$defs/sha256" },
+    "output_size_bytes": { "type": "integer", "minimum": 0, "maximum": 16777216 },
+    "export_losses": {
+      "type": "array",
+      "maxItems": 7,
+      "uniqueItems": true,
+      "items": { "$ref": "renderflow-timed-transcript-v1.schema.json#/$defs/loss" }
+    },
+    "transcript": { "$ref": "renderflow-timed-transcript-v1.schema.json" }
+  }
+}

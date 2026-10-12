@@ -511,6 +511,59 @@ pub struct ExecutionPolicy {
     /// Exact native fixed-layout EPUB route for an ordered PNG/JPEG collection.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fixed_layout_epub: Option<FixedLayoutEpubPolicy>,
+    /// Opt-in, bounded subtitle conversion and explicit embedded-stream extraction.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub subtitles: Option<SubtitlePolicy>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
+pub struct SubtitlePolicy {
+    /// Absolute FFprobe stream index; never a subtitle-relative ordinal.
+    /// Required for media extraction and absent for standalone subtitle conversion.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stream_index: Option<u32>,
+}
+
+impl<'de> Deserialize<'de> for SubtitlePolicy {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct PolicyVisitor;
+
+        impl<'de> serde::de::Visitor<'de> for PolicyVisitor {
+            type Value = SubtitlePolicy;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+                formatter.write_str("a subtitle policy object")
+            }
+
+            fn visit_map<M>(self, mut map: M) -> std::result::Result<Self::Value, M::Error>
+            where
+                M: serde::de::MapAccess<'de>,
+            {
+                let mut stream_index = None;
+                let mut seen_stream_index = false;
+                while let Some(key) = map.next_key::<String>()? {
+                    match key.as_str() {
+                        "stream_index" => {
+                            if seen_stream_index {
+                                return Err(serde::de::Error::duplicate_field("stream_index"));
+                            }
+                            seen_stream_index = true;
+                            stream_index = map.next_value::<Option<u32>>()?;
+                        }
+                        _ => return Err(serde::de::Error::unknown_field(&key, &["stream_index"])),
+                    }
+                }
+                Ok(SubtitlePolicy { stream_index })
+            }
+        }
+
+        // Derive's struct visitor also accepts positional sequences, which the
+        // public JSON Schema forbids. Keep this opt-in policy object-only.
+        deserializer.deserialize_map(PolicyVisitor)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -607,6 +660,7 @@ impl Default for ExecutionPolicy {
             hygiene_policy: None,
             print_pdf_interior: None,
             fixed_layout_epub: None,
+            subtitles: None,
         }
     }
 }
@@ -1880,6 +1934,14 @@ pub fn json_schema() -> Value {
                     "hygiene_policy": {"anyOf": [{"$ref": "#/$defs/stableId"}, {"type": "null"}]}
                     ,"print_pdf_interior": {"anyOf": [{"$ref": "#/$defs/printPdfInterior"}, {"type": "null"}]}
                     ,"fixed_layout_epub": {"anyOf": [{"$ref": "#/$defs/fixedLayoutEpub"}, {"type": "null"}]}
+                    ,"subtitles": {"anyOf": [{"$ref": "#/$defs/subtitles"}, {"type": "null"}]}
+                }
+            },
+            "subtitles": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "stream_index": {"type": ["integer", "null"], "minimum": 0, "maximum": 4294967295}
                 }
             },
             "outputLayout": {
@@ -2030,6 +2092,48 @@ variables:
         let schema = json_schema();
         assert_eq!(schema["properties"]["schema"]["const"], SPEC_V2_ID);
         assert_eq!(schema["additionalProperties"], false);
+    }
+
+    #[test]
+    fn subtitle_policy_is_opt_in_and_never_defaults_a_stream_index() {
+        let default_execution: ExecutionPolicy = serde_json::from_value(json!({})).unwrap();
+        assert_eq!(default_execution.subtitles, None);
+        let conversion: ExecutionPolicy = serde_json::from_value(json!({"subtitles": {}})).unwrap();
+        assert_eq!(conversion.subtitles, Some(SubtitlePolicy { stream_index: None }));
+        let extraction: ExecutionPolicy = serde_json::from_value(json!({
+            "subtitles": {"stream_index": 0}
+        })).unwrap();
+        assert_eq!(extraction.subtitles, Some(SubtitlePolicy { stream_index: Some(0) }));
+    }
+
+    #[test]
+    fn subtitle_policy_rejects_unknown_fields_and_non_u32_indices() {
+        for subtitles in [
+            json!({"stream_index": -1}),
+            json!({"stream_index": 4294967296_u64}),
+            json!({"stream_index": "1"}),
+            json!({"stream_index": 1.5}),
+            json!({"first_stream": true}),
+        ] {
+            assert!(serde_json::from_value::<ExecutionPolicy>(json!({
+                "subtitles": subtitles
+            })).is_err());
+        }
+    }
+
+    #[test]
+    fn subtitle_policy_requires_a_map_and_rejects_duplicate_selection() {
+        for value in ["[]", "[2]", "[null]", "2", "true", "\"first\""] {
+            assert!(serde_json::from_str::<SubtitlePolicy>(value).is_err());
+            assert!(serde_yaml_ng::from_str::<SubtitlePolicy>(value).is_err());
+        }
+        assert!(serde_json::from_str::<SubtitlePolicy>(
+            r#"{"stream_index":null,"stream_index":2}"#
+        ).is_err());
+        assert!(serde_yaml_ng::from_str::<SubtitlePolicy>(
+            "stream_index: null\nstream_index: 2\n"
+        ).is_err());
+        assert_eq!(serde_json::from_str::<SubtitlePolicy>("{}").unwrap(), SubtitlePolicy::default());
     }
 
     #[test]
