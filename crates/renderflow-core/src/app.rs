@@ -362,6 +362,11 @@ pub fn run_cli(cli: Cli) -> Result<()> {
                 commands::screenplay::run_inspect(&input, &format)?
             }
             ScreenplayCommands::Convert(arguments) => commands::screenplay::run_convert(arguments)?,
+            ScreenplayCommands::Analyze { input } => commands::screenplay_pdf::run_analyze(&input)?,
+            ScreenplayCommands::Pdf(arguments) => commands::screenplay_pdf::run_pdf(arguments)?,
+            ScreenplayCommands::PackageFingerprint { package_root } => {
+                commands::screenplay_pdf::run_package_fingerprint(&package_root)?
+            }
         },
         Some(Commands::Speech { subcommand }) => match subcommand {
             SpeechCommands::Inspect(arguments) => commands::speech::run_inspect(arguments)?,

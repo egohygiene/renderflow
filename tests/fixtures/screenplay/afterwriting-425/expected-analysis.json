@@ -1,0 +1,36 @@
+{
+  "schema_version": "renderflow.screenplay-analysis/v1",
+  "algorithm": {
+    "id": "renderflow.strict-fountain-body-counts",
+    "version": 1,
+    "origin": "renderflow-core"
+  },
+  "source": {
+    "format": "fountain",
+    "sha256": "13315f222a0650fb84da2d1f651f918a6ff09289940015e63bcd3ce395d47f9f",
+    "size_bytes": 238
+  },
+  "qualification": "unqualified",
+  "scope": "Printable ASCII and LF, body-only Fountain accepted by Renderflow's strict native parser. Scene headings and character cues are exact source text; repeated headings remain separate occurrences. Counts do not infer locations, character identities, spoken duration, or PDF layout and are not afterwriting statistics.",
+  "token_unit": "ASCII whitespace-delimited tokens; punctuation remains attached and parentheticals are excluded from dialogue word counts.",
+  "element_counts": {
+    "scene_heading": 3,
+    "action": 3,
+    "character": 4,
+    "dialogue": 4,
+    "parenthetical": 1,
+    "transition": 2
+  },
+  "total_elements": 17,
+  "scene_headings": [
+    { "element_index": 0, "text": "INT. STUDIO - DAY" },
+    { "element_index": 8, "text": "EXT. ROOF - NIGHT" },
+    { "element_index": 12, "text": "INT. STUDIO - DAY" }
+  ],
+  "characters": {
+    "ADA": { "cue_occurrences": 3, "dialogue_count": 3, "dialogue_word_count": 10 },
+    "BOB": { "cue_occurrences": 1, "dialogue_count": 1, "dialogue_word_count": 4 }
+  },
+  "action_word_count": 12,
+  "dialogue_word_count": 14
+}

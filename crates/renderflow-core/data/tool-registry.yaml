@@ -365,6 +365,40 @@ tools:
     license_notes: "Upstream root license is AGPL-3.0 with inconsistent per-file notices; review exact executable, dependencies, and distribution obligations independently. Renderflow invokes an explicitly supplied executable and does not vendor or link scripttool."
     distribution_notes: "Authored, unqualified strict body-only FDX/OSF/Fade In imports to Fountain. Explicit executable SHA-256, exact 0.0.10 version, timeout, and allow_unqualified opt-in required. Independent native parsers and ordered semantic comparison must pass before publication. Version does not attest the inspected source revision. Reverse native exports, provider Fountain JSON, screenplay layout/title/styling fidelity, and native qualification are unavailable. No installation or default execution provider."
 
+  - id: tool.node
+    name: Explicit Node runtime for afterwriting
+    discovery:
+      kind: runtime_service
+      service: renderflow.configured-node
+    operating_systems: [linux, macos, windows]
+    capabilities:
+      - runtime.javascript.node
+    input_media_types: [application/javascript]
+    output_media_types: [application/pdf]
+    determinism: configuration_dependent
+    locality: local
+    fidelity: path_dependent
+    support_tier: experimental
+    license_notes: "See Node's exact distribution license and third-party notices. Renderflow does not install or bundle Node."
+    distribution_notes: "No PATH discovery or inherited-environment probe. The screenplay adapter requires an absolute executable, SHA-256, exact declared v22.x.y or v24.x.y version, and a bounded clear-environment probe. These are unqualified candidates, not a tested compatibility matrix."
+
+  - id: tool.afterwriting
+    name: Explicit afterwriting screenplay PDF provider
+    discovery:
+      kind: runtime_service
+      service: renderflow.configured-afterwriting
+    operating_systems: [linux, macos, windows]
+    capabilities:
+      - screenplay.render.fountain.pdf
+    input_media_types: [text/x-fountain]
+    output_media_types: [application/pdf]
+    determinism: configuration_dependent
+    locality: local
+    fidelity: partial_loss
+    support_tier: experimental
+    license_notes: "Upstream afterwriting is MIT licensed; review all installed dependency and font licenses independently. Renderflow does not install, bundle, or copy upstream code into this repository."
+    distribution_notes: "Authored, unqualified ASCII body-only Fountain to PDF through an explicit pinned installed package and pinned Node. Fixed A4/USLetter profiles use nonembedded base14 Courier; custom fonts and provider options are refused. Package manifest version 1.17.3 is read statically because the CLI has no --version command. Independent PDF structure inspection does not establish visual fidelity, source-text equivalence, dependency closure, or byte reproducibility."
+
   - id: tool.tesseract
     name: Tesseract OCR
     discovery:

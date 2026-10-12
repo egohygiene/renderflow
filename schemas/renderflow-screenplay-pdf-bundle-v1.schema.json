@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-screenplay-pdf-bundle-v1.schema.json",
+  "title": "Renderflow standalone screenplay PDF bundle v1",
+  "description": "Completion receipt published last in a new output directory after explicit opt-in screenplay PDF generation. Retain all three listed artifacts and bundle.json together.",
+  "$comment": "Completed means these bundle members were published, not runtime qualification, source-text equivalence, visual fidelity, or reproducibility. Consumers must verify file existence, byte lengths and hashes; validate analysis.json and provider-evidence.json against their dedicated schemas; and bind screenplay.pdf to the provider output and nested PDF inspection digests. JSON Schema cannot establish publication order or verify file bytes.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "status",
+    "runtime_qualified",
+    "files",
+    "limits"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "renderflow.screenplay-pdf-bundle/v1"
+    },
+    "status": {
+      "const": "completed"
+    },
+    "runtime_qualified": {
+      "const": false
+    },
+    "files": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": false,
+      "prefixItems": [
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/file"
+            }
+          ],
+          "properties": {
+            "path": {
+              "const": "screenplay.pdf"
+            },
+            "size_bytes": {
+              "maximum": 67108864
+            }
+          }
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/file"
+            }
+          ],
+          "properties": {
+            "path": {
+              "const": "analysis.json"
+            }
+          }
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/file"
+            }
+          ],
+          "properties": {
+            "path": {
+              "const": "provider-evidence.json"
+            }
+          }
+        }
+      ]
+    },
+    "limits": {
+      "const": "PDF structure and the restricted source profile are independently inspected. Visual fidelity, font substitution, pagination stability, and byte reproducibility remain unqualified."
+    }
+  },
+  "$defs": {
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256",
+        "size_bytes"
+      ],
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    }
+  }
+}

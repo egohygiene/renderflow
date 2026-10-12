@@ -1,0 +1,321 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-afterwriting-evidence-v1.schema.json",
+  "title": "Renderflow afterwriting screenplay PDF evidence v1",
+  "description": "Evidence after explicit opt-in afterwriting PDF generation and independent inspection of the accepted source subset and passive Courier-only PDF. Native, visual, and reproducibility qualification remain deferred.",
+  "$comment": "Successful-run record only. JSON Schema does not execute a provider or attest source builds, dependency closure, runtime behavior, or PDF/source-text equivalence. Consumers must verify source/output/node/package byte identities; output_sha256 must equal inspection.sha256. analysis_sha256 hashes compact serde JSON serialization of the independent ScreenplayAnalysis value, not pretty-printed analysis.json bytes. config_sha256 hashes compact serde JSON of settings and argv_sha256 hashes compact JSON of argv. Validate analysis against its dedicated schema and require matching source digest/element count. Package tree hashing uses sorted path/size_bytes/sha256 records, excludes root .git and node_modules/.bin directories, and does not establish module-resolution confinement. Node version components must additionally fit u32. Profile-specific page geometry (A4 595.28x841.89pt; US Letter 612x792pt, 0.02pt tolerance) is checked by the inspector, not this schema.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "provider_id",
+    "provider_version",
+    "node_provider_id",
+    "node_version",
+    "node_sha256",
+    "package_tree_sha256",
+    "package_tree_algorithm",
+    "package_file_count",
+    "package_total_bytes",
+    "adapter_reference_commit",
+    "executable_source_attested",
+    "dependency_closure_attested",
+    "source_sha256",
+    "output_sha256",
+    "analysis_sha256",
+    "source_format",
+    "target_format",
+    "profile",
+    "config_sha256",
+    "settings",
+    "argv",
+    "argv_sha256",
+    "source_element_count",
+    "input_structure_validated",
+    "output_structure_validated",
+    "qualification",
+    "fidelity",
+    "inspection",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "renderflow.afterwriting-evidence/v1"
+    },
+    "provider_id": {
+      "const": "tool.afterwriting"
+    },
+    "provider_version": {
+      "const": "1.17.3"
+    },
+    "node_provider_id": {
+      "const": "tool.node"
+    },
+    "node_version": {
+      "type": "string",
+      "pattern": "^v(?:22|24)\\.(?:0|[1-9][0-9]{0,9})\\.(?:0|[1-9][0-9]{0,9})$"
+    },
+    "node_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "package_tree_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "package_tree_algorithm": {
+      "const": "renderflow.package-files-json-sha256/v1"
+    },
+    "package_file_count": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 40000
+    },
+    "package_total_bytes": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 536870912
+    },
+    "adapter_reference_commit": {
+      "const": "f1912c08d0905bac42e1805830a1e72f98b88c2f"
+    },
+    "executable_source_attested": {
+      "const": false
+    },
+    "dependency_closure_attested": {
+      "const": false
+    },
+    "source_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "output_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "analysis_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "source_format": {
+      "const": "fountain"
+    },
+    "target_format": {
+      "const": "pdf"
+    },
+    "profile": {
+      "enum": [
+        "screenplay-a4-v1",
+        "screenplay-usletter-v1"
+      ]
+    },
+    "config_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "settings": {
+      "oneOf": [
+        {
+          "const": {
+            "print_profile": "a4",
+            "font_family": "Courier",
+            "print_title_page": false,
+            "show_page_numbers": true,
+            "scenes_numbers": "none",
+            "print_actions": true,
+            "print_headers": true,
+            "print_dialogues": true,
+            "print_sections": false,
+            "print_synopsis": false,
+            "print_notes": false,
+            "snippets": {},
+            "print_header": "",
+            "print_footer": "",
+            "print_watermark": "",
+            "use_dual_dialogue": false,
+            "split_dialogue": true,
+            "double_space_between_scenes": false,
+            "each_scene_on_new_page": false,
+            "number_sections": false,
+            "embolden_scene_headers": false,
+            "underline_scene_headers": false,
+            "scene_continuation_top": false,
+            "scene_continuation_bottom": false,
+            "text_more": "(MORE)",
+            "text_contd": "(CONT'D)",
+            "text_scene_continued": "CONTINUED",
+            "merge_empty_lines": true
+          }
+        },
+        {
+          "const": {
+            "print_profile": "usletter",
+            "font_family": "Courier",
+            "print_title_page": false,
+            "show_page_numbers": true,
+            "scenes_numbers": "none",
+            "print_actions": true,
+            "print_headers": true,
+            "print_dialogues": true,
+            "print_sections": false,
+            "print_synopsis": false,
+            "print_notes": false,
+            "snippets": {},
+            "print_header": "",
+            "print_footer": "",
+            "print_watermark": "",
+            "use_dual_dialogue": false,
+            "split_dialogue": true,
+            "double_space_between_scenes": false,
+            "each_scene_on_new_page": false,
+            "number_sections": false,
+            "embolden_scene_headers": false,
+            "underline_scene_headers": false,
+            "scene_continuation_top": false,
+            "scene_continuation_bottom": false,
+            "text_more": "(MORE)",
+            "text_contd": "(CONT'D)",
+            "text_scene_continued": "CONTINUED",
+            "merge_empty_lines": true
+          }
+        }
+      ]
+    },
+    "argv": {
+      "const": [
+        "--no-addons",
+        "--no-global-search-paths",
+        "package/awc.js",
+        "--source",
+        "source.fountain",
+        "--pdf",
+        "output.pdf",
+        "--config",
+        "profile.json"
+      ]
+    },
+    "argv_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "source_element_count": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100000
+    },
+    "input_structure_validated": {
+      "const": true
+    },
+    "output_structure_validated": {
+      "const": true
+    },
+    "qualification": {
+      "const": "authored_unqualified"
+    },
+    "fidelity": {
+      "const": "layout_derivative"
+    },
+    "inspection": {
+      "$ref": "renderflow-screenplay-pdf-inspection-v1.schema.json"
+    },
+    "limitations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "profile": {
+            "const": "screenplay-a4-v1"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "settings": {
+            "const": {
+              "print_profile": "a4",
+              "font_family": "Courier",
+              "print_title_page": false,
+              "show_page_numbers": true,
+              "scenes_numbers": "none",
+              "print_actions": true,
+              "print_headers": true,
+              "print_dialogues": true,
+              "print_sections": false,
+              "print_synopsis": false,
+              "print_notes": false,
+              "snippets": {},
+              "print_header": "",
+              "print_footer": "",
+              "print_watermark": "",
+              "use_dual_dialogue": false,
+              "split_dialogue": true,
+              "double_space_between_scenes": false,
+              "each_scene_on_new_page": false,
+              "number_sections": false,
+              "embolden_scene_headers": false,
+              "underline_scene_headers": false,
+              "scene_continuation_top": false,
+              "scene_continuation_bottom": false,
+              "text_more": "(MORE)",
+              "text_contd": "(CONT'D)",
+              "text_scene_continued": "CONTINUED",
+              "merge_empty_lines": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "profile": {
+            "const": "screenplay-usletter-v1"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "settings": {
+            "const": {
+              "print_profile": "usletter",
+              "font_family": "Courier",
+              "print_title_page": false,
+              "show_page_numbers": true,
+              "scenes_numbers": "none",
+              "print_actions": true,
+              "print_headers": true,
+              "print_dialogues": true,
+              "print_sections": false,
+              "print_synopsis": false,
+              "print_notes": false,
+              "snippets": {},
+              "print_header": "",
+              "print_footer": "",
+              "print_watermark": "",
+              "use_dual_dialogue": false,
+              "split_dialogue": true,
+              "double_space_between_scenes": false,
+              "each_scene_on_new_page": false,
+              "number_sections": false,
+              "embolden_scene_headers": false,
+              "underline_scene_headers": false,
+              "scene_continuation_top": false,
+              "scene_continuation_bottom": false,
+              "text_more": "(MORE)",
+              "text_contd": "(CONT'D)",
+              "text_scene_continued": "CONTINUED",
+              "merge_empty_lines": true
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}

@@ -334,7 +334,7 @@ pub enum Commands {
         subcommand: SpeechCommands,
     },
 
-    /// Inspect canonical screenplay JSON or explicitly opt into bounded native conversion.
+    /// Inspect, analyze, convert, or render explicitly configured screenplay profiles.
     #[command(subcommand_required = true, arg_required_else_help = true)]
     Screenplay {
         #[command(subcommand)]
@@ -394,6 +394,46 @@ pub enum ScreenplayCommands {
         Reverse native conversions and scripttool JSON are rejected. Unsupported\n\
         structure or changed semantic content causes failure; no silent fallback.")]
     Convert(ScreenplayConvertArguments),
+    /// Analyze the strict ASCII Fountain body profile without launching a provider.
+    #[command(after_help = "Counts are independently derived by Renderflow, not afterwriting statistics.\n\
+        The authored profile rejects title pages, styling, multiline paragraphs,\n\
+        XML markers, and non-ASCII text. No PDF is created or page count estimated.")]
+    Analyze {
+        /// Local Fountain input, at most 16 MiB; JSON report goes to stdout.
+        #[arg(long, value_name = "FILE")]
+        input: String,
+    },
+    /// Render a strict Fountain body to PDF using a pinned afterwriting installation.
+    #[command(after_help = "Authored, unqualified Fountain-to-PDF profile only.\n\
+        Requires a JSON config with explicit Node/package pins and allow_unqualified=true.\n\
+        Fixed A4 or US Letter, Courier base14, no title page or native FDX input.\n\
+        PDF structure is checked independently; visual fidelity and reproducibility remain unqualified.")]
+    Pdf(ScreenplayPdfArguments),
+    /// Hash a local afterwriting installation without launching Node or installing anything.
+    #[command(after_help = "Reports the bounded package-content fingerprint needed by the PDF config.\n\
+        A fingerprint identifies local bytes; it does not establish trust, dependency\n\
+        completeness, source provenance, or runtime compatibility.")]
+    PackageFingerprint {
+        /// Absolute path to an already installed afterwriting package directory.
+        #[arg(long, value_name = "DIRECTORY")]
+        package_root: String,
+    },
+}
+
+#[derive(clap::Args)]
+pub struct ScreenplayPdfArguments {
+    /// Local Fountain source; the original is read only.
+    #[arg(long, value_name = "FILE")]
+    pub input: String,
+    /// JSON AfterwritingConfig containing explicit runtime, installation, and profile pins.
+    #[arg(long, value_name = "FILE")]
+    pub config: String,
+    /// New bundle directory; its parent must already exist.
+    #[arg(long, value_name = "DIRECTORY")]
+    pub output_dir: String,
+    /// Optional expected lowercase SHA-256 of the source bytes.
+    #[arg(long, value_name = "SHA256")]
+    pub source_sha256: Option<String>,
 }
 
 #[derive(clap::Args)]
@@ -1337,5 +1377,39 @@ mod screenplay_cli_tests {
         let mut argv = conversion_arguments();
         argv.truncate(argv.len() - 2);
         assert!(Cli::try_parse_from(argv).is_err());
+    }
+
+    #[test]
+    fn screenplay_pdf_requires_explicit_config_and_new_bundle_destination() {
+        let argv = ["renderflow", "screenplay", "pdf", "--input", "scene.fountain",
+            "--config", "afterwriting.json", "--output-dir", "new-pdf-bundle"];
+        let cli = Cli::try_parse_from(argv).unwrap();
+        assert!(matches!(cli.command, Some(Commands::Screenplay {
+            subcommand: ScreenplayCommands::Pdf(arguments),
+        }) if arguments.input == "scene.fountain" && arguments.config == "afterwriting.json"
+            && arguments.output_dir == "new-pdf-bundle" && arguments.source_sha256.is_none()));
+        assert!(Cli::try_parse_from(&argv[..7]).is_err());
+        assert!(Cli::try_parse_from(["renderflow", "screenplay", "pdf", "--input", "scene.fountain",
+            "--output-dir", "new-bundle"]).is_err());
+    }
+
+    #[test]
+    fn screenplay_analysis_is_separate_from_provider_pdf_generation() {
+        let cli = Cli::try_parse_from(["renderflow", "screenplay", "analyze", "--input", "scene.fountain"]).unwrap();
+        assert!(matches!(cli.command, Some(Commands::Screenplay {
+            subcommand: ScreenplayCommands::Analyze { input },
+        }) if input == "scene.fountain"));
+        assert!(Cli::try_parse_from(["renderflow", "screenplay", "analyze", "--input", "scene.fountain",
+            "--config", "afterwriting.json"]).is_err());
+    }
+
+    #[test]
+    fn screenplay_package_fingerprint_requires_explicit_root() {
+        let cli = Cli::try_parse_from(["renderflow", "screenplay", "package-fingerprint",
+            "--package-root", "/opt/afterwriting"]).unwrap();
+        assert!(matches!(cli.command, Some(Commands::Screenplay {
+            subcommand: ScreenplayCommands::PackageFingerprint { package_root },
+        }) if package_root == "/opt/afterwriting"));
+        assert!(Cli::try_parse_from(["renderflow", "screenplay", "package-fingerprint"]).is_err());
     }
 }

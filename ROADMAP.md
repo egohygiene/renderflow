@@ -259,6 +259,16 @@ Keep #424 open for the deferred qualification pass. See
 [the #424 handoff](docs/work/424/HANDOFF.md) and
 [provider evaluation](docs/work/424/PROVIDER_EVALUATION.md).
 
+The #425 checkpoint authors a separate Fountain → PDF capability through an
+explicitly pinned Node runtime and afterwriting package installation. Versioned
+A4/US Letter profiles use Courier base14 and an ASCII body-only source subset.
+Independent source reports count screenplay elements and cues; independent PDF
+inspection records pages, geometry, fonts, and variable metadata. No afterwriting
+analytics CLI, native FDX input, visual-fidelity guarantee, or reproducible-byte
+claim is invented. It remains stacked on #424/#423 with all executable checks
+deferred; #425 stays open for native and two-run qualification. See
+[the #425 handoff](docs/work/425/HANDOFF.md).
+
 The #427 candidate authors a standalone `subtitles inspect/convert/extract`
 CLI, `renderflow.timed-transcript/v1`, strict plain-text SRT/WebVTT codecs,
 and bounded FFprobe/FFmpeg adapters. Its second checkpoint adds opt-in

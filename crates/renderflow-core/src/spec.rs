@@ -12,6 +12,7 @@ use crate::optimization::OptimizationMode;
 use crate::publication::{PageGeometry, PublicationContract};
 use crate::speech::policy::SpeechPolicy;
 use crate::screenplay::provider::ScripttoolConfig;
+use crate::screenplay::afterwriting::AfterwritingConfig;
 
 pub const SPEC_V2_ID: &str = "renderflow/v2";
 pub const SPEC_V2_SCHEMA_PATH: &str = "schemas/renderflow-v2.schema.json";
@@ -522,6 +523,9 @@ pub struct ExecutionPolicy {
     /// Explicit pinned, unqualified native screenplay conversion.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub screenplay: Option<ScripttoolConfig>,
+    /// Explicit pinned, unqualified original Fountain to screenplay PDF route.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub screenplay_pdf: Option<AfterwritingConfig>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
@@ -671,6 +675,7 @@ impl Default for ExecutionPolicy {
             subtitles: None,
             speech: None,
             screenplay: None,
+            screenplay_pdf: None,
         }
     }
 }
@@ -819,12 +824,31 @@ impl SpecV2 {
                 ));
             }
             if self.execution.speech.is_some() || self.execution.subtitles.is_some()
+                || self.execution.screenplay_pdf.is_some()
                 || self.execution.print_pdf_interior.is_some() || self.execution.fixed_layout_epub.is_some()
                 || self.transforms.is_some() || self.execution.hygiene_policy.is_some()
             {
                 diagnostics.push(SpecDiagnostic::new(
                     "$.execution.screenplay", "screenplay.policy.ambiguous",
                     "native screenplay conversion requires its own spec without other native policies, custom transforms, or post-conversion hygiene",
+                ));
+            }
+        }
+
+        if let Some(screenplay_pdf) = &self.execution.screenplay_pdf {
+            if let Err(error) = screenplay_pdf.validate() {
+                diagnostics.push(SpecDiagnostic::new(
+                    "$.execution.screenplay_pdf", "screenplay_pdf.policy.invalid", error.to_string(),
+                ));
+            }
+            if self.execution.screenplay.is_some() || self.execution.speech.is_some()
+                || self.execution.subtitles.is_some() || self.execution.print_pdf_interior.is_some()
+                || self.execution.fixed_layout_epub.is_some() || self.transforms.is_some()
+                || self.execution.hygiene_policy.is_some()
+            {
+                diagnostics.push(SpecDiagnostic::new(
+                    "$.execution.screenplay_pdf", "screenplay_pdf.policy.ambiguous",
+                    "screenplay PDF rendering requires its own spec without other native policies, custom transforms, or post-render hygiene",
                 ));
             }
         }
@@ -1992,8 +2016,25 @@ pub fn json_schema() -> Value {
                     ,"subtitles": {"anyOf": [{"$ref": "#/$defs/subtitles"}, {"type": "null"}]}
                     ,"speech": {"anyOf": [{"$ref": "#/$defs/speechPolicy"}, {"type": "null"}]}
                     ,"screenplay": {"anyOf": [{"$ref": "#/$defs/screenplayPolicy"}, {"type": "null"}]}
+                    ,"screenplay_pdf": {"anyOf": [{"$ref": "#/$defs/screenplayPdfPolicy"}, {"type": "null"}]}
                 }
             },
+                "screenplayPdfPolicy": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["node_executable", "node_sha256", "expected_node_version", "package_root", "package_tree_sha256", "expected_provider_version", "profile", "timeout_seconds", "allow_unqualified"],
+                    "properties": {
+                      "node_executable": {"type": "string", "minLength": 1},
+                      "node_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+                      "expected_node_version": {"type": "string", "pattern": "^v(22|24)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"},
+                      "package_root": {"type": "string", "minLength": 1},
+                      "package_tree_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+                      "expected_provider_version": {"const": "1.17.3"},
+                      "profile": {"enum": ["screenplay-a4-v1", "screenplay-usletter-v1"]},
+                      "timeout_seconds": {"type": "integer", "minimum": 1, "maximum": 300},
+                      "allow_unqualified": {"const": true}
+                    }
+                  },
                 "screenplayPolicy": {
                     "type": "object",
                     "additionalProperties": false,
@@ -2392,6 +2433,67 @@ variables:
         assert_eq!(runtime["$defs"]["screenplayPolicy"]["properties"]["allow_unqualified"]["const"], true);
         assert_eq!(runtime["$defs"]["screenplayPolicy"]["properties"]["timeout_seconds"]["maximum"], 300);
         assert_eq!(runtime["$defs"]["screenplayPolicy"]["additionalProperties"], false);
+    }
+
+    fn screenplay_pdf_policy_value() -> serde_json::Value {
+        json!({
+            "node_executable": std::env::temp_dir().join("node"),
+            "node_sha256": "a".repeat(64),
+            "expected_node_version": "v24.0.0",
+            "package_root": std::env::temp_dir().join("afterwriting"),
+            "package_tree_sha256": "b".repeat(64),
+            "expected_provider_version": "1.17.3",
+            "profile": "screenplay-a4-v1",
+            "timeout_seconds": 30,
+            "allow_unqualified": true
+        })
+    }
+
+    #[test]
+    fn screenplay_pdf_policy_requires_explicit_pins_and_opt_in() {
+        let defaults: ExecutionPolicy = serde_json::from_value(json!({})).unwrap();
+        assert!(defaults.screenplay_pdf.is_none());
+        assert!(serde_json::to_value(defaults).unwrap().get("screenplay_pdf").is_none());
+        let complete = screenplay_pdf_policy_value();
+        for field in ["node_executable", "node_sha256", "expected_node_version", "package_root",
+            "package_tree_sha256", "expected_provider_version", "profile", "timeout_seconds", "allow_unqualified"]
+        {
+            let mut incomplete = complete.clone();
+            incomplete.as_object_mut().unwrap().remove(field);
+            assert!(serde_json::from_value::<ExecutionPolicy>(json!({"screenplay_pdf": incomplete})).is_err());
+        }
+        let mut policy: AfterwritingConfig = serde_json::from_value(complete).unwrap();
+        assert!(policy.validate().is_ok());
+        policy.allow_unqualified = false;
+        assert!(policy.validate().is_err());
+    }
+
+    #[test]
+    fn screenplay_pdf_spec_refuses_mixed_policies_and_custom_transforms() {
+        let mut spec = load_spec_str(VALID_EXACT).unwrap().spec;
+        spec.execution.screenplay_pdf = Some(serde_json::from_value(screenplay_pdf_policy_value()).unwrap());
+        spec.execution.screenplay = Some(serde_json::from_value(screenplay_policy_value()).unwrap());
+        assert!(spec.validate().iter().any(|item| item.code == "screenplay_pdf.policy.ambiguous"));
+        assert!(spec.validate().iter().any(|item| item.code == "screenplay.policy.ambiguous"));
+        spec.execution.screenplay = None;
+        spec.transforms = Some("custom.yaml".to_owned());
+        assert!(spec.validate().iter().any(|item| item.code == "screenplay_pdf.policy.ambiguous"));
+        spec.transforms = None;
+        spec.execution.subtitles = Some(SubtitlePolicy::default());
+        assert!(spec.validate().iter().any(|item| item.code == "screenplay_pdf.policy.ambiguous"));
+    }
+
+    #[test]
+    fn screenplay_pdf_policy_schema_preserves_the_fixed_profiles_and_bounds() {
+        let runtime = json_schema();
+        let published: serde_json::Value = serde_json::from_str(include_str!("../../../schemas/renderflow-v2.schema.json")).unwrap();
+        assert_eq!(runtime["$defs"]["screenplayPdfPolicy"], published["$defs"]["screenplayPdfPolicy"]);
+        assert_eq!(runtime["$defs"]["executionPolicy"]["properties"]["screenplay_pdf"],
+            published["$defs"]["executionPolicy"]["properties"]["screenplay_pdf"]);
+        assert_eq!(runtime["$defs"]["screenplayPdfPolicy"]["properties"]["expected_provider_version"]["const"], "1.17.3");
+        assert_eq!(runtime["$defs"]["screenplayPdfPolicy"]["properties"]["profile"]["enum"],
+            json!(["screenplay-a4-v1", "screenplay-usletter-v1"]));
+        assert_eq!(runtime["$defs"]["screenplayPdfPolicy"]["properties"]["allow_unqualified"]["const"], true);
     }
 
     #[test]
