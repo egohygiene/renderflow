@@ -5,8 +5,10 @@ the authored interface; they have not been executed or released. Qualification
 and remaining integration work are recorded in [the handoff](../work/427/HANDOFF.md).
 
 An opt-in [native qualification kit](../work/427/NATIVE_QUALIFICATION.md) is
-authored for the later validation pass. It has not been run and is not proof of
-native extraction support.
+ready for the local validation pass. Independent provider-command smoke has
+run, but the Rust kit and SDK remain unexecuted because the validation host
+lacked Rust/Cargo. See the [validation record](../work/427/VALIDATION.md) for
+the exact evidence and limits.
 
 ## Convert a subtitle file
 

@@ -1,4 +1,4 @@
-# Renderflow #427 — timed-text checkpoint 3
+# Renderflow #427 — timed-text checkpoint 4
 
 ## Scope and observed state
 
@@ -14,6 +14,11 @@
 - Verified base: `8e866f91aa8b20255f25a553031f25fa98aa3856` (`main`).
 - Candidate branch: `feat/renderflow-427-timed-text`; obtain its exact head from
   the draft PR. This file cannot contain its own eventual commit SHA.
+- Checkpoint 4 began from published head
+  `c77e26c6b911e2b87585848022ccfdb7d7bb6565`, tree
+  `396518c863f30a2cd01eda5fec241377cb8c10d4` (matching local commit
+  `a920b97608e42e1554cd05b218d057d8c01e59ac`). The user authorized the focused
+  local completion pass; lint and GitHub Actions remain deferred.
 - Existing SRT/WebVTT format declarations were present, but no subtitle parser
   or extraction adapter existed. No root AGENTS.md or CONTINUITY.md was present.
 
@@ -105,11 +110,24 @@ deferred obligations recorded. It is not #427 acceptance proof or a release.
 
 ## Checks and evidence
 
-User-selected implementation-first budget: **no executable product checks**.
-Only repository/source inspection and Git publication metadata are used.
-No tests, builds, compiler checks, formatting, lint, schema validation, smoke
-commands, native media operations, or GitHub Actions have run for this change.
-Authored fixtures are not passed fixtures. Local readiness: **unknown**.
+Checkpoints 1–3 used an implementation-first budget with no executable product
+checks. The user subsequently authorized targeted local tests, schema checks,
+and native qualification for checkpoint 4. Formatting, lint, full-suite checks,
+and GitHub Actions remain outside this checkpoint.
+
+The first focused Cargo command exited 127 because this environment has no
+Cargo or Rust compiler. The official toolchain endpoint was unreachable, and
+the default package manager failed on environment process permissions. No Rust
+test, build, CLI invocation, SDK run, or native qualification harness executed.
+All 61 authored Rust test functions remain unrun; local Renderflow readiness is
+**unknown**, not a passing result.
+
+Independent FFmpeg/FFprobe smoke checks did execute against the authored native
+argument recipes: 12/12 checks passed on the installed 6.1.1-3ubuntu5 builds.
+This establishes fixture/argv compatibility for the small synthetic matrix,
+not Rust adapter, cancellation, typed diagnostic, or SDK correctness.
+See [checkpoint 4 evidence and resume commands](VALIDATION.md) for the exact
+scope, schema results, retained evidence, and environment blocker.
 
 Checkpoint 1 source review corrected pre-open special-file refusal,
 immediate-input hashing, and registry claims absent from the adapter.
@@ -135,22 +153,31 @@ when only subtitles are selected. The FFmpeg-only extraction input now uses
 `-guess_layout_max 0`; FFprobe arguments are unchanged. This disables irrelevant
 audio inference while preserving strict warning refusal. The existing argument
 test now checks the option's input placement and absence from FFprobe. Its
-effect on real fixtures remains unverified until the native kit is run.
+effect on the synthetic command recipes was exercised by checkpoint 4's
+independent provider smoke. The Rust native kit remains unrun.
 
 No user media was processed. No provider binaries/models were installed.
+An isolated Python JSON Schema validator was installed in scratch for the
+completion pass; no repository dependency or lockfile was changed.
 No dependency/lockfile, workflow, branch protection, or release change is intended.
 Use `[skip ci]` in commits; do not dispatch or poll Actions. Existing repository
 automation may react to a PR independently of this worker.
 
 ## Deferred completion work and finite stop
 
-1. Compile and run focused `timed_text` / `subtitle` tests, inspect the new CLI
+1. On a host with Rust/Cargo available, compile and run focused `timed_text` /
+   `subtitle` tests, inspect the new CLI
    help and error exits, and verify JSON Schema/model agreement. Use locked
    workspace dependencies and the repository's Rust 1.94 baseline.
-   Planned commands (not run): `cargo test --locked --package renderflow --lib timed_text`,
+   Resume commands (the first was attempted but Cargo was unavailable):
+   `cargo test --locked --package renderflow --lib timed_text`,
    `cargo test --locked --package renderflow --lib subtitle`, and
    `cargo test --locked --package renderflow --test timed_text`, plus
    `cargo test --locked --package renderflow --test timed_text_graph`.
+   Also run `cargo test --locked --package renderflow --test timed_text_native`
+   without `--ignored` to exercise the report-helper tests, then run the native
+   entry point explicitly as described below. See `VALIDATION.md` for the
+   consolidated command list and the blocked attempt from this environment.
 2. Execute the authored native qualification kit from
    [NATIVE_QUALIFICATION.md](NATIVE_QUALIFICATION.md), then extend its remaining
    matrix where needed. Use small redistribution-safe Matroska and MP4-family fixtures
@@ -173,9 +200,9 @@ automation may react to a PR independently of this worker.
    to its completion pass. Hosted CI/release evidence stays separate.
 
 Keep #427 open until its acceptance criteria are actually proven. Do not use
-an automatic closing keyword in this draft PR. Do not start #428 on an unproven
-shared transcript contract without a focused integration check or an explicit
-revised check budget from the user.
+an automatic closing keyword in this draft PR. The user has authorized the
+focused integration check, but it remains environment-blocked; do not treat
+provider-only smoke as proof of the shared transcript contract for #428.
 
 ## Resume and parallel work
 

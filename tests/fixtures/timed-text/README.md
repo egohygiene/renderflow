@@ -26,5 +26,7 @@ retains generated containers and per-case evidence for review. It does not
 download media or install providers. See the
 [native qualification guide](../../../docs/work/427/NATIVE_QUALIFICATION.md).
 
-The tests and fixtures are authored coverage. Execution is deferred under the
-current implementation sprint; their presence is not qualification evidence.
+The Rust tests remain authored coverage: the completion pass was authorized,
+but its host lacked Rust/Cargo. Independent FFmpeg command smoke using these
+fixtures passed; it does not establish Rust adapter or SDK qualification.
+See the [validation record](../../../docs/work/427/VALIDATION.md).

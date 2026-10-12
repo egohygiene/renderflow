@@ -1,0 +1,591 @@
+{
+  "scope": "Independent FFmpeg/FFprobe smoke of argv authored in Rust; not Rust harness execution or qualification",
+  "commands": [
+    {
+      "argv": [
+        "ffmpeg",
+        "-version"
+      ],
+      "returncode": 0,
+      "elapsed_seconds": 0.10636115899978904,
+      "stdout": "ffmpeg version 6.1.1-3ubuntu5 Copyright (c) 2000-2023 the FFmpeg developers\nbuilt with gcc 13 (Ubuntu 13.2.0-23ubuntu3)\nconfiguration: --prefix=/usr --extra-version=3ubuntu5 --toolchain=hardened --libdir=/usr/lib/x86_64-linux-gnu --incdir=/usr/include/x86_64-linux-gnu --arch=amd64 --enable-gpl --disable-stripping --disable-omx --enable-gnutls --enable-libaom --enable-libass --enable-libbs2b --enable-libcaca --enable-libcdio --enable-libcodec2 --enable-libdav1d --enable-libflite --enable-libfontconfig --enable-libfreetype --enable-libfribidi --enable-libglslang --enable-libgme --enable-libgsm --enable-libharfbuzz --enable-libmp3lame --enable-libmysofa --enable-libopenjpeg --enable-libopenmpt --enable-libopus --enable-librubberband --enable-libshine --enable-libsnappy --enable-libsoxr --enable-libspeex --enable-libtheora --enable-libtwolame --enable-libvidstab --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx265 --enable-libxml2 --enable-libxvid --enable-libzimg --enable-openal --enable-opencl --enable-opengl --disable-sndio --enable-libvpl --disable-libmfx --enable-libdc1394 --enable-libdrm --enable-libiec61883 --enable-chromaprint --enable-frei0r --enable-ladspa --enable-libbluray --enable-libjack --enable-libpulse --enable-librabbitmq --enable-librist --enable-libsrt --enable-libssh --enable-libsvtav1 --enable-libx264 --enable-libzmq --enable-libzvbi --enable-lv2 --enable-sdl2 --enable-libplacebo --enable-librav1e --enable-pocketsphinx --enable-librsvg --enable-libjxl --enable-shared\nlibavutil      58. 29.100 / 58. 29.100\nlibavcodec     60. 31.102 / 60. 31.102\nlibavformat    60. 16.100 / 60. 16.100\nlibavdevice    60.  3.100 / 60.  3.100\nlibavfilter     9. 12.100 /  9. 12.100\nlibswscale      7.  5.100 /  7.  5.100\nlibswresample   4. 12.100 /  4. 12.100\nlibpostproc    57.  3.100 / 57.  3.100\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "ffprobe",
+        "-version"
+      ],
+      "returncode": 0,
+      "elapsed_seconds": 0.0393125289992895,
+      "stdout": "ffprobe version 6.1.1-3ubuntu5 Copyright (c) 2007-2023 the FFmpeg developers\nbuilt with gcc 13 (Ubuntu 13.2.0-23ubuntu3)\nconfiguration: --prefix=/usr --extra-version=3ubuntu5 --toolchain=hardened --libdir=/usr/lib/x86_64-linux-gnu --incdir=/usr/include/x86_64-linux-gnu --arch=amd64 --enable-gpl --disable-stripping --disable-omx --enable-gnutls --enable-libaom --enable-libass --enable-libbs2b --enable-libcaca --enable-libcdio --enable-libcodec2 --enable-libdav1d --enable-libflite --enable-libfontconfig --enable-libfreetype --enable-libfribidi --enable-libglslang --enable-libgme --enable-libgsm --enable-libharfbuzz --enable-libmp3lame --enable-libmysofa --enable-libopenjpeg --enable-libopenmpt --enable-libopus --enable-librubberband --enable-libshine --enable-libsnappy --enable-libsoxr --enable-libspeex --enable-libtheora --enable-libtwolame --enable-libvidstab --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx265 --enable-libxml2 --enable-libxvid --enable-libzimg --enable-openal --enable-opencl --enable-opengl --disable-sndio --enable-libvpl --disable-libmfx --enable-libdc1394 --enable-libdrm --enable-libiec61883 --enable-chromaprint --enable-frei0r --enable-ladspa --enable-libbluray --enable-libjack --enable-libpulse --enable-librabbitmq --enable-librist --enable-libsrt --enable-libssh --enable-libsvtav1 --enable-libx264 --enable-libzmq --enable-libzvbi --enable-lv2 --enable-sdl2 --enable-libplacebo --enable-librav1e --enable-pocketsphinx --enable-librsvg --enable-libjxl --enable-shared\nlibavutil      58. 29.100 / 58. 29.100\nlibavcodec     60. 31.102 / 60. 31.102\nlibavformat    60. 16.100 / 60. 16.100\nlibavdevice    60.  3.100 / 60.  3.100\nlibavfilter     9. 12.100 /  9. 12.100\nlibswscale      7.  5.100 /  7.  5.100\nlibswresample   4. 12.100 /  4. 12.100\nlibpostproc    57.  3.100 / 57.  3.100\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "ffmpeg",
+        "-hide_banner",
+        "-loglevel",
+        "warning",
+        "-nostdin",
+        "-nostats",
+        "-xerror",
+        "-n",
+        "-guess_layout_max",
+        "0",
+        "-protocol_whitelist",
+        "file",
+        "-format_whitelist",
+        "wav",
+        "-f",
+        "wav",
+        "-i",
+        "/workspace/scratch/017401db1f8f/cp4-evidence/native-provider-smoke/silence.wav",
+        "-protocol_whitelist",
+        "file",
+        "-format_whitelist",
+        "srt",
+        "-f",
+        "srt",
+        "-i",
+        "/workspace/scratch/017401db1f8f/cp4-evidence/native-provider-smoke/synthetic.srt",
+        "-protocol_whitelist",
+        "file",
+        "-format_whitelist",
+        "webvtt",
+        "-f",
+        "webvtt",
+        "-i",
+        "/workspace/scratch/017401db1f8f/cp4-evidence/native-provider-smoke/synthetic.vtt",
+        "-map",
+        "0:a:0",
+        "-map",
+        "1:s:0",
+        "-map",
+        "2:s:0",
+        "-codec",
+        "copy",
+        "-metadata:s:s:0",
+        "language=eng",
+        "-metadata:s:s:1",
+        "language=rus",
+        "-map_metadata",
+        "-1",
+        "-map_chapters",
+        "-1",
+        "-fflags",
+        "+bitexact",
+        "-f",
+        "matroska",
+        "/workspace/scratch/017401db1f8f/cp4-evidence/native-provider-smoke/supported.mkv"
+      ],
+      "returncode": 0,
+      "elapsed_seconds": 0.04674213899852475,
+      "stdout": "",
+      "stderr": "",
+      "output_sha256": "45432905e3174957501dcb1eb130cdba8c4f1170cf7a25b37f916d4bfff340fe"
+    },
+    {
+      "argv": [
+        "ffmpeg",
+        "-hide_banner",
+        "-loglevel",
+        "warning",
+        "-nostdin",
+        "-nostats",
+        "-xerror",
+        "-n",
+        "-guess_layout_max",
+        "0",
+        "-protocol_whitelist",
+        "file",
+        "-format_whitelist",
+        "wav",
+        "-f",
+        "wav",
+        "-i",
+        "/workspace/scratch/017401db1f8f/cp4-evidence/native-provider-smoke/silence.wav",
+        "-map",
+        "0:a:0",
+        "-codec",
+        "copy",
+        "-map_metadata",
+        "-1",
+        "-map_chapters",
+        "-1",
+        "-fflags",
+        "+bitexact",
+        "-f",
+        "matroska",
+        "/workspace/scratch/017401db1f8f/cp4-evidence/native-provider-smoke/no-subtitles.mkv"
+      ],
+      "returncode": 0,
+      "elapsed_seconds": 0.04588480500024161,
+      "stdout": "",
+      "stderr": "",
+      "output_sha256": "460d5789c79931311fadfac616c4d3caa115f30413d113f081062fcc5c4455e8"
+    },
+    {
+      "argv": [
+        "ffmpeg",
+        "-hide_banner",
+        "-loglevel",
+        "warning",
+        "-nostdin",
+        "-nostats",
+        "-xerror",
+        "-n",
+        "-protocol_whitelist",
+        "file",
+        "-format_whitelist",
+        "ass",
+        "-f",
+        "ass",
+        "-i",
+        "/workspace/scratch/017401db1f8f/cp4-evidence/native-provider-smoke/synthetic.ass",
+        "-map",
+        "0:s:0",
+        "-codec",
+        "copy",
+        "-map_metadata",
+        "-1",
+        "-map_chapters",
+        "-1",
+        "-fflags",
+        "+bitexact",
+        "-f",
+        "matroska",
+        "/workspace/scratch/017401db1f8f/cp4-evidence/native-provider-smoke/unsupported-ass.mkv"
+      ],
+      "returncode": 0,
+      "elapsed_seconds": 0.04127199499998824,
+      "stdout": "",
+      "stderr": "",
+      "output_sha256": "90bdb5f4cf0e95b3c62b711fba1dcc7fa4394f3efab7a2b56a987e686b808f0f"
+    },
+    {
+      "argv": [
+        "ffmpeg",
+        "-hide_banner",
+        "-loglevel",
+        "warning",
+        "-nostdin",
+        "-nostats",
+        "-xerror",
+        "-n",
+        "-protocol_whitelist",
+        "file",
+        "-format_whitelist",
+        "srt",
+        "-f",
+        "srt",
+        "-i",
+        "/workspace/scratch/017401db1f8f/cp4-evidence/native-provider-smoke/synthetic.srt",
+        "-map",
+        "0:s:0",
+        "-codec:s",
+        "mov_text",
+        "-map_metadata",
+        "-1",
+        "-map_chapters",
+        "-1",
+        "-fflags",
+        "+bitexact",
+        "-f",
+        "mp4",
+        "/workspace/scratch/017401db1f8f/cp4-evidence/native-provider-smoke/unsupported-mov-text.mp4"
+      ],
+      "returncode": 0,
+      "elapsed_seconds": 0.05123129300045548,
+      "stdout": "",
+      "stderr": "",
+      "output_sha256": "d72d00a0b007ef4a1cb6a62d2dd69f41e0508186f22dfdf0dab2a991031d5083"
+    },
+    {
+      "argv": [
+        "ffprobe",
+        "-hide_banner",
+        "-loglevel",
+        "warning",
+        "-select_streams",
+        "s",
+        "-show_entries",
+        "stream=index,codec_name,codec_type:stream_tags=language",
+        "-print_format",
+        "json",
+        "-protocol_whitelist",
+        "file,pipe",
+        "-format_whitelist",
+        "matroska",
+        "-f",
+        "matroska",
+        "-nofind_stream_info",
+        "-max_streams",
+        "256",
+        "-i",
+        "/workspace/scratch/017401db1f8f/cp4-evidence/native-provider-smoke/supported.mkv"
+      ],
+      "returncode": 0,
+      "elapsed_seconds": 0.042614740999852074,
+      "stdout": "{\n    \"programs\": [\n\n    ],\n    \"streams\": [\n        {\n            \"index\": 1,\n            \"codec_name\": \"subrip\",\n            \"codec_type\": \"subtitle\",\n            \"tags\": {\n                \"language\": \"eng\"\n            }\n        },\n        {\n            \"index\": 2,\n            \"codec_name\": \"webvtt\",\n            \"codec_type\": \"subtitle\",\n            \"tags\": {\n                \"language\": \"rus\"\n            }\n        }\n    ]\n}\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "ffprobe",
+        "-hide_banner",
+        "-loglevel",
+        "warning",
+        "-select_streams",
+        "s",
+        "-show_entries",
+        "stream=index,codec_name,codec_type:stream_tags=language",
+        "-print_format",
+        "json",
+        "-protocol_whitelist",
+        "file,pipe",
+        "-format_whitelist",
+        "matroska",
+        "-f",
+        "matroska",
+        "-nofind_stream_info",
+        "-max_streams",
+        "256",
+        "-i",
+        "/workspace/scratch/017401db1f8f/cp4-evidence/native-provider-smoke/no-subtitles.mkv"
+      ],
+      "returncode": 0,
+      "elapsed_seconds": 0.04100201900291722,
+      "stdout": "{\n    \"programs\": [\n\n    ],\n    \"streams\": [\n\n    ]\n}\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "ffprobe",
+        "-hide_banner",
+        "-loglevel",
+        "warning",
+        "-select_streams",
+        "s",
+        "-show_entries",
+        "stream=index,codec_name,codec_type:stream_tags=language",
+        "-print_format",
+        "json",
+        "-protocol_whitelist",
+        "file,pipe",
+        "-format_whitelist",
+        "matroska",
+        "-f",
+        "matroska",
+        "-nofind_stream_info",
+        "-max_streams",
+        "256",
+        "-i",
+        "/workspace/scratch/017401db1f8f/cp4-evidence/native-provider-smoke/unsupported-ass.mkv"
+      ],
+      "returncode": 0,
+      "elapsed_seconds": 0.040576094997959444,
+      "stdout": "{\n    \"programs\": [\n\n    ],\n    \"streams\": [\n        {\n            \"index\": 0,\n            \"codec_name\": \"ass\",\n            \"codec_type\": \"subtitle\",\n            \"tags\": {\n\n            }\n        }\n    ]\n}\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "ffprobe",
+        "-hide_banner",
+        "-loglevel",
+        "warning",
+        "-select_streams",
+        "s",
+        "-show_entries",
+        "stream=index,codec_name,codec_type:stream_tags=language",
+        "-print_format",
+        "json",
+        "-protocol_whitelist",
+        "file,pipe",
+        "-format_whitelist",
+        "mov",
+        "-f",
+        "mov",
+        "-nofind_stream_info",
+        "-max_streams",
+        "256",
+        "-enable_drefs",
+        "0",
+        "-use_absolute_path",
+        "0",
+        "-i",
+        "/workspace/scratch/017401db1f8f/cp4-evidence/native-provider-smoke/unsupported-mov-text.mp4"
+      ],
+      "returncode": 0,
+      "elapsed_seconds": 0.04155919899858418,
+      "stdout": "{\n    \"programs\": [\n\n    ],\n    \"streams\": [\n        {\n            \"index\": 0,\n            \"codec_name\": \"mov_text\",\n            \"codec_type\": \"subtitle\",\n            \"tags\": {\n                \"language\": \"und\"\n            }\n        }\n    ]\n}\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "ffmpeg",
+        "-hide_banner",
+        "-loglevel",
+        "warning",
+        "-nostdin",
+        "-xerror",
+        "-copyts",
+        "-guess_layout_max",
+        "0",
+        "-protocol_whitelist",
+        "file,pipe",
+        "-format_whitelist",
+        "matroska",
+        "-f",
+        "matroska",
+        "-nofind_stream_info",
+        "-max_streams",
+        "256",
+        "-i",
+        "/workspace/scratch/017401db1f8f/cp4-evidence/native-provider-smoke/supported.mkv",
+        "-map",
+        "0:1",
+        "-vn",
+        "-an",
+        "-dn",
+        "-codec:s",
+        "copy",
+        "-map_metadata",
+        "-1",
+        "-map_chapters",
+        "-1",
+        "-avoid_negative_ts",
+        "disabled",
+        "-f",
+        "srt",
+        "pipe:1"
+      ],
+      "returncode": 0,
+      "elapsed_seconds": 0.04014898099921993,
+      "stdout": "1\n00:00:01,250 --> 00:00:03,750\nHello, orbit.\nПривет, мир 🌙\n\n2\n00:00:05,000 --> 00:00:06,125\nThe stars reply.\n\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "ffmpeg",
+        "-hide_banner",
+        "-loglevel",
+        "warning",
+        "-nostdin",
+        "-xerror",
+        "-copyts",
+        "-guess_layout_max",
+        "0",
+        "-protocol_whitelist",
+        "file,pipe",
+        "-format_whitelist",
+        "matroska",
+        "-f",
+        "matroska",
+        "-nofind_stream_info",
+        "-max_streams",
+        "256",
+        "-i",
+        "/workspace/scratch/017401db1f8f/cp4-evidence/native-provider-smoke/supported.mkv",
+        "-map",
+        "0:2",
+        "-vn",
+        "-an",
+        "-dn",
+        "-codec:s",
+        "copy",
+        "-map_metadata",
+        "-1",
+        "-map_chapters",
+        "-1",
+        "-avoid_negative_ts",
+        "disabled",
+        "-f",
+        "webvtt",
+        "pipe:1"
+      ],
+      "returncode": 0,
+      "elapsed_seconds": 0.0411462810006924,
+      "stdout": "WEBVTT\n\nopening\n00:01.250 --> 00:03.750\nHello, orbit.\nПривет, мир 🌙\n\nreply\n00:05.000 --> 00:06.125\nThe stars reply.\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "ffmpeg",
+        "-version"
+      ],
+      "returncode": 0,
+      "elapsed_seconds": 0.039461853997636354,
+      "stdout": "ffmpeg version 6.1.1-3ubuntu5 Copyright (c) 2000-2023 the FFmpeg developers\nbuilt with gcc 13 (Ubuntu 13.2.0-23ubuntu3)\nconfiguration: --prefix=/usr --extra-version=3ubuntu5 --toolchain=hardened --libdir=/usr/lib/x86_64-linux-gnu --incdir=/usr/include/x86_64-linux-gnu --arch=amd64 --enable-gpl --disable-stripping --disable-omx --enable-gnutls --enable-libaom --enable-libass --enable-libbs2b --enable-libcaca --enable-libcdio --enable-libcodec2 --enable-libdav1d --enable-libflite --enable-libfontconfig --enable-libfreetype --enable-libfribidi --enable-libglslang --enable-libgme --enable-libgsm --enable-libharfbuzz --enable-libmp3lame --enable-libmysofa --enable-libopenjpeg --enable-libopenmpt --enable-libopus --enable-librubberband --enable-libshine --enable-libsnappy --enable-libsoxr --enable-libspeex --enable-libtheora --enable-libtwolame --enable-libvidstab --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx265 --enable-libxml2 --enable-libxvid --enable-libzimg --enable-openal --enable-opencl --enable-opengl --disable-sndio --enable-libvpl --disable-libmfx --enable-libdc1394 --enable-libdrm --enable-libiec61883 --enable-chromaprint --enable-frei0r --enable-ladspa --enable-libbluray --enable-libjack --enable-libpulse --enable-librabbitmq --enable-librist --enable-libsrt --enable-libssh --enable-libsvtav1 --enable-libx264 --enable-libzmq --enable-libzvbi --enable-lv2 --enable-sdl2 --enable-libplacebo --enable-librav1e --enable-pocketsphinx --enable-librsvg --enable-libjxl --enable-shared\nlibavutil      58. 29.100 / 58. 29.100\nlibavcodec     60. 31.102 / 60. 31.102\nlibavformat    60. 16.100 / 60. 16.100\nlibavdevice    60.  3.100 / 60.  3.100\nlibavfilter     9. 12.100 /  9. 12.100\nlibswscale      7.  5.100 /  7.  5.100\nlibswresample   4. 12.100 /  4. 12.100\nlibpostproc    57.  3.100 / 57.  3.100\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "ffprobe",
+        "-version"
+      ],
+      "returncode": 0,
+      "elapsed_seconds": 0.040456269001879264,
+      "stdout": "ffprobe version 6.1.1-3ubuntu5 Copyright (c) 2007-2023 the FFmpeg developers\nbuilt with gcc 13 (Ubuntu 13.2.0-23ubuntu3)\nconfiguration: --prefix=/usr --extra-version=3ubuntu5 --toolchain=hardened --libdir=/usr/lib/x86_64-linux-gnu --incdir=/usr/include/x86_64-linux-gnu --arch=amd64 --enable-gpl --disable-stripping --disable-omx --enable-gnutls --enable-libaom --enable-libass --enable-libbs2b --enable-libcaca --enable-libcdio --enable-libcodec2 --enable-libdav1d --enable-libflite --enable-libfontconfig --enable-libfreetype --enable-libfribidi --enable-libglslang --enable-libgme --enable-libgsm --enable-libharfbuzz --enable-libmp3lame --enable-libmysofa --enable-libopenjpeg --enable-libopenmpt --enable-libopus --enable-librubberband --enable-libshine --enable-libsnappy --enable-libsoxr --enable-libspeex --enable-libtheora --enable-libtwolame --enable-libvidstab --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx265 --enable-libxml2 --enable-libxvid --enable-libzimg --enable-openal --enable-opencl --enable-opengl --disable-sndio --enable-libvpl --disable-libmfx --enable-libdc1394 --enable-libdrm --enable-libiec61883 --enable-chromaprint --enable-frei0r --enable-ladspa --enable-libbluray --enable-libjack --enable-libpulse --enable-librabbitmq --enable-librist --enable-libsrt --enable-libssh --enable-libsvtav1 --enable-libx264 --enable-libzmq --enable-libzvbi --enable-lv2 --enable-sdl2 --enable-libplacebo --enable-librav1e --enable-pocketsphinx --enable-librsvg --enable-libjxl --enable-shared\nlibavutil      58. 29.100 / 58. 29.100\nlibavcodec     60. 31.102 / 60. 31.102\nlibavformat    60. 16.100 / 60. 16.100\nlibavdevice    60.  3.100 / 60.  3.100\nlibavfilter     9. 12.100 /  9. 12.100\nlibswscale      7.  5.100 /  7.  5.100\nlibswresample   4. 12.100 /  4. 12.100\nlibpostproc    57.  3.100 / 57.  3.100\n",
+      "stderr": ""
+    }
+  ],
+  "checks": [
+    {
+      "case": "supported.mkv",
+      "passed": true
+    },
+    {
+      "case": "no-subtitles.mkv",
+      "passed": true
+    },
+    {
+      "case": "unsupported-ass.mkv",
+      "passed": true
+    },
+    {
+      "case": "unsupported-mov-text.mp4",
+      "passed": true
+    },
+    {
+      "case": "inspect_supported.mkv",
+      "passed": true,
+      "observed": [
+        [
+          1,
+          "subrip",
+          "eng"
+        ],
+        [
+          2,
+          "webvtt",
+          "rus"
+        ]
+      ],
+      "expected": [
+        [
+          1,
+          "subrip",
+          "eng"
+        ],
+        [
+          2,
+          "webvtt",
+          "rus"
+        ]
+      ]
+    },
+    {
+      "case": "inspect_no-subtitles.mkv",
+      "passed": true,
+      "observed": [],
+      "expected": []
+    },
+    {
+      "case": "inspect_unsupported-ass.mkv",
+      "passed": true,
+      "observed": [
+        [
+          0,
+          "ass",
+          null
+        ]
+      ],
+      "expected": [
+        [
+          0,
+          "ass",
+          null
+        ]
+      ]
+    },
+    {
+      "case": "inspect_unsupported-mov-text.mp4",
+      "passed": true,
+      "observed": [
+        [
+          0,
+          "mov_text",
+          "und"
+        ]
+      ],
+      "expected": [
+        [
+          0,
+          "mov_text",
+          "und"
+        ]
+      ]
+    },
+    {
+      "case": "extract_srt",
+      "passed": true,
+      "cue_bytes_match": true
+    },
+    {
+      "case": "extract_webvtt",
+      "passed": true,
+      "cue_bytes_match": false,
+      "comparison": "semantic cue IDs/start/end/text, matching the authored Rust harness's comparison; raw byte mismatch is supported MM:SS normalization",
+      "expected_cues": [
+        {
+          "id": "opening",
+          "start_ms": 1250,
+          "end_ms": 3750,
+          "text": "Hello, orbit.\nПривет, мир 🌙"
+        },
+        {
+          "id": "reply",
+          "start_ms": 5000,
+          "end_ms": 6125,
+          "text": "The stars reply."
+        }
+      ],
+      "observed_cues": [
+        {
+          "id": "opening",
+          "start_ms": 1250,
+          "end_ms": 3750,
+          "text": "Hello, orbit.\nПривет, мир 🌙"
+        },
+        {
+          "id": "reply",
+          "start_ms": 5000,
+          "end_ms": 6125,
+          "text": "The stars reply."
+        }
+      ]
+    },
+    {
+      "case": "ffmpeg_pin_stability",
+      "passed": true
+    },
+    {
+      "case": "ffprobe_pin_stability",
+      "passed": true
+    }
+  ],
+  "ffmpeg_version_pin": "ffmpeg version 6.1.1-3ubuntu5 Copyright (c) 2000-2023 the FFmpeg developers",
+  "ffprobe_version_pin": "ffprobe version 6.1.1-3ubuntu5 Copyright (c) 2007-2023 the FFmpeg developers",
+  "artifact_sha256": {
+    "synthetic.srt": "fc7b58cdbdeec656fd6a3aabd4da890604c71e00bfcda621a11ce056a987f453",
+    "synthetic.ass": "45a8a2785df91cb1a05cf5d3e717518afba50b5aa0cd00324f554fd5fd1e04c6",
+    "no-subtitles.mkv": "460d5789c79931311fadfac616c4d3caa115f30413d113f081062fcc5c4455e8",
+    "supported.mkv": "45432905e3174957501dcb1eb130cdba8c4f1170cf7a25b37f916d4bfff340fe",
+    "unsupported-mov-text.mp4": "d72d00a0b007ef4a1cb6a62d2dd69f41e0508186f22dfdf0dab2a991031d5083",
+    "unsupported-ass.mkv": "90bdb5f4cf0e95b3c62b711fba1dcc7fa4394f3efab7a2b56a987e686b808f0f",
+    "extracted.srt": "d8a4ce7f846315cf5e36792faa5743bb25a8596758c5843b448e30821f8da08f",
+    "extracted.webvtt": "5a2fef14d616c6f8bd137dc9f1f125c86f3d23396502717a3867154a84c28ae4",
+    "silence.wav": "56d4af65701c26df20bd4021eda95b6e830348ce3a746086079fe89285548dc9",
+    "synthetic.vtt": "f68ef45ff649822d0ce9bfb9a25ded4699731d16082308dfb53e57872f0fdd68"
+  },
+  "overall_independent_smoke_passed": true,
+  "limits": [
+    "Not compiled or executed Rust",
+    "No SDK execution",
+    "No typed Rust error verification",
+    "No schema acceptance proof",
+    "Synthetic Matroska positive fixture only",
+    "Python subprocess capture not ProcessExecutor implementation coverage"
+  ]
+}

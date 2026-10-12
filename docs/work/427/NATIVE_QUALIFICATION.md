@@ -1,9 +1,11 @@
-# Native subtitle qualification — authored, not executed
+# Native subtitle qualification — Rust harness not executed
 
-This is the third implementation checkpoint for Renderflow #427. The harness,
-fixtures, and evidence format are **unrun draft work**. There is no successful
-native qualification record yet. The current sprint still defers compiler,
-test, schema, lint, and native-media execution.
+The Rust harness was authored in checkpoint 3 for Renderflow #427 and remains
+**unrun draft work**. Checkpoint 4 authorized focused local validation and
+successfully exercised the native argument recipes independently, but Cargo
+and Rust were unavailable. There is no successful Rust native qualification
+record yet. See [the validation record](VALIDATION.md) for executed evidence and
+remaining work; lint and GitHub Actions remain deferred.
 
 The opt-in `timed_text_native` integration target prepares the later local
 completion pass. Ordinary test runs leave its native entry point ignored.
@@ -26,10 +28,10 @@ Creating an unsupported-codec fixture is only test setup. It does not enable
 conversion of that codec in Renderflow. MP4 is a refusal case in this kit, not
 positive extraction coverage. Additional WebM/MOV combinations remain deferred.
 
-## Later local invocation
+## Local invocation
 
-Do not run this during the current deferred-check sprint. For the completion
-pass, use the repository's Rust 1.94 baseline and an installed FFmpeg build with
+For the now-authorized local completion pass, use the repository's Rust 1.94
+baseline and an installed FFmpeg build with
 FFprobe. The kit requires WAV/SubRip/WebVTT/ASS input support, Matroska/MP4
 muxing and demuxing, SRT/WebVTT output support, stream-copy support, and the
 `mov_text` encoder for its negative fixture. No
@@ -116,7 +118,7 @@ per-case results together before updating #427's acceptance criteria.
 
 ## Remaining proof
 
-Even a future passing run covers only this small fixture matrix on its recorded
+Even a passing Rust run covers only this small fixture matrix on its recorded
 platform and provider versions. Mid-process cancellation, timeout/capture limits,
 concurrent source changes, other containers/codecs, complete schema agreement,
 and the wider compiler/test/release gates remain separate obligations in the

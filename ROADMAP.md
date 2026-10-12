@@ -243,8 +243,11 @@ and bounded FFprobe/FFmpeg adapters. Its second checkpoint adds opt-in
 parser-backed validation, and native manifest provenance/loss evidence.
 The third checkpoint authors an opt-in native qualification kit with synthetic
 fixtures and per-case evidence for the later completion pass.
-It is **unvalidated draft work**: no executable checks or native-provider
-fixtures have run. Released support and completion are not claimed. Resume from
+Checkpoint 4 passed an independent native-command smoke matrix, but the Rust
+completion pass is blocked by an unavailable toolchain. The Rust adapter/SDK
+and qualification harness remain unvalidated; released support and completion
+are not claimed. Executed scope is recorded in
+[the validation record](docs/work/427/VALIDATION.md). Resume from
 [the #427 handoff](docs/work/427/HANDOFF.md); #428 remains separate.
 
 The exhaustive planner must materialize each eligible target identity at most
