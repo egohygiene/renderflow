@@ -81,6 +81,7 @@ nav:
       - Local Font Assets: user-guide/font-assets.md
       - Lulu Publication Pack: user-guide/lulu-publication-pack.md
       - Whole-file Video: handbrake-adapter.md
+      - Subtitles: user-guide/subtitles.md
       - Super Resolution: user-guide/super-resolution.md
       - Upscayl Models: user-guide/upscayl-models.md
       - Pipelines: user-guide/pipelines.md

@@ -1149,6 +1149,7 @@ pub fn canonical_tool_id_for_hint(hint: &str) -> ToolId {
         "pandoc" => "tool.pandoc".to_string(),
         "tectonic" => "tool.tectonic".to_string(),
         "ffmpeg" => "tool.ffmpeg".to_string(),
+        "ffprobe" => "tool.ffprobe".to_string(),
         "wkhtmltopdf" => "tool.wkhtmltopdf".to_string(),
         "zip" => "tool.zip".to_string(),
         "img2pdf" => "tool.img2pdf".to_string(),
@@ -1267,7 +1268,29 @@ mod tests {
         assert!(registry.get("tool.pandoc").is_some());
         assert!(registry.get("tool.tectonic").is_some());
         assert!(registry.get("tool.ffmpeg").is_some());
+        assert!(registry.get("tool.ffprobe").is_some());
         assert!(registry.get("tool.ghostscript").is_some());
+    }
+
+    #[test]
+    fn subtitle_providers_are_optional_and_experimental() {
+        let registry = ToolRegistry::builtins();
+        let catalog = crate::adapters::catalog::AdapterCatalog::builtins(&registry).unwrap();
+        assert_eq!(canonical_tool_id_for_hint("ffprobe").as_str(), "tool.ffprobe");
+        for (capability, provider_id, tool_id) in [
+            ("subtitle.streams.inspect", "adapter.subtitles.ffprobe", "tool.ffprobe"),
+            ("subtitle.extract.plain", "adapter.subtitles.ffmpeg", "tool.ffmpeg"),
+        ] {
+            let providers = catalog.providers_for(capability);
+            assert_eq!(providers.len(), 1);
+            assert_eq!(providers[0].id, provider_id);
+            assert_eq!(providers[0].runtime_tool.as_str(), tool_id);
+            assert_eq!(
+                providers[0].maturity,
+                crate::adapters::catalog::AdapterMaturity::Experimental
+            );
+            assert_eq!(registry.get(tool_id).unwrap().support_tier, ToolSupportTier::Optional);
+        }
     }
 
     #[test]

@@ -108,6 +108,7 @@ tools:
       - audio.convert
       - image.convert
       - video.convert
+      - subtitle.extract.plain
     input_media_types:
       - audio/*
       - image/*
@@ -116,12 +117,39 @@ tools:
       - audio/*
       - image/*
       - video/*
+      - application/x-subrip
+      - text/vtt
     determinism: configuration_dependent
     locality: local
     fidelity: path_dependent
     support_tier: optional
     license_notes: "FFmpeg licensing is build-dependent; consult the exact distributed build."
-    distribution_notes: "Used by Renderflow audio, image, and future video adapters."
+    distribution_notes: "Used by Renderflow audio, image, and video adapters. Plain subtitle extraction is separately experimental and unqualified; no subtitle graph edge is advertised."
+
+  - id: tool.ffprobe
+    name: FFprobe
+    discovery:
+      kind: executable
+      candidates: [ffprobe]
+      version_args: [-version]
+    operating_systems: [linux, macos, windows]
+    capabilities:
+      - subtitle.streams.inspect
+    input_media_types:
+      - video/x-matroska
+      - audio/x-matroska
+      - video/webm
+      - audio/webm
+      - video/mp4
+      - video/quicktime
+    output_media_types:
+      - application/json
+    determinism: configuration_dependent
+    locality: local
+    fidelity: path_dependent
+    support_tier: optional
+    license_notes: "FFprobe is part of FFmpeg; licensing and decoder/demuxer support depend on the exact distributed build."
+    distribution_notes: "Optional bounded subtitle-stream inventory provider. Adapter authoring is experimental and unqualified; finding the executable does not prove subtitle extraction support."
 
   - id: tool.handbrake
     name: HandBrakeCLI

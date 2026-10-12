@@ -167,6 +167,8 @@ pub enum ExternalTool {
     Tectonic,
     /// FFmpeg multimedia framework (audio, video, image conversion).
     Ffmpeg,
+    /// FFprobe stream inventory for bounded subtitle discovery.
+    Ffprobe,
     /// Kepubify EPUB-to-KEPUB converter.
     Kepubify,
 }
@@ -178,6 +180,7 @@ impl ExternalTool {
             Self::Pandoc => "pandoc",
             Self::Tectonic => "tectonic",
             Self::Ffmpeg => "ffmpeg",
+            Self::Ffprobe => "ffprobe",
             Self::Kepubify => "kepubify",
         }
     }
@@ -193,6 +196,7 @@ impl ExternalTool {
             Self::Pandoc => "tool.pandoc",
             Self::Tectonic => "tool.tectonic",
             Self::Ffmpeg => "tool.ffmpeg",
+            Self::Ffprobe => "tool.ffprobe",
             Self::Kepubify => "tool.kepubify",
         }
     }
@@ -1327,6 +1331,60 @@ impl FormatCapabilityRegistry {
                 external_requirements: vec![],
             },
         );
+
+        // These descriptors register names and extension-based recognition.
+        // They do not claim parsing, conversion, generation, or validation.
+        // ASS/SSA share headers; TTML is XML; transcript JSON requires its
+        // schema to be inspected separately. No ambiguous magic is declared.
+        for (format, id, name, extensions, media_types, families) in [
+            (
+                Format::Ass,
+                "ass",
+                "Advanced SubStation Alpha",
+                &["ass"][..],
+                &["text/x-ass"][..],
+                &[Subtitle][..],
+            ),
+            (
+                Format::Ssa,
+                "ssa",
+                "SubStation Alpha",
+                &["ssa"][..],
+                &["text/x-ssa"][..],
+                &[Subtitle][..],
+            ),
+            (
+                Format::Ttml,
+                "ttml",
+                "Timed Text Markup Language",
+                &["ttml"][..],
+                &["application/ttml+xml"][..],
+                &[Subtitle][..],
+            ),
+            (
+                Format::TimedTranscriptJson,
+                "timed_transcript_json",
+                "Renderflow timed transcript JSON",
+                &["timed-transcript.json"][..],
+                &["application/vnd.renderflow.timed-transcript+json"][..],
+                &[Subtitle, Data][..],
+            ),
+        ] {
+            self.register(
+                format,
+                FormatDescriptor {
+                    id,
+                    name,
+                    extensions,
+                    media_types,
+                    families,
+                    capabilities: vec![Detect],
+                    magic_signatures: vec![],
+                    loss_profile: PathDependent,
+                    external_requirements: vec![],
+                },
+            );
+        }
     }
 }
 
@@ -1388,6 +1446,8 @@ mod tests {
         assert_eq!(ExternalTool::Pandoc.executable_name(), "pandoc");
         assert_eq!(ExternalTool::Tectonic.executable_name(), "tectonic");
         assert_eq!(ExternalTool::Ffmpeg.executable_name(), "ffmpeg");
+        assert_eq!(ExternalTool::Ffprobe.executable_name(), "ffprobe");
+        assert_eq!(ExternalTool::Ffprobe.stable_id(), "tool.ffprobe");
     }
 
     // ── MagicSignature ────────────────────────────────────────────────────────
@@ -1610,6 +1670,40 @@ mod tests {
             .get(Format::WebVtt)
             .expect("WebVTT must be registered");
         assert!(desc.matches_magic(b"WEBVTT\n\nfake-cue"));
+    }
+
+    #[test]
+    fn subtitle_registration_does_not_claim_unqualified_conversion() {
+        let registry = FormatCapabilityRegistry::global();
+        for format in [
+            Format::Srt,
+            Format::WebVtt,
+            Format::Ass,
+            Format::Ssa,
+            Format::Ttml,
+            Format::TimedTranscriptJson,
+        ] {
+            let descriptor = registry.get(format).unwrap();
+            assert!(descriptor.is_in_family(FormatFamily::Subtitle));
+            for capability in [
+                ArtifactCapability::Convert,
+                ArtifactCapability::Extract,
+                ArtifactCapability::Generate,
+                ArtifactCapability::Validate,
+                ArtifactCapability::RoundTrip,
+            ] {
+                assert!(!descriptor.has_capability(capability));
+            }
+        }
+        for format in [Format::Ass, Format::Ssa, Format::Ttml, Format::TimedTranscriptJson] {
+            let descriptor = registry.get(format).unwrap();
+            assert!(!descriptor.has_capability(ArtifactCapability::Inspect));
+            assert!(descriptor.magic_signatures.is_empty());
+            assert_eq!(
+                descriptor.media_types[0],
+                crate::artifact::MediaType::for_format(format).as_str()
+            );
+        }
     }
 
     #[test]

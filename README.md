@@ -28,6 +28,11 @@
 
 The official documentation site is published at <https://egohygiene.github.io/renderflow/> and includes versioned guides, architecture references, generated format support tables, examples, troubleshooting, and FAQ content.
 
+The [subtitle workflow](docs/user-guide/subtitles.md) is an **unvalidated draft**
+under [#427](https://github.com/egohygiene/renderflow/issues/427): standalone
+SRT/WebVTT conversion and bounded local subtitle extraction. See the
+[checkpoint handoff](docs/work/427/HANDOFF.md) before relying on it.
+
 ---
 
 ## What is Renderflow?

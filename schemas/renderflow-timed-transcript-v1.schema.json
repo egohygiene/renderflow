@@ -1,0 +1,137 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-timed-transcript-v1.schema.json",
+  "title": "Renderflow timed transcript v1",
+  "description": "Bounded UTF-8 plain-text timed cues with original-source identity. Overlaps are preserved or refused explicitly. This contract does not represent speech-recognition confidence or subtitle styling.",
+  "$comment": "Application validation additionally enforces a 16 MiB encoded input/output limit, at most 65536 UTF-8 bytes per cue and 16 MiB total cue text, unique cue IDs, nondecreasing start times, start_ms < end_ms, and the selected overlap policy. These byte and cross-field constraints are not expressible in ordinary JSON Schema. JSON parsing rejects duplicate object keys and positional arrays for all object records.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "source", "overlap_policy", "cues", "losses"],
+  "properties": {
+    "schema_version": { "const": "renderflow.timed-transcript/v1" },
+    "source": { "$ref": "#/$defs/source" },
+    "overlap_policy": { "enum": ["preserve", "reject"] },
+    "cues": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 100000,
+      "items": { "$ref": "#/$defs/cue" }
+    },
+    "language": { "anyOf": [{ "$ref": "#/$defs/language" }, { "type": "null" }] },
+    "losses": {
+      "type": "array",
+      "maxItems": 7,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/loss" }
+    }
+  },
+  "$defs": {
+    "label": {
+      "type": "string",
+      "minLength": 1,
+      "allOf": [
+        { "pattern": "\\S" },
+        { "not": { "pattern": "[\\u0000-\\u001f\\u007f-\\u009f]" } }
+      ]
+    },
+    "language": {
+      "allOf": [{ "$ref": "#/$defs/label" }, { "maxLength": 128 }]
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sha256", "format"],
+      "properties": {
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "format": {
+          "allOf": [{ "$ref": "#/$defs/label" }, { "maxLength": 64 }]
+        },
+        "stream": { "anyOf": [{ "$ref": "#/$defs/stream" }, { "type": "null" }] },
+        "extraction": { "anyOf": [{ "$ref": "#/$defs/extraction" }, { "type": "null" }] }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": ["extraction"],
+            "properties": { "extraction": { "type": "object" } }
+          },
+          "then": {
+            "required": ["stream"],
+            "properties": { "stream": { "$ref": "#/$defs/stream" } }
+          }
+        }
+      ]
+    },
+    "stream": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["index", "codec"],
+      "properties": {
+        "index": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+        "codec": {
+          "allOf": [{ "$ref": "#/$defs/label" }, { "maxLength": 128 }]
+        },
+        "language": { "anyOf": [{ "$ref": "#/$defs/language" }, { "type": "null" }] }
+      }
+    },
+    "extraction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "ffprobe_version", "ffmpeg_version", "subtitle_sha256"],
+      "properties": {
+        "provider": {
+          "allOf": [{ "$ref": "#/$defs/label" }, { "maxLength": 256 }]
+        },
+        "ffprobe_version": {
+          "allOf": [{ "$ref": "#/$defs/label" }, { "maxLength": 4096 }]
+        },
+        "ffmpeg_version": {
+          "allOf": [{ "$ref": "#/$defs/label" }, { "maxLength": 4096 }]
+        },
+        "subtitle_sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "cue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "start_ms", "end_ms", "text"],
+      "properties": {
+        "id": {
+          "allOf": [
+            { "$ref": "#/$defs/label" },
+            { "maxLength": 128 },
+            { "not": { "pattern": "-->" } },
+            { "not": { "enum": ["WEBVTT", "STYLE", "REGION", "NOTE"] } },
+            { "not": { "pattern": "^NOTE[ \\t]" } }
+          ]
+        },
+        "start_ms": { "type": "integer", "minimum": 0, "maximum": 359999998 },
+        "end_ms": { "type": "integer", "minimum": 1, "maximum": 359999999 },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 65536,
+          "allOf": [
+            { "not": { "pattern": "[<>&\\u0000-\\u0008\\u000b-\\u001f\\u007f-\\u009f]" } },
+            { "not": { "pattern": "\\{\\\\" } },
+            { "not": { "pattern": "(?:^|\\n)[^\\S\\n]*(?:\\n|$)" } },
+            { "not": { "pattern": "\\n$" } }
+          ]
+        },
+        "speaker": {
+          "anyOf": [
+            { "allOf": [{ "$ref": "#/$defs/label" }, { "maxLength": 256 }] },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
+    "loss": {
+      "enum": ["timing", "cue_ids", "speakers", "language", "source_provenance", "overlap_policy", "prior_loss_evidence"]
+    }
+  }
+}

@@ -42,6 +42,7 @@ mod sdk;
 pub mod spec;
 pub mod strategies;
 pub mod super_resolution;
+pub mod timed_text;
 pub mod toolchain;
 pub mod transforms;
 pub mod validation;
