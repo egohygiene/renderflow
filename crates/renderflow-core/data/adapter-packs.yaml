@@ -110,6 +110,38 @@ providers:
     upstream: https://ffmpeg.org/
     rationale: Existing local image/audio adapter; video and subtitle capabilities remain graph-advertised only when an executable edge exists.
 
+  - id: adapter.speech.whisper_cpp
+    runtime_tool: tool.whisper_cpp
+    name: Local whisper.cpp speech transcription
+    families: [audio_video, subtitles]
+    maturity: experimental
+    selection_priority: 10
+    capabilities: [speech.transcribe]
+    input_media_types: [audio/wav]
+    output_media_types: [application/vnd.renderflow.timed-transcript+json]
+    determinism: configuration_dependent
+    locality: local
+    fidelity: path_dependent
+    execution:
+      service: renderflow.process/v1
+      direct_argv: true
+      bounded_output: true
+      timeout: true
+      cancellation: true
+      network: false
+      side_effects: [reads_declared_source, reads_declared_model, writes_private_temporary_provider_output]
+    configuration_schema:
+      input: mono_16000hz_pcm16_riff_wav_at_most_10_minutes
+      provider: explicit_local_executable_path_and_expected_sha256
+      model: explicit_local_model_path_id_and_expected_sha256
+      language: explicit_code_or_auto
+      threads: integer_1_to_64
+      timeout_seconds: integer_1_to_3600
+    validation: []
+    provenance: [identity.source_sha256, identity.provider_sha256, identity.provider_version, identity.model_id, identity.model_sha256, configuration_sha256, provider_output_sha256, requested_language, detected_language]
+    upstream: https://github.com/ggml-org/whisper.cpp
+    rationale: Authored standalone local WAV transcription into one canonical transcript plus a separate speech-evidence envelope. No provider/model download, translation, diarization, graph edge, or cache reuse. Runtime capture/time and accepted output sizes are bounded; temporary disk use and RAM are not OS-capped. Network deny is process-policy intent, not an OS sandbox. GPU-disabled flags do not prove a CPU-only build. A pinned spoken-audio fixture and the Rust completion pass remain deferred.
+
   - id: adapter.subtitles.ffprobe
     runtime_tool: tool.ffprobe
     name: FFprobe bounded subtitle stream inventory

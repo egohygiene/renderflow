@@ -248,7 +248,17 @@ completion pass is blocked by an unavailable toolchain. The Rust adapter/SDK
 and qualification harness remain unvalidated; released support and completion
 are not claimed. Executed scope is recorded in
 [the validation record](docs/work/427/VALIDATION.md). Resume from
-[the #427 handoff](docs/work/427/HANDOFF.md); #428 remains separate.
+[the #427 handoff](docs/work/427/HANDOFF.md). The user has deferred remaining
+tests and authorized dependent implementation work without claiming acceptance.
+
+The first #428 checkpoint authors a standalone local WAV speech-transcription
+route with explicit executable/model hashes, segment normalization, and a
+separate speech-evidence envelope around the unchanged timed-transcript model.
+One recognition result produces JSON/SRT/WebVTT/text plus retained provider
+output and a bundle receipt. It has not been compiled, tested, or run with a
+model. Audio/video extraction, graph/SDK integration, active cache reuse,
+progress events, and native qualification remain. Resume from
+[the #428 handoff](docs/work/428/HANDOFF.md).
 
 The exhaustive planner must materialize each eligible target identity at most
 once, suppress source-format regeneration unless explicitly requested, avoid

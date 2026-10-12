@@ -173,6 +173,23 @@ tools:
     license_notes: "FFprobe is part of FFmpeg; licensing and decoder/demuxer support depend on the exact distributed build."
     distribution_notes: "Optional bounded subtitle-stream inventory provider. Adapter authoring is experimental and unqualified; finding the executable does not prove subtitle extraction support."
 
+  - id: tool.whisper_cpp
+    name: whisper.cpp local speech recognition
+    discovery:
+      kind: executable
+      candidates: [whisper-cli]
+      version_args: [--version]
+    operating_systems: [linux, macos, windows]
+    capabilities: [speech.transcribe]
+    input_media_types: [audio/wav]
+    output_media_types: [application/vnd.renderflow.timed-transcript+json]
+    determinism: configuration_dependent
+    locality: local
+    fidelity: path_dependent
+    support_tier: optional
+    license_notes: "whisper.cpp source is MIT; model files and optional build dependencies require separate license review."
+    distribution_notes: "Experimental, unqualified standalone speech adapter. Transcription requires explicit local executable/model paths and expected SHA-256 digests; discovery does not select or download them. Mono 16 kHz PCM16 WAV only; no graph edge, cache reuse, or CPU-only guarantee is advertised."
+
   - id: tool.handbrake
     name: HandBrakeCLI
     discovery:

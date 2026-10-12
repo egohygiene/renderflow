@@ -10,6 +10,7 @@ pub mod plugin;
 pub mod publication;
 pub mod spec;
 pub mod subtitles;
+pub mod speech;
 pub mod system;
 pub mod tools;
 pub mod video;

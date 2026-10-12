@@ -1,0 +1,151 @@
+//! One local recognition run produces one canonical transcript and its exports.
+
+use std::fs;
+use std::io::Write;
+use std::path::{Path, PathBuf};
+
+use anyhow::{bail, Context, Result};
+use serde::Serialize;
+use sha2::{Digest, Sha256};
+
+use crate::cli::SpeechTranscribeArguments;
+use crate::process::ProcessCancellationToken;
+use crate::speech::provider::{self, SpeechRequest};
+use crate::speech::{SpeechOptions, SpeechTranscription};
+use crate::timed_text::{self, TimedTextFormat, MAX_INPUT_BYTES};
+
+pub fn run_transcribe(arguments: SpeechTranscribeArguments) -> Result<()> {
+    let output = PathBuf::from(&arguments.output_dir);
+    require_new_directory(&output)?;
+    let cancellation = ProcessCancellationToken::new();
+    let signal = cancellation.clone();
+    ctrlc::set_handler(move || signal.cancel())?;
+    let request = SpeechRequest {
+        input: PathBuf::from(arguments.input),
+        provider_path: PathBuf::from(arguments.provider),
+        provider_sha256: arguments.provider_sha256,
+        model_path: PathBuf::from(arguments.model),
+        model_id: arguments.model_id,
+        model_sha256: arguments.model_sha256,
+        options: SpeechOptions {
+            language: arguments.language,
+            threads: arguments.threads,
+            timeout_seconds: arguments.timeout_seconds,
+        },
+    };
+    eprintln!("Checking local inputs and transcribing audio; Ctrl-C requests cancellation.");
+    let run = provider::transcribe(&request, cancellation.clone())?;
+    let transcription = run.transcription;
+    let mut files = bundle_files(&transcription, run.provider_output)?;
+    let artifacts = files.iter().map(|(name, bytes)| serde_json::json!({
+        "path": name,
+        "sha256": format!("{:x}", Sha256::digest(bytes)),
+        "size_bytes": bytes.len(),
+    })).collect::<Vec<_>>();
+    let receipt = serde_json::json!({
+        "schema_version": "renderflow.speech-bundle/v1",
+        "speech_evidence": "transcription.json",
+        "human_reviewed": false,
+        "artifacts": artifacts,
+        "export_losses": {
+            "transcript.srt": timed_text::export_losses(&transcription.transcript, TimedTextFormat::Srt),
+            "transcript.vtt": timed_text::export_losses(&transcription.transcript, TimedTextFormat::WebVtt),
+            "transcript.txt": timed_text::export_losses(&transcription.transcript, TimedTextFormat::Text),
+        },
+    });
+    let receipt_bytes = bounded_json(&receipt)?;
+    files.push(("bundle.json".to_string(), receipt_bytes.clone()));
+    publish_bundle(&output, &files, &cancellation)?;
+    eprintln!("Published unreviewed speech transcript bundle: {}", output.display());
+    std::io::stdout().write_all(&receipt_bytes)?;
+    Ok(())
+}
+
+fn bundle_files(transcription: &SpeechTranscription, provider_output: Vec<u8>) -> Result<Vec<(String, Vec<u8>)>> {
+    if format!("{:x}", Sha256::digest(&provider_output)) != transcription.evidence.provider_output_sha256 {
+        bail!("speech provider output does not match the recorded digest");
+    }
+    let mut files = vec![
+        ("provider-output.json".to_string(), provider_output),
+        ("transcription.json".to_string(), bounded_json(transcription)?),
+    ];
+    for (name, format) in [
+        ("transcript.timed-transcript.json", TimedTextFormat::Json),
+        ("transcript.srt", TimedTextFormat::Srt),
+        ("transcript.vtt", TimedTextFormat::WebVtt),
+        ("transcript.txt", TimedTextFormat::Text),
+    ] {
+        files.push((name.to_string(), timed_text::render(&transcription.transcript, format)?));
+    }
+    Ok(files)
+}
+
+fn require_new_directory(output: &Path) -> Result<()> {
+    match fs::symlink_metadata(output) {
+        Ok(_) => bail!("speech output directory must not already exist"),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => return Err(error.into()),
+    }
+    let parent = output.parent().filter(|path| !path.as_os_str().is_empty()).unwrap_or(Path::new("."));
+    if !parent.is_dir() { bail!("speech output parent must already be a directory"); }
+    Ok(())
+}
+
+/// Reserve a new directory with create_dir; never replace an existing path.
+/// Write the completion receipt last. I/O failure deliberately retains the
+/// partial directory for inspection; it must not be mistaken for completion.
+fn publish_bundle(output: &Path, files: &[(String, Vec<u8>)], cancellation: &ProcessCancellationToken) -> Result<()> {
+    if cancellation.is_cancelled() { bail!("speech publication cancelled"); }
+    fs::create_dir(output).context("cannot reserve a new speech output directory")?;
+    for (name, bytes) in files {
+        if cancellation.is_cancelled() { bail!("speech publication cancelled; partial directory retained"); }
+        let mut temporary = tempfile::NamedTempFile::new_in(output)?;
+        temporary.write_all(bytes)?;
+        temporary.as_file().sync_all()?;
+        temporary.persist_noclobber(output.join(name)).map_err(|error| error.error)?;
+    }
+    Ok(())
+}
+
+fn bounded_json(value: &impl Serialize) -> Result<Vec<u8>> {
+    struct BoundedBytes(Vec<u8>);
+    impl Write for BoundedBytes {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            if self.0.len().saturating_add(bytes.len()) >= MAX_INPUT_BYTES {
+                return Err(std::io::Error::other("speech report exceeds its 16 MiB limit"));
+            }
+            self.0.extend_from_slice(bytes);
+            Ok(bytes.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> { Ok(()) }
+    }
+    let mut output = BoundedBytes(Vec::new());
+    serde_json::to_writer_pretty(&mut output, value)?;
+    output.0.push(b'\n');
+    Ok(output.0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn publication_refuses_existing_directories_and_preserves_their_contents() {
+        let root = tempfile::tempdir().unwrap();
+        fs::write(root.path().join("original.txt"), b"keep").unwrap();
+        let files = vec![("bundle.json".to_string(), b"{}\n".to_vec())];
+        assert!(publish_bundle(root.path(), &files, &ProcessCancellationToken::new()).is_err());
+        assert_eq!(fs::read(root.path().join("original.txt")).unwrap(), b"keep");
+        assert!(!root.path().join("bundle.json").exists());
+    }
+
+    #[test]
+    fn pre_cancelled_publication_creates_no_output_directory() {
+        let root = tempfile::tempdir().unwrap();
+        let output = root.path().join("new-bundle");
+        let cancellation = ProcessCancellationToken::new();
+        cancellation.cancel();
+        assert!(publish_bundle(&output, &[], &cancellation).is_err());
+        assert!(!output.exists());
+    }
+}

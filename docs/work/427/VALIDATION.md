@@ -121,5 +121,7 @@ output directory, validate its actual JSON with the script above, and inspect
 the CLI's conversion/refusal behavior. Fix concrete failures before updating
 acceptance status. General lint/full-suite/release work remains deferred.
 
-#427 and draft PR #438 remain open. The shared transcript/SDK contract has not
-yet passed the focused integration gate needed before building #428 on it.
+#427 and draft PR #438 remain open. This checkpoint did not prove the shared
+transcript/SDK contract. The user's subsequent decision, recorded in the
+[handoff](HANDOFF.md), permits #428 draft implementation while those tests stay
+deferred; it does not convert this partial evidence into a completed gate.

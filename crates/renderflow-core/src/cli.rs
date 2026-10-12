@@ -327,6 +327,13 @@ pub enum Commands {
         subcommand: SubtitleCommands,
     },
 
+    /// Transcribe local audio with an explicitly pinned offline speech provider.
+    #[command(subcommand_required = true, arg_required_else_help = true)]
+    Speech {
+        #[command(subcommand)]
+        subcommand: SpeechCommands,
+    },
+
     /// List stable provider capability IDs and their implementations.
     Capabilities {
         /// Output format: text (default), json, or yaml.
@@ -359,6 +366,42 @@ pub enum Commands {
         #[arg(long)]
         strict: bool,
     },
+}
+
+#[derive(Subcommand)]
+pub enum SpeechCommands {
+    /// Produce an unreviewed transcript bundle from mono 16 kHz PCM16 WAV.
+    Transcribe(SpeechTranscribeArguments),
+}
+
+#[derive(clap::Args)]
+pub struct SpeechTranscribeArguments {
+    #[arg(long, value_name = "WAV")]
+    pub input: String,
+    /// Local whisper-cli executable; never downloaded or selected implicitly.
+    #[arg(long, value_name = "FILE")]
+    pub provider: String,
+    /// Expected lowercase SHA-256 of the exact executable.
+    #[arg(long, value_name = "SHA256")]
+    pub provider_sha256: String,
+    #[arg(long, value_name = "FILE")]
+    pub model: String,
+    /// Operator-assigned identity for the local model artifact.
+    #[arg(long, value_name = "ID")]
+    pub model_id: String,
+    /// Expected lowercase SHA-256 of the exact model file.
+    #[arg(long, value_name = "SHA256")]
+    pub model_sha256: String,
+    /// Language code, or auto to request language detection.
+    #[arg(long, default_value = "en")]
+    pub language: String,
+    #[arg(long, default_value_t = 4)]
+    pub threads: u32,
+    #[arg(long, default_value_t = 900)]
+    pub timeout_seconds: u64,
+    /// New bundle directory; its parent must exist. Existing paths are refused.
+    #[arg(long, value_name = "DIRECTORY")]
+    pub output_dir: String,
 }
 
 #[derive(Subcommand)]
