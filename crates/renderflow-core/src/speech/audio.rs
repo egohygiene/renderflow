@@ -12,6 +12,7 @@ use std::time::Duration;
 
 use serde_json::{Map, Value};
 
+use crate::graph::Format;
 use crate::process::{
     ProcessCancellationToken, ProcessExecutor, ProcessExpectedOutput, ProcessOutputMode,
 };
@@ -160,13 +161,33 @@ pub fn prepare(
     cancellation: ProcessCancellationToken,
 ) -> Result<PreparedAudio, SpeechError> {
     ensure_not_cancelled(&cancellation)?;
+    prepare_with_container(request, Container::from_path(&request.inspection.input)?, cancellation)
+}
+
+/// Prepare an immutable artifact object using its declared format. Object paths
+/// have no media extension; the selected demuxer is passed directly to both
+/// native tools without reopening the mutable original or copying for a suffix.
+pub fn prepare_stored(
+    request: &AudioPrepareRequest,
+    input_format: Format,
+    cancellation: ProcessCancellationToken,
+) -> Result<PreparedAudio, SpeechError> {
+    ensure_not_cancelled(&cancellation)?;
+    prepare_with_container(request, Container::from_format(input_format)?, cancellation)
+}
+
+fn prepare_with_container(
+    request: &AudioPrepareRequest,
+    container: Container,
+    cancellation: ProcessCancellationToken,
+) -> Result<PreparedAudio, SpeechError> {
+    ensure_not_cancelled(&cancellation)?;
     expected_digest(&request.expected_source_sha256, "input_sha256")?;
     expected_digest(&request.inspection.ffprobe.sha256, "ffprobe_sha256")?;
     expected_digest(&request.ffmpeg.sha256, "ffmpeg_sha256")?;
     if !(1..=3600).contains(&request.timeout_seconds) {
         return Err(SpeechError::InvalidRequest("audio timeout must be between 1 and 3600 seconds".to_owned()));
     }
-    let container = Container::from_path(&request.inspection.input)?;
     let source = FileSnapshot::read(
         &request.inspection.input, "media source", MAX_MEDIA_BYTES, &cancellation,
     )?;
@@ -314,6 +335,19 @@ impl Container {
             _ => Err(SpeechError::InvalidRequest(
                 "audio preparation requires a supported local MP4/MOV/MKV/WebM/AVI/WAV/FLAC/MP3/Ogg/AAC filename".to_owned(),
             )),
+        }
+    }
+
+    fn from_format(format: Format) -> Result<Self, SpeechError> {
+        match format {
+            Format::Mkv | Format::WebM => Ok(Self::Matroska),
+            Format::Mp4 | Format::Mov | Format::M4aAlac | Format::M4aAac => Ok(Self::Mov),
+            Format::Avi => Ok(Self::Avi), Format::Wav => Ok(Self::Wav),
+            Format::Flac => Ok(Self::Flac), Format::Mp3 => Ok(Self::Mp3),
+            Format::Ogg | Format::Opus => Ok(Self::Ogg), Format::Aac => Ok(Self::Aac),
+            _ => Err(SpeechError::InvalidRequest(format!(
+                "audio preparation does not support declared source format '{format}'",
+            ))),
         }
     }
 
@@ -499,6 +533,21 @@ mod tests {
             assert!(!arguments.iter().any(|value| value == forbidden));
         }
         assert!(arguments.iter().any(|value| value == "-xerror"));
+    }
+
+    #[test]
+    fn stored_media_forces_declared_demuxer_without_filename_extension() {
+        let path = std::env::temp_dir().join("objects").join("a".repeat(64));
+        for (format, demuxer) in [(Format::Mkv, "matroska"), (Format::WebM, "matroska"),
+            (Format::Mp4, "mov"), (Format::M4aAlac, "mov"), (Format::M4aAac, "mov"),
+            (Format::Wav, "wav"), (Format::Opus, "ogg"), (Format::Flac, "flac")]
+        {
+            let arguments = probe_arguments(&path, Container::from_format(format).unwrap()).unwrap();
+            assert!(arguments.windows(2).any(|pair| pair[0] == "-f" && pair[1] == demuxer));
+            assert_eq!(arguments.last().unwrap(), path.to_str().unwrap());
+        }
+        assert!(Container::from_path(&path).is_err());
+        assert!(Container::from_format(Format::Json).is_err());
     }
 
     #[test]

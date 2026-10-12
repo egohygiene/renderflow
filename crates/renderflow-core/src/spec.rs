@@ -10,6 +10,7 @@ use serde_json::{json, Value};
 use crate::config::Config;
 use crate::optimization::OptimizationMode;
 use crate::publication::{PageGeometry, PublicationContract};
+use crate::speech::policy::SpeechPolicy;
 
 pub const SPEC_V2_ID: &str = "renderflow/v2";
 pub const SPEC_V2_SCHEMA_PATH: &str = "schemas/renderflow-v2.schema.json";
@@ -514,6 +515,9 @@ pub struct ExecutionPolicy {
     /// Opt-in, bounded subtitle conversion and explicit embedded-stream extraction.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub subtitles: Option<SubtitlePolicy>,
+    /// Explicit pinned local speech recognition; requires an AI execution budget.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub speech: Option<SpeechPolicy>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
@@ -661,6 +665,7 @@ impl Default for ExecutionPolicy {
             print_pdf_interior: None,
             fixed_layout_epub: None,
             subtitles: None,
+            speech: None,
         }
     }
 }
@@ -798,6 +803,26 @@ impl SpecV2 {
                     "$.execution.fixed_layout_epub",
                     "fixed_epub.policy.invalid",
                     error.to_string(),
+                ));
+            }
+        }
+
+        if let Some(speech) = &self.execution.speech {
+            if let Err(error) = speech.validate() {
+                diagnostics.push(SpecDiagnostic::new(
+                    "$.execution.speech", "speech.policy.invalid", error.to_string(),
+                ));
+            }
+            if self.execution.ai == AiPolicy::Deny {
+                diagnostics.push(SpecDiagnostic::new(
+                    "$.execution.ai", "speech.ai.denied",
+                    "speech recognition requires execution.ai: local_only or allow",
+                ));
+            }
+            if self.execution.subtitles.is_some() {
+                diagnostics.push(SpecDiagnostic::new(
+                    "$.execution.speech", "speech.policy.ambiguous",
+                    "speech recognition and embedded subtitle extraction/conversion must use separate specs",
                 ));
             }
         }
@@ -1935,8 +1960,142 @@ pub fn json_schema() -> Value {
                     ,"print_pdf_interior": {"anyOf": [{"$ref": "#/$defs/printPdfInterior"}, {"type": "null"}]}
                     ,"fixed_layout_epub": {"anyOf": [{"$ref": "#/$defs/fixedLayoutEpub"}, {"type": "null"}]}
                     ,"subtitles": {"anyOf": [{"$ref": "#/$defs/subtitles"}, {"type": "null"}]}
+                    ,"speech": {"anyOf": [{"$ref": "#/$defs/speechPolicy"}, {"type": "null"}]}
                 }
             },
+                "speechPolicy": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                        "source_sha256",
+                        "provider",
+                        "model"
+                    ],
+                    "properties": {
+                        "source_sha256": {
+                            "type": "string",
+                            "pattern": "^[0-9a-f]{64}$"
+                        },
+                        "provider": {
+                            "$ref": "#/$defs/speechTool"
+                        },
+                        "model": {
+                            "$ref": "#/$defs/speechModel"
+                        },
+                        "options": {
+                            "$ref": "#/$defs/speechOptions"
+                        },
+                        "audio": {
+                            "anyOf": [
+                                {
+                                    "$ref": "#/$defs/speechAudio"
+                                },
+                                {
+                                    "type": "null"
+                                }
+                            ]
+                        }
+                    }
+                },
+                "speechTool": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                        "path",
+                        "sha256"
+                    ],
+                    "properties": {
+                        "path": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 4096,
+                            "description": "Absolute local file path without parent traversal or control characters; interpreted on the execution host."
+                        },
+                        "sha256": {
+                            "type": "string",
+                            "pattern": "^[0-9a-f]{64}$"
+                        }
+                    }
+                },
+                "speechModel": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                        "path",
+                        "sha256",
+                        "id"
+                    ],
+                    "properties": {
+                        "path": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 4096,
+                            "description": "Absolute local file path without parent traversal or control characters; interpreted on the execution host."
+                        },
+                        "sha256": {
+                            "type": "string",
+                            "pattern": "^[0-9a-f]{64}$"
+                        },
+                        "id": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 256
+                        }
+                    }
+                },
+                "speechAudio": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                        "stream_index",
+                        "ffprobe",
+                        "ffmpeg"
+                    ],
+                    "properties": {
+                        "stream_index": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 4294967295
+                        },
+                        "ffprobe": {
+                            "$ref": "#/$defs/speechTool"
+                        },
+                        "ffmpeg": {
+                            "$ref": "#/$defs/speechTool"
+                        },
+                        "timeout_seconds": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 3600,
+                            "default": 300
+                        }
+                    }
+                },
+                "speechOptions": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                        "language",
+                        "threads",
+                        "timeout_seconds"
+                    ],
+                    "properties": {
+                        "language": {
+                            "type": "string",
+                            "pattern": "^(auto|[a-z]{2,3})$"
+                        },
+                        "threads": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 64
+                        },
+                        "timeout_seconds": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 3600
+                        }
+                    }
+                },
             "subtitles": {
                 "type": "object",
                 "additionalProperties": false,

@@ -260,8 +260,12 @@ model. Checkpoint 2 adds pinned local audio inspection, explicit stream/source
 selection, bounded PCM preparation, and retained WAV/probe lineage in the
 standalone bundle. Prepared transcript clocks start at audio sample zero;
 original-video synchronization is not claimed. Both checkpoints remain unrun.
-Graph/SDK integration, active cache reuse, progress events, original-media
-alignment, and native qualification remain. Resume from
+Checkpoint 3 authors explicit graph/SDK speech policy, one recognition edge
+feeding subtitle derivatives, retained evidence artifacts, phase events, and
+typed cancellation. Speech and descendants deliberately bypass cache/checkpoint
+reuse; provider availability stays unobserved until execution. These changes
+also remain uncompiled/unrun. Active reuse, original-media alignment, and
+native qualification remain. Resume from
 [the #428 handoff](docs/work/428/HANDOFF.md).
 
 The exhaustive planner must materialize each eligible target identity at most

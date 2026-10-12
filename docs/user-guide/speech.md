@@ -166,4 +166,124 @@ reported as calibrated confidence. Lyrics and singing need human review.
 The envelope records configuration and prospective reuse identities containing
 source, provider, model, options, and adapter policy. No graph edge or active
 speech cache is registered in this checkpoint. See [the handoff](../work/428/HANDOFF.md)
-for remaining SDK, caching, original-media synchronization, and qualification work.
+for remaining caching, original-media synchronization, and qualification work.
+
+## Use the planner and Rust SDK
+
+The third draft checkpoint adds an explicit `execution.speech` policy to the
+existing build/SDK route. Without that policy, the planner does not add speech
+recognition. It requires one source, its exact SHA-256, and local AI permission.
+Speech runs select only the declared source-to-transcript route and its subtitle
+exports; they do not silently transcode some other audio/video format first.
+
+Save an authored configuration like this beside `voice.wav`, substituting real
+absolute tool/model paths and lowercase SHA-256 values:
+
+```yaml
+schema: renderflow/v2
+sources:
+  - id: voice
+    path: voice.wav
+    format: wav
+targets:
+  exact:
+    - format: timed_transcript_json
+      role: transcript
+    - format: srt
+      role: captions_srt
+    - format: vtt
+      role: captions_vtt
+execution:
+  ai: local_only
+  network: deny
+  speech:
+    source_sha256: "<64-character-lowercase-source-sha256>"
+    provider:
+      path: "/absolute/path/to/real/whisper-cli"
+      sha256: "<64-character-lowercase-executable-sha256>"
+    model:
+      id: "my-local-model"
+      path: "/absolute/path/to/ggml-model.bin"
+      sha256: "<64-character-lowercase-model-sha256>"
+    options:
+      language: "en"
+      threads: 4
+      timeout_seconds: 900
+output:
+  bundle_root: "dist"
+```
+
+```bash
+renderflow build --config "speech.yaml"
+```
+
+For video or other supported audio, declare the actual source format, use the
+digest from `speech inspect`, and add this nested block under `execution.speech`:
+
+```yaml
+audio:
+  stream_index: 1
+  ffprobe:
+    path: "/absolute/path/to/real/ffprobe"
+    sha256: "<64-character-lowercase-ffprobe-sha256>"
+  ffmpeg:
+    path: "/absolute/path/to/real/ffmpeg"
+    sha256: "<64-character-lowercase-ffmpeg-sha256>"
+  timeout_seconds: 300
+```
+
+The stream index remains an explicit global index; `1` above is an example,
+not a default. Omitting `audio` permits only strict WAV input. Both speech and
+embedded-subtitle extraction cannot be enabled in the same run. Plain text
+remains a standalone speech/subtitle export rather than a new graph format.
+
+SDK callers use the existing public entry points:
+
+```rust
+use renderflow::{EngineBuilder, ExecutionRequest, PlanRequest};
+
+let engine = EngineBuilder::new().build()?;
+let plan = engine.plan(PlanRequest::from_path("speech.yaml"))?;
+let resolved = engine.resolve_execution(ExecutionRequest::from_path("speech.yaml"))?;
+let result = engine.execute_resolved(resolved, false)?;
+```
+
+Planning reads the source to establish its identity but does not launch the
+pinned speech tools or read a model. Provider availability is explicitly
+unobserved until execution; a successful plan is not a successful transcription.
+Runtime consumes the imported immutable artifact-store source, with no extra
+copy merely to provide a file extension. The normal source import still uses
+storage for a source copy, and prepared audio/retained evidence needs additional
+storage. This route is not an in-place low-storage optimizer.
+
+The SDK's cancellation token reaches preparation and recognition. A progress
+reporter receives coarse live `speech.verify_input`, `speech.prepare_audio`
+(when needed), `speech.transcribe`, `speech.retain_artifacts`, and
+`speech.complete` states on the existing progress-event contract. The last phase
+means speech artifacts were retained; publication and the final run event still
+follow. These events do not invent percentages. Typed failures and cancellation
+remain visible in final step diagnostics.
+
+Graph runs publish supporting files under `speech/<envelope-sha256>/` in the
+output bundle: `provider-output.json`, `transcription.json`, and
+`transcript.timed-transcript.json`, plus `audio-probe.json` and `prepared.wav`
+when preparation is enabled. The canonical transcript is retained even for an
+SRT-only request. Existing identical evidence can be kept; different bytes and
+symlinks are refused. Selected outputs are withheld if evidence publication
+fails. Cancellation during that publication is reported as a cancelled run;
+an incomplete evidence directory may remain. The original source stays in the
+artifact store. Budget accounting includes the retained records and published
+copies.
+
+The native manifest retains namespaced `renderflow.speech` metadata with the
+canonical transcript and retained evidence records. Derivative artifacts carry
+the same speech references; the existing subtitle metadata still records their
+export losses. Flow's closed artifact projection retains hashes and lineage,
+while the detailed speech evidence remains in the native manifest and retained
+JSON files. Keep the complete output bundle and its run manifest.
+
+Recognition and its derived subtitle steps bypass result-cache and checkpoint
+reuse without opening shared cache/checkpoint files. SDK resume assessment
+explicitly requests recomputation; configuration
+and source keys are still recorded for a later qualified reuse contract. All
+examples and this integration remain uncompiled and unrun in this checkpoint.

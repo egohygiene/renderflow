@@ -65,6 +65,27 @@ pub fn transcribe(
     request: &SpeechRequest,
     cancellation: ProcessCancellationToken,
 ) -> Result<SpeechRun, SpeechError> {
+    transcribe_inner(request, None, cancellation)
+}
+
+/// Recognize the immutable artifact selected by a graph policy. Verify its
+/// expected digest against the provider's own source snapshot before launching
+/// any executable, including the provider version probe.
+pub fn transcribe_stored(
+    request: &SpeechRequest,
+    expected_source_sha256: &str,
+    cancellation: ProcessCancellationToken,
+) -> Result<SpeechRun, SpeechError> {
+    ensure_not_cancelled(&cancellation)?;
+    expected_digest(expected_source_sha256, "source_sha256")?;
+    transcribe_inner(request, Some(expected_source_sha256), cancellation)
+}
+
+fn transcribe_inner(
+    request: &SpeechRequest,
+    expected_source_sha256: Option<&str>,
+    cancellation: ProcessCancellationToken,
+) -> Result<SpeechRun, SpeechError> {
     ensure_not_cancelled(&cancellation)?;
     request.options.validate()?;
     expected_digest(&request.provider_sha256, "provider_sha256")?;
@@ -77,6 +98,7 @@ pub fn transcribe(
         ));
     }
     let source = FileSnapshot::read(&request.input, "source", MAX_SOURCE_BYTES, &cancellation)?;
+    if let Some(expected) = expected_source_sha256 { require_digest(&source, expected)?; }
     let source_bytes = read_bounded(&source.path, MAX_SOURCE_BYTES, &cancellation)?;
     if sha256(&source_bytes) != source.sha256 {
         return Err(SpeechError::SourceChanged("source changed before WAV inspection".to_owned()));

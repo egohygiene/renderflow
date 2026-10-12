@@ -62,6 +62,7 @@ pub struct SubtitleArtifactEvidence {
 pub struct TimedTextArtifactTransform {
     input_format: Format,
     output_format: Format,
+    cacheable: bool,
 }
 
 impl TimedTextArtifactTransform {
@@ -72,7 +73,14 @@ impl TimedTextArtifactTransform {
         {
             bail!("unsupported timed-text graph edge '{input}' -> '{output}'");
         }
-        Ok(Self { input_format: input, output_format: output })
+        Ok(Self { input_format: input, output_format: output, cacheable: true })
+    }
+
+    /// Speech descendants carry execution-specific evidence outside their text
+    /// bytes. Until cache identity includes it, exports must never reuse records.
+    pub fn without_cache(mut self) -> Self {
+        self.cacheable = false;
+        self
     }
 }
 
@@ -85,6 +93,8 @@ impl ArtifactTransform for TimedTextArtifactTransform {
         format!("{}:v1:{}:{}:plain-utf8-ms", self.name(), self.input_format, self.output_format)
     }
 
+    fn cacheable(&self) -> bool { self.cacheable }
+
     fn fidelity(&self) -> Option<FidelityDeclaration> {
         Some(if self.output_format == Format::TimedTranscriptJson {
             FidelityDeclaration::Lossless
@@ -95,6 +105,12 @@ impl ArtifactTransform for TimedTextArtifactTransform {
 
     fn apply(&self, input: &Artifact, output_format: Format, store: &ArtifactStore) -> Result<Artifact> {
         require_formats(input, self.input_format, output_format, self.output_format)?;
+        if input.metadata().contains_key(crate::speech::graph::SPEECH_ARTIFACT_METADATA_KEY) {
+            crate::speech::graph::retained_artifacts(input)?;
+            if self.input_format != Format::TimedTranscriptJson {
+                bail!("speech exports cannot be reparsed while claiming unchanged recognition evidence");
+            }
+        }
         let bytes = read_bounded_artifact(input, store)?;
         let transcript = parse(&bytes, timed_format(self.input_format)?)
             .context("subtitle graph input did not satisfy the plain timed-text profile")?;
@@ -274,10 +290,15 @@ fn store_transcript_output(
         prior_losses: transcript.losses.clone(),
         export_losses: export_losses(transcript, timed_format(output_format)?),
     };
-    let descriptor = ArtifactDescriptor::for_format(output_format, ArtifactStorageClass::Intermediate)
+    let mut descriptor = ArtifactDescriptor::for_format(output_format, ArtifactStorageClass::Intermediate)
         .with_source(input.id().clone())
         .with_metadata(SUBTITLE_ARTIFACT_METADATA_KEY, serde_json::to_value(evidence)?);
-    store.put_bytes(output, descriptor)
+    if let Some(speech) = input.metadata().get(crate::speech::graph::SPEECH_ARTIFACT_METADATA_KEY) {
+        descriptor = descriptor.with_metadata(crate::speech::graph::SPEECH_ARTIFACT_METADATA_KEY, speech.clone());
+    }
+    let output = store.put_bytes(output, descriptor)?;
+    crate::speech::graph::retained_artifacts(&output)?;
+    Ok(output)
 }
 
 #[cfg(test)]

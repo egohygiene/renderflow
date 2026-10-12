@@ -6,6 +6,8 @@
 //! neither invents missing words nor performs alignment or diarization.
 
 pub mod audio;
+pub mod graph;
+pub mod policy;
 pub mod provider;
 
 use std::collections::BTreeSet;
@@ -354,6 +356,22 @@ pub enum SpeechError {
     Timeout,
     #[error("speech operation I/O failed: {0}")]
     Io(#[from] std::io::Error),
+}
+
+impl SpeechError {
+    /// Stable diagnostic suffix used by graph execution evidence.
+    pub fn code(&self) -> &'static str {
+        match self {
+            Self::InvalidRequest(_) => "invalid_request",
+            Self::InvalidOutput(_) => "invalid_output",
+            Self::ProviderUnavailable(_) => "provider_unavailable",
+            Self::ProviderFailed(_) => "provider_failed",
+            Self::SourceChanged(_) => "source_changed",
+            Self::Cancelled => "cancelled",
+            Self::Timeout => "timeout",
+            Self::Io(_) => "io_failed",
+        }
+    }
 }
 
 /// Convert whisper.cpp full JSON into unreviewed, plain-text segment cues.

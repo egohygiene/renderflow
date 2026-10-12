@@ -184,7 +184,7 @@ providers:
     validation: []
     provenance: [identity.source_sha256, identity.provider_sha256, identity.provider_version, identity.model_id, identity.model_sha256, configuration_sha256, provider_output_sha256, requested_language, detected_language]
     upstream: https://github.com/ggml-org/whisper.cpp
-    rationale: Authored standalone local WAV transcription into one canonical transcript plus a separate speech-evidence envelope. No provider/model download, translation, diarization, graph edge, or cache reuse. Runtime capture/time and accepted output sizes are bounded; temporary disk use and RAM are not OS-capped. Network deny is process-policy intent, not an OS sandbox. GPU-disabled flags do not prove a CPU-only build. A pinned spoken-audio fixture and the Rust completion pass remain deferred.
+    rationale: Authored standalone and explicitly enabled execution.speech graph/SDK transcription into one canonical transcript plus retained speech evidence. Optional selected-stream preparation has its own pinned source/tools and sample-zero clock. No provider/model download, translation, diarization, cache reuse, or original-video alignment. Runtime capture/time and accepted output sizes are bounded; temporary disk use and RAM are not OS-capped. Network deny is process-policy intent, not an OS sandbox. GPU-disabled flags do not prove a CPU-only build. A pinned spoken-audio fixture and the Rust completion pass remain deferred.
 
   - id: adapter.subtitles.ffprobe
     runtime_tool: tool.ffprobe

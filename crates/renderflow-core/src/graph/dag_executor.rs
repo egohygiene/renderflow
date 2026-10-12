@@ -168,10 +168,16 @@ fn failed_step(
     let subtitle_failure = error.chain().find_map(|cause| {
         cause.downcast_ref::<crate::timed_text::provider::SubtitleProviderError>()
     });
+    let speech_failure = error.chain().find_map(|cause| {
+        cause.downcast_ref::<crate::speech::SpeechError>()
+    });
     let cancelled = provider_failure.is_some_and(|failure| failure.cancelled)
         || fixed_epub_failure.is_some_and(|failure| failure.cancelled)
         || subtitle_failure.is_some_and(|failure| {
             matches!(failure, crate::timed_text::provider::SubtitleProviderError::Cancelled)
+        })
+        || speech_failure.is_some_and(|failure| {
+            matches!(failure, crate::speech::SpeechError::Cancelled)
         });
     StepEvidence {
         step_id: step_id.clone(),
@@ -219,6 +225,7 @@ fn failed_step(
                 .or_else(|| fixed_epub_failure.map(|failure| failure.code))
                 .map(str::to_string)
                 .or_else(|| subtitle_failure.map(|failure| format!("subtitle.{}", failure.code())))
+                .or_else(|| speech_failure.map(|failure| format!("speech.{}", failure.code())))
                 .unwrap_or_else(|| "execution.transform_failed".to_string()),
             message,
             step_id: Some(step_id),
@@ -1223,6 +1230,28 @@ mod tests {
 
     use super::*;
     use crate::graph::{InputKind, TransformGraph};
+
+    #[test]
+    fn speech_cancellation_and_refusal_keep_typed_execution_evidence() {
+        let edge = TransformEdge::new(Format::Wav, Format::TimedTranscriptJson, 1.0, 0.5)
+            .with_provider("adapter.speech.whisper_cpp", "speech.transcribe");
+        for (failure, code, state) in [
+            (crate::speech::SpeechError::Cancelled, "speech.cancelled", StepState::Cancelled),
+            (crate::speech::SpeechError::Timeout, "speech.timeout", StepState::Failed),
+            (crate::speech::SpeechError::SourceChanged("synthetic mismatch".to_string()), "speech.source_changed", StepState::Failed),
+            (crate::speech::SpeechError::ProviderUnavailable("synthetic absence".to_string()), "speech.provider_unavailable", StepState::Failed),
+        ] {
+            let error = anyhow::Error::new(failure).context("Speech transform failed");
+            let step = failed_step(&edge, None, &error, 0, 1);
+            assert_eq!(step.state, state);
+            assert_eq!(step.diagnostics[0].code, code);
+            assert!(step.output_artifacts.is_empty());
+            if state == StepState::Cancelled {
+                assert_eq!(step.validation, ValidationState::Skipped);
+                assert_eq!(step.diagnostics[0].severity, DiagnosticSeverity::Cancelled);
+            }
+        }
+    }
 
     #[test]
     fn subtitle_provider_cancellation_retains_typed_step_evidence() {

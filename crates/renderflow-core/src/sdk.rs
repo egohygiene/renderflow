@@ -20,6 +20,7 @@ use crate::planning::{
     resolve as resolve_planning_request, PlanningRequest, ResolvedExecution,
 };
 use crate::toolchain::ToolchainSnapshot;
+use crate::speech::graph::{SpeechProgressObserver, SpeechProgressPhase};
 
 pub const PROVIDER_CONTRACT_V1: &str = "renderflow.provider/v1";
 pub const PROGRESS_EVENT_V1: &str = "renderflow.progress/v1";
@@ -67,6 +68,35 @@ pub struct ProgressEvent {
 
 pub trait ProgressReporter: Send + Sync {
     fn on_event(&self, event: &ProgressEvent);
+}
+
+/// Adapt coarse speech phases onto the existing progress contract. These are
+/// live phase notifications, not recognition percentages or run completion.
+struct SdkSpeechProgressObserver {
+    reporter: Arc<dyn ProgressReporter>,
+    step_id: String,
+}
+
+impl SpeechProgressObserver for SdkSpeechProgressObserver {
+    fn phase(&self, phase: SpeechProgressPhase) {
+        let message = match phase {
+            SpeechProgressPhase::VerifyInput => "Verifying pinned speech input and local configuration",
+            SpeechProgressPhase::PrepareAudio => "Preparing the selected audio stream on a sample-zero timeline",
+            SpeechProgressPhase::Transcribe => "Running local speech recognition",
+            SpeechProgressPhase::RetainArtifacts => "Retaining speech output and provenance artifacts",
+            SpeechProgressPhase::Complete => "Speech artifacts retained; run publication is still pending",
+        };
+        self.reporter.on_event(&ProgressEvent {
+            schema_version: PROGRESS_EVENT_V1.to_string(),
+            stage: ProgressStage::Executing,
+            message: message.to_string(),
+            run_id: None,
+            step_id: Some(self.step_id.clone()),
+            artifact_ids: Vec::new(),
+            state: Some(format!("speech.{}", phase.as_str())),
+            diagnostics: Vec::new(),
+        });
+    }
 }
 
 #[derive(Debug, Clone, Default)]
@@ -486,9 +516,21 @@ impl Engine {
     /// Execute an already-resolved plan without implicit re-planning.
     pub fn execute_resolved(
         &self,
-        resolved: ResolvedExecution,
+        mut resolved: ResolvedExecution,
         dry_run: bool,
     ) -> Result<ExecutionResult, RenderflowError> {
+        if resolved.spec().execution.speech.is_some() {
+            if let Some(cancellation) = &self.cancellation_token {
+                resolved = resolved.with_cancellation_flag(cancellation.flag());
+            }
+            if let Some(reporter) = &self.reporter {
+                let step_id = format!("step:{}-to-{}", resolved.source_format(), crate::graph::Format::TimedTranscriptJson);
+                resolved = resolved.with_speech_observer(Arc::new(SdkSpeechProgressObserver {
+                    reporter: reporter.clone(),
+                    step_id,
+                }));
+            }
+        }
         self.emit(
             ProgressStage::Executing,
             "Executing resolved renderflow plan",
@@ -609,6 +651,21 @@ impl Engine {
         let resolved = self.resolve_execution(request)?;
         let (checkpoint_path, artifact_root, context) =
             checkpoint_state(&resolved).map_err(RenderflowError::Execution)?;
+        if resolved.spec().execution.speech.is_some() {
+            let overall = RecoveryDecision {
+                action: RecoveryAction::Recompute,
+                reason_code: "speech.checkpoint_reuse_disabled".to_string(),
+                message: "Speech and its derivatives are recomputed until effective native identity and retained evidence reuse are qualified".to_string(),
+                checkpoint_key: None,
+                artifact_ids: Vec::new(),
+            };
+            return Ok(SavedRunAssessment {
+                schema_version: PROVIDER_CONTRACT_V1.to_string(),
+                checkpoint_path: checkpoint_path.display().to_string(),
+                overall: overall.clone(),
+                decisions: vec![overall],
+            });
+        }
         if !checkpoint_path.exists() {
             let overall = RecoveryDecision {
                 action: RecoveryAction::Recompute,
@@ -782,6 +839,30 @@ impl RenderflowProvider for Engine {
 mod tests {
     use super::*;
     use crate::evidence::RunState;
+
+    #[test]
+    fn speech_phase_completion_does_not_claim_run_completion() {
+        #[derive(Default)]
+        struct Recorder(std::sync::Mutex<Vec<ProgressEvent>>);
+        impl ProgressReporter for Recorder {
+            fn on_event(&self, event: &ProgressEvent) {
+                self.0.lock().unwrap().push(event.clone());
+            }
+        }
+        let recorder = Arc::new(Recorder::default());
+        let observer = SdkSpeechProgressObserver {
+            reporter: recorder.clone(),
+            step_id: "step:wav-to-timed-transcript-json".to_string(),
+        };
+        observer.phase(SpeechProgressPhase::Transcribe);
+        observer.phase(SpeechProgressPhase::Complete);
+        let events = recorder.0.lock().unwrap();
+        assert_eq!(events.len(), 2);
+        assert!(events.iter().all(|event| event.stage == ProgressStage::Executing));
+        assert_eq!(events[0].state.as_deref(), Some("speech.transcribe"));
+        assert_eq!(events[1].state.as_deref(), Some("speech.complete"));
+        assert!(events.iter().all(|event| event.run_id.is_none() && event.artifact_ids.is_empty()));
+    }
 
     #[test]
     fn cancellation_token_reports_cancelled_state() {

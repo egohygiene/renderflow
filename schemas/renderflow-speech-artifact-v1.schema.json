@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-speech-artifact-v1.schema.json",
+  "title": "Renderflow native speech artifact metadata v1",
+  "description": "The renderflow.speech namespace on a canonical timed transcript or its SRT/WebVTT derivatives. Retained records identify the raw recognition output, complete speech envelope, and optional audio preparation payloads in the artifact store.",
+  "$comment": "This is native metadata, not an extension to Flow artifact v1. Schema validation cannot establish payload existence, hashes, record identities, ordered lineage equality, or recognition accuracy. Consumers must verify those relationships and read the referenced transcription envelope. All recognition remains unreviewed.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "input_artifact_id", "input_sha256", "canonical_transcript", "timestamp_origin", "human_reviewed", "provider_output", "transcription"],
+  "properties": {
+    "schema_version": { "const": "renderflow.speech-artifact/v1" },
+    "input_artifact_id": { "$ref": "#/$defs/artifactId" },
+    "input_sha256": { "$ref": "#/$defs/sha256" },
+    "canonical_transcript": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_id", "sha256"],
+      "properties": {
+        "artifact_id": { "$ref": "#/$defs/artifactId" },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "timestamp_origin": { "enum": ["input_wav_samples_from_zero", "selected_stream_decoded_samples_from_zero"] },
+    "human_reviewed": { "const": false },
+    "provider_output": {
+      "allOf": [{ "$ref": "#/$defs/artifact" }],
+      "properties": {
+        "format": { "const": "json" },
+        "media_type": { "const": "application/json" },
+        "size_bytes": { "maximum": 16777216 },
+        "sources": { "minItems": 1, "maxItems": 1 },
+        "metadata": { "properties": { "renderflow.speech.role": { "const": "provider_output" } } }
+      }
+    },
+    "transcription": {
+      "allOf": [{ "$ref": "#/$defs/artifact" }],
+      "properties": {
+        "format": { "const": "json" },
+        "media_type": { "const": "application/json" },
+        "size_bytes": { "maximum": 16777216 },
+        "sources": { "minItems": 2, "maxItems": 4 },
+        "metadata": { "properties": { "renderflow.speech.role": { "const": "transcription" } } }
+      }
+    },
+    "audio_probe": {
+      "allOf": [{ "$ref": "#/$defs/artifact" }],
+      "properties": {
+        "format": { "const": "json" },
+        "media_type": { "const": "application/json" },
+        "size_bytes": { "maximum": 1048576 },
+        "sources": { "minItems": 1, "maxItems": 1 },
+        "metadata": { "properties": { "renderflow.speech.role": { "const": "audio_probe" } } }
+      }
+    },
+    "prepared_audio": {
+      "allOf": [{ "$ref": "#/$defs/artifact" }],
+      "properties": {
+        "format": { "const": "wav" },
+        "media_type": { "const": "audio/wav" },
+        "sources": { "minItems": 2, "maxItems": 2 },
+        "metadata": { "properties": { "renderflow.speech.role": { "const": "prepared_audio" } } }
+      }
+    }
+  },
+  "dependentRequired": {
+    "audio_probe": ["prepared_audio"],
+    "prepared_audio": ["audio_probe"]
+  },
+  "allOf": [{
+    "if": { "required": ["audio_probe"] },
+    "then": {
+      "properties": {
+        "timestamp_origin": { "const": "selected_stream_decoded_samples_from_zero" },
+        "transcription": { "properties": { "sources": { "minItems": 4, "maxItems": 4 } } }
+      }
+    },
+    "else": {
+      "properties": {
+        "timestamp_origin": { "const": "input_wav_samples_from_zero" },
+        "transcription": { "properties": { "sources": { "minItems": 2, "maxItems": 2 } } }
+      }
+    }
+  }],
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "artifactId": { "type": "string", "pattern": "^artifact:sha256:[a-f0-9]{64}$" },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "format", "media_type", "digest", "size_bytes", "payload", "metadata", "sources", "storage_class"],
+      "properties": {
+        "id": { "$ref": "#/$defs/artifactId" },
+        "format": { "enum": ["json", "wav"] },
+        "media_type": { "enum": ["application/json", "audio/wav"] },
+        "digest": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["algorithm", "value"],
+          "properties": { "algorithm": { "const": "sha256" }, "value": { "$ref": "#/$defs/sha256" } }
+        },
+        "size_bytes": { "type": "integer", "minimum": 1, "maximum": 33554432 },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["relative_path"],
+          "properties": {
+            "relative_path": { "type": "string", "pattern": "^objects[/\\\\]sha256[/\\\\][a-f0-9]{2}[/\\\\][a-f0-9]{64}$" }
+          }
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["renderflow.speech.role"],
+          "properties": { "renderflow.speech.role": { "enum": ["provider_output", "transcription", "audio_probe", "prepared_audio"] } }
+        },
+        "sources": { "type": "array", "minItems": 1, "maxItems": 4, "items": { "$ref": "#/$defs/artifactId" } },
+        "storage_class": { "const": "intermediate" }
+      }
+    }
+  }
+}
