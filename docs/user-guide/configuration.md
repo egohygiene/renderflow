@@ -55,8 +55,6 @@ profiles:
         role: web
         format: html
         requirement: required
-        options:
-          standalone: true
 
   publication.complete:
     schema: renderflow.profile/v1
@@ -88,8 +86,44 @@ renderflow build --profile publication.complete --exclude provider:tool.remote-v
 ```
 
 JSON plans and run manifests include `artifact_forest` evidence. Each considered branch is
-classified as `selected`, `excluded`, `unavailable`, or `budget_pruned` with a stable reason
-code. The final artifact manifest remains the authority for actually produced artifacts.
+classified as `selected`, `excluded`, `unavailable`, `unsupported`, or `budget_pruned` with a
+stable reason code. The versioned `renderflow/artifact-forest-v1` contract records distinct
+target identities, exact selected routes, declared cumulative loss, and a forest digest.
+The final artifact manifest remains the authority for actually produced artifacts.
+
+Exhaustive expansion excludes the source format. An explicit exact source-format target
+without rendering changes uses the original artifact through an empty route; it never
+converts away and back. Each derivative route starts at the original source and cannot
+repeat a format. Exhaustive and named-profile routes are ranked by cumulative quality,
+then fewer steps, then the configured optimization cost and stable edge identity. Exact
+target-only requests retain optimization cost as the first ranking criterion.
+
+```yaml
+execution:
+  derivative_planning:
+    schema: renderflow/derivative-policy-v1
+    max_hops: 8
+    max_candidates: 10000
+    max_loss: 0.25
+```
+
+The candidate budget bounds search work. Exhausting it produces a diagnostic rather than
+an approximate winning route. `max_loss` applies to the complete path; the existing
+`minimum_fidelity` gate applies to each edge. Both use provider-declared planning estimates,
+not measured output quality. When `execution.budgets.max_depth` is set, the effective hop
+limit is the smaller of that depth and `max_hops`.
+
+Use separate target IDs or roles and supported presets when requesting multiple renditions
+of one format. Include `{target.id}` or `{target.identity}` in the output naming template
+to keep their destinations distinct. Generic target `options` are retained in the intent
+contract but remain unsupported by canonical execution; they are reported rather than
+silently ignored. Native screenplay routes retain their narrower fixed-policy restrictions.
+
+See [Derivative forest planning](../architecture/derivative-forest.md) for the route policy,
+identity contract, and current qualification boundary. The
+[`derivative-forest.yaml`](../../examples/derivative-forest.yaml) example requests two MP3
+presets alongside exhaustive audio derivatives. This implementation and its regression
+fixtures are authored but unqualified; runtime testing is deferred.
 
 ## V1 compatibility format
 

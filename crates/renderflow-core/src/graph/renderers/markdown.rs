@@ -9,6 +9,10 @@ use crate::graph::execution_plan::{DiagnosticLevel, ExecutionPlan, NodeType};
 /// published as a CI artifact, or embedded in documentation.
 pub struct MarkdownRenderer;
 
+fn cell(value: &str) -> String {
+    value.replace('|', "\\|").replace(['\r', '\n'], " ").replace('`', "'")
+}
+
 impl PlanRenderer for MarkdownRenderer {
     fn render(&self, plan: &ExecutionPlan) -> String {
         let mut out = String::new();
@@ -29,6 +33,59 @@ impl PlanRenderer for MarkdownRenderer {
         );
         let _ = writeln!(out, "| Optimization | `{}` |", plan.optimization);
         let _ = writeln!(out);
+
+        if let Some(forest) = &plan.artifact_forest {
+            let _ = writeln!(out, "## Artifact Forest");
+            let _ = writeln!(out);
+            let _ = writeln!(out, "Schema: `{}`. Identity: `{}`.", cell(&forest.schema), cell(&forest.identity));
+            let _ = writeln!(out);
+            let _ = writeln!(out, "Policy: `{}`.", cell(&forest.policy.to_string()));
+            let _ = writeln!(out);
+            let _ = writeln!(out, "Branch routes are authoritative. The format graph below is a projection of isolated execution groups.");
+            let _ = writeln!(out);
+            let _ = writeln!(out, "| Target identity | Format | State | Reason |");
+            let _ = writeln!(out, "|---|---|---|---|");
+            for branch in &forest.branches {
+                let _ = writeln!(out, "| `{}` | `{}` | {} | {}: {} |",
+                    cell(&branch.target_id), cell(&branch.format), branch.state.as_str(),
+                    cell(&branch.reason_code), cell(&branch.reason));
+            }
+            let _ = writeln!(out);
+            for branch in &forest.branches {
+                let Some(route) = &branch.route else { continue };
+                let _ = writeln!(out, "### `{}`", cell(&branch.target_id));
+                let _ = writeln!(out);
+                let _ = writeln!(out, "Format: `{}`; preset: `{}`; template: `{}`; variant: `{}`.",
+                    cell(&branch.format), cell(branch.preset.as_deref().unwrap_or("default")),
+                    cell(branch.template.as_deref().unwrap_or("default")),
+                    cell(branch.variant.as_deref().unwrap_or("default")));
+                let _ = writeln!(out);
+                if !branch.options.is_empty() {
+                    let _ = writeln!(out, "Options: `{}`.", cell(&serde_json::json!(branch.options).to_string()));
+                    let _ = writeln!(out);
+                }
+                let _ = writeln!(out,
+                    "Quality: {:.6}; loss: {:.6}; hops: {}; weighted cost: {:.6}; candidates: {}.",
+                    route.cumulative_quality, route.cumulative_loss, route.hop_count,
+                    route.weighted_cost, route.explored_candidates);
+                let _ = writeln!(out);
+                let _ = writeln!(out, "Ranking: {}.", cell(&route.ranking));
+                let _ = writeln!(out);
+                if route.source_identity {
+                    let _ = writeln!(out, "Original source identity; no transformation.");
+                    let _ = writeln!(out);
+                }
+                for step in &route.steps {
+                    let _ = writeln!(out, "- `{}` → `{}` — provider `{}`, capability `{}`, variant `{}`, transform `{}`.",
+                        cell(&step.from), cell(&step.to),
+                        cell(step.provider_id.as_deref().unwrap_or("builtin")),
+                        cell(step.capability_id.as_deref().unwrap_or("unspecified")),
+                        cell(step.variant_id.as_deref().unwrap_or("default")),
+                        cell(step.evidence.get("transform_id").map(String::as_str).unwrap_or("unspecified")));
+                }
+                let _ = writeln!(out);
+            }
+        }
 
         // ── statistics ────────────────────────────────────────────────────
         let _ = writeln!(out, "## Statistics");

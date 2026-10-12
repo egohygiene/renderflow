@@ -4,6 +4,9 @@
 //! Execution consumes a previously resolved [`ResolvedExecution`] and never
 //! performs implicit target/path re-planning.
 
+mod forest;
+use forest::{plan_forest_routes, group_forest_routes, finalize_forest_identity};
+
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::fs;
 use std::io::{Read, Write};
@@ -188,7 +191,7 @@ impl PlanningRequest {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ResolvedTarget {
     pub format: Format,
     pub id: Option<String>,
@@ -196,6 +199,11 @@ pub struct ResolvedTarget {
     pub preset: Option<String>,
     pub template: Option<String>,
     pub variant: Option<String>,
+    pub capability: Option<String>,
+    pub transform: Option<String>,
+    pub provider: Option<String>,
+    pub include_selectors: Vec<SelectorSet>,
+    pub exclude_selectors: Vec<SelectorSet>,
     pub requirement: TargetRequirement,
     pub options: std::collections::BTreeMap<String, serde_json::Value>,
 }
@@ -209,6 +217,11 @@ impl ResolvedTarget {
             preset: None,
             template: None,
             variant: None,
+            capability: None,
+            transform: None,
+            provider: None,
+            include_selectors: Vec::new(),
+            exclude_selectors: Vec::new(),
             requirement: TargetRequirement::Optional,
             options: Default::default(),
         }
@@ -222,10 +235,35 @@ impl ResolvedTarget {
             preset: target.preset.clone(),
             template: target.template.clone(),
             variant: target.variant.clone(),
+            capability: target.capability.clone(),
+            transform: target.transform.clone(),
+            provider: target.provider.clone(),
+            include_selectors: Vec::new(),
+            exclude_selectors: Vec::new(),
             requirement: target.requirement,
             options: target.options.clone(),
         }
     }
+
+    /// Stable output identity. Required/optional selection does not change bytes.
+    /// Explicit roles and ids are distinct publication destinations.
+    pub fn identity(&self) -> String {
+        let material = serde_json::json!({
+            "schema": "renderflow/target-identity-v1", "format": self.format.to_string(),
+            "id": self.id, "role": self.role, "preset": self.preset,
+            "template": self.template, "variant": self.variant, "options": self.options,
+            "capability": self.capability, "transform": self.transform, "provider": self.provider,
+            "include": self.include_selectors, "exclude": self.exclude_selectors,
+        });
+        format!("target-{:x}", Sha256::digest(serde_json::to_vec(&material)
+            .expect("target identity is JSON serializable")))
+    }
+}
+
+struct ResolvedExecutionGroup {
+    dag: MultiTargetDag,
+    targets: Vec<ResolvedTarget>,
+    executor: DagExecutor,
 }
 
 pub struct ResolvedExecution {
@@ -242,6 +280,7 @@ pub struct ResolvedExecution {
     targets: Vec<ResolvedTarget>,
     dag: MultiTargetDag,
     executor: DagExecutor,
+    execution_groups: Vec<ResolvedExecutionGroup>,
     tool_registry: ToolRegistry,
     resume_checkpoints: bool,
     cancellation: Option<Arc<AtomicBool>>,
@@ -284,8 +323,15 @@ impl ResolvedExecution {
         &self.targets
     }
 
+    /// Compatibility projection of the first execution group; use dags() or
+    /// plan().artifact_forest for a complete multi-rendition plan.
     pub fn dag(&self) -> &MultiTargetDag {
         &self.dag
+    }
+
+    /// Exact executable groups; distinct renditions never share a format-keyed DAG.
+    pub fn dags(&self) -> impl Iterator<Item = &MultiTargetDag> {
+        self.execution_groups.iter().map(|group| &group.dag)
     }
 
     pub fn predicted_output_paths(&self) -> Result<Vec<PathBuf>> {
@@ -593,10 +639,7 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
     } else {
         policy_graph
     };
-    let requested_targets = resolve_target_intent(&spec, &policy_graph, source_format)?;
-    if requested_targets.is_empty() {
-        anyhow::bail!("target selection resolved to no executable artifact formats");
-    }
+    let requested_targets = resolve_target_intent(&spec, &graph, source_format)?;
     if spec.execution.speech.is_some() && requested_targets.iter().any(|target| {
         !matches!(target.format, Format::TimedTranscriptJson | Format::Srt | Format::WebVtt)
     }) {
@@ -646,46 +689,33 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
     let mut planning_provider_ids = provider_inventory.available_ids();
     planning_provider_ids.extend(deferred_speech_ids.iter().cloned());
     let available_graph = policy_graph.filtered_by_available_providers(&planning_provider_ids);
-    let available_formats = available_graph
-        .reachable_from(source_format)
-        .into_iter()
-        .collect::<HashSet<_>>();
-    let (mut available_targets, pruned_unavailable) = partition_targets_by_availability(
-        requested_targets,
-        &available_formats,
-        spec.targets.all_reachable,
-    );
-    let mut pruned_budget = Vec::new();
-    if let Some(max_artifacts) = spec.execution.budgets.max_artifacts {
-        let limit = usize::try_from(max_artifacts).unwrap_or(usize::MAX);
-        if available_targets.len() > limit {
-            pruned_budget.extend(available_targets[limit..].iter().cloned());
-            available_targets.truncate(limit);
-        }
-    }
-    if available_targets.is_empty() && pruned_unavailable.is_empty() {
-        anyhow::bail!(
-            "target selection resolved to no available branches; inspect the artifact-forest plan or relax provider/policy constraints"
-        );
-    }
-    let (targets, used_unavailable_only_fallback) =
-        planning_targets(&available_targets, &pruned_unavailable);
-    let target_formats: Vec<Format> = targets.iter().map(|target| target.format).collect();
+    let planned_forest = plan_forest_routes(
+        &spec, &graph, &policy_graph, &available_graph, source_format, requested_targets,
+    )?;
+    let targets = planned_forest.routes.iter().map(|(target, _)| target.clone()).collect::<Vec<_>>();
     let optimization = spec.execution.optimization;
-    let (dag, used_blocked_provider_fallback) = match available_graph
-        .build_multi_target_dag_with_mode(source_format, &target_formats, optimization)
-    {
-        Some(dag) => (dag, false),
-        None => {
-            let dag = policy_graph
-                .build_multi_target_dag_with_mode(source_format, &target_formats, optimization)
-                .ok_or_else(|| {
-                    unsupported_targets_error(&policy_graph, source_format, &target_formats)
-                })?;
-            (dag, true)
-        }
-    };
-    if collection
+    let grouped_routes = group_forest_routes(source_format, &planned_forest.routes)?;
+    if grouped_routes.len() > 1 && (collection || spec.execution.speech.is_some()
+        || spec.execution.screenplay.is_some() || spec.execution.screenplay_pdf.is_some()
+        || spec.execution.subtitles.is_some() || print_pages.is_some() || fixed_epub_pages.is_some()) {
+        anyhow::bail!("forest.native_group_conflict: this bounded native/collection policy requires one compatible execution group; use separate requests for distinct render settings");
+    }
+    let mut execution_groups = Vec::new();
+    for (group_dag, group_targets) in grouped_routes {
+        let mut group_executor = executor.clone();
+        register_builtin_strategy_executors(
+            &mut group_executor, &group_dag, &spec, &group_targets,
+            source_format, &source_path, &request.config_path,
+        )?;
+        execution_groups.push(ResolvedExecutionGroup {
+            dag: group_dag, targets: group_targets, executor: group_executor,
+        });
+    }
+    // Format-only compatibility APIs expose the first group; forest routes and
+    // dags() expose the complete plan without collapsing rendition identities.
+    let dag = execution_groups[0].dag.clone();
+    executor = execution_groups[0].executor.clone();
+    if collection && !targets.is_empty()
         && (dag.all_edges().is_empty()
             || dag
                 .all_edges()
@@ -695,7 +725,7 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
     {
         anyhow::bail!("collection.transform.unsupported: a collection requires a registered collection-input transform and a distinct output format");
     }
-    if print_pages.is_some()
+    if print_pages.is_some() && !targets.is_empty()
         && (dag.all_edges().len() != 1
             || dag.all_edges()[0].capability_id.as_deref() != Some(PRINT_PDF_CAPABILITY))
     {
@@ -703,39 +733,28 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
             "print_pdf.route: selected plan must contain only the exact print-interior capability"
         );
     }
-    if fixed_epub_pages.is_some()
+    if fixed_epub_pages.is_some() && !targets.is_empty()
         && (dag.all_edges().len() != 1
             || dag.all_edges()[0].capability_id.as_deref() != Some(FIXED_EPUB_CAPABILITY))
     {
         anyhow::bail!("fixed_epub.route: selected plan must contain only the exact fixed-layout EPUB capability");
     }
 
-    if spec.execution.screenplay_pdf.is_some()
+    if spec.execution.screenplay_pdf.is_some() && !targets.is_empty()
         && (dag.all_edges().len() != 1
             || dag.all_edges()[0].capability_id.as_deref() != Some(SCREENPLAY_PDF_CAPABILITY))
     {
         anyhow::bail!("screenplay_pdf.route: selected plan must contain only the original Fountain to PDF edge");
     }
 
-    register_builtin_strategy_executors(
-        &mut executor,
-        &dag,
-        &spec,
-        &targets,
-        source_format,
-        &source_path,
-        &request.config_path,
-    )?;
-
-    let mut plan = ExecutionPlan::from_dag(&dag, source_format, &target_formats, optimization);
-    plan.attach_artifact_forest(build_artifact_forest(
-        &spec,
-        &policy_graph,
-        source_format,
-        &available_targets,
-        &pruned_unavailable,
-        &pruned_budget,
-    ));
+    let branch_plans = execution_groups.iter().map(|group| ExecutionPlan::from_dag(
+        &group.dag, source_format, &group.targets.iter().map(|target| target.format).collect::<Vec<_>>(), optimization,
+    )).collect::<Vec<_>>();
+    let mut plan = if branch_plans.len() == 1 { branch_plans[0].clone() } else {
+        ExecutionPlan::from_branch_plans(&branch_plans, &targets.iter().map(|target| target.format.to_string()).collect::<Vec<_>>())
+    };
+    plan.metadata.output_count = targets.len();
+    plan.attach_artifact_forest(planned_forest.evidence);
     if collection {
         plan.source_collection = Some(PlanSourceCollection {
             source_id: source.id.clone(),
@@ -766,18 +785,8 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
             "v1 configuration normalized into renderflow/v2 before canonical planning",
         );
     }
-    if used_unavailable_only_fallback {
-        plan.add_tool_diagnostic(
-            "no provider-available branches were found; policy-allowed unavailable branches were retained so the plan remains inspectable, while execution stays blocked by provider preflight",
-        );
-    }
-    if used_blocked_provider_fallback {
-        plan.add_tool_diagnostic(
-            "one or more planned paths require providers unavailable on this host; dry-run remains inspectable but execution preflight will fail until dependencies are available",
-        );
-    }
-
-    let selected_ids = selected_provider_ids(&dag);
+    let selected_edges = execution_groups.iter().flat_map(|group| group.dag.all_edges()).collect::<Vec<_>>();
+    let selected_ids = selected_edges.iter().flat_map(|edge| edge_provider_ids(edge).into_iter().map(str::to_owned)).collect::<BTreeSet<_>>();
     let mut selected_inventory = tool_registry.assess_ids_current(
         selected_ids.iter().filter(|id|
             !deferred_speech_ids.contains(*id) && !is_screenplay_pdf_provider(id, spec.execution.screenplay_pdf.as_ref())),
@@ -821,7 +830,7 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
         .all(|tool| tool.is_available())
     {
         let context = ToolRuntimeContext::current();
-        let snapshot = tool_registry.fingerprint_for_dag(&selected_inventory, &dag, &context)?;
+        let snapshot = tool_registry.fingerprint_for_edges(&selected_inventory, &selected_edges, &context)?;
         plan.attach_toolchain(snapshot);
     }
 
@@ -842,6 +851,8 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
         ));
     }
 
+    finalize_forest_identity(&mut plan, &spec)?;
+
     Ok(ResolvedExecution {
         plan,
         config_path,
@@ -856,45 +867,12 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
         targets,
         dag,
         executor,
+        execution_groups,
         tool_registry,
         resume_checkpoints: false,
         cancellation: None,
         speech_observer: None,
     })
-}
-
-/// Separate provider-available targets from optional or all-reachable targets
-/// whose registered paths cannot execute on the current host.
-///
-/// Required exact targets remain selected so the canonical blocked-provider
-/// fallback and execution preflight can report their failure explicitly.
-fn partition_targets_by_availability(
-    targets: Vec<ResolvedTarget>,
-    available_formats: &HashSet<Format>,
-    all_reachable: bool,
-) -> (Vec<ResolvedTarget>, Vec<ResolvedTarget>) {
-    targets.into_iter().partition(|target| {
-        available_formats.contains(&target.format)
-            || (!all_reachable && target.requirement == TargetRequirement::Required)
-    })
-}
-
-/// Keep an all-reachable plan inspectable when the current host provides none
-/// of its policy-allowed branches.
-///
-/// The unavailable targets remain classified as unavailable in the artifact
-/// forest. They are used here only to construct a truthful blocked plan; a
-/// real execution still fails before any transform runs during provider
-/// preflight.
-fn planning_targets(
-    available: &[ResolvedTarget],
-    unavailable: &[ResolvedTarget],
-) -> (Vec<ResolvedTarget>, bool) {
-    if available.is_empty() && !unavailable.is_empty() {
-        (unavailable.to_vec(), true)
-    } else {
-        (available.to_vec(), false)
-    }
 }
 
 pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<CanonicalExecutionResult> {
@@ -1090,9 +1068,8 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
                 .collect(),
             resolved.cancellation.clone(),
         )?;
-        executor.register_collection_artifact(
-            resolved.source_format,
-            Format::Pdf,
+        executor.register_collection_artifact_for_edge(
+            resolved.dag.all_edges()[0],
             Arc::new(transform),
         );
     }
@@ -1118,9 +1095,8 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
                 .collect(),
             resolved.cancellation.clone(),
         )?;
-        executor.register_collection_artifact(
-            resolved.source_format,
-            Format::Epub,
+        executor.register_collection_artifact_for_edge(
+            resolved.dag.all_edges()[0],
             Arc::new(transform),
         );
     }
@@ -1141,10 +1117,11 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
     } else {
         "canonical-cache.json".to_string()
     };
-    let executor = if resolved.spec.execution.speech.is_some() || resolved.spec.execution.screenplay.is_some()
+    let multiple_groups = resolved.execution_groups.len() > 1;
+    let executor = if multiple_groups || resolved.spec.execution.speech.is_some() || resolved.spec.execution.screenplay.is_some()
         || resolved.spec.execution.screenplay_pdf.is_some() {
-        // No existing shared cache/checkpoint file is read or amended for this
-        // unqualified native routes, including canonical subtitle descendants.
+        // Unqualified native routes and isolated rendition groups never read
+        // or amend a shared cache/checkpoint file.
         executor
     } else {
         executor.with_cache(state_dir.join(cache_name)).with_checkpoints(
@@ -1202,6 +1179,46 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
             );
         }
     };
+    // Format-keyed execution remains local to a compatible route group. Never
+    // merge distinct terminal configurations back into the representative map.
+    let mut target_artifacts = HashMap::<String, Artifact>::new();
+    let mut target_steps = HashMap::<String, String>::new();
+    let mut all_artifacts = HashMap::<String, Artifact>::new();
+    let first_targets = resolved.execution_groups.first()
+        .map(|group| group.targets.as_slice()).unwrap_or(&resolved.targets);
+    if multiple_groups {
+        namespace_forest_steps(&mut report, first_targets)?;
+    }
+    record_forest_group(&report, first_targets, &mut target_artifacts, &mut target_steps, &mut all_artifacts);
+    for index in 1..resolved.execution_groups.len() {
+        let mut group_executor = std::mem::take(&mut resolved.execution_groups[index].executor)
+            .with_max_parallel(resolved.spec.execution.max_parallel);
+        if let Some(cancellation) = &resolved.cancellation {
+            group_executor = group_executor.with_cancellation_flag(cancellation.clone());
+        }
+        if let Some(snapshot) = &resolved.plan.toolchain {
+            group_executor = group_executor.with_toolchain_fingerprint(snapshot.fingerprint.clone());
+        }
+        // Each group starts from the original source. Persistent reuse stays
+        // disabled until the executor can key checkpoints by branch identity.
+        let group = &resolved.execution_groups[index];
+        match group_executor.execute_artifact_with_evidence(
+            &group.dag, resolved.source_format, source_artifact.clone(), &store,
+        ) {
+            Ok(mut branch_report) => {
+                namespace_forest_steps(&mut branch_report, &group.targets)?;
+                record_forest_group(&branch_report, &group.targets, &mut target_artifacts, &mut target_steps, &mut all_artifacts);
+                report.steps.extend(branch_report.steps);
+                report.diagnostics.extend(branch_report.diagnostics);
+            }
+            Err(error) => report.diagnostics.push(ExecutionDiagnostic {
+                severity: DiagnosticSeverity::RecoverableFailure,
+                code: "execution.forest_group_failed".to_owned(),
+                message: redact_sensitive_text(&error.to_string()),
+                step_id: None,
+            }),
+        }
+    }
     enrich_step_versions(&mut report.steps, resolved.plan.toolchain.as_ref());
 
     let mut diagnostics = plan_diagnostics(&resolved);
@@ -1213,21 +1230,24 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
     let mut hygiene_failures = false;
     if let Some((policy_id, policy)) = effective_hygiene_policy(&resolved.spec)? {
         let engine = HygieneEngine::new();
-        let mut target_formats = resolved
-            .targets
-            .iter()
-            .map(|target| target.format)
-            .collect::<Vec<_>>();
-        target_formats.sort_by_key(ToString::to_string);
-        target_formats.dedup();
-        for format in target_formats {
-            let Some(candidate) = report.artifacts.get(&format).cloned() else {
+        let mut target_identities = target_artifacts.keys().cloned().collect::<Vec<_>>();
+        target_identities.sort();
+        let mut hygienic_artifacts = HashMap::<String, (Artifact, Option<String>)>::new();
+        for identity in target_identities {
+            let Some(candidate) = target_artifacts.get(&identity).cloned() else {
                 continue;
             };
+            if let Some((artifact, producer)) = hygienic_artifacts.get(candidate.id().as_str()) {
+                target_artifacts.insert(identity.clone(), artifact.clone());
+                if let Some(producer) = producer {
+                    target_steps.insert(identity, producer.clone());
+                }
+                continue;
+            }
             let started = unix_time_ms();
             let outcome = engine.apply(&policy_id, &policy, &candidate, &store)?;
             let completed = unix_time_ms();
-            let step_id = format!("hygiene:{policy_id}:{format}");
+            let step_id = format!("hygiene:{policy_id}:{}", candidate.id());
             for finding in &outcome.evidence.findings {
                 diagnostics.push(ExecutionDiagnostic {
                     severity: if finding.blocking {
@@ -1246,7 +1266,7 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
             }
             let changed = !outcome.evidence.changed_field_classes.is_empty();
             report.steps.push(StepEvidence {
-                step_id,
+                step_id: step_id.clone(),
                 transform: "publication.hygiene".to_string(),
                 transform_version: env!("CARGO_PKG_VERSION").to_string(),
                 capability: Some("artifact.publication-hygiene".to_string()),
@@ -1269,12 +1289,24 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
                 diagnostics: Vec::new(),
             });
             hygiene_evidence.insert(outcome.artifact.id().to_string(), outcome.evidence.clone());
-            report.artifacts.insert(format, outcome.artifact);
+            let producer = (outcome.artifact.id() != candidate.id()).then_some(step_id);
+            if let Some(producer) = &producer {
+                target_steps.insert(identity.clone(), producer.clone());
+            }
+            for representative in report.artifacts.values_mut() {
+                if representative.id() == candidate.id() {
+                    *representative = outcome.artifact.clone();
+                }
+            }
+            all_artifacts.insert(outcome.artifact.id().to_string(), outcome.artifact.clone());
+            hygienic_artifacts.insert(candidate.id().to_string(), (outcome.artifact.clone(), producer));
+            target_artifacts.insert(identity, outcome.artifact);
         }
     }
     let mut output_locators = HashMap::<String, String>::new();
     let mut validation_outcomes = HashMap::<String, ArtifactValidationOutcome>::new();
-    let mut blocked_artifacts = hygiene_blocked;
+    let blocked_artifacts = hygiene_blocked;
+    let mut blocked_targets = HashSet::<String>::new();
     let mut actual_outputs = Vec::new();
     let mut target_failures = hygiene_failures;
     let mut fatal_validation_failure = false;
@@ -1297,7 +1329,7 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
         }
     };
 
-    if let Err(error) = validate_post_execution_budgets(&resolved, &report.artifacts, &retained_speech) {
+    if let Err(error) = validate_post_execution_budgets(&resolved, &target_artifacts, &all_artifacts, &retained_speech) {
         target_failures = true;
         diagnostics.push(ExecutionDiagnostic {
             severity: DiagnosticSeverity::FatalFailure,
@@ -1309,14 +1341,15 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
 
     let validation_registry = ValidationRegistry::builtins();
     for target in &resolved.targets {
-        let Some(artifact) = report.artifacts.get(&target.format) else {
+        let identity = target.identity();
+        let Some(artifact) = target_artifacts.get(&identity) else {
             target_failures = true;
             diagnostics.push(ExecutionDiagnostic {
                 severity: DiagnosticSeverity::RecoverableFailure,
                 code: "execution.target_missing".to_string(),
                 message: format!(
                     "Execution did not produce selected target '{}'",
-                    target.format
+                    identity
                 ),
                 step_id: None,
             });
@@ -1396,12 +1429,8 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
             });
             if state == ValidationState::Invalid { outcome.state = state; }
         }
-        let step_id = producing_step_id(artifact, &report.steps);
-        if let Some(step) = report.steps.iter_mut().find(|step| {
-            step.output_artifacts
-                .iter()
-                .any(|artifact_id| artifact_id == artifact.id().as_str())
-        }) {
+        let step_id = target_steps.get(&identity).cloned();
+        if let Some(step) = report.steps.iter_mut().find(|step| Some(step.step_id.as_str()) == step_id.as_deref()) {
             step.validation = outcome.state;
         }
         for validator in &outcome.validators {
@@ -1435,7 +1464,9 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
         let validation_blocked = outcome.state == ValidationState::Invalid
             || (outcome.state == ValidationState::Unavailable
                 && !resolved.spec.execution.validation.allow_unavailable);
-        let fidelity = producing_fidelity(artifact, &report.steps);
+        let fidelity = report.steps.iter()
+            .find(|step| Some(step.step_id.as_str()) == step_id.as_deref())
+            .map(|step| step.fidelity).unwrap_or_else(|| if artifact.id() == source_artifact.id() { FidelityDeclaration::Lossless } else { FidelityDeclaration::Unknown });
         let fidelity_blocked = resolved
             .spec
             .execution
@@ -1459,7 +1490,7 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
         }
         if validation_blocked || fidelity_blocked {
             target_failures = true;
-            blocked_artifacts.insert(artifact.id().to_string());
+            blocked_targets.insert(identity);
             fatal_validation_failure |=
                 resolved.spec.execution.validation.failure_mode == ValidationFailureMode::Fatal;
         }
@@ -1468,7 +1499,7 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
 
     let mut retained_locators = HashMap::<String, String>::new();
     if resolved.spec.execution.speech.is_some() {
-        speech_publication_failed |= fatal_validation_failure || !blocked_artifacts.is_empty()
+        speech_publication_failed |= fatal_validation_failure || !blocked_artifacts.is_empty() || !blocked_targets.is_empty()
             || diagnostics.iter().any(|diagnostic| diagnostic.code == "execution.post_budget_failed");
         if !speech_publication_failed {
             match publish_speech_artifacts(&resolved, &retained_speech, &store, &output_root, &predicted) {
@@ -1505,10 +1536,10 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
             });
             break;
         }
-        let Some(artifact) = report.artifacts.get(&target.format) else {
+        let Some(artifact) = target_artifacts.get(&target.identity()) else {
             continue;
         };
-        if fatal_validation_failure || speech_publication_failed
+        if fatal_validation_failure || speech_publication_failed || blocked_targets.contains(&target.identity())
             || blocked_artifacts.contains(artifact.id().as_str()) {
             continue;
         }
@@ -1530,7 +1561,7 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
             continue;
         }
         let locator = bundle_locator(&output_root, destination);
-        output_locators.insert(target_evidence_key(target), locator);
+        output_locators.insert(target.identity(), locator);
         actual_outputs.push(destination.display().to_string());
     }
 
@@ -1538,6 +1569,9 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
         &resolved,
         &source_artifacts,
         &report,
+        &target_artifacts,
+        &target_steps,
+        &all_artifacts,
         &output_locators,
         &diagnostics,
         &validation_outcomes,
@@ -1640,6 +1674,53 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
     })
 }
 
+#[cfg(test)]
+mod forest_execution_tests;
+#[cfg(test)]
+mod forest_tests;
+
+fn namespace_forest_steps(report: &mut DagExecutionReport, targets: &[ResolvedTarget]) -> Result<()> {
+    let mut identities = targets.iter().map(ResolvedTarget::identity).collect::<Vec<_>>();
+    identities.sort();
+    identities.dedup();
+    let prefix = format!("forest:{}:", sha256_serialized(&identities)?.value);
+    for step in &mut report.steps {
+        step.step_id = format!("{prefix}{}", step.step_id);
+        for diagnostic in &mut step.diagnostics {
+            if let Some(step_id) = &mut diagnostic.step_id {
+                *step_id = format!("{prefix}{step_id}");
+            }
+        }
+    }
+    for diagnostic in &mut report.diagnostics {
+        if let Some(step_id) = &mut diagnostic.step_id {
+            *step_id = format!("{prefix}{step_id}");
+        }
+    }
+    Ok(())
+}
+
+fn record_forest_group(
+    report: &DagExecutionReport,
+    targets: &[ResolvedTarget],
+    target_artifacts: &mut HashMap<String, Artifact>,
+    target_steps: &mut HashMap<String, String>,
+    all_artifacts: &mut HashMap<String, Artifact>,
+) {
+    for artifact in report.artifacts.values() {
+        all_artifacts.insert(artifact.id().to_string(), artifact.clone());
+    }
+    for target in targets {
+        if let Some(artifact) = report.artifacts.get(&target.format) {
+            let identity = target.identity();
+            if let Some(step_id) = producing_step_id(artifact, &report.steps) {
+                target_steps.insert(identity.clone(), step_id);
+            }
+            target_artifacts.insert(identity, artifact.clone());
+        }
+    }
+}
+
 /// Record a cancellation that occurs after planning but before transform execution.
 pub fn cancelled(resolved: ResolvedExecution) -> Result<CanonicalExecutionResult> {
     let started_at_unix_ms = unix_time_ms();
@@ -1663,7 +1744,9 @@ pub fn cancelled(resolved: ResolvedExecution) -> Result<CanonicalExecutionResult
         .iter()
         .map(|edge| {
             Ok(StepEvidence {
-                step_id: format!("step:{}-to-{}", edge.from, edge.to),
+                step_id: if let Some(group) = edge.evidence.get("forest_execution_group") {
+                    format!("forest-group:{group}:step:{}-to-{}", edge.from, edge.to)
+                } else { format!("step:{}-to-{}", edge.from, edge.to) },
                 transform: edge
                     .evidence
                     .get("transform_id")
@@ -1879,6 +1962,9 @@ fn artifact_evidence(
     resolved: &ResolvedExecution,
     sources: &[Artifact],
     report: &DagExecutionReport,
+    target_artifacts: &HashMap<String, Artifact>,
+    target_steps: &HashMap<String, String>,
+    all_artifacts: &HashMap<String, Artifact>,
     output_locators: &HashMap<String, String>,
     diagnostics: &[ExecutionDiagnostic],
     validation_outcomes: &HashMap<String, ArtifactValidationOutcome>,
@@ -1887,54 +1973,51 @@ fn artifact_evidence(
     retained_locators: &HashMap<String, String>,
 ) -> Vec<ArtifactEvidence> {
     let mut evidence = source_evidence(resolved, sources);
-    let mut artifacts = report.artifacts.iter().collect::<Vec<_>>();
-    artifacts.sort_by(|(left_format, left), (right_format, right)| {
-        left_format
+    let mut artifacts = all_artifacts.values().collect::<Vec<_>>();
+    artifacts.sort_by(|left, right| {
+        left.format()
             .to_string()
-            .cmp(&right_format.to_string())
+            .cmp(&right.format().to_string())
             .then_with(|| left.id().as_str().cmp(right.id().as_str()))
     });
-    for (format, artifact) in artifacts {
+    for artifact in artifacts {
         if sources.iter().any(|source| artifact.id() == source.id())
-            && !resolved
-                .targets
-                .iter()
-                .any(|target| target.format == *format)
+            && !target_artifacts.values().any(|target| target.id() == artifact.id())
         {
             continue;
         }
         let targets = resolved
             .targets
             .iter()
-            .filter(|target| target.format == *format)
+            .filter(|target| target_artifacts.get(&target.identity())
+                .is_some_and(|terminal| terminal.id() == artifact.id()))
             .collect::<Vec<_>>();
-        let producing_step = report.steps.iter().find(|step| {
-            step.output_artifacts
-                .iter()
-                .any(|artifact_id| artifact_id == artifact.id().as_str())
-        });
         let outcome = validation_outcomes.get(artifact.id().as_str());
         let validation = outcome
             .map(|outcome| outcome.state)
             .unwrap_or(ValidationState::NotRequested);
-        let producer = producing_step
-            .map(|step| ProducerEvidence {
-                system: "renderflow".to_string(),
-                transform: Some(step.transform.clone()),
-                capability: step.capability.clone(),
-                provider: step.provider.clone(),
-                version: Some(step.transform_version.clone()),
-            })
-            .unwrap_or_else(ProducerEvidence::source);
-        let fidelity = producing_step
-            .map(|step| step.fidelity)
-            .unwrap_or(FidelityDeclaration::Unknown);
         let target_instances = if targets.is_empty() {
             vec![None]
         } else {
             targets.into_iter().map(Some).collect()
         };
         for target in target_instances {
+            let producing_step = if let Some(target) = target {
+                target_steps.get(&target.identity()).and_then(|step_id|
+                    report.steps.iter().find(|step| &step.step_id == step_id))
+            } else {
+                report.steps.iter().find(|step| step.output_artifacts.iter()
+                    .any(|artifact_id| artifact_id == artifact.id().as_str()))
+            };
+            let producer = producing_step.map(|step| ProducerEvidence {
+                system: "renderflow".to_string(),
+                transform: Some(step.transform.clone()),
+                capability: step.capability.clone(),
+                provider: step.provider.clone(),
+                version: Some(step.transform_version.clone()),
+            }).unwrap_or_else(ProducerEvidence::source);
+            let fidelity = producing_step.map(|step| step.fidelity)
+                .unwrap_or_else(|| if sources.iter().any(|source| source.id() == artifact.id()) { FidelityDeclaration::Lossless } else { FidelityDeclaration::Unknown });
             let lifecycle = if target.is_some() {
                 ArtifactRole::Terminal
             } else {
@@ -1944,7 +2027,7 @@ fn artifact_evidence(
                 .and_then(|target| target.role.clone().or_else(|| target.id.clone()))
                 .unwrap_or_else(|| artifact.format().to_string());
             let locator = target
-                .and_then(|target| output_locators.get(&target_evidence_key(target)).cloned())
+                .and_then(|target| output_locators.get(&target.identity()).cloned())
                 .or_else(|| retained_locators.get(artifact.id().as_str()).cloned())
                 .unwrap_or_else(|| artifact_store_locator(artifact));
             let mut item = ArtifactEvidence::from_artifact(
@@ -1952,7 +2035,7 @@ fn artifact_evidence(
                 role,
                 lifecycle,
                 locator,
-                producer.clone(),
+                producer,
                 validation,
                 fidelity,
             );
@@ -1961,6 +2044,10 @@ fn artifact_evidence(
                 .unwrap_or_default();
             item.hygiene = hygiene_evidence.get(artifact.id().as_str()).cloned();
             if let Some(target) = target {
+                item.metadata.insert(
+                    "renderflow.target.identity".to_string(),
+                    serde_json::json!(target.identity()),
+                );
                 item.metadata.insert(
                     "renderflow.target.id".to_string(),
                     serde_json::json!(target.id),
@@ -2210,14 +2297,6 @@ fn speech_not_cancelled(resolved: &ResolvedExecution) -> Result<()> {
     Ok(())
 }
 
-fn target_evidence_key(target: &ResolvedTarget) -> String {
-    target
-        .id
-        .clone()
-        .or_else(|| target.role.clone())
-        .unwrap_or_else(|| target.format.to_string())
-}
-
 fn artifact_store_locator(artifact: &Artifact) -> String {
     format!(
         "artifact-store:{}",
@@ -2243,18 +2322,6 @@ fn producing_step_id(artifact: &Artifact, steps: &[StepEvidence]) -> Option<Stri
                 .any(|artifact_id| artifact_id == artifact.id().as_str())
         })
         .map(|step| step.step_id.clone())
-}
-
-fn producing_fidelity(artifact: &Artifact, steps: &[StepEvidence]) -> FidelityDeclaration {
-    steps
-        .iter()
-        .find(|step| {
-            step.output_artifacts
-                .iter()
-                .any(|artifact_id| artifact_id == artifact.id().as_str())
-        })
-        .map(|step| step.fidelity)
-        .unwrap_or(FidelityDeclaration::Unknown)
 }
 
 fn rejects_fidelity(class: RejectedLossClass, fidelity: FidelityDeclaration) -> bool {
@@ -2302,6 +2369,7 @@ fn apply_request_overrides(spec: &mut SpecV2, request: &PlanningRequest) -> Resu
                 family: None,
                 capability: None,
                 transform: None,
+                provider: None,
                 variant: None,
                 preset: None,
                 template: None,
@@ -3065,7 +3133,7 @@ fn register_subtitle_executors(
             Some(SUBTITLE_ADAPTER_EVIDENCE) => {
                 let transform = TimedTextArtifactTransform::new(edge.from, edge.to)?;
                 let transform = if speech { transform.without_cache() } else { transform };
-                executor.register_artifact(edge.from, edge.to, Arc::new(transform));
+                executor.register_artifact_for_edge(edge, Arc::new(transform));
             }
             Some(SUBTITLE_EXTRACTION_EVIDENCE) => {
                 let stream_index = policy.and_then(|policy| policy.stream_index)
@@ -3075,9 +3143,8 @@ fn register_subtitle_executors(
                 {
                     anyhow::bail!("subtitle.plan.inconsistent: extraction edge differs from the frozen stream selection");
                 }
-                executor.register_artifact(
-                    edge.from,
-                    edge.to,
+                executor.register_artifact_for_edge(
+                    edge,
                     Arc::new(SubtitleExtractionTransform::new(
                         edge.from,
                         stream_index,
@@ -3227,7 +3294,7 @@ fn register_screenplay_pdf_executors(
         {
             anyhow::bail!("screenplay_pdf.plan.inconsistent: selected edge differs from the frozen direct rendering policy");
         }
-        executor.register_artifact(Format::Fountain, Format::Pdf,
+        executor.register_artifact_for_edge(edge,
             Arc::new(AfterwritingArtifactTransform::new(policy.clone(), cancellation.clone())?));
     }
     Ok(())
@@ -3345,7 +3412,7 @@ fn register_screenplay_executors(
         {
             anyhow::bail!("screenplay.plan.inconsistent: edge differs from the frozen scripttool policy");
         }
-        executor.register_artifact(edge.from, edge.to, Arc::new(ScreenplayArtifactTransform::new(
+        executor.register_artifact_for_edge(edge, Arc::new(ScreenplayArtifactTransform::new(
             edge.from, edge.to, policy.clone(), cancellation.clone(),
         )?));
     }
@@ -3456,7 +3523,7 @@ fn register_speech_executors(
             Some(observer) => transform.with_observer(observer.clone()),
             None => transform,
         };
-        executor.register_artifact(edge.from, edge.to, Arc::new(transform));
+        executor.register_artifact_for_edge(edge, Arc::new(transform));
     }
     Ok(())
 }
@@ -3747,156 +3814,40 @@ fn resolve_target_intent(
     }
     if !spec.targets.include.is_empty() {
         selected.retain(|target| selector_matches(target, &spec.targets.include, graph));
+        for target in &mut selected { target.include_selectors.push(spec.targets.include.clone()); }
     }
     apply_exclusions(&mut selected, &profile_exclusions, graph);
     apply_exclusions(&mut selected, &spec.targets.exclude, graph);
-    selected.sort_by_key(|item| item.format.to_string());
+    selected.sort_by(|a, b| a.format.to_string().cmp(&b.format.to_string()).then_with(|| a.identity().cmp(&b.identity())));
     Ok(selected)
 }
 
-fn build_artifact_forest(
-    spec: &SpecV2,
-    graph: &TransformGraph,
-    source: Format,
-    selected: &[ResolvedTarget],
-    unavailable: &[ResolvedTarget],
-    budget_pruned: &[ResolvedTarget],
-) -> ArtifactForest {
-    let mut exclusions = spec.targets.exclude.clone();
-    for profile_name in &spec.targets.profiles {
-        if let Some(profile) = spec.profiles.get(profile_name) {
-            merge_selector_set(&mut exclusions, &profile.exclude);
-        }
-    }
-    let branch = |target: &ResolvedTarget,
-                  state: ForestBranchState,
-                  reason_code: &str,
-                  reason: &str| ForestBranch {
-        format: target.format.to_string(),
-        role: target.role.clone(),
-        requirement: match target.requirement {
-            TargetRequirement::Required => "required",
-            TargetRequirement::Optional => "optional",
-        }
-        .to_string(),
-        options: target.options.clone(),
-        state,
-        reason_code: reason_code.to_string(),
-        reason: reason.to_string(),
-    };
-    let mut branches = selected
-        .iter()
-        .map(|target| {
-            branch(
-                target,
-                ForestBranchState::Selected,
-                "branch.selected",
-                "reachable, policy-allowed, and provider-available",
-            )
-        })
-        .chain(unavailable.iter().map(|target| {
-            branch(
-                target,
-                ForestBranchState::Unavailable,
-                "branch.provider_unavailable",
-                "a required provider is unavailable on this host",
-            )
-        }))
-        .chain(budget_pruned.iter().map(|target| {
-            branch(
-                target,
-                ForestBranchState::BudgetPruned,
-                "branch.max_artifacts",
-                "pruned by execution.budgets.max_artifacts",
-            )
-        }))
-        .collect::<Vec<_>>();
-    let represented = selected
-        .iter()
-        .chain(unavailable.iter())
-        .chain(budget_pruned.iter())
-        .map(|target| target.format)
-        .collect::<HashSet<_>>();
-    for format in graph.reachable_from(source) {
-        let target = ResolvedTarget::generated(format);
-        if !represented.contains(&format) && selector_matches(&target, &exclusions, graph) {
-            branches.push(branch(
-                &target,
-                ForestBranchState::Excluded,
-                "branch.selector_excluded",
-                "matched a profile, spec, or CLI exclusion selector",
-            ));
-        }
-    }
-    branches.sort_by(|left, right| {
-        left.format
-            .cmp(&right.format)
-            .then_with(|| left.role.cmp(&right.role))
-    });
-    ArtifactForest {
-        profiles: spec
-            .targets
-            .profiles
-            .iter()
-            .map(|name| {
-                let version = spec
-                    .profiles
-                    .get(name)
-                    .map(|profile| profile.schema.as_str())
-                    .unwrap_or("unknown");
-                format!("{name}@{version}")
-            })
-            .collect(),
-        intermediates: match spec.targets.intermediates {
-            IntermediatePolicy::CacheOnly => "cache_only",
-            IntermediatePolicy::Retain => "retain",
-        }
-        .to_string(),
-        branches,
-        produced_artifacts: Vec::new(),
-    }
-}
-
 fn extend_target_spec(
-    selected: &mut Vec<ResolvedTarget>,
-    target: &TargetSpec,
-    graph: &TransformGraph,
-    source: Format,
-    reachable: &[Format],
+    selected: &mut Vec<ResolvedTarget>, target: &TargetSpec, graph: &TransformGraph,
+    source: Format, reachable: &[Format],
 ) -> Result<()> {
-    let mut candidates: Vec<Format> = if let Some(format) = &target.format {
-        vec![format
-            .parse()
-            .with_context(|| format!("unknown target format '{format}'"))?]
+    let candidates = if let Some(format) = &target.format {
+        // Preserve an explicit unsupported request as a diagnostic branch.
+        vec![format.parse().with_context(|| format!("unknown target format '{format}'"))?]
     } else {
-        reachable.to_vec()
-    };
-    if let Some(family) = &target.family {
-        candidates.retain(|format| format_in_family(*format, family));
-    }
-    if let Some(capability) = &target.capability {
-        candidates.retain(|format| {
-            graph
-                .transforms_to(*format)
-                .iter()
-                .any(|edge| edge.capability_id.as_deref() == Some(capability.as_str()))
-        });
-        if candidates.is_empty()
-            && capability == crate::super_resolution::SUPER_RESOLUTION_CAPABILITY_ID
-        {
+        let mut candidates = reachable.iter().copied().filter(|format| {
+            target.family.as_ref().is_none_or(|family| format_in_family(*format, family))
+                && graph.transforms_to(*format).iter().any(|edge| {
+                    target.capability.as_ref().is_none_or(|id| edge.capability_id.as_ref() == Some(id))
+                        && target.transform.as_ref().is_none_or(|id| edge.evidence.get("transform_id") == Some(id))
+                        && target.provider.as_ref().is_none_or(|id| edge.provider_id.as_ref() == Some(id))
+                        && target.variant.as_ref().is_none_or(|id| edge.variant_id.as_ref() == Some(id))
+                })
+        }).collect::<Vec<_>>();
+        if candidates.is_empty() && target.capability.as_deref() == Some(crate::super_resolution::SUPER_RESOLUTION_CAPABILITY_ID) {
             candidates.push(source);
         }
-    }
-    if let Some(transform) = &target.transform {
-        candidates.retain(|format| {
-            graph.transforms_to(*format).iter().any(|edge| {
-                edge.evidence.get("transform_id").map(String::as_str) == Some(transform.as_str())
-            })
-        });
-    }
-    for format in candidates {
-        insert_target(selected, ResolvedTarget::from_spec(format, target))?;
-    }
+        if candidates.is_empty() {
+            anyhow::bail!("target.selector_unsupported: no registered artifact format matches the target selector; specify format to retain an explicit unsupported branch in the plan");
+        }
+        candidates
+    };
+    for format in candidates { insert_target(selected, ResolvedTarget::from_spec(format, target))?; }
     Ok(())
 }
 
@@ -3908,8 +3859,9 @@ fn extend_selector(
     reachable: &[Format],
 ) -> Result<()> {
     for format in reachable {
-        let target = ResolvedTarget::generated(*format);
+        let mut target = ResolvedTarget::generated(*format);
         if selector_matches(&target, selector, graph) {
+            target.include_selectors.push(selector.clone());
             insert_target(selected, target)?;
         }
     }
@@ -3917,118 +3869,38 @@ fn extend_selector(
 }
 
 fn insert_target(selected: &mut Vec<ResolvedTarget>, candidate: ResolvedTarget) -> Result<()> {
-    if let Some(existing) = selected
-        .iter_mut()
-        .find(|target| target.format == candidate.format)
-    {
-        if *existing == candidate || is_generated(existing) {
-            if is_generated(existing) {
-                *existing = candidate;
-            }
-            return Ok(());
-        }
-        if is_generated(&candidate) {
-            return Ok(());
-        }
-        let shares_render = existing.preset == candidate.preset
-            && existing.template == candidate.template
-            && existing.variant == candidate.variant
-            && existing.options == candidate.options;
-        if shares_render {
-            selected.push(candidate);
-            return Ok(());
-        }
-        anyhow::bail!(
-            "multiple target roles resolve to format '{}' with different render configurations; use a shared preset/template/options or Transform v2 target nodes",
-            candidate.format
-        );
+    if let Some(existing) = selected.iter_mut().find(|target| target.identity() == candidate.identity()) {
+        if candidate.requirement == TargetRequirement::Required { existing.requirement = TargetRequirement::Required; }
+        return Ok(());
+    }
+    // Explicit declarations replace format-only expansion. Two explicit render
+    // identities remain distinct even when their extension is the same.
+    if is_generated(&candidate) && selected.iter().any(|target| target.format == candidate.format) {
+        return Ok(());
+    }
+    if !is_generated(&candidate) {
+        selected.retain(|target| target.format != candidate.format || !is_generated(target));
     }
     selected.push(candidate);
     Ok(())
 }
 
 fn is_generated(target: &ResolvedTarget) -> bool {
-    target.id.is_none()
-        && target.preset.is_none()
-        && target.template.is_none()
-        && target.variant.is_none()
+    target.id.is_none() && target.role.as_deref() == Some(target.format.to_string().as_str())
+        && target.preset.is_none() && target.template.is_none() && target.variant.is_none()
+        && target.capability.is_none() && target.transform.is_none() && target.provider.is_none()
+        && target.options.is_empty() && target.requirement == TargetRequirement::Optional
 }
 
-fn apply_exclusions(
-    selected: &mut Vec<ResolvedTarget>,
-    selector: &SelectorSet,
-    graph: &TransformGraph,
-) {
-    if selector.is_empty() {
-        return;
-    }
-    selected.retain(|target| !selector_matches(target, selector, graph));
+fn apply_exclusions(selected: &mut Vec<ResolvedTarget>, selector: &SelectorSet, _graph: &TransformGraph) {
+    if selector.is_empty() { return; }
+    selected.retain(|target| !forest::selector_matches_identity(target, selector));
+    for target in selected { target.exclude_selectors.push(selector.clone()); }
 }
 
-fn selector_matches(
-    target: &ResolvedTarget,
-    selector: &SelectorSet,
-    graph: &TransformGraph,
-) -> bool {
-    let format = target.format;
-    let mut has_format_selector = false;
-    let mut matches = false;
-    if !selector.formats.is_empty() {
-        has_format_selector = true;
-        matches |= selector
-            .formats
-            .iter()
-            .any(|value| value.parse::<Format>().ok() == Some(format));
-    }
-    if !selector.families.is_empty() {
-        has_format_selector = true;
-        matches |= selector
-            .families
-            .iter()
-            .any(|family| format_in_family(format, family));
-    }
-    if !selector.capabilities.is_empty() {
-        has_format_selector = true;
-        matches |= graph.transforms_to(format).iter().any(|edge| {
-            edge.capability_id
-                .as_ref()
-                .is_some_and(|capability| selector.capabilities.contains(capability))
-        });
-    }
-    if !selector.transforms.is_empty() {
-        has_format_selector = true;
-        matches |= graph.transforms_to(format).iter().any(|edge| {
-            edge.evidence
-                .get("transform_id")
-                .is_some_and(|transform| selector.transforms.contains(transform))
-        });
-    }
-    if !selector.providers.is_empty() {
-        has_format_selector = true;
-        matches |= graph.transforms_to(format).iter().any(|edge| {
-            edge.provider_id
-                .as_ref()
-                .is_some_and(|provider| selector.providers.contains(provider))
-                || edge
-                    .required_provider_ids
-                    .iter()
-                    .any(|provider| selector.providers.contains(provider))
-        });
-    }
-    if !selector.roles.is_empty() {
-        has_format_selector = true;
-        matches |= target
-            .role
-            .as_ref()
-            .is_some_and(|role| selector.roles.contains(role));
-    }
-    if !selector.profiles.is_empty() {
-        has_format_selector = true;
-    }
-    if !has_format_selector && !selector.variants.is_empty() {
-        return true;
-    }
-    matches
+fn selector_matches(target: &ResolvedTarget, selector: &SelectorSet, graph: &TransformGraph) -> bool {
+    forest::selector_matches_identity(target, selector) || graph.transforms_to(target.format).iter().any(|edge|
+        forest::target_edge_matches(target, edge) && forest::selector_matches_edge(selector, edge))
 }
 
 fn format_in_family(format: Format, family: &str) -> bool {
@@ -4047,24 +3919,6 @@ fn format_in_family(format: Format, family: &str) -> bool {
     FormatCapabilityRegistry::global()
         .get(format)
         .is_some_and(|descriptor| descriptor.is_in_family(family))
-}
-
-fn unsupported_targets_error(
-    graph: &TransformGraph,
-    source: Format,
-    targets: &[Format],
-) -> anyhow::Error {
-    let unreachable = targets
-        .iter()
-        .filter(|target| **target != source && graph.find_path(source, **target).is_none())
-        .map(ToString::to_string)
-        .collect::<Vec<_>>()
-        .join(", ");
-    anyhow::anyhow!(
-        "no policy-allowed transformation path from '{}' to requested target(s): {}",
-        source,
-        unreachable
-    )
 }
 
 fn validate_publication_target_roles(spec: &SpecV2, targets: &[ResolvedTarget]) -> Result<()> {
@@ -4135,7 +3989,7 @@ fn register_builtin_strategy_executors(
             variables.clone(),
             asset_root,
         )?;
-        executor.register_artifact(edge.from, edge.to, Arc::new(transform));
+        executor.register_artifact_for_edge(edge, Arc::new(transform));
     }
     Ok(())
 }
@@ -4153,10 +4007,17 @@ fn selected_provider_ids(dag: &MultiTargetDag) -> BTreeSet<String> {
 }
 
 fn preflight_selected_providers(resolved: &ResolvedExecution) -> Result<()> {
+    if let Some(forest) = &resolved.plan.artifact_forest {
+        let blocked = forest.branches.iter().filter(|branch| branch.requirement == "required"
+            && matches!(branch.state, ForestBranchState::Unavailable | ForestBranchState::Unsupported | ForestBranchState::BudgetPruned))
+            .map(|branch| format!("{} ({}): {}", branch.target_id, branch.reason_code, branch.reason)).collect::<Vec<_>>();
+        if !blocked.is_empty() { anyhow::bail!("forest.required_targets_blocked: {}", blocked.join("; ")); }
+    }
+    if resolved.targets.is_empty() { anyhow::bail!("forest.no_selected_targets: the forest contains diagnostics only; no transform or output was scheduled"); }
     if resolved.print_pages.is_some() && resolved.plan.toolchain.is_none() {
         anyhow::bail!("print_pdf.provider.unavailable: print interior was planned without an observed compatible img2pdf toolchain; re-plan when it is installed");
     }
-    let ids = selected_provider_ids(&resolved.dag);
+    let ids = resolved.execution_groups.iter().flat_map(|group| selected_provider_ids(&group.dag)).collect::<BTreeSet<_>>();
     let deferred_speech_ids = speech_provider_ids(resolved.spec.execution.speech.as_ref());
     let mut inventory = resolved.tool_registry.assess_ids_current(
         ids.iter().filter(|id|
@@ -4212,10 +4073,11 @@ fn validate_print_provider_version(
 fn validate_pre_execution_budgets(resolved: &ResolvedExecution) -> Result<()> {
     let budgets = &resolved.spec.execution.budgets;
     if let Some(max_depth) = budgets.max_depth {
-        if resolved.plan.metadata.execution_depth as u32 > max_depth {
+        let deepest = resolved.execution_groups.iter().map(|group| ExecutionPlan::from_dag(&group.dag, resolved.source_format, &[], resolved.spec.execution.optimization).metadata.execution_depth).max().unwrap_or(0);
+        if deepest as u32 > max_depth {
             anyhow::bail!(
                 "execution plan depth {} exceeds max_depth budget {}",
-                resolved.plan.metadata.execution_depth,
+                deepest,
                 max_depth
             );
         }
@@ -4223,7 +4085,8 @@ fn validate_pre_execution_budgets(resolved: &ResolvedExecution) -> Result<()> {
     if let Some(max_artifacts) = budgets.max_artifacts {
         let retained_count = resolved.spec.execution.speech.as_ref()
             .map(|policy| if policy.audio.is_some() { 5 } else { 3 }).unwrap_or(0);
-        let estimate = (resolved.plan.metadata.total_nodes as u64).checked_add(retained_count)
+        let nodes = resolved.source_members.len() as u64 + resolved.execution_groups.iter().map(|group| group.dag.node_count().saturating_sub(1) as u64).sum::<u64>();
+        let estimate = nodes.checked_add(retained_count)
             .context("execution artifact estimate overflow")?;
         if estimate > max_artifacts {
             anyhow::bail!("execution plan artifact estimate {estimate} exceeds max_artifacts budget {max_artifacts}");
@@ -4234,25 +4097,17 @@ fn validate_pre_execution_budgets(resolved: &ResolvedExecution) -> Result<()> {
 
 fn validate_post_execution_budgets(
     resolved: &ResolvedExecution,
-    artifacts: &HashMap<Format, crate::artifact::Artifact>,
+    target_artifacts: &HashMap<String, Artifact>,
+    artifacts: &HashMap<String, Artifact>,
     retained_speech: &[Artifact],
 ) -> Result<()> {
     let budgets = &resolved.spec.execution.budgets;
-    let target_formats: HashSet<Format> = resolved
-        .targets
-        .iter()
-        .map(|target| target.format)
-        .collect();
     if let Some(max_output) = budgets.max_output_bytes {
-        let selected_sizes = if resolved.spec.execution.speech.is_some() {
-            // Multiple selected roles can publish copies of the same format.
-            resolved.targets.iter().filter_map(|target| artifacts.get(&target.format))
-                .map(Artifact::size_bytes).collect::<Vec<_>>()
-        } else {
-            artifacts.iter().filter(|(format, _)| target_formats.contains(format))
-                .map(|(_, artifact)| artifact.size_bytes()).collect::<Vec<_>>()
-        };
-        let total: u64 = selected_sizes.into_iter()
+        // Count every selected publication, even when two identities happen to
+        // render identical bytes. Storage accounting below deduplicates IDs.
+        let total: u64 = resolved.targets.iter()
+            .filter_map(|target| target_artifacts.get(&target.identity()))
+            .map(Artifact::size_bytes)
             .chain(retained_speech.iter().map(Artifact::size_bytes))
             .try_fold(0_u64, |total, size| total.checked_add(size).context("artifact byte count overflow"))?;
         if total > max_output {
@@ -4295,7 +4150,7 @@ fn render_output_paths(resolved: &ResolvedExecution) -> Result<Vec<PathBuf>> {
         .and_then(|value| value.to_str())
         .unwrap_or("artifact");
     let mut paths = Vec::new();
-    let mut seen = HashMap::<PathBuf, usize>::new();
+    let mut seen = HashSet::<PathBuf>::new();
     for target in &resolved.targets {
         let relative = if resolved.source_version == SourceSpecVersion::V1 {
             PathBuf::from(format!(
@@ -4315,31 +4170,38 @@ fn render_output_paths(resolved: &ResolvedExecution) -> Result<Vec<PathBuf>> {
             rendered = rendered.replace("{source.id}", &resolved.source.id);
             rendered = rendered.replace("{source.role}", source_role);
             rendered = rendered.replace("{target.id}", target_id);
+            rendered = rendered.replace("{target.identity}", &target.identity());
             rendered = rendered.replace("{target.role}", target_role);
             rendered = rendered.replace("{target.format}", &format_string);
+            rendered = rendered.replace("{target.variant}", target.variant.as_deref().unwrap_or("default"));
+            rendered = rendered.replace("{target.preset}", target.preset.as_deref().unwrap_or("default"));
             rendered = rendered.replace("{ext}", &artifact_extension(target.format));
             let path = PathBuf::from(rendered);
             validate_relative_output_path(&path)?;
             path
         };
         let mut destination = root.join(&relative);
-        let count = seen.entry(destination.clone()).or_insert(0);
-        if *count > 0 {
+        if seen.contains(&destination) {
             match resolved.spec.output.collision {
-                CollisionPolicy::Error => anyhow::bail!(
-                    "multiple selected targets resolve to output path '{}'",
+                CollisionPolicy::Error | CollisionPolicy::Replace => anyhow::bail!(
+                    "multiple selected targets resolve to output path '{}'; include {{target.identity}}, {{target.id}}, or a distinct {{target.role}} in the naming template, or choose collision: dedupe; replace cannot overwrite another target in the same run",
                     destination.display()
                 ),
-                CollisionPolicy::Replace => {}
                 CollisionPolicy::Dedupe => {
-                    destination = dedupe_path(&destination, *count + 1);
+                    let original = destination.clone();
+                    let mut suffix = 2;
+                    loop {
+                        destination = dedupe_path(&original, suffix);
+                        if !seen.contains(&destination) { break; }
+                        suffix += 1;
+                    }
                 }
             }
         }
-        *count += 1;
+        seen.insert(destination.clone());
         paths.push(destination);
     }
-    if resolved.spec.publication.is_some() {
+    if resolved.spec.publication.is_some() && !resolved.targets.is_empty() {
         paths.extend([
             root.join("metadata/publication.json"),
             root.join("metadata/manifest.json"),
@@ -4460,84 +4322,6 @@ mod tests {
         let targets = resolve_target_intent(&spec, &graph, Format::Markdown).unwrap();
         assert_eq!(targets.len(), 1);
         assert_eq!(targets[0].format, Format::Html);
-    }
-
-    #[test]
-    fn all_reachable_partition_preserves_mixed_availability_states() {
-        let requested = vec![
-            ResolvedTarget::generated(Format::Html),
-            ResolvedTarget::generated(Format::Pdf),
-        ];
-        let available_formats = HashSet::from([Format::Html]);
-
-        let (available, unavailable) =
-            partition_targets_by_availability(requested, &available_formats, true);
-        let (planned, used_unavailable_only_fallback) = planning_targets(&available, &unavailable);
-
-        assert_eq!(
-            available
-                .iter()
-                .map(|target| target.format)
-                .collect::<Vec<_>>(),
-            [Format::Html]
-        );
-        assert_eq!(
-            unavailable
-                .iter()
-                .map(|target| target.format)
-                .collect::<Vec<_>>(),
-            [Format::Pdf]
-        );
-        assert_eq!(
-            planned
-                .iter()
-                .map(|target| target.format)
-                .collect::<Vec<_>>(),
-            [Format::Html]
-        );
-        assert!(!used_unavailable_only_fallback);
-    }
-
-    #[test]
-    fn all_reachable_partition_retains_unavailable_only_plan_for_inspection() {
-        let requested = vec![
-            ResolvedTarget::generated(Format::Html),
-            ResolvedTarget::generated(Format::Pdf),
-        ];
-
-        let (available, unavailable) =
-            partition_targets_by_availability(requested, &HashSet::new(), true);
-        let (planned, used_unavailable_only_fallback) = planning_targets(&available, &unavailable);
-
-        assert!(available.is_empty());
-        assert_eq!(
-            unavailable
-                .iter()
-                .map(|target| target.format)
-                .collect::<Vec<_>>(),
-            [Format::Html, Format::Pdf]
-        );
-        assert_eq!(
-            planned
-                .iter()
-                .map(|target| target.format)
-                .collect::<Vec<_>>(),
-            [Format::Html, Format::Pdf]
-        );
-        assert!(used_unavailable_only_fallback);
-    }
-
-    #[test]
-    fn required_exact_target_keeps_blocked_provider_fallback() {
-        let mut target = ResolvedTarget::generated(Format::Html);
-        target.requirement = TargetRequirement::Required;
-
-        let (available, unavailable) =
-            partition_targets_by_availability(vec![target], &HashSet::new(), false);
-
-        assert_eq!(available.len(), 1);
-        assert_eq!(available[0].format, Format::Html);
-        assert!(unavailable.is_empty());
     }
 
     #[test]

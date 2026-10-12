@@ -48,7 +48,7 @@ pub struct PlanNode {
 // ── PlanEdge ────────────────────────────────────────────────────────────────
 
 /// An edge in the canonical execution plan.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PlanEdge {
     /// Source format for this transformation.
     pub from: String,
@@ -212,13 +212,55 @@ pub enum ForestBranchState {
     Selected,
     Excluded,
     Unavailable,
+    Unsupported,
     BudgetPruned,
 }
 
+impl ForestBranchState {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Selected => "selected",
+            Self::Excluded => "excluded",
+            Self::Unavailable => "unavailable",
+            Self::Unsupported => "unsupported",
+            Self::BudgetPruned => "budget_pruned",
+        }
+    }
+}
+
+/// The exact source-rooted route selected for a distinct derivative identity.
+///
+/// Format-only graph views are projections: this ordered edge list preserves
+/// provider, capability, variant, and transform evidence for the actual route.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ForestRouteEvidence {
+    pub steps: Vec<PlanEdge>,
+    /// An explicitly requested source identity uses an empty route, never a cycle.
+    pub source_identity: bool,
+    /// Product of edge qualities; a source identity has quality 1.
+    pub cumulative_quality: f64,
+    /// One minus cumulative quality.
+    pub cumulative_loss: f64,
+    pub hop_count: usize,
+    pub weighted_cost: f64,
+    /// Stable, human-readable description of the route ranking policy.
+    pub ranking: String,
+    pub explored_candidates: usize,
+}
+
 /// Machine-readable evidence for a branch considered during profile expansion.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ForestBranch {
+    /// Stable identity including effective render configuration, not only format.
+    #[serde(default)]
+    pub target_id: String,
     pub format: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub preset: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub template: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub variant: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub role: Option<String>,
     pub requirement: String,
@@ -227,11 +269,20 @@ pub struct ForestBranch {
     pub state: ForestBranchState,
     pub reason_code: String,
     pub reason: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub route: Option<ForestRouteEvidence>,
 }
 
 /// Requested and resolved artifact forest attached to plans and run manifests.
-#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ArtifactForest {
+    #[serde(default = "artifact_forest_schema")]
+    pub schema: String,
+    /// Digest of the source, policy, target configuration, routes, and toolchain.
+    #[serde(default)]
+    pub identity: String,
+    #[serde(default)]
+    pub policy: serde_json::Value,
     #[serde(default)]
     pub profiles: Vec<String>,
     pub intermediates: String,
@@ -240,6 +291,24 @@ pub struct ArtifactForest {
     /// Artifact ids actually produced; empty in a pre-execution plan.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub produced_artifacts: Vec<String>,
+}
+
+fn artifact_forest_schema() -> String {
+    "renderflow/artifact-forest-v1".to_string()
+}
+
+impl Default for ArtifactForest {
+    fn default() -> Self {
+        Self {
+            schema: artifact_forest_schema(),
+            identity: String::new(),
+            policy: serde_json::Value::Null,
+            profiles: Vec::new(),
+            intermediates: String::new(),
+            branches: Vec::new(),
+            produced_artifacts: Vec::new(),
+        }
+    }
 }
 
 impl PlanDiagnostic {
@@ -432,6 +501,86 @@ impl ExecutionPlan {
         }
     }
 
+    /// Project isolated execution groups into one inspectable plan.
+    ///
+    /// Groups execute sequentially. Equal format pairs remain separate edges;
+    /// they must not be merged because their providers or render options can
+    /// differ. The attached artifact forest is the authority for target identity
+    /// and route selection, while nodes are a format-level visual projection.
+    /// Source and toolchain evidence can be attached after combining the groups.
+    pub fn from_branch_plans(plans: &[ExecutionPlan], targets: &[String]) -> Self {
+        let mut nodes = BTreeMap::<String, PlanNode>::new();
+        let mut edges = Vec::new();
+        let mut waves = Vec::new();
+        let mut diagnostics = Vec::new();
+        let mut execution_depth = 0;
+        let mut estimated_cost = 0.0;
+        let mut estimated_quality = 1.0_f32;
+        let mut reused_intermediates = 0;
+
+        for (group_index, plan) in plans.iter().enumerate() {
+            let group = (group_index + 1).to_string();
+            for node in &plan.nodes {
+                let existing = nodes.entry(node.format.clone()).or_insert_with(|| node.clone());
+                // A source remains the source; otherwise expose a terminal role
+                // whenever at least one isolated group requests this format.
+                if node.node_type == NodeType::Source
+                    || (existing.node_type != NodeType::Source && node.node_type == NodeType::Output)
+                {
+                    existing.node_type = node.node_type.clone();
+                }
+            }
+            let with_group = |edge: &PlanEdge| {
+                let mut edge = edge.clone();
+                edge.evidence.insert("forest_execution_group".to_string(), group.clone());
+                edge
+            };
+            edges.extend(plan.edges.iter().map(&with_group));
+            for wave in &plan.waves {
+                waves.push(ExecutionWave {
+                    index: waves.len() + 1,
+                    edges: wave.edges.iter().map(&with_group).collect(),
+                });
+            }
+            diagnostics.extend(plan.diagnostics.iter().map(|diagnostic| PlanDiagnostic {
+                level: diagnostic.level.clone(),
+                message: format!("Execution group {group}: {}", diagnostic.message),
+            }));
+            execution_depth += plan.metadata.execution_depth;
+            estimated_cost += plan.metadata.estimated_cost;
+            estimated_quality = estimated_quality.min(plan.metadata.estimated_quality);
+            reused_intermediates += plan.metadata.reused_intermediates;
+        }
+        diagnostics.push(PlanDiagnostic::info(format!(
+            "{} isolated execution group(s) run sequentially. The format graph is a projection; artifact-forest branch routes are authoritative for target identity and selected transforms.",
+            plans.len()
+        )));
+        let nodes: Vec<_> = nodes.into_values().collect();
+        Self {
+            source: plans.first().map(|plan| plan.source.clone()).unwrap_or_default(),
+            targets: targets.to_vec(),
+            optimization: plans.first().map(|plan| plan.optimization.clone()).unwrap_or_else(|| "balanced".to_string()),
+            metadata: ExecutionMetadata {
+                total_nodes: nodes.len(),
+                total_edges: edges.len(),
+                execution_depth,
+                execution_waves: waves.len(),
+                estimated_cost,
+                estimated_quality,
+                reused_intermediates,
+                output_count: targets.len(),
+            },
+            nodes,
+            edges,
+            waves,
+            diagnostics,
+            source_artifact: plans.first().and_then(|plan| plan.source_artifact.clone()),
+            source_collection: plans.first().and_then(|plan| plan.source_collection.clone()),
+            toolchain: None,
+            artifact_forest: None,
+        }
+    }
+
     /// Attach selected-provider evidence and a deterministic toolchain fingerprint.
     pub fn attach_toolchain(&mut self, snapshot: ToolchainSnapshot) {
         let selected = snapshot
@@ -465,7 +614,7 @@ impl ExecutionPlan {
             .count();
         let pruned = forest.branches.len().saturating_sub(selected);
         self.diagnostics.push(PlanDiagnostic::info(format!(
-            "Artifact forest selected {selected} branch(es) and recorded {pruned} excluded, unavailable, or budget-pruned branch(es)."
+            "Artifact forest selected {selected} branch(es) and recorded {pruned} excluded, unavailable, unsupported, or budget-pruned branch(es)."
         )));
         self.artifact_forest = Some(forest);
     }
@@ -809,5 +958,75 @@ mod tests {
         let deserialized: ExecutionPlan = serde_json::from_str(&json).unwrap();
         assert_eq!(deserialized.source, plan.source);
         assert_eq!(deserialized.metadata.total_edges, plan.metadata.total_edges);
+    }
+
+    #[test]
+    fn isolated_groups_keep_competing_provider_routes_and_sequential_waves() {
+        let plans: Vec<_> = [("tool.print", 0.5, 1.0), ("tool.preview", 0.2, 0.8)]
+            .into_iter()
+            .map(|(provider, cost, quality)| {
+                let mut graph = TransformGraph::new();
+                graph.add_transform(
+                    TransformEdge::new(Format::Html, Format::Pdf, cost, quality)
+                        .with_provider(provider, "document.pdf"),
+                );
+                let dag = graph.build_multi_target_dag(Format::Html, &[Format::Pdf]).unwrap();
+                ExecutionPlan::from_dag(&dag, Format::Html, &[Format::Pdf], OptimizationMode::Quality)
+            })
+            .collect();
+        let plan = ExecutionPlan::from_branch_plans(
+            &plans, &["target:print".to_string(), "target:preview".to_string()],
+        );
+
+        assert_eq!(plan.edges.len(), 2);
+        assert_eq!(plan.edges[0].provider_id.as_deref(), Some("tool.print"));
+        assert_eq!(plan.edges[1].provider_id.as_deref(), Some("tool.preview"));
+        assert_eq!(plan.edges[0].evidence["forest_execution_group"], "1");
+        assert_eq!(plan.edges[1].evidence["forest_execution_group"], "2");
+        assert_eq!(plan.waves.iter().map(|wave| wave.index).collect::<Vec<_>>(), vec![1, 2]);
+        assert_eq!(plan.metadata.output_count, 2);
+        assert_eq!(plan.metadata.total_nodes, 2);
+        assert_eq!(plan.metadata.execution_depth, 2);
+        assert!((plan.metadata.estimated_cost - 0.7).abs() < f32::EPSILON);
+        assert_eq!(plan.metadata.estimated_quality, 0.8);
+        assert!(plan.diagnostics.iter().any(|diagnostic| diagnostic.message.contains("routes are authoritative")));
+    }
+
+    #[test]
+    fn legacy_forest_deserializes_without_fabricating_route_evidence() {
+        let forest: ArtifactForest = serde_json::from_value(serde_json::json!({
+            "profiles": ["everything"], "intermediates": "cache_only", "branches": [{
+                "format": "pdf", "requirement": "optional", "state": "unavailable",
+                "reason_code": "provider_unavailable", "reason": "Provider was not available."
+            }]
+        })).unwrap();
+        assert_eq!(forest.schema, "renderflow/artifact-forest-v1");
+        assert!(forest.identity.is_empty());
+        assert!(forest.branches[0].target_id.is_empty());
+        assert!(forest.branches[0].route.is_none());
+        assert_eq!(ArtifactForest::default().schema, forest.schema);
+    }
+
+    #[test]
+    fn source_identity_and_unsupported_diagnostics_roundtrip() {
+        let forest: ArtifactForest = serde_json::from_value(serde_json::json!({
+            "schema": "renderflow/artifact-forest-v1", "identity": "forest:example",
+            "policy": {"exclude_source": true}, "profiles": [], "intermediates": "cache_only",
+            "branches": [{
+                "target_id": "target:source", "format": "markdown", "requirement": "required",
+                "state": "selected", "reason_code": "explicit_source_identity",
+                "reason": "Explicit source copy; no round trip.",
+                "route": {"steps": [], "source_identity": true, "cumulative_quality": 1.0,
+                    "cumulative_loss": 0.0, "hop_count": 0, "weighted_cost": 0.0,
+                    "ranking": "source_identity", "explored_candidates": 0}
+            }, {
+                "target_id": "target:unsupported", "format": "docx", "requirement": "optional",
+                "state": "unsupported", "reason_code": "no_route", "reason": "No eligible route."
+            }]
+        })).unwrap();
+        let decoded: ArtifactForest = serde_json::from_str(&serde_json::to_string(&forest).unwrap()).unwrap();
+        assert_eq!(decoded, forest);
+        assert!(decoded.branches[0].route.as_ref().unwrap().steps.is_empty());
+        assert_eq!(decoded.branches[1].state, ForestBranchState::Unsupported);
     }
 }
