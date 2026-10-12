@@ -42,6 +42,32 @@ pub struct SpeechRecoveryPolicy {
     pub receipt_sha256: String,
 }
 
+/// Opt-in replay of verified historical results from this artifact store.
+/// This does not attest the current native runtime or enable generic caching.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SpeechSavedResultsPolicy {
+    #[default]
+    Disabled,
+    ReuseIfAvailable,
+}
+
+impl SpeechSavedResultsPolicy {
+    pub fn is_enabled(&self) -> bool { matches!(self, Self::ReuseIfAvailable) }
+    fn is_disabled(&self) -> bool { !self.is_enabled() }
+}
+
+impl<'de> Deserialize<'de> for SpeechSavedResultsPolicy {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let value = String::deserialize(deserializer)?;
+        match value.as_str() {
+            "disabled" => Ok(Self::Disabled),
+            "reuse_if_available" => Ok(Self::ReuseIfAvailable),
+            _ => Err(serde::de::Error::unknown_variant(&value, &["disabled", "reuse_if_available"])),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct SpeechPolicy {
     /// Digest of the original graph input, before any audio preparation.
@@ -53,6 +79,8 @@ pub struct SpeechPolicy {
     pub audio: Option<SpeechAudioPolicy>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub recovery: Option<SpeechRecoveryPolicy>,
+    #[serde(skip_serializing_if = "SpeechSavedResultsPolicy::is_disabled")]
+    pub saved_results: SpeechSavedResultsPolicy,
 }
 
 fn default_audio_timeout() -> u64 { 300 }
@@ -135,11 +163,13 @@ impl<'de> Deserialize<'de> for SpeechPolicy {
             audio: Option<SpeechAudioPolicy>,
             #[serde(default)]
             recovery: Option<SpeechRecoveryPolicy>,
+            #[serde(default)]
+            saved_results: SpeechSavedResultsPolicy,
         }
         let fields: Fields = deserialize_object(deserializer)?;
         Ok(Self { source_sha256: fields.source_sha256, provider: fields.provider,
             model: fields.model, options: fields.options, audio: fields.audio,
-            recovery: fields.recovery })
+            recovery: fields.recovery, saved_results: fields.saved_results })
     }
 }
 
@@ -168,6 +198,9 @@ impl SpeechPolicy {
             }
         }
         if let Some(recovery) = &self.recovery {
+            if self.saved_results.is_enabled() {
+                return Err(invalid("speech.recovery and speech.saved_results reuse_if_available are mutually exclusive"));
+            }
             validate_path(&recovery.receipt_path, "recovery.receipt_path")?;
             validate_digest(&recovery.receipt_sha256, "recovery.receipt_sha256")?;
         }

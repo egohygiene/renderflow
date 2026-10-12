@@ -244,3 +244,66 @@ fn dry_run_with_explicit_saved_result_does_not_open_receipt_or_state() {
     assert!(!fixture.output.exists());
     assert!(!fixture.state_directory().exists());
 }
+
+impl Fixture {
+    fn enable_saved_results(&self) -> renderflow::speech::policy::SpeechPolicy {
+        let mut spec: serde_json::Value = serde_yaml_ng::from_str(&fs::read_to_string(&self.config).unwrap()).unwrap();
+        spec["execution"]["speech"]["saved_results"] = json!("reuse_if_available");
+        fs::write(&self.config, serde_yaml_ng::to_string(&spec).unwrap()).unwrap();
+        serde_json::from_value(spec["execution"]["speech"].clone()).unwrap()
+    }
+
+    fn write_corrupt_index(&self) -> PathBuf {
+        let policy = self.enable_saved_results();
+        let path = renderflow::speech::cache::index_path(&self.state_directory().join("artifacts"),
+            &policy, renderflow::graph::Format::Wav).unwrap();
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(&path, b"corrupt historical index").unwrap();
+        path
+    }
+}
+
+#[test]
+fn automatic_assessment_of_missing_index_is_read_only() {
+    let fixture = Fixture::new();
+    fixture.enable_saved_results();
+    let engine = EngineBuilder::new().build().unwrap();
+    let assessment = engine.assess_resume(ExecutionRequest::from_path(&fixture.config)).unwrap();
+    assert_eq!(assessment.overall.action, RecoveryAction::Recompute);
+    assert_eq!(assessment.overall.reason_code, "speech.saved_results.miss");
+    assert!(!fixture.state_directory().exists());
+    assert!(!fixture.output.exists());
+}
+
+#[test]
+fn automatic_assessment_and_execution_reject_corrupt_index_without_native_fallback() {
+    let fixture = Fixture::new();
+    let index = fixture.write_corrupt_index();
+    let events = Arc::new(Events::default());
+    let engine = EngineBuilder::new().with_progress_reporter(events.clone()).build().unwrap();
+    let assessment = engine.assess_resume(ExecutionRequest::from_path(&fixture.config)).unwrap();
+    assert_eq!(assessment.overall.action, RecoveryAction::TerminalIncompatibility);
+    assert_eq!(assessment.overall.reason_code, "speech.saved_results.rejected");
+    assert!(!fixture.output.exists());
+    let result = engine.execute(ExecutionRequest::from_path(&fixture.config)).unwrap();
+    assert_eq!(result.run_manifest.state, RunState::Failed);
+    assert!(!fixture.output.join("captions.vtt").exists());
+    assert_eq!(fs::read(&index).unwrap(), b"corrupt historical index");
+    let events = events.0.lock().unwrap();
+    assert!(events.iter().any(|event| event.state.as_deref() == Some("speech.lookup_saved_result")));
+    assert!(!events.iter().any(|event| matches!(event.state.as_deref(),
+        Some("speech.prepare_audio" | "speech.transcribe" | "speech.saved_result_miss"))));
+}
+
+#[test]
+fn automatic_dry_run_does_not_inspect_even_corrupt_index() {
+    let fixture = Fixture::new();
+    let index = fixture.write_corrupt_index();
+    let events = Arc::new(Events::default());
+    let engine = EngineBuilder::new().with_progress_reporter(events.clone()).build().unwrap();
+    let result = engine.execute(ExecutionRequest::from_path(&fixture.config).dry_run(true)).unwrap();
+    assert_eq!(result.run_manifest.state, RunState::Planned);
+    assert_eq!(fs::read(index).unwrap(), b"corrupt historical index");
+    assert!(!fixture.output.exists());
+    assert!(!events.has_speech_phase());
+}

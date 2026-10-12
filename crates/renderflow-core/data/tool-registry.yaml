@@ -197,7 +197,7 @@ tools:
     fidelity: path_dependent
     support_tier: optional
     license_notes: "whisper.cpp source is MIT; model files and optional build dependencies require separate license review."
-    distribution_notes: "Experimental, unqualified speech adapter. Standalone and opt-in execution.speech graph routes require explicit local executable/model paths and expected SHA-256 digests; discovery does not select or download them. Graph planning records declared identity without launching speech tools. Native recognition consumes strict mono 16 kHz PCM16 WAV, with optional explicit preparation before it. Explicit pinned saved-result replay checks retained historical output without native execution. No automatic cache reuse, original-video alignment, or CPU-only guarantee."
+    distribution_notes: "Experimental, unqualified speech adapter. Standalone and opt-in execution.speech graph routes require explicit local executable/model paths and expected SHA-256 digests; discovery does not select or download them. Graph planning records declared identity without launching speech tools. Native recognition consumes strict mono 16 kHz PCM16 WAV, with optional explicit preparation before it. Explicit pinned replay or opt-in saved_results lookup fully verifies historical output without native execution on a hit; only missing index entries permit fresh native execution. Generic DAG caching remains disabled. No original-video alignment, fresh-inference reproducibility, or CPU-only guarantee."
 
   - id: tool.handbrake
     name: HandBrakeCLI

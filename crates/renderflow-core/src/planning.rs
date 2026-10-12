@@ -10,7 +10,7 @@ use std::io::{Read, Write};
 
 use sha2::{Digest, Sha256};
 use std::path::{Component, Path, PathBuf};
-use std::sync::{atomic::AtomicBool, Arc};
+use std::sync::{atomic::AtomicBool, Arc, Mutex};
 
 use anyhow::{Context, Result};
 
@@ -52,6 +52,7 @@ use crate::spec::{
 };
 use crate::speech::graph::{
     retained_artifacts, retained_artifact_name, SpeechArtifactTransform, SpeechProgressObserver,
+    SpeechProgressPhase,
 };
 use crate::speech::policy::SpeechPolicy;
 use crate::speech::recovery::{receipt_bytes, SAVED_RESULT_FILENAME, SAVED_RESULT_SCHEMA};
@@ -66,6 +67,41 @@ use crate::toolchain::{
 };
 use crate::transforms::yaml_loader::build_graph_executor_and_tools_from_yaml;
 use crate::validation::{ArtifactValidationOutcome, ValidationRegistry};
+
+/// Record actual execution separately from the plan's unobserved declarations.
+struct SpeechRunObserver {
+    downstream: Option<Arc<dyn SpeechProgressObserver>>,
+    diagnostics: Mutex<Vec<ExecutionDiagnostic>>,
+}
+
+impl SpeechRunObserver {
+    fn record(&self, code: &str, message: String) {
+        self.diagnostics.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).push(ExecutionDiagnostic {
+            severity: DiagnosticSeverity::Info, code: code.to_owned(), message, step_id: None,
+        });
+    }
+}
+
+impl SpeechProgressObserver for SpeechRunObserver {
+    fn phase(&self, phase: SpeechProgressPhase) {
+        match phase {
+            SpeechProgressPhase::SavedResultHit => self.record("speech.saved_results.hit",
+                "A verified historical result was selected from the local index; no current native tool or model was observed".to_owned()),
+            SpeechProgressPhase::SavedResultMiss => self.record("speech.saved_results.miss",
+                "No saved-result index entry exists for this source and recognition policy; native recognition may proceed".to_owned()),
+            SpeechProgressPhase::Transcribe => self.record("speech.native.started",
+                "Execution entered native speech recognition".to_owned()),
+            _ => {}
+        }
+        if let Some(observer) = &self.downstream { observer.phase(phase); }
+    }
+
+    fn saved_result(&self, receipt_sha256: &str) {
+        self.record("speech.saved_result.selected", format!(
+            "Selected historical speech receipt SHA-256 {receipt_sha256}; execution revalidates the current source before restoring artifacts"));
+        if let Some(observer) = &self.downstream { observer.saved_result(receipt_sha256); }
+    }
+}
 
 const BUILTIN_ADAPTER_EVIDENCE: &str = "builtin.strategy";
 const SUBTITLE_ADAPTER_EVIDENCE: &str = "builtin.timed_text";
@@ -689,6 +725,8 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
     if let Some(policy) = &spec.execution.speech {
         if policy.recovery.is_some() {
             plan.add_tool_diagnostic("speech.saved_result.selected: execution will verify the explicitly pinned historical receipt and complete retained bundle before replay. Planning does not read the receipt or observe current native tools/models. Missing or incompatible evidence fails without native fallback; no current toolchain, recognition accuracy, or video-alignment claim is made.");
+        } else if policy.saved_results.is_enabled() {
+            plan.add_tool_diagnostic("speech.saved_results.unobserved: execution will inspect the local saved-result index after verifying the source. A verified historical match is replayed; a missing entry permits native recognition; a present invalid entry fails without fallback. Planning does not read the index or observe current native tools/models.");
         } else {
             plan.add_tool_diagnostic("speech.provider.unobserved: explicit provider/model/audio paths and digests are planned intent; native identity and availability are checked only during execution. No observed toolchain, automatically reusable result, calibrated confidence, or video-alignment claim is made.");
         }
@@ -950,9 +988,12 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
         resolved.cancellation.clone(),
         resolved.spec.execution.speech.is_some(),
     )?;
+    let speech_run_observer = Arc::new(SpeechRunObserver {
+        downstream: resolved.speech_observer.clone(), diagnostics: Mutex::new(Vec::new()),
+    });
     register_speech_executors(
         &mut executor, &resolved.dag, resolved.spec.execution.speech.as_ref(),
-        resolved.cancellation.clone(), resolved.speech_observer.clone(),
+        resolved.cancellation.clone(), Some(speech_run_observer.clone()),
     )?;
     if let Some(pages) = &resolved.print_pages {
         let policy = resolved
@@ -1085,6 +1126,8 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
 
     let mut diagnostics = plan_diagnostics(&resolved);
     diagnostics.append(&mut report.diagnostics);
+    diagnostics.append(&mut speech_run_observer.diagnostics.lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner()));
     let mut hygiene_evidence = HashMap::<String, HygieneEvidence>::new();
     let mut hygiene_blocked = HashSet::<String>::new();
     let mut hygiene_failures = false;
@@ -1441,7 +1484,7 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
     } else {
         RunState::Complete
     };
-    let run_manifest = build_run_manifest(
+    let mut run_manifest = build_run_manifest(
         &resolved,
         started_at_unix_ms,
         state,
@@ -1451,6 +1494,42 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
         diagnostics,
     )?;
     let manifest_path = persist_run_manifest(&output_root, &run_manifest)?;
+    if run_manifest.state == RunState::Complete {
+        if let Some(policy) = resolved.spec.execution.speech.as_ref()
+            .filter(|policy| policy.saved_results.is_enabled())
+        {
+            // Only successful exports with a durable run manifest enter index
+            // promotion. Cancellation after atomic promotion can leave a valid
+            // pointer; never remove a concurrently selected verified result.
+            let cancellation = resolved.cancellation.clone()
+                .map(crate::process::ProcessCancellationToken::from_shared).unwrap_or_default();
+            let remembered = report.artifacts.get(&Format::TimedTranscriptJson)
+                .context("speech saved-result indexing requires a canonical transcript")
+                .and_then(|canonical| crate::speech::cache::remember_saved_result(
+                    &store, policy, &source_artifact, canonical, &cancellation));
+            let diagnostic = match remembered {
+                Ok(saved) => ExecutionDiagnostic {
+                    severity: DiagnosticSeverity::Info,
+                    code: "speech.saved_results.recorded".to_owned(),
+                    message: format!("Verified historical result index points to receipt SHA-256 {}; an existing verified first-writer entry is retained even if this run produced another result", saved.receipt_sha256()),
+                    step_id: None,
+                },
+                Err(error) => {
+                    let cancelled = matches!(error.downcast_ref::<crate::speech::SpeechError>(),
+                        Some(crate::speech::SpeechError::Cancelled));
+                    run_manifest.state = if cancelled { RunState::Cancelled } else { RunState::Partial };
+                    ExecutionDiagnostic {
+                        severity: if cancelled { DiagnosticSeverity::Cancelled } else { DiagnosticSeverity::RecoverableFailure },
+                        code: if cancelled { "speech.cancelled" } else { "speech.saved_results.record_failed" }.to_owned(),
+                        message: redact_sensitive_text(&error.to_string()), step_id: None,
+                    }
+                }
+            };
+            run_manifest.diagnostics.push(diagnostic);
+            run_manifest.completed_at_unix_ms = unix_time_ms();
+            persist_run_manifest(&output_root, &run_manifest)?;
+        }
+    }
 
     Ok(CanonicalExecutionResult {
         plan: resolved.plan.clone(),
@@ -2956,9 +3035,13 @@ fn register_speech_edges(
         .with_evidence("speech_policy_sha256", sha256_serialized(policy)?.value)
         .with_evidence("provider_identity", if policy.recovery.is_some() {
             "historical_receipt_unverified"
+        } else if policy.saved_results.is_enabled() {
+            "historical_index_unverified"
         } else { "declared_unobserved" })
         .with_evidence("speech_execution", if policy.recovery.is_some() {
             "explicit_saved_result"
+        } else if policy.saved_results.is_enabled() {
+            "reuse_saved_result_if_available"
         } else { "native" })
         .with_evidence("quality_interpretation", "unqualified_not_accuracy")
         .with_evidence("cache", "disabled");
@@ -3804,6 +3887,10 @@ fn validate_post_execution_budgets(
             .filter(|artifact| seen.insert(artifact.id().to_string()))
             .map(Artifact::size_bytes)
             .try_fold(0_u64, |total, size| total.checked_add(size).context("artifact byte count overflow"))?;
+        let total = if resolved.spec.execution.speech.as_ref().is_some_and(|policy| policy.saved_results.is_enabled()) {
+            total.checked_add(crate::speech::cache::MAX_INDEX_BYTES as u64)
+                .context("speech index storage reservation overflow")?
+        } else { total };
         if total > max_storage {
             anyhow::bail!(
                 "execution artifact bytes {total} exceed max_storage_bytes budget {max_storage}"

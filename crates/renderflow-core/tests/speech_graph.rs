@@ -411,3 +411,44 @@ fn selected_receipt_is_part_of_the_frozen_plan_identity() {
     assert_ne!(native_edge.evidence["speech_policy_sha256"], replay_edge.evidence["speech_policy_sha256"]);
     fixture.assert_untouched();
 }
+
+#[test]
+fn saved_result_discovery_is_opt_in_and_changes_only_selection_identity() {
+    let mut fixture = Fixture::wav(&["srt"]);
+    let policy = serde_json::from_value::<SpeechPolicy>(fixture.spec["execution"]["speech"].clone()).unwrap();
+    assert!(!policy.saved_results.is_enabled());
+    assert!(serde_json::to_value(&policy).unwrap().get("saved_results").is_none(),
+        "default selector must preserve historical receipt serialization");
+    fixture.write_config();
+    let engine = EngineBuilder::new().build().unwrap();
+    let native = engine.plan(PlanRequest::from_path(&fixture.config)).unwrap();
+    fixture.spec["execution"]["speech"]["saved_results"] = json!("reuse_if_available");
+    fixture.write_config();
+    let discovery = engine.plan(PlanRequest::from_path(&fixture.config)).unwrap();
+    let native_edge = native.edges.iter().find(|edge| edge.from == "wav").unwrap();
+    let discovery_edge = discovery.edges.iter().find(|edge| edge.from == "wav").unwrap();
+    assert_ne!(native_edge.evidence["speech_policy_sha256"], discovery_edge.evidence["speech_policy_sha256"]);
+    assert_eq!(discovery_edge.evidence["speech_execution"], "reuse_saved_result_if_available");
+    assert_eq!(discovery_edge.evidence["provider_identity"], "historical_index_unverified");
+    assert_eq!(discovery_edge.evidence["cache"], "disabled");
+    assert!(!fixture.directory.path().join(".renderflow").exists());
+    fixture.assert_untouched();
+}
+
+#[test]
+fn discovery_rejects_unknown_modes_and_explicit_receipt_ambiguity() {
+    let fixture = Fixture::wav(&["srt"]);
+    for mode in [json!("auto"), json!(null), json!(true), json!([]),
+        json!({"disabled": null}), json!({"reuse_if_available": null})] {
+        let mut policy = fixture.spec["execution"]["speech"].clone();
+        policy["saved_results"] = mode;
+        assert_invalid_policy(policy);
+    }
+    let mut policy = fixture.spec["execution"]["speech"].clone();
+    policy["saved_results"] = json!("reuse_if_available");
+    policy["recovery"] = json!({
+        "receipt_path": fixture.directory.path().join("receipt.json"),
+        "receipt_sha256": "e".repeat(64)
+    });
+    assert_invalid_policy(policy);
+}

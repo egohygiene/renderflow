@@ -1,4 +1,4 @@
-# Renderflow #428 — local speech checkpoint 4
+# Renderflow #428 — local speech checkpoint 5
 
 ## Authority and branch
 
@@ -7,7 +7,7 @@
   `feat/renderflow-428-local-speech`, stacked on subtitle draft PR #438 / branch
   `feat/renderflow-427-timed-text`.
 - The user explicitly deferred tests and authorized continued implementation.
-  The latest instruction approved continuing after checkpoint 3. Tests, builds,
+  The latest instruction approved the next piece after checkpoint 4. Tests, builds,
   schema validation, format/lint, native smoke/inference, and GitHub Actions
   remain deferred. No merge or release was requested.
 - Read-only source/Git review, authored coverage, and draft publication are
@@ -22,6 +22,9 @@
 - Checkpoint 3 published head: `471b7ea10e95d26a16b7f357e0d5d2224883bbf2`, tree
   `50f08430a6d409dc31280d38d43894055269e83a`, matching local commit
   `a2a14774bd00d61f17186c20b1fbc1787589a5f6`.
+- Checkpoint 4 published head: `6c80bd84765b74a41dee9e3286a41eb6969f2a24`, tree
+  `c1b5e2a90a7cc195d1808d9a6383043710921b5f`, matching local commit
+  `2be49123e056e634c0795ee8c030fdb12c7e88f0`.
 - Stack base: published `14ebc90f35c90c90942a3b9c086ed58b232b662b`, tree
   `53a9d02adc673058ce94c3c5bfa779c1f112eabd`, matching local
   `e72f26ecade13a1cd0b57dc5c0a9c41042f407a2`.
@@ -45,7 +48,7 @@
 4. The existing recognition adapter consumes that exact WAV once. The speech
    envelope attaches original media, selected stream, probe/extraction tools,
    conversion policy, and prepared WAV evidence. Configuration/reuse identities
-   include preparation; automatic native-result caching remains disabled.
+   include preparation; generic DAG result caching remains disabled.
 5. The bundle retains provider JSON, full speech envelope, canonical timed
    transcript, SRT, WebVTT, and text. Prepared-media runs also retain exact
    `audio-probe.json` and `prepared.wav`. A hash/size/loss receipt is published
@@ -71,15 +74,15 @@
    cancellation/failures become step diagnostics. Recognition and subtitle
    descendants bypass cache/checkpoint reuse without opening shared state files.
    Late evidence-publication cancellation also produces a cancelled run and
-   diagnostic. Without an explicit saved result, SDK assessment returns
-   `speech.checkpoint_reuse_disabled` and recomputation.
+   diagnostic. Without an explicit saved result or opt-in index, SDK assessment
+   returns `speech.checkpoint_reuse_disabled` and recomputation.
 9. Optional `execution.speech.recovery` selects an absolute receipt path and
    expected SHA-256. The receipt binds the original source, original execution
    configuration, canonical record, and retained evidence. Replay validates
    every retained payload and reconstructs normalization from raw provider JSON
    before restoring the result. It never opens provider/model paths, invokes
    native tools, or silently falls back to new inference. Configuration must
-   match with only the recovery selector excluded; execution checks the current
+   match with replay-selection controls excluded; execution checks the current
    source again. This is replay of selected historical output, not a claim of
    native determinism or complete effective-environment attestation.
 10. Graph publication writes `saved-result.json` after canonical/supporting
@@ -93,6 +96,29 @@
     prepared audio always requires original-media mapping. Stream start time is
     informational even when zero. `--require-original-media` emits the report
     then refuses missing mapping. No cues are shifted and no mux route is added.
+12. `execution.speech.saved_results: reuse_if_available` opts into a dedicated
+    historical-result index in the existing artifact store. Default `disabled`
+    skips index reads/writes, and combining this mode with explicit `recovery`
+    is refused. Keys bind source digest/format, recognition configuration, and
+    replay profile while excluding output targets and replay selectors. Default
+    omission preserves checkpoint-4 receipt v1 identities.
+13. Index lookup verifies the receipt and every referenced CAS payload with the
+    same semantic verifier as portable replay. Missing entries permit native
+    execution; existing invalid entries or broken evidence fail without native
+    fallback. SDK assessment performs the same lookup read-only, with no store
+    creation. Planning/dry-run do not access the index. Execution records actual
+    hit/miss selection and receipt evidence without changing canonical metadata.
+14. Index publication follows successful selected-output materialization,
+    result verification, and persistence of the completed run manifest. The first
+    valid entry for a key is retained; concurrent
+    writers validate the existing winner instead of replacing it. Index entries
+    point to the receipt already held in CAS, adding no permanent media copy.
+    Entries at `speech-results/v1/<lookup-sha256>.json` under the artifact root
+    are limited to 4 KiB, reserved in the execution storage budget. Interruption
+    after atomic publication can leave a verified entry reusable even when the
+    final run reports cancellation or its updated manifest cannot be persisted.
+    This selects historical output and does not attest current native libraries,
+    accelerators, model sidecars, or reproducibility of another inference.
 
 ## Source locations and interfaces
 
@@ -121,6 +147,10 @@
   verified saved results. Offline inspection checks retained files and recorded
   source identity, not the absent original media. Strict-WAV duration is recorded
   in the pinned receipt; graph execution verifies the current source separately.
+- `src/speech/cache.rs`: bounded index entries, deterministic recognition key,
+  read-only lookup, full CAS receipt verification, and no-clobber registration.
+  Recovery inspection supports either a portable bundle or CAS origin and
+  rechecks that same receipt origin before restoration.
 - `src/planning.rs`, `src/spec.rs`, and `schemas/renderflow-v2.schema.json`:
   policy agreement, source pinning, restricted speech graph, deferred provider
   observation, retained evidence publication/budget accounting, and manifest
@@ -195,7 +225,11 @@ propagation, stored-source demuxer selection, cancellation, and phase events.
 Checkpoint 4 adds seventeen tests: six portable recovery tests, seven
 policy/planner/SDK cases, and four clock-assessment cases. Source review caught
 and corrected graph JSON newline handling and descriptive source metadata
-normalization in receipt verification. All sixty-nine #428 tests remain
+normalization in receipt verification. Checkpoint 5 adds fourteen tests: nine
+index/recovery cases and five policy/SDK/graph integration cases. They cover
+read-only lookup, missing versus invalid evidence, first-writer preservation,
+policy identity, and historical replay without native files. All eighty-three
+#428 tests remain
 **unrun**. No compiler, schema validator,
 formatter, linter, FFmpeg/FFprobe, whisper inference, model download, or CI job
 was executed for any #428 checkpoint. No user media was processed. Source
@@ -210,8 +244,8 @@ Earlier #427 partial smoke/schema evidence does not qualify this code.
    duration, nonzero starts/gaps/edit lists, cancellation, errors, limits,
    no-overwrite publication, portable saved-result restore into a new store,
    corrupt/missing/mismatched recovery evidence, and platform/build behavior.
-2. Automatic native-result cache reuse remains a separate qualification decision:
-   explicit saved-result replay does not attest linked libraries or model
+2. Reproducible fresh native inference remains a separate qualification decision:
+   selecting saved historical results does not attest linked libraries or model
    sidecars. Original-media alignment requires new sample-to-media evidence or
    a separately scoped reviewed mapping; the current API deliberately refuses
    inferred offsets. Neither is silently enabled by this checkpoint.

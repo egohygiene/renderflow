@@ -1966,6 +1966,10 @@ pub fn json_schema() -> Value {
                 "speechPolicy": {
                     "type": "object",
                     "additionalProperties": false,
+                    "allOf": [{
+                        "if": {"properties": {"saved_results": {"const": "reuse_if_available"}}, "required": ["saved_results"]},
+                        "then": {"properties": {"recovery": {"type": "null"}}}
+                    }],
                     "required": [
                         "source_sha256",
                         "provider",
@@ -1994,6 +1998,11 @@ pub fn json_schema() -> Value {
                                     "type": "null"
                                 }
                             ]
+                        },
+                        "saved_results": {
+                            "enum": ["disabled", "reuse_if_available"],
+                            "default": "disabled",
+                            "description": "Opt-in verified historical result discovery in the local artifact store; a present invalid entry fails without native fallback."
                         },
                         "recovery": {
                             "anyOf": [

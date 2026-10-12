@@ -6,6 +6,7 @@
 //! neither invents missing words nor performs alignment or diarization.
 
 pub mod audio;
+pub mod cache;
 pub mod graph;
 pub mod policy;
 pub mod provider;

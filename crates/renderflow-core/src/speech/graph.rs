@@ -2,10 +2,10 @@
 //!
 //! The canonical timed-transcript wire stays unchanged. Speech evidence and raw
 //! provider/preparation payloads are retained as artifact objects, with complete
-//! typed records under the native `renderflow.speech` metadata namespace. Result
+//! typed records under the native `renderflow.speech` metadata namespace.
 //! Generic result reuse is disabled because linked native libraries and optional
-//! accelerator sidecars are not fully qualified. An explicit pinned historical
-//! bundle may instead be replayed after verifying all retained evidence.
+//! accelerator sidecars are not fully qualified. Historical output selected by
+//! an explicit receipt or an opt-in local index is fully verified before replay.
 
 use std::io::{self, Write};
 use std::path::PathBuf;
@@ -41,6 +41,9 @@ const STRICT_WAV_TIMESTAMP_ORIGIN: &str = "input_wav_samples_from_zero";
 #[serde(rename_all = "snake_case")]
 pub enum SpeechProgressPhase {
     VerifyInput,
+    LookupSavedResult,
+    SavedResultHit,
+    SavedResultMiss,
     ReuseSavedResult,
     PrepareAudio,
     Transcribe,
@@ -52,6 +55,9 @@ impl SpeechProgressPhase {
     pub fn as_str(self) -> &'static str {
         match self {
             Self::VerifyInput => "verify_input",
+            Self::LookupSavedResult => "lookup_saved_result",
+            Self::SavedResultHit => "saved_result_hit",
+            Self::SavedResultMiss => "saved_result_miss",
             Self::ReuseSavedResult => "reuse_saved_result",
             Self::PrepareAudio => "prepare_audio",
             Self::Transcribe => "transcribe",
@@ -64,6 +70,8 @@ impl SpeechProgressPhase {
 /// SDK adapters may translate these local phase boundaries into progress events.
 pub trait SpeechProgressObserver: Send + Sync {
     fn phase(&self, phase: SpeechProgressPhase);
+    /// Selected historical receipt, never an observation of current native tools.
+    fn saved_result(&self, _receipt_sha256: &str) {}
 }
 
 /// Complete artifact records keep sidecars recoverable without inventing a
@@ -128,7 +136,7 @@ impl ArtifactTransform for SpeechArtifactTransform {
 
     fn cache_identity(&self) -> String {
         // Construction already structurally validated this serializable policy.
-        // Result reuse remains disabled; this identifies configured plan steps.
+        // Generic cache reuse remains disabled; this identifies configured steps.
         let bytes = serde_json::to_vec(&self.policy).expect("SpeechPolicy serialization is infallible");
         format!("{}:v1:{}:{}", self.name(), self.input_format, sha256(&bytes))
     }
@@ -169,12 +177,23 @@ impl ArtifactTransform for SpeechArtifactTransform {
             return Err(SpeechError::SourceChanged("artifact payload does not match its immutable record".to_owned()).into());
         }
 
-        if let Some(recovery) = &self.policy.recovery {
+        let saved = if let Some(recovery) = &self.policy.recovery {
             self.phase(SpeechProgressPhase::ReuseSavedResult)?;
-            let saved = super::recovery::inspect_saved_result(
+            Some(super::recovery::inspect_saved_result(
                 std::path::Path::new(&recovery.receipt_path), &recovery.receipt_sha256,
                 &self.policy, self.input_format, Some(input), &self.cancellation,
-            )?;
+            )?)
+        } else if self.policy.saved_results.is_enabled() {
+            self.phase(SpeechProgressPhase::LookupSavedResult)?;
+            let saved = super::cache::lookup_saved_result(store.root(), &self.policy,
+                self.input_format, Some(input), &self.cancellation)?;
+            self.phase(if saved.is_some() { SpeechProgressPhase::SavedResultHit }
+                else { SpeechProgressPhase::SavedResultMiss })?;
+            saved
+        } else { None };
+        if let Some(saved) = saved {
+            if let Some(observer) = &self.observer { observer.saved_result(saved.receipt_sha256()); }
+            ensure_not_cancelled(&self.cancellation)?;
             if self.policy.audio.is_none() {
                 let bytes = provider::read_bounded(&source_path, provider::MAX_SOURCE_BYTES, &self.cancellation)?;
                 if provider::sha256(&bytes) != input.digest().value()
@@ -421,6 +440,7 @@ mod tests {
             options: SpeechOptions::default(),
             audio: None,
             recovery: None,
+            saved_results: Default::default(),
         }
     }
 

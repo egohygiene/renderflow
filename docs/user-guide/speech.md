@@ -284,9 +284,10 @@ export losses. Flow's closed artifact projection retains hashes and lineage,
 while the detailed speech evidence remains in the native manifest and retained
 JSON files. Keep the complete output bundle and its run manifest.
 
-Recognition and its derived subtitle steps bypass automatic result-cache and
-checkpoint reuse without opening shared cache/checkpoint files. Without an
-explicit saved-result selector, SDK resume assessment requests recomputation.
+Recognition and its derived subtitle steps bypass the generic result cache and
+checkpoint files. By default, SDK resume assessment requests recomputation.
+Explicit receipt replay and the opt-in speech result index below use the full
+speech evidence verifier instead.
 All examples and this integration remain uncompiled and unrun.
 
 ## Replay a saved result
@@ -324,6 +325,56 @@ or model sidecars would reproduce that result today.
 The receipt belongs to the graph output bundle. Existing standalone
 `speech transcribe` bundles and older graph bundles have no saved-result
 receipt and cannot be selected by this recovery policy.
+
+## Reuse matching saved results automatically
+
+For repeated builds in the same project, add this under `execution.speech`:
+
+```yaml
+saved_results: reuse_if_available
+```
+
+The default is `disabled`. This setting cannot be combined with an explicit
+`recovery` receipt. It selects previously verified historical output using the
+original source digest and format, provider/model configuration, recognition
+options, preparation policy, and replay profile. Output destinations and subtitle
+target choices do not change that recognition key.
+
+If there is no index entry, the build performs the configured native recognition
+run. After the selected outputs and completed run manifest publish successfully,
+it can record the verified result for later builds. A matching entry must pass the complete receipt,
+canonical, raw provider, and optional probe/WAV checks before replay. The current
+original source is checked again, and subtitle exports are regenerated from the
+verified canonical result.
+
+The index points into the existing artifact store; it does not make another
+permanent copy of the source or supporting media. Keep the project's
+`.renderflow/artifacts` directory to retain automatic reuse. Moving or removing
+an output bundle does not invalidate an intact result in that store. An explicitly
+pinned portable bundle remains the option for moving a selected result between
+projects.
+
+Entries live at `.renderflow/artifacts/speech-results/v1/<lookup-sha256>.json`
+and are limited to 4 KiB. Enabling this mode reserves 4 KiB in the execution
+storage budget in addition to the retained artifacts. An interruption after
+atomic index publication can leave a fully verified entry available for reuse,
+even if the final run reports cancellation or cannot save its updated manifest.
+
+An existing but damaged index or missing/corrupt referenced evidence is an error,
+not a cache miss. The build will not silently start native recognition in that
+case. Set `saved_results: disabled` to request a fresh run without consulting or
+changing the index. Existing valid entries are not replaced; concurrent writers
+retain the first valid saved result for that key.
+
+Planning and dry runs do not read or modify this index. SDK resume assessment
+checks it read-only and reports reuse, a miss, or incompatible evidence. Actual
+execution checks it again. Progress and the native run manifest distinguish
+lookup hits, misses, and the selected receipt from native recognition.
+
+This is automatic selection of a retained historical result. Installed libraries,
+accelerators, and model sidecars are not attested, and another native run is not
+promised to reproduce the same transcript. The mode remains an uncompiled and
+unrun implementation draft.
 
 ## Inspect transcript timing
 

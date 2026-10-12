@@ -15,7 +15,7 @@
       "allOf": [{ "$ref": "renderflow-v2.schema.json#/$defs/speechPolicy" }],
       "required": ["options"],
       "properties": { "audio": { "type": "object" } },
-      "not": { "required": ["recovery"] }
+      "not": { "anyOf": [{ "required": ["recovery"] }, { "required": ["saved_results"] }] }
     },
     "source": {
       "allOf": [{ "$ref": "#/$defs/artifact" }],

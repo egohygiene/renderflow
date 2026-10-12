@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-speech-saved-results-index-v1.schema.json",
+  "title": "Renderflow historical speech discovery index v1",
+  "description": "An opt-in local pointer to one verified historical receipt in the existing content-addressed artifact store.",
+  "$comment": "Bounded to 4096 bytes. The filename is speech-results/v1/<lookup_sha256>.json under the artifact-store root. Readers recompute the key from profile, source format, and normalized recognition configuration, resolve the receipt SHA through the fixed CAS layout, and fully verify the receipt, canonical transcript, provider output, and optional audio preparation. No arbitrary paths are accepted. Missing index permits recognition; invalid existing index or unavailable evidence fails closed. First valid result wins without replacement; this is historical replay, not a native reproducibility guarantee.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "profile", "lookup_sha256", "configuration_sha256", "source_format", "source_sha256", "receipt_sha256"],
+  "properties": {
+    "schema_version": { "const": "renderflow.speech-saved-results-index/v1" },
+    "profile": { "const": "historical-speech-discovery/v1" },
+    "lookup_sha256": { "$ref": "#/$defs/sha256" },
+    "configuration_sha256": { "$ref": "#/$defs/sha256" },
+    "source_format": { "enum": ["wav", "flac", "mp3", "m4a_alac", "m4a", "aac", "ogg", "opus", "mkv", "webm", "mp4", "mov", "avi"] },
+    "source_sha256": { "$ref": "#/$defs/sha256" },
+    "receipt_sha256": { "$ref": "#/$defs/sha256" }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+  }
+}

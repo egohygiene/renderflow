@@ -262,13 +262,17 @@ standalone bundle. Prepared transcript clocks start at audio sample zero;
 original-video synchronization is not claimed. Both checkpoints remain unrun.
 Checkpoint 3 authors explicit graph/SDK speech policy, one recognition edge
 feeding subtitle derivatives, retained evidence artifacts, phase events, and
-typed cancellation. Speech and descendants deliberately bypass cache/checkpoint
+typed cancellation. Speech and descendants deliberately bypass generic cache/checkpoint
 reuse; provider availability stays unobserved until execution. These changes
 also remain uncompiled/unrun. Checkpoint 4 adds explicit digest-pinned replay of
 portable saved results, including complete retained-evidence checks and SDK
-resume assessment. Automatic native-result caching stays disabled. An offline
+resume assessment. An offline
 timing assessment exposes strict-WAV sample clocks and refuses original-media
-mapping for prepared audio; it does not shift timestamps. Runtime qualification
+mapping for prepared audio; it does not shift timestamps. Checkpoint 5 adds an
+opt-in speech result index that reuses completely verified historical results
+from the existing artifact store. Missing entries permit fresh recognition;
+damaged entries fail without native fallback. Generic DAG caches/checkpoints
+stay disabled for speech, and no fresh-inference reproducibility is claimed. Runtime qualification
 and any separately scoped original-media alignment remain. Resume from
 [the #428 handoff](docs/work/428/HANDOFF.md).
 

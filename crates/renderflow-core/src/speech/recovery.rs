@@ -1,4 +1,4 @@
-//! Explicit replay of one pinned, portable speech result.
+//! Verification and replay of pinned portable or store-backed speech results.
 //!
 //! This verifies retained output bytes and their recorded provenance. It never
 //! opens a model or native tool, predicts another inference, or attests the
@@ -17,7 +17,7 @@ use crate::process::ProcessCancellationToken;
 use crate::timed_text::MAX_INPUT_BYTES;
 
 use super::graph::{retained_artifact_name, retained_artifacts, SpeechArtifactEvidence, SPEECH_ARTIFACT_METADATA_KEY};
-use super::policy::SpeechPolicy;
+use super::policy::{SpeechPolicy, SpeechSavedResultsPolicy};
 use super::provider::{ensure_not_cancelled, expected_digest, inspect_pcm_wav, read_bounded, sha256};
 use super::{attach_audio_preparation, normalize_whisper_json, SpeechTranscription, StrictValue, MAX_AUDIO_SOURCE_BYTES, MAX_PREPARED_AUDIO_DURATION_MS, MAX_PREPARED_WAV_BYTES, WHISPER_PROVIDER_ID};
 
@@ -55,12 +55,18 @@ impl VerifiedSpeechTranscription {
     pub fn original_source(&self) -> &Artifact { &self.original_source }
 }
 
-/// A verified historical bundle, not a fresh native execution attestation.
+#[derive(Debug, Clone)]
+enum SavedSpeechOrigin {
+    Bundle(PathBuf),
+    Store(PathBuf),
+}
+
+/// A verified historical result, not a fresh native execution attestation.
 /// Fields stay private so callers cannot manufacture a successful assessment.
 #[derive(Debug, Clone)]
 pub struct SavedSpeechResult {
     receipt: SavedSpeechReceipt,
-    receipt_path: PathBuf,
+    origin: SavedSpeechOrigin,
     receipt_sha256: String,
     verified: VerifiedSpeechTranscription,
     payloads: Vec<(Artifact, Vec<u8>)>,
@@ -133,7 +139,7 @@ pub fn inspect_saved_bundle(
     if sha256(&read_bounded(&stable_receipt_path, MAX_RECEIPT_BYTES, cancellation)?) != receipt_sha256 {
         bail!("speech saved-result receipt changed during inspection");
     }
-    Ok(SavedSpeechResult { receipt, receipt_path: stable_receipt_path, receipt_sha256: receipt_sha256.to_owned(), verified, payloads })
+    Ok(SavedSpeechResult { receipt, origin: SavedSpeechOrigin::Bundle(stable_receipt_path), receipt_sha256: receipt_sha256.to_owned(), verified, payloads })
 }
 
 /// Additionally bind a saved result to the current declared source and intent.
@@ -144,6 +150,46 @@ pub fn inspect_saved_result(
 ) -> Result<SavedSpeechResult> {
     policy.validate_source(source_format, false)?;
     let saved = inspect_saved_bundle(receipt_path, receipt_sha256, cancellation)?;
+    bind_saved_result(&saved, policy, source_format, source, cancellation)?;
+    Ok(saved)
+}
+
+/// Verify a pinned receipt and its exact payloads directly from an existing CAS.
+/// This read-only path never opens or creates an ArtifactStore, index, or directory.
+pub fn inspect_saved_store(
+    root: &Path, receipt_sha256: &str, cancellation: &ProcessCancellationToken,
+) -> Result<SavedSpeechResult> {
+    ensure_not_cancelled(cancellation)?;
+    let root = stable_store_root(root)?;
+    let path = store_object_path(&root, receipt_sha256)?;
+    let bytes = read_bounded(&path, MAX_RECEIPT_BYTES, cancellation)?;
+    if sha256(&bytes) != receipt_sha256 { bail!("speech saved-result receipt digest mismatch"); }
+    let receipt: SavedSpeechReceipt = parse_exact(&bytes, "saved-result receipt")?;
+    validate_receipt(&receipt)?;
+    let mut records = retained_artifacts(&receipt.canonical)?;
+    records.push(receipt.canonical.clone());
+    let mut payloads = Vec::new();
+    for record in records {
+        let path = store_object_path(&root, record.digest().value())?;
+        let bytes = read_record(&path, &record, cancellation)?;
+        // Refuse a directory becoming a symlink during the read. Bytes remain
+        // pinned even if an external writer swaps a directory concurrently.
+        store_object_path(&root, record.digest().value())?;
+        payloads.push((record, bytes));
+    }
+    let verified = verify_payloads(&receipt, &payloads, cancellation)?;
+    let path = store_object_path(&root, receipt_sha256)?;
+    if sha256(&read_bounded(&path, MAX_RECEIPT_BYTES, cancellation)?) != receipt_sha256 {
+        bail!("speech saved-result receipt changed during store inspection");
+    }
+    Ok(SavedSpeechResult { receipt, origin: SavedSpeechOrigin::Store(root), receipt_sha256: receipt_sha256.to_owned(), verified, payloads })
+}
+
+pub(super) fn bind_saved_result(
+    saved: &SavedSpeechResult, policy: &SpeechPolicy, source_format: Format,
+    source: Option<&Artifact>, cancellation: &ProcessCancellationToken,
+) -> Result<()> {
+    policy.validate_source(source_format, false)?;
     if saved.receipt.policy != recognition_policy(policy)
         || saved.source().format().as_str() != source_format.to_string()
         || saved.source().digest().value() != policy.source_sha256
@@ -152,17 +198,29 @@ pub fn inspect_saved_result(
         bail!("speech saved-result original source record differs from current input");
     }
     ensure_not_cancelled(cancellation)?;
-    Ok(saved)
+    Ok(())
 }
 
-/// Reverify the portable receipt and payloads, then restore exact records into
+/// Reverify the selected receipt and payloads, then restore exact records into
 /// the destination store. Invalid historical bytes never fall back to inference.
 /// The caller verifies current source bytes before invoking this operation.
 pub fn restore_saved_result(
     saved: &SavedSpeechResult, store: &ArtifactStore, cancellation: &ProcessCancellationToken,
 ) -> Result<Artifact> {
-    let checked = inspect_saved_bundle(&saved.receipt_path, &saved.receipt_sha256, cancellation)?;
+    let checked = match &saved.origin {
+        SavedSpeechOrigin::Bundle(path) => inspect_saved_bundle(path, &saved.receipt_sha256, cancellation)?,
+        SavedSpeechOrigin::Store(root) => inspect_saved_store(root, &saved.receipt_sha256, cancellation)?,
+    };
     if checked.receipt != saved.receipt { bail!("speech saved-result changed after assessment"); }
+    if let SavedSpeechOrigin::Store(root) = &checked.origin {
+        if stable_store_root(store.root())? == *root {
+            // All payloads were just reread and semantically verified in this
+            // exact CAS. Artifact records live in the receipt/metadata, so no
+            // temporary media copy or record import is needed for a local hit.
+            ensure_not_cancelled(cancellation)?;
+            return Ok(checked.receipt.canonical);
+        }
+    }
     for (record, bytes) in &checked.payloads {
         ensure_not_cancelled(cancellation)?;
         let mut descriptor = ArtifactDescriptor::new(record.format().clone(), record.media_type().clone(), record.storage_class())
@@ -176,13 +234,14 @@ pub fn restore_saved_result(
     Ok(checked.receipt.canonical)
 }
 
-fn recognition_policy(policy: &SpeechPolicy) -> SpeechPolicy {
+pub(super) fn recognition_policy(policy: &SpeechPolicy) -> SpeechPolicy {
     let mut policy = policy.clone();
     policy.recovery = None;
+    policy.saved_results = SpeechSavedResultsPolicy::Disabled;
     policy
 }
 
-fn configuration_digest(policy: &SpeechPolicy) -> Result<String> {
+pub(super) fn configuration_digest(policy: &SpeechPolicy) -> Result<String> {
     Ok(sha256(&serde_json::to_vec(&(SAVED_RESULT_PROFILE, recognition_policy(policy)))?))
 }
 
@@ -215,7 +274,7 @@ fn receipt_for_store(
 
 fn validate_receipt(receipt: &SavedSpeechReceipt) -> Result<()> {
     if receipt.schema_version != SAVED_RESULT_SCHEMA || receipt.profile != SAVED_RESULT_PROFILE
-        || receipt.policy.recovery.is_some()
+        || receipt.policy.recovery.is_some() || receipt.policy.saved_results.is_enabled()
         || receipt.configuration_sha256 != configuration_digest(&receipt.policy)?
     { bail!("speech saved-result schema, profile, or recognition identity is invalid"); }
     let format: Format = receipt.source.format().as_str().parse()?;
@@ -268,6 +327,36 @@ fn validate_record(record: &Artifact, format: Format, maximum: u64, storage: Art
         || record.id() != &ArtifactId::from_record(record.digest(), record.format(), record.sources())
     { bail!("speech saved-result artifact record is inconsistent"); }
     Ok(())
+}
+
+/// Resolve an existing root without following a symlink at the root itself.
+/// Ancestors outside the configured store remain the caller's trusted location.
+pub(super) fn stable_store_root(root: &Path) -> Result<PathBuf> {
+    require_directory(root)?;
+    let resolved = std::fs::canonicalize(root).context("speech artifact-store root is unavailable")?;
+    require_directory(&resolved)?;
+    Ok(resolved)
+}
+
+pub(super) fn require_directory(path: &Path) -> Result<()> {
+    let metadata = std::fs::symlink_metadata(path)
+        .with_context(|| format!("speech saved-result directory '{}' is unavailable", path.display()))?;
+    if !metadata.is_dir() || metadata.file_type().is_symlink() {
+        bail!("speech saved-result requires non-symlink directories");
+    }
+    Ok(())
+}
+
+pub(super) fn store_object_path(root: &Path, digest: &str) -> Result<PathBuf> {
+    expected_digest(digest, "speech saved-result object digest")?;
+    require_directory(root)?;
+    let objects = root.join("objects");
+    require_directory(&objects)?;
+    let algorithm = objects.join("sha256");
+    require_directory(&algorithm)?;
+    let prefix = algorithm.join(&digest[..2]);
+    require_directory(&prefix)?;
+    Ok(prefix.join(digest))
 }
 
 fn read_store_payloads(receipt: &SavedSpeechReceipt, store: &ArtifactStore, cancellation: &ProcessCancellationToken) -> Result<Vec<(Artifact, Vec<u8>)>> {
@@ -344,7 +433,7 @@ fn verify_payloads(receipt: &SavedSpeechReceipt, payloads: &[(Artifact, Vec<u8>)
     Ok(VerifiedSpeechTranscription { transcription, original_source: receipt.source.clone() })
 }
 
-fn parse_exact<T: for<'de> Deserialize<'de> + Serialize>(bytes: &[u8], name: &str) -> Result<T> {
+pub(super) fn parse_exact<T: for<'de> Deserialize<'de> + Serialize>(bytes: &[u8], name: &str) -> Result<T> {
     let StrictValue(value) = serde_json::from_slice::<StrictValue>(bytes).with_context(|| format!("invalid or duplicate-key {name}"))?;
     let parsed: T = serde_json::from_value(value.clone()).with_context(|| format!("invalid {name}"))?;
     if serde_json::to_value(&parsed)? != value { bail!("{name} contains unsupported or omitted fields"); }
@@ -420,6 +509,7 @@ mod tests {
             options: SpeechOptions::default(),
             audio: prepared.then(|| SpeechAudioPolicy { stream_index: 2, ffprobe: tool("absent-ffprobe", 'c'), ffmpeg: tool("absent-ffmpeg", 'd'), timeout_seconds: 300 }),
             recovery: None,
+            saved_results: SpeechSavedResultsPolicy::Disabled,
         };
         let (probe, prepared_audio, preparation) = if prepared {
             let probe = sidecar(&store, PROBE, Format::Json, "audio_probe", vec![input.id().clone()]);
@@ -567,5 +657,152 @@ mod tests {
         let token = ProcessCancellationToken::from_shared(Arc::new(AtomicBool::new(true)));
         let error = inspect_saved_bundle(Path::new("/absent/saved-result.json"), &"0".repeat(64), &token).unwrap_err();
         assert!(matches!(error.downcast_ref::<SpeechError>(), Some(SpeechError::Cancelled)));
+    }
+
+    #[test]
+    fn automatic_discovery_preserves_v1_receipt_bytes_and_prepared_evidence() {
+        use crate::speech::cache::{lookup_saved_result, remember_saved_result};
+        for prepared in [false, true] {
+            let mut fixture = fixture(prepared);
+            let token = ProcessCancellationToken::default();
+            let original = std::fs::read(&fixture.receipt_path).unwrap();
+            let configuration = configuration_digest(&fixture.policy).unwrap();
+            fixture.policy.saved_results = SpeechSavedResultsPolicy::ReuseIfAvailable;
+            assert_eq!(configuration_digest(&fixture.policy).unwrap(), configuration);
+            let saved = remember_saved_result(&fixture.store, &fixture.policy, &fixture.input, &fixture.canonical, &token).unwrap();
+            assert_eq!(saved.receipt_sha256(), fixture.pin);
+            assert_eq!(receipt_bytes(&fixture.input, &fixture.policy, &fixture.canonical, &fixture.store, &token).unwrap(), original);
+            std::fs::remove_dir_all(fixture.receipt_path.parent().unwrap()).unwrap();
+            let format = if prepared { Format::Mkv } else { Format::Wav };
+            let hit = lookup_saved_result(fixture.store.root(), &fixture.policy, format, Some(&fixture.input), &token).unwrap().unwrap();
+            assert_eq!(hit.canonical(), &fixture.canonical);
+            assert_eq!(hit.receipt_sha256(), fixture.pin);
+            if prepared { assert!(crate::speech::timeline::require_original_media_timeline(&hit).is_err()); }
+        }
+    }
+
+    #[test]
+    fn read_only_discovery_misses_create_neither_store_nor_index() {
+        use crate::speech::cache::{index_path, lookup_saved_result};
+        let mut fixture = fixture(false);
+        fixture.policy.saved_results = SpeechSavedResultsPolicy::ReuseIfAvailable;
+        let absent = fixture.root.path().join("absent-store");
+        let token = ProcessCancellationToken::default();
+        assert!(lookup_saved_result(&absent, &fixture.policy, Format::Wav, None, &token).unwrap().is_none());
+        assert!(!absent.exists());
+        assert!(lookup_saved_result(fixture.store.root(), &fixture.policy, Format::Wav, None, &token).unwrap().is_none());
+        assert!(!fixture.store.root().join("speech-results").exists());
+        let path = index_path(&absent, &fixture.policy, Format::Wav).unwrap();
+        fixture.policy.saved_results = SpeechSavedResultsPolicy::Disabled;
+        assert_eq!(index_path(&absent, &fixture.policy, Format::Wav).unwrap(), path);
+    }
+
+    #[test]
+    fn store_origin_restore_reverifies_payloads_after_assessment() {
+        use crate::speech::cache::remember_saved_result;
+        let mut fixture = fixture(false);
+        fixture.policy.saved_results = SpeechSavedResultsPolicy::ReuseIfAvailable;
+        let token = ProcessCancellationToken::default();
+        let saved = remember_saved_result(&fixture.store, &fixture.policy, &fixture.input, &fixture.canonical, &token).unwrap();
+        let destination = ArtifactStore::new(fixture.root.path().join("restore-store")).unwrap();
+        assert_eq!(restore_saved_result(&saved, &destination, &token).unwrap(), fixture.canonical);
+        let provider = retained_artifacts(&fixture.canonical).unwrap().into_iter()
+            .find(|record| record.metadata().get("renderflow.speech.role").and_then(serde_json::Value::as_str) == Some("provider_output")).unwrap();
+        std::fs::write(fixture.store.payload_path(&provider).unwrap(), b"changed provider output").unwrap();
+        let refused = ArtifactStore::new(fixture.root.path().join("refused-store")).unwrap();
+        assert!(restore_saved_result(&saved, &refused, &token).is_err());
+        assert!(!refused.contains(&fixture.canonical));
+    }
+
+    #[test]
+    fn corrupt_existing_discovery_index_fails_without_repair_or_fallback() {
+        use crate::speech::cache::{index_path, lookup_saved_result, remember_saved_result, MAX_INDEX_BYTES};
+        let mut fixture = fixture(false);
+        fixture.policy.saved_results = SpeechSavedResultsPolicy::ReuseIfAvailable;
+        let token = ProcessCancellationToken::default();
+        remember_saved_result(&fixture.store, &fixture.policy, &fixture.input, &fixture.canonical, &token).unwrap();
+        let path = index_path(fixture.store.root(), &fixture.policy, Format::Wav).unwrap();
+        let original = std::fs::read(&path).unwrap();
+        let mut missing: serde_json::Value = serde_json::from_slice(&original).unwrap();
+        missing["receipt_sha256"] = serde_json::Value::String("0".repeat(64));
+        let invalid = [b"{\"unknown\":true}".to_vec(), serde_json::to_vec(&missing).unwrap(), vec![b' '; MAX_INDEX_BYTES as usize + 1]];
+        for bytes in invalid {
+            std::fs::write(&path, &bytes).unwrap();
+            assert!(lookup_saved_result(fixture.store.root(), &fixture.policy, Format::Wav, None, &token).is_err());
+            assert!(remember_saved_result(&fixture.store, &fixture.policy, &fixture.input, &fixture.canonical, &token).is_err());
+            assert_eq!(std::fs::read(&path).unwrap(), bytes);
+        }
+    }
+
+    #[test]
+    fn historical_key_includes_format_and_all_recognition_intent() {
+        use crate::speech::cache::index_path;
+        let fixture = fixture(true);
+        let base = index_path(fixture.store.root(), &fixture.policy, Format::Mkv).unwrap();
+        assert_ne!(base, index_path(fixture.store.root(), &fixture.policy, Format::WebM).unwrap());
+        let mut changes = Vec::new();
+        let mut changed = fixture.policy.clone(); changed.options.threads += 1; changes.push(changed);
+        let mut changed = fixture.policy.clone(); changed.model.sha256 = "e".repeat(64); changes.push(changed);
+        let mut changed = fixture.policy.clone(); changed.provider.sha256 = "f".repeat(64); changes.push(changed);
+        let mut changed = fixture.policy.clone(); changed.source_sha256 = "1".repeat(64); changes.push(changed);
+        let mut changed = fixture.policy.clone(); changed.audio.as_mut().unwrap().stream_index += 1; changes.push(changed);
+        for changed in changes { assert_ne!(base, index_path(fixture.store.root(), &changed, Format::Mkv).unwrap()); }
+    }
+
+    #[test]
+    fn cancelled_discovery_and_remember_create_no_index() {
+        use crate::speech::cache::{lookup_saved_result, remember_saved_result};
+        let mut fixture = fixture(false);
+        fixture.policy.saved_results = SpeechSavedResultsPolicy::ReuseIfAvailable;
+        let token = ProcessCancellationToken::from_shared(Arc::new(AtomicBool::new(true)));
+        let error = lookup_saved_result(fixture.store.root(), &fixture.policy, Format::Wav, None, &token).unwrap_err();
+        assert!(matches!(error.downcast_ref::<SpeechError>(), Some(SpeechError::Cancelled)));
+        assert!(remember_saved_result(&fixture.store, &fixture.policy, &fixture.input, &fixture.canonical, &token).is_err());
+        assert!(!fixture.store.root().join("speech-results").exists());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn discovery_refuses_symlink_index_files_directories_and_store_objects() {
+        use std::os::unix::fs::symlink;
+        use crate::speech::cache::{index_path, lookup_saved_result, remember_saved_result};
+        let mut fixture = fixture(false);
+        fixture.policy.saved_results = SpeechSavedResultsPolicy::ReuseIfAvailable;
+        let token = ProcessCancellationToken::default();
+        remember_saved_result(&fixture.store, &fixture.policy, &fixture.input, &fixture.canonical, &token).unwrap();
+        let path = index_path(fixture.store.root(), &fixture.policy, Format::Wav).unwrap();
+        let moved = path.with_extension("original");
+        std::fs::rename(&path, &moved).unwrap();
+        symlink(&moved, &path).unwrap();
+        assert!(lookup_saved_result(fixture.store.root(), &fixture.policy, Format::Wav, None, &token).is_err());
+        std::fs::remove_file(&path).unwrap();
+        std::fs::rename(&moved, &path).unwrap();
+        let directory = path.parent().unwrap();
+        let moved_directory = directory.with_file_name("original-v1");
+        std::fs::rename(directory, &moved_directory).unwrap();
+        symlink(&moved_directory, directory).unwrap();
+        assert!(lookup_saved_result(fixture.store.root(), &fixture.policy, Format::Wav, None, &token).is_err());
+        std::fs::remove_file(directory).unwrap();
+        std::fs::rename(&moved_directory, directory).unwrap();
+        let object = fixture.store.payload_path(&fixture.canonical).unwrap();
+        let moved_object = object.with_extension("original");
+        std::fs::rename(&object, &moved_object).unwrap();
+        symlink(&moved_object, &object).unwrap();
+        assert!(lookup_saved_result(fixture.store.root(), &fixture.policy, Format::Wav, None, &token).is_err());
+    }
+
+    #[test]
+    fn graph_automatic_hit_reuses_verified_result_without_native_phases() {
+        use crate::speech::cache::remember_saved_result;
+        let mut fixture = fixture(false);
+        fixture.policy.saved_results = SpeechSavedResultsPolicy::ReuseIfAvailable;
+        remember_saved_result(&fixture.store, &fixture.policy, &fixture.input, &fixture.canonical, &ProcessCancellationToken::default()).unwrap();
+        let phases = Arc::new(Phases::default());
+        let transform = SpeechArtifactTransform::new(Format::Wav, fixture.policy, None).unwrap().with_observer(phases.clone());
+        let output = transform.apply(&fixture.input, Format::TimedTranscriptJson, &fixture.store).unwrap();
+        assert_eq!(output, fixture.canonical);
+        assert!(!transform.cacheable());
+        assert_eq!(*phases.0.lock().unwrap(), vec![SpeechProgressPhase::VerifyInput,
+            SpeechProgressPhase::LookupSavedResult, SpeechProgressPhase::SavedResultHit, SpeechProgressPhase::Complete]);
     }
 }
