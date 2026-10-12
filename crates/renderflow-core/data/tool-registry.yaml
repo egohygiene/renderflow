@@ -146,7 +146,7 @@ tools:
     fidelity: path_dependent
     support_tier: optional
     license_notes: "FFmpeg licensing is build-dependent; consult the exact distributed build."
-    distribution_notes: "Used by Renderflow audio, image, and video adapters. Plain subtitle extraction is separately experimental and unqualified; no subtitle graph edge is advertised."
+    distribution_notes: "Used by Renderflow audio, image, and video adapters. Plain subtitle extraction is separately experimental and unqualified; its authored graph route requires explicit execution.subtitles stream selection."
 
   - id: tool.ffprobe
     name: FFprobe

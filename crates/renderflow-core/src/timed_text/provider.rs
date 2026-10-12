@@ -418,6 +418,11 @@ fn extraction_arguments(
     let mut arguments: Vec<String> = [
         "-hide_banner", "-loglevel", "warning", "-nostdin", "-xerror", "-copyts",
     ].into_iter().map(str::to_string).collect();
+    // FFmpeg can warn while guessing layouts on unrelated audio streams even
+    // when only subtitles are mapped. No audio layout is needed for this copy
+    // route. Disable that inference rather than weaken warning refusal. This
+    // is an FFmpeg input option and must not be sent to FFprobe.
+    arguments.extend(["-guess_layout_max", "0"].map(str::to_string));
     arguments.extend(input_arguments(path, container)?);
     arguments.extend([
         "-map".to_string(), format!("0:{stream_index}"),
@@ -660,6 +665,12 @@ mod tests {
         assert!(args.windows(2).any(|pair| pair == ["-avoid_negative_ts", "disabled"]));
         assert!(args.contains(&"-copyts".to_string()));
         assert!(args.contains(&"-nofind_stream_info".to_string()));
+        let layout_option = args.iter().position(|arg| arg == "-guess_layout_max").unwrap();
+        let input_option = args.iter().position(|arg| arg == "-i").unwrap();
+        assert_eq!(args[layout_option + 1], "0");
+        assert!(layout_option < input_option);
+        assert!(!probe_arguments(&path, Container::Matroska).unwrap()
+            .iter().any(|arg| arg == "-guess_layout_max"));
         assert!(args.contains(&"-vn".to_string()) && args.contains(&"-an".to_string()));
         assert_eq!(args.last().map(String::as_str), Some("pipe:1"));
         assert!(args.contains(&path.to_str().unwrap().to_string()));

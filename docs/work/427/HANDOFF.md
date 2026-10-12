@@ -1,4 +1,4 @@
-# Renderflow #427 — timed-text checkpoint 2
+# Renderflow #427 — timed-text checkpoint 3
 
 ## Scope and observed state
 
@@ -8,9 +8,9 @@
   `db5f4bd339f9266758c74c3435d47c8005f89a8e`, with specfile,
   repository-continuity, and local-validation-evidence dependencies at that ref.
 - Observed 2026-10-12 UTC: #427 open; draft PR #438 holds this work.
-  Checkpoint 2 began from published head
-  `1c323b9a43a30f388c4340f92a4dc781cf242201`, tree
-  `f821415944d1797336ab6229619d42c0ed874726`; main remained at the base below.
+  Checkpoint 3 began from published head
+  `ff10b8cc866ba421e6017e078d83afb27845e0e5`, tree
+  `2ca3e2fbedca41b65fdee94430e6120b3970f011`; main remained at the base below.
 - Verified base: `8e866f91aa8b20255f25a553031f25fa98aa3856` (`main`).
 - Candidate branch: `feat/renderflow-427-timed-text`; obtain its exact head from
   the draft PR. This file cannot contain its own eventual commit SHA.
@@ -73,6 +73,33 @@ Checkpoint 2 interfaces:
   registry test is expanded. All remain unrun; the two checkpoints contain
   58 newly authored tests in total.
 
+Checkpoint 3 authors the native qualification kit:
+
+- `tests/timed_text_native.rs` (under `crates/renderflow-core`) is an explicit,
+  ignored integration entry point. It creates original synthetic native
+  fixtures only when deliberately run; no generated media or passing report is
+  checked in by this checkpoint.
+- `tests/support/subtitle_qualification_report.rs` owns per-case evidence and
+  its overall outcome. The companion
+  `schemas/renderflow-subtitle-qualification-v1.schema.json` describes the report.
+  Every required case begins as `not_run` before any provider probe; missing or
+  mismatched prerequisites cannot become successful execution evidence.
+- The kit selects exact FFmpeg/FFprobe version-response lines, bounds fixture
+  subprocesses through `ProcessExecutor`, and retains the containers, hashes,
+  canonical outputs, and SDK manifests in a fresh output directory. It never
+  installs providers or dispatches CI.
+- Intended positive cases cover Matroska/SubRip and Matroska/WebVTT, including
+  explicit nonzero stream selection and graph lineage. Negative cases cover
+  no subtitles, missing indices, unsupported ASS/MP4 mov_text, malformed media,
+  and pre-cancelled extraction. A final version recheck is required for success.
+- The [native qualification guide](NATIVE_QUALIFICATION.md) records the later
+  invocation, report interpretation, and still-deferred coverage. This kit
+  prepares the completion pass; it does not establish #427 acceptance.
+- This checkpoint adds three test functions: one ignored native entry point
+  containing ten required cases, and two report-helper tests. An existing
+  provider argument test is expanded. All remain unrun; there are 61 newly
+  authored test functions across the three checkpoints.
+
 The bounded acceptance boundary is a reviewable implementation candidate with
 deferred obligations recorded. It is not #427 acceptance proof or a release.
 
@@ -94,6 +121,22 @@ the mismatch between object-only subtitle policy schema and Serde's default
 acceptance of positional struct sequences. Publication integrity is distinct
 from compiler/runtime correctness.
 
+Checkpoint 3 source review concerns harness gating, bounded fixture creation,
+exact cue/stream/hash evidence, report state transitions, and retained outputs.
+Native execution remains deferred. The tool-registry note was reconciled with
+the opt-in subtitle graph route added in checkpoint 2.
+The report also requires the compiled harness SHA-256 and crate version; its
+optional source revision is explicitly operator-declared.
+
+Source inspection of
+[FFmpeg n7.1](https://github.com/FFmpeg/FFmpeg/blob/n7.1/fftools/ffmpeg_demux.c)
+found that guessing an unspecified audio channel layout emits a warning even
+when only subtitles are selected. The FFmpeg-only extraction input now uses
+`-guess_layout_max 0`; FFprobe arguments are unchanged. This disables irrelevant
+audio inference while preserving strict warning refusal. The existing argument
+test now checks the option's input placement and absence from FFprobe. Its
+effect on real fixtures remains unverified until the native kit is run.
+
 No user media was processed. No provider binaries/models were installed.
 No dependency/lockfile, workflow, branch protection, or release change is intended.
 Use `[skip ci]` in commits; do not dispatch or poll Actions. Existing repository
@@ -108,7 +151,9 @@ automation may react to a PR independently of this worker.
    `cargo test --locked --package renderflow --lib subtitle`, and
    `cargo test --locked --package renderflow --test timed_text`, plus
    `cargo test --locked --package renderflow --test timed_text_graph`.
-2. Execute small redistribution-safe native Matroska and MP4-family fixtures
+2. Execute the authored native qualification kit from
+   [NATIVE_QUALIFICATION.md](NATIVE_QUALIFICATION.md), then extend its remaining
+   matrix where needed. Use small redistribution-safe Matroska and MP4-family fixtures
    under pinned FFprobe/FFmpeg versions. Prove SRT/WebVTT extraction, stream
    identity/language, no-subtitle handling, unsupported codec refusal, limits,
    cancellation, malformed input, source stability, and exact output evidence.

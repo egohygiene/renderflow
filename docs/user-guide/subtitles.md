@@ -4,6 +4,10 @@ This #427 checkpoint is an **unvalidated draft**. The commands below describe
 the authored interface; they have not been executed or released. Qualification
 and remaining integration work are recorded in [the handoff](../work/427/HANDOFF.md).
 
+An opt-in [native qualification kit](../work/427/NATIVE_QUALIFICATION.md) is
+authored for the later validation pass. It has not been run and is not proof of
+native extraction support.
+
 ## Convert a subtitle file
 
 The local text converter accepts the strict plain-text SRT/WebVTT profile and

@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-subtitle-qualification-v1.schema.json",
+  "title": "Renderflow native subtitle qualification report v1",
+  "description": "Authored harness report. Missing providers and unexecuted cases are never successful qualification. Detail objects retain fixture hashes, observed transcript content, provider evidence, refusals, and native run-manifest references as appropriate to each case.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "status", "os", "arch", "implementation", "providers", "cases"],
+  "properties": {
+    "schema_version": { "const": "renderflow.subtitle-qualification/v1" },
+    "status": { "$ref": "#/$defs/status" },
+    "os": { "type": "string", "minLength": 1 },
+    "arch": { "type": "string", "minLength": 1 },
+    "implementation": { "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/implementation" }] },
+    "providers": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ffmpeg", "ffprobe"],
+      "properties": {
+        "ffmpeg": { "$ref": "#/$defs/provider" },
+        "ffprobe": { "$ref": "#/$defs/provider" }
+      }
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 10,
+      "maxItems": 10,
+      "prefixItems": [
+        { "allOf": [{ "$ref": "#/$defs/case" }, { "properties": { "id": { "const": "fixture_generation" } } }] },
+        { "allOf": [{ "$ref": "#/$defs/case" }, { "properties": { "id": { "const": "srt_stream" } } }] },
+        { "allOf": [{ "$ref": "#/$defs/case" }, { "properties": { "id": { "const": "webvtt_stream" } } }] },
+        { "allOf": [{ "$ref": "#/$defs/case" }, { "properties": { "id": { "const": "sdk_lineage" } } }] },
+        { "allOf": [{ "$ref": "#/$defs/case" }, { "properties": { "id": { "const": "no_subtitles" } } }] },
+        { "allOf": [{ "$ref": "#/$defs/case" }, { "properties": { "id": { "const": "unsupported_ass" } } }] },
+        { "allOf": [{ "$ref": "#/$defs/case" }, { "properties": { "id": { "const": "unsupported_mov_text" } } }] },
+        { "allOf": [{ "$ref": "#/$defs/case" }, { "properties": { "id": { "const": "pre_cancelled" } } }] },
+        { "allOf": [{ "$ref": "#/$defs/case" }, { "properties": { "id": { "const": "malformed_container" } } }] },
+        { "allOf": [{ "$ref": "#/$defs/case" }, { "properties": { "id": { "const": "provider_versions" } } }] }
+      ],
+      "items": false
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "passed" } } },
+      "then": {
+        "properties": {
+          "cases": { "items": { "properties": { "status": { "const": "passed" } } } },
+          "implementation": { "$ref": "#/$defs/implementation" },
+          "providers": {
+            "additionalProperties": {
+              "properties": {
+                "expected_version_line": { "type": "string", "minLength": 1 },
+                "observed_version_line": { "type": "string", "minLength": 1 },
+                "diagnostic": { "type": "null" }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "cases": { "contains": { "properties": { "status": { "const": "failed" } }, "required": ["status"] } } } },
+      "then": { "properties": { "status": { "const": "failed" } } }
+    }
+  ],
+  "$defs": {
+    "status": { "enum": ["passed", "failed", "unavailable", "not_run"] },
+    "implementation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["crate_version", "harness_sha256", "source_revision"],
+      "properties": {
+        "crate_version": { "type": "string", "minLength": 1 },
+        "harness_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$", "description": "SHA-256 of the compiled test harness executable, including its linked Renderflow core." },
+        "source_revision": { "type": ["string", "null"], "description": "Optional operator declaration, not verified from Git by the harness." }
+      }
+    },
+    "provider": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["expected_version_line", "observed_version_line", "diagnostic"],
+      "properties": {
+        "expected_version_line": { "type": "string", "description": "Exact expected first version line; empty only when the required pin was not supplied, which cannot qualify." },
+        "observed_version_line": { "type": ["string", "null"] },
+        "diagnostic": { "type": ["string", "null"] }
+      }
+    },
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "description", "required", "status", "detail"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "description": { "type": "string", "minLength": 1 },
+        "required": { "const": true },
+        "status": { "$ref": "#/$defs/status" },
+        "detail": { "type": "object", "additionalProperties": true }
+      }
+    }
+  }
+}

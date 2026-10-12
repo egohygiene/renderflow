@@ -241,6 +241,8 @@ CLI, `renderflow.timed-transcript/v1`, strict plain-text SRT/WebVTT codecs,
 and bounded FFprobe/FFmpeg adapters. Its second checkpoint adds opt-in
 `execution.subtitles` graph/SDK routes through a canonical transcript artifact,
 parser-backed validation, and native manifest provenance/loss evidence.
+The third checkpoint authors an opt-in native qualification kit with synthetic
+fixtures and per-case evidence for the later completion pass.
 It is **unvalidated draft work**: no executable checks or native-provider
 fixtures have run. Released support and completion are not claimed. Resume from
 [the #427 handoff](docs/work/427/HANDOFF.md); #428 remains separate.
