@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-speech-aligned-bundle-v1.schema.json",
+  "title": "Renderflow operator-mapped speech bundle v1",
+  "description": "Completion manifest written last for a new operator-mapped transcript bundle. Every derivative, including canonical JSON, requires the alignment envelope and exact mapping bytes to explain its asserted clock. The pinned original saved-result bundle remains required external evidence; no media is copied into this bundle.",
+  "$comment": "Consumers must verify every file, digest, length and cross-document identity. This manifest is not a speech saved-result receipt, native recognition attestation, proof of synchronization, or cache entry. JSON Schema does not establish the correctness of the operator-supplied mapping.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "alignment_evidence", "mapping", "timestamp_origin", "basis", "human_reviewed", "original_source_reobserved", "derivatives_require_alignment_evidence", "source_receipt", "artifacts", "export_losses"],
+  "properties": {
+    "schema_version": { "const": "renderflow.speech-aligned-bundle/v1" },
+    "alignment_evidence": { "const": "alignment.json" },
+    "mapping": { "const": "mapping.json" },
+    "timestamp_origin": { "const": "operator_asserted_original_media" },
+    "basis": { "const": "operator_supplied" },
+    "human_reviewed": { "const": false },
+    "original_source_reobserved": { "const": false },
+    "derivatives_require_alignment_evidence": { "const": true },
+    "source_receipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "sha256", "canonical_transcript_sha256", "original_source_sha256", "external_bundle_required"],
+      "properties": {
+        "schema_version": { "const": "renderflow.speech-saved-result/v1" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "canonical_transcript_sha256": { "$ref": "#/$defs/sha256" },
+        "original_source_sha256": { "$ref": "#/$defs/sha256" },
+        "external_bundle_required": { "const": true }
+      }
+    },
+    "artifacts": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "items": false,
+      "prefixItems": [
+        { "allOf": [{ "$ref": "#/$defs/artifact" }], "properties": { "path": { "const": "mapping.json" }, "size_bytes": { "minimum": 1, "maximum": 262144 } } },
+        { "allOf": [{ "$ref": "#/$defs/artifact" }], "properties": { "path": { "const": "alignment.json" }, "size_bytes": { "minimum": 1 } } },
+        { "allOf": [{ "$ref": "#/$defs/artifact" }], "properties": { "path": { "const": "aligned.timed-transcript.json" }, "size_bytes": { "minimum": 1 } } },
+        { "allOf": [{ "$ref": "#/$defs/artifact" }], "properties": { "path": { "const": "aligned.srt" } } },
+        { "allOf": [{ "$ref": "#/$defs/artifact" }], "properties": { "path": { "const": "aligned.vtt" } } },
+        { "allOf": [{ "$ref": "#/$defs/artifact" }], "properties": { "path": { "const": "aligned.txt" } } }
+      ]
+    },
+    "export_losses": {
+      "type": "object",
+      "description": "Format losses within the timed-transcript model only; the alignment envelope remains required for every export, including JSON.",
+      "additionalProperties": false,
+      "required": ["aligned.srt", "aligned.vtt", "aligned.txt"],
+      "properties": {
+        "aligned.srt": { "$ref": "#/$defs/losses" },
+        "aligned.vtt": { "$ref": "#/$defs/losses" },
+        "aligned.txt": { "$ref": "#/$defs/losses" }
+      }
+    }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "size_bytes"],
+      "properties": {
+        "path": { "type": "string" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "size_bytes": { "type": "integer", "minimum": 0, "maximum": 16777216 }
+      }
+    },
+    "losses": {
+      "type": "array",
+      "uniqueItems": true,
+      "maxItems": 7,
+      "items": { "$ref": "renderflow-timed-transcript-v1.schema.json#/$defs/loss" }
+    }
+  }
+}

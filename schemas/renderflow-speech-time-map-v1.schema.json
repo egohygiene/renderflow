@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-speech-time-map-v1.schema.json",
+  "title": "Renderflow operator-supplied speech time map v1",
+  "description": "Explicit equal-rate millisecond translations from verified prepared speech into the recorded original-media clock. The mapping is an operator assertion, not native timestamp evidence or proof of synchronization accuracy.",
+  "$comment": "Application validation also pins exact mapping bytes (1–262144 bytes), rejects duplicate keys and positional object arrays, binds all four identity digests to an opaque verified saved result, and requires prepared-media evidence. Strict input WAV is unsupported. Each interval must have positive duration and stay within the verified prepared WAV duration. Source and target intervals must be sorted and nonoverlapping; target end equals original_start_ms + transcript_end_ms - transcript_start_ms and must be <=359999999. Every entire cue must fit one interval (start >= interval start and end <= interval end); crossing, uncovered, split, clipped, rescaled, or dropped cues are refused. Adjacent interval boundaries are permitted. Unused gaps are permitted, so the mapping need not cover the entire audio. These cross-field and byte constraints are not proved by schema validation. Note text is an operator assertion and does not prove human review.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "profile", "basis", "receipt_sha256", "original_source_sha256",
+    "transcript_source_sha256", "canonical_transcript_sha256", "note", "segments"
+  ],
+  "properties": {
+    "schema_version": { "const": "renderflow.speech-time-map/v1" },
+    "profile": { "const": "operator-piecewise-translation-ms/v1" },
+    "basis": { "const": "operator_supplied" },
+    "receipt_sha256": { "$ref": "#/$defs/sha256" },
+    "original_source_sha256": { "$ref": "#/$defs/sha256" },
+    "transcript_source_sha256": { "$ref": "#/$defs/sha256" },
+    "canonical_transcript_sha256": { "$ref": "#/$defs/sha256" },
+    "note": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048,
+      "allOf": [
+        { "pattern": "\\S" },
+        { "not": { "pattern": "[\\u0000-\\u001f\\u007f-\\u009f]" } }
+      ]
+    },
+    "segments": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1024,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["transcript_start_ms", "transcript_end_ms", "original_start_ms"],
+        "properties": {
+          "transcript_start_ms": { "type": "integer", "minimum": 0, "maximum": 599999 },
+          "transcript_end_ms": { "type": "integer", "minimum": 1, "maximum": 600000 },
+          "original_start_ms": { "type": "integer", "minimum": 0, "maximum": 359999998 }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+  }
+}

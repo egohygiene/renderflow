@@ -3,8 +3,10 @@
 //! Speech evidence lives in a separate envelope around the unchanged timed-text
 //! contract. Recognition is an unreviewed draft: provider segments supply the
 //! timestamps, token probabilities are not accuracy estimates, and this module
-//! neither invents missing words nor performs alignment or diarization.
+//! never invents missing words or performs diarization. The separate alignment
+//! module translates cue times only through an explicitly supplied time map.
 
+pub mod alignment;
 pub mod audio;
 pub mod cache;
 pub mod graph;

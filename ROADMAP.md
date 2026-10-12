@@ -272,8 +272,15 @@ mapping for prepared audio; it does not shift timestamps. Checkpoint 5 adds an
 opt-in speech result index that reuses completely verified historical results
 from the existing artifact store. Missing entries permit fresh recognition;
 damaged entries fail without native fallback. Generic DAG caches/checkpoints
-stay disabled for speech, and no fresh-inference reproducibility is claimed. Runtime qualification
-and any separately scoped original-media alignment remain. Resume from
+stay disabled for speech, and no fresh-inference reproducibility is claimed.
+Checkpoint 6 separately scopes [#440](https://github.com/egohygiene/renderflow/issues/440):
+an explicit pinned time map can translate whole cues from a verified prepared-media
+result into original-media subtitle candidates. The offline operation records
+operator-supplied timing in a separate envelope and new output bundle; it refuses
+unmapped or boundary-crossing cues and does not infer synchronization. Original
+recognition artifacts and timeline assessment remain unchanged. Compilation,
+runtime qualification, and measured synchronization evidence remain deferred.
+Resume from
 [the #428 handoff](docs/work/428/HANDOFF.md).
 
 The exhaustive planner must materialize each eligible target identity at most

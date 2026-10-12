@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-speech-alignment-v1.schema.json",
+  "title": "Renderflow derived speech alignment v1",
+  "description": "A separate transcript derived from verified retained speech using an operator-supplied timing map. The source identity and selected audio stream refer to recorded original media, while evidence retains the recognition WAV and input transcript identities. No saved recognition result is mutated.",
+  "$comment": "Application validation pins the exact mapping bytes, verifies its bindings against an opaque SavedSpeechResult, transforms whole cues without altering text/IDs/speakers/language, validates the timed transcript, and bounds the pretty JSON envelope plus trailing newline to 16 MiB. aligned_transcript_sha256 hashes the exact timed_text::render(Json) output, including its trailing newline, rather than this envelope. Equality between evidence identities and transcript source/stream is enforced by construction, not by this schema. Mapping integrity is not synchronization accuracy, proof of human review, current source verification, or a recovered native timestamp mapping. Original media duration remains unknown here. Keep this envelope and the exact map with all exports; the embedded timed-transcript model cannot itself retain mapping provenance.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "transcript", "evidence"],
+  "properties": {
+    "schema_version": { "const": "renderflow.speech-alignment/v1" },
+    "transcript": {
+      "allOf": [
+        { "$ref": "renderflow-timed-transcript-v1.schema.json" },
+        {
+          "type": "object",
+          "properties": {
+            "source": {
+              "required": ["stream"],
+              "properties": {
+                "stream": { "type": "object" },
+                "extraction": false
+              }
+            }
+          }
+        }
+      ]
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile", "basis", "timestamp_origin", "mapping_sha256", "receipt_sha256",
+        "canonical_transcript_sha256", "aligned_transcript_sha256", "original_source_sha256",
+        "transcript_source_sha256", "selected_stream_index", "note", "human_reviewed",
+        "original_source_reobserved", "limitations"
+      ],
+      "properties": {
+        "profile": { "const": "operator-piecewise-translation-ms/v1" },
+        "basis": { "const": "operator_supplied" },
+        "timestamp_origin": { "const": "operator_asserted_original_media" },
+        "mapping_sha256": { "$ref": "#/$defs/sha256" },
+        "receipt_sha256": { "$ref": "#/$defs/sha256" },
+        "canonical_transcript_sha256": { "$ref": "#/$defs/sha256" },
+        "aligned_transcript_sha256": { "$ref": "#/$defs/sha256" },
+        "original_source_sha256": { "$ref": "#/$defs/sha256" },
+        "transcript_source_sha256": { "$ref": "#/$defs/sha256" },
+        "selected_stream_index": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+        "note": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048,
+          "allOf": [
+            { "pattern": "\\S" },
+            { "not": { "pattern": "[\\u0000-\\u001f\\u007f-\\u009f]" } }
+          ]
+        },
+        "human_reviewed": { "const": false },
+        "original_source_reobserved": { "const": false },
+        "limitations": {
+          "type": "array",
+          "minItems": 6,
+          "maxItems": 6,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 4096 }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+  }
+}

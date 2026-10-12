@@ -1,13 +1,16 @@
-# Renderflow #428 — local speech checkpoint 5
+# Renderflow #428 / #440 — speech and explicit alignment checkpoint 6
 
 ## Authority and branch
 
 - Issue: https://github.com/egohygiene/renderflow/issues/428 under #421.
+- Separately scoped original-media time maps:
+  https://github.com/egohygiene/renderflow/issues/440. This preserves #428's
+  non-goal boundary for advanced temporal editing unless separately scoped.
 - Draft PR: https://github.com/egohygiene/renderflow/pull/439, head branch
   `feat/renderflow-428-local-speech`, stacked on subtitle draft PR #438 / branch
   `feat/renderflow-427-timed-text`.
 - The user explicitly deferred tests and authorized continued implementation.
-  The latest instruction approved the next piece after checkpoint 4. Tests, builds,
+  The latest instruction approved the next piece after checkpoint 5. Tests, builds,
   schema validation, format/lint, native smoke/inference, and GitHub Actions
   remain deferred. No merge or release was requested.
 - Read-only source/Git review, authored coverage, and draft publication are
@@ -25,6 +28,9 @@
 - Checkpoint 4 published head: `6c80bd84765b74a41dee9e3286a41eb6969f2a24`, tree
   `c1b5e2a90a7cc195d1808d9a6383043710921b5f`, matching local commit
   `2be49123e056e634c0795ee8c030fdb12c7e88f0`.
+- Checkpoint 5 published head: `5229f134ac8a89b7b132e695101cce8d7d8d39a2`, tree
+  `7d8fbb186e7cd7117d869726aa573927b62c0d0a`, matching local commit
+  `49e6bd0c4be1c79ea962d2f0a8d9179c3a75d14d`.
 - Stack base: published `14ebc90f35c90c90942a3b9c086ed58b232b662b`, tree
   `53a9d02adc673058ce94c3c5bfa779c1f112eabd`, matching local
   `e72f26ecade13a1cd0b57dc5c0a9c41042f407a2`.
@@ -119,6 +125,26 @@
     final run reports cancellation or its updated manifest cannot be persisted.
     This selects historical output and does not attest current native libraries,
     accelerators, model sidecars, or reproducibility of another inference.
+15. Separately scoped #440 adds offline `speech align` and the public
+    `speech::alignment::align_saved_result` API. The input is an opaque fully
+    verified saved result plus a digest-pinned operator-supplied time map.
+    The map binds receipt, original source, recognized WAV, and canonical
+    transcript digests. Prepared-media results only; strict original WAV input
+    retains its own sample-clock identity and is not shifted by this operation.
+16. The first mapping profile applies ordered one-to-one millisecond translations
+    with no overlapping source or destination intervals. Every complete cue must
+    fit within one interval. Missing coverage, boundary-crossing cues, stale
+    identities, unknown/duplicate fields, invalid intervals, and overflow fail.
+    Cue text, IDs, speakers, language, overlap policy, and saved artifacts are
+    preserved. No times are inferred from stream start metadata.
+17. Alignment publishes a separate new-directory bundle containing exact mapping
+    bytes, a derived alignment envelope, mapped JSON/SRT/WebVTT/text, and a
+    completion receipt last. The envelope states operator-supplied timing,
+    original media not reobserved, and recognition not human-reviewed. All
+    derivatives require the mapping evidence, including bare canonical JSON.
+    The original saved speech bundle remains external supporting evidence;
+    aligned bundles cannot masquerade as native saved speech receipts. No
+    graph/Engine policy or recognition cache integration is added for alignment.
 
 ## Source locations and interfaces
 
@@ -151,6 +177,10 @@
   read-only lookup, full CAS receipt verification, and no-clobber registration.
   Recovery inspection supports either a portable bundle or CAS origin and
   rechecks that same receipt origin before restoration.
+- `src/speech/alignment.rs`: strict bounded time-map parsing, receipt/digest
+  binding, whole-cue interval translation, derived transcript validation, and
+  a separate operator-assertion envelope. Public entry points require the
+  recovery verifier's opaque result. Existing timeline readiness stays unchanged.
 - `src/planning.rs`, `src/spec.rs`, and `schemas/renderflow-v2.schema.json`:
   policy agreement, source pinning, restricted speech graph, deferred provider
   observation, retained evidence publication/budget accounting, and manifest
@@ -161,6 +191,8 @@
   and transcription commands, offline timeline assessment, preparation flags,
   cancellation, and whole-bundle publication. Public `speech` APIs and the existing Engine SDK
   request methods expose the implementation; no separate Flow wire is invented.
+  The new standalone `speech align` command consumes a graph-produced saved
+  receipt and writes a distinct derived bundle without invoking native tools.
 - `schemas/renderflow-audio-inventory-v1.schema.json`: inventory plus shared
   preparation definitions. The speech schema adds optional preparation evidence;
   the bundle schema accepts exactly six ordinary files or eight prepared-media
@@ -168,6 +200,10 @@
   `renderflow-speech-artifact-v1.schema.json` describes namespaced graph evidence.
   Saved-result and timeline-assessment schemas describe the new portable
   recovery and read-only clock reports; schema agreement remains unexecuted.
+- `renderflow-speech-time-map-v1`, `renderflow-speech-alignment-v1`, and
+  `renderflow-speech-aligned-bundle-v1` schemas describe #440's operator map,
+  derived envelope, and receipt-last output bundle. They do not change existing
+  speech or timed-transcript schema identities.
 - Tool/adapter metadata registers experimental `speech.audio.inspect` and
   `speech.audio.prepare` capabilities. Their bounded preparation is used inside
   the explicit speech edge; this does not establish platform qualification.
@@ -196,6 +232,12 @@ Keep the separate full speech envelope and raw files to preserve the whole chain
   loses audio detail; rebasing collapses original timestamp offsets and gaps.
   Recorded start time does not establish a general mapping back to the video.
   Original-video caption synchronization/mux readiness is not claimed.
+- Explicit alignment accepts at most 256 KiB and 1024 mapping segments. Source
+  intervals stay within verified prepared-WAV duration; destination intervals
+  stay within the timed-text 99:59:59.999 limit. Map identity and arithmetic are
+  checked, but the operator's timing assertions are not measured against media.
+  No speed changes, cue splitting/clipping/dropping, muxing, burn-in, word/lyric
+  alignment, or human approval of recognition is introduced.
 - Recognition is unreviewed, with provider segment milliseconds and disclosed
   segment-edge whitespace trimming. No confidence calibration, translation,
   diarization, word alignment, or singing accuracy guarantee is invented.
@@ -228,11 +270,14 @@ and corrected graph JSON newline handling and descriptive source metadata
 normalization in receipt verification. Checkpoint 5 adds fourteen tests: nine
 index/recovery cases and five policy/SDK/graph integration cases. They cover
 read-only lookup, missing versus invalid evidence, first-writer preservation,
-policy identity, and historical replay without native files. All eighty-three
-#428 tests remain
-**unrun**. No compiler, schema validator,
+policy identity, and historical replay without native files. Checkpoint 6 adds
+fifteen authored #440 cases: eleven core mapping/reader cases (one Unix-only)
+and four command/publication/manifest cases. Source review covers explicit
+assertion boundaries, full receipt identity, interval containment, output digest
+bindings, export evidence requirements, and receipt-last publication. All
+eighty-three #428 and fifteen #440 tests remain **unrun**. No compiler, schema validator,
 formatter, linter, FFmpeg/FFprobe, whisper inference, model download, or CI job
-was executed for any #428 checkpoint. No user media was processed. Source
+was executed for any #428/#440 checkpoint. No user media was processed. Source
 review and matching Git publication establish no runtime qualification.
 Earlier #427 partial smoke/schema evidence does not qualify this code.
 
@@ -244,11 +289,15 @@ Earlier #427 partial smoke/schema evidence does not qualify this code.
    duration, nonzero starts/gaps/edit lists, cancellation, errors, limits,
    no-overwrite publication, portable saved-result restore into a new store,
    corrupt/missing/mismatched recovery evidence, and platform/build behavior.
-2. Reproducible fresh native inference remains a separate qualification decision:
+2. Execute #440 interval, identity, strict parsing, cancellation, CLI/schema,
+   exact-export digest, and no-overwrite/receipt-last coverage when checks resume.
+   A supplied map's synchronization truth remains an operator responsibility;
+   measured sample-to-media evidence is a separate capability.
+3. Reproducible fresh native inference remains a separate qualification decision:
    selecting saved historical results does not attest linked libraries or model
-   sidecars. Original-media alignment requires new sample-to-media evidence or
-   a separately scoped reviewed mapping; the current API deliberately refuses
-   inferred offsets. Neither is silently enabled by this checkpoint.
+   sidecars. The original timeline API still refuses inferred offsets; #440
+   produces distinct candidates from explicit operator assertions and does not
+   upgrade the historical speech evidence or timeline readiness.
 
-#427/#428 acceptance and release remain open. Optiflow #111/PR #122 and ACL
+#427/#428/#440 acceptance and release remain open. Optiflow #111/PR #122 and ACL
 qualification remain paused; Aniflow #36 remains parked.

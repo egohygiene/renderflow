@@ -403,3 +403,90 @@ Add `--require-original-media` to print the assessment and then fail when that
 mapping is missing. SDK/library consumers can use the corresponding
 `speech::timeline::assess` and `require_original_media_timeline` APIs with a
 verified saved result.
+
+## Export subtitles using an explicit original-media time map
+
+The separately scoped [#440](https://github.com/egohygiene/renderflow/issues/440)
+draft adds `speech align` for a prepared-media saved result. Supply a time map
+you have established for that exact result. The command checks the map's identity
+and interval consistency; it does not measure synchronization against the video.
+It neither reads the original media nor runs speech recognition again.
+
+The first profile supports one-to-one millisecond translations. For example,
+this map asserts that decoded sample-clock time 0–3000 ms belongs at original
+media time 9000–12000 ms:
+
+```json
+{
+  "schema_version": "renderflow.speech-time-map/v1",
+  "profile": "operator-piecewise-translation-ms/v1",
+  "basis": "operator_supplied",
+  "receipt_sha256": "<saved-result-sha256>",
+  "original_source_sha256": "<original-media-sha256>",
+  "transcript_source_sha256": "<prepared-wav-sha256>",
+  "canonical_transcript_sha256": "<saved-canonical-transcript-sha256>",
+  "note": "Example only: replace with the basis for your established mapping.",
+  "segments": [
+    {
+      "transcript_start_ms": 0,
+      "transcript_end_ms": 3000,
+      "original_start_ms": 9000
+    }
+  ]
+}
+```
+
+Replace every digest placeholder with the exact lowercase SHA-256. The saved
+receipt contains the original source and canonical artifact digests; the existing
+timeline report identifies the prepared WAV as `transcript_source_sha256`.
+The times above are illustrative, not inferred from a stream start time. Save
+the mapping and obtain its file digest, for example:
+
+```bash
+shasum --algorithm 256 "time-map.json"
+
+renderflow speech align \
+  --receipt "/absolute/path/dist/speech/<envelope-sha256>/saved-result.json" \
+  --receipt-sha256 "<saved-result-sha256>" \
+  --mapping "time-map.json" \
+  --mapping-sha256 "<sha256-of-time-map.json>" \
+  --output-dir "aligned-subtitles"
+```
+
+Use a graph-produced `saved-result.json` and retain its complete sibling bundle.
+The standalone `speech transcribe` receipt is a different format and cannot be
+used here. The output directory must not exist, and its parent must already
+exist. No provider or model arguments are needed.
+
+Mappings are limited to 256 KiB and 1–1024 segments. Source intervals must fit
+within the verified prepared-WAV duration; source and destination intervals
+must be ordered and nonoverlapping. Destination times must fit the shared
+SRT/WebVTT range through 99:59:59.999. Every complete cue must fit within one
+segment. A cue may end exactly at a segment's end or start at the next segment's
+start; a cue crossing the boundary is refused. Missing coverage, stale hashes,
+unknown or duplicate fields, and invalid intervals stop the operation. There
+is no clipping, cue splitting, text rewriting, rescaling, or inferred gap repair.
+
+The new bundle contains `mapping.json` with the exact supplied bytes,
+`alignment.json` with the mapped transcript and evidence,
+`aligned.timed-transcript.json`, `aligned.srt`, `aligned.vtt`, and `aligned.txt`.
+Its `bundle.json` completion receipt is written last with file hashes, sizes,
+and export losses. An interrupted publication can leave an incomplete directory;
+that directory is not a completed bundle. Existing outputs are never replaced.
+
+Keep `alignment.json`, `mapping.json`, and the original saved speech bundle.
+The unchanged timed-transcript v1 model and subtitle formats cannot carry the
+full mapping assertion themselves. The derived transcript identifies the original
+media and selected audio stream, while the alignment envelope binds it to the
+recognized WAV, original canonical transcript, receipt, and map. The input
+transcript and speech cache remain unchanged. An aligned bundle is not a new
+native speech result and cannot be used as a saved speech receipt.
+
+The library entry point is `speech::alignment::align_saved_result`, accepting a
+verified `SavedSpeechResult`, mapping path, expected mapping digest, and
+cancellation token. The result exposes its derived transcript, evidence, and
+exact mapping bytes. Both CLI and library report operator-supplied timing and
+unreviewed recognition. This does not establish synchronization accuracy, lyric
+accuracy, or readiness to mux subtitles. The existing `speech timeline` assessment
+of the original saved result still reports that prepared-media mapping is required.
+This checkpoint remains uncompiled and unrun.

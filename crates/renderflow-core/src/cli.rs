@@ -327,7 +327,7 @@ pub enum Commands {
         subcommand: SubtitleCommands,
     },
 
-    /// Transcribe local audio with an explicitly pinned offline speech provider.
+    /// Inspect local speech, transcribe offline, or map a retained transcript clock.
     #[command(subcommand_required = true, arg_required_else_help = true)]
     Speech {
         #[command(subcommand)]
@@ -376,6 +376,27 @@ pub enum SpeechCommands {
     Transcribe(SpeechTranscribeArguments),
     /// Assess transcript clock readiness from a pinned saved-result bundle.
     Timeline(SpeechTimelineArguments),
+    /// Export a new transcript using an explicit, pinned operator-supplied time map.
+    Align(SpeechAlignArguments),
+}
+
+#[derive(clap::Args)]
+pub struct SpeechAlignArguments {
+    /// Saved-result receipt published by a prepared-media speech graph run.
+    #[arg(long, value_name = "FILE")]
+    pub receipt: String,
+    /// Expected lowercase SHA-256 of the selected receipt.
+    #[arg(long, value_name = "SHA256")]
+    pub receipt_sha256: String,
+    /// Explicit mapping from prepared-audio milliseconds to original-media milliseconds.
+    #[arg(long, value_name = "FILE")]
+    pub mapping: String,
+    /// Expected lowercase SHA-256 of the exact mapping file.
+    #[arg(long, value_name = "SHA256")]
+    pub mapping_sha256: String,
+    /// New bundle directory; its parent must exist. Existing paths are refused.
+    #[arg(long, value_name = "DIRECTORY")]
+    pub output_dir: String,
 }
 
 #[derive(clap::Args)]
