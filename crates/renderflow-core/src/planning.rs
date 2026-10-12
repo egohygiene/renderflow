@@ -58,6 +58,11 @@ use crate::speech::policy::SpeechPolicy;
 use crate::speech::recovery::{receipt_bytes, SAVED_RESULT_FILENAME, SAVED_RESULT_SCHEMA};
 use crate::speech::WHISPER_PROVIDER_ID;
 use crate::screenplay::graph::{native_format, ScreenplayArtifactTransform};
+use crate::screenplay::afterwriting::{self, AfterwritingConfig, AFTERWRITING_PROVIDER_ID, NODE_PROVIDER_ID};
+use crate::screenplay::afterwriting_graph::{
+    validate_published_artifact, AfterwritingArtifactTransform, SCREENPLAY_PDF_CAPABILITY,
+};
+use crate::process::ProcessCancellationToken;
 use crate::screenplay::provider::{supported_route, supported_version_line, ScripttoolConfig};
 use crate::super_resolution::{select_upscayl_variants, UpscaylModelCatalog};
 use crate::timed_text::graph::{
@@ -66,7 +71,7 @@ use crate::timed_text::graph::{
 use crate::toolchain::{
     transform_capability_id, CapabilityId, ToolDeterminism, ToolDiscovery, ToolFidelity, ToolId,
     ToolLocality, ToolRegistry, ToolRuntimeContext, ToolVersionRequirement, ToolchainSnapshot,
-    ToolAvailabilityStatus, ToolInventory,
+    ToolAvailability, ToolAvailabilityStatus, ToolInventory, ToolSupportTier,
 };
 use crate::transforms::yaml_loader::build_graph_executor_and_tools_from_yaml;
 use crate::validation::{ArtifactValidationOutcome, ValidationRegistry};
@@ -114,6 +119,7 @@ const SPEECH_CAPABILITY: &str = "speech.transcribe";
 const TIMED_TEXT_PROVIDER: &str = "tool.renderflow-timed-text";
 const SCREENPLAY_PROVIDER: &str = "tool.scripttool";
 const SCREENPLAY_ADAPTER_EVIDENCE: &str = "builtin.screenplay.scripttool";
+const SCREENPLAY_PDF_ADAPTER_EVIDENCE: &str = "builtin.screenplay.afterwriting";
 
 #[derive(Debug, Clone)]
 pub struct PlanningRequest {
@@ -484,6 +490,13 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
     let source_format = source_format.context("source collection has no members")?;
     let source_path = source_members[0].path.clone();
     let source_intake = &source_members[0].intake;
+    if let Some(policy) = &spec.execution.screenplay_pdf {
+        validate_screenplay_pdf_policy(source_format, collection, policy)?;
+        validate_screenplay_pdf_hygiene(&spec)?;
+        if !source_intake.profile.conflicts.is_empty() {
+            anyhow::bail!("screenplay_pdf.source.format_conflict: original Fountain source has conflicting format signals");
+        }
+    }
     if let Some(policy) = &spec.execution.screenplay {
         validate_screenplay_policy(source_format, collection, policy)?;
         validate_screenplay_hygiene(&spec)?;
@@ -531,6 +544,11 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
         };
 
     register_builtin_strategy_edges(&mut graph, &mut tool_registry)?;
+    if let Some(policy) = &spec.execution.screenplay_pdf {
+        register_screenplay_pdf_edge(&mut graph, &mut tool_registry, source_format, policy)?;
+        graph = graph.filtered_by(|edge| edge.evidence.get("adapter").map(String::as_str)
+            == Some(SCREENPLAY_PDF_ADAPTER_EVIDENCE));
+    }
     if let Some(policy) = &spec.execution.screenplay {
         register_screenplay_edges(&mut graph, &mut tool_registry, source_format, policy)?;
     }
@@ -590,6 +608,9 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
     }) {
         anyhow::bail!("screenplay.target.unsupported: choose a directly supported scripttool conversion; same-format, transitive, PDF, text, and canonical screenplay JSON routes are not supplied by this policy");
     }
+    if spec.execution.screenplay_pdf.is_some() {
+        validate_screenplay_pdf_targets(&requested_targets)?;
+    }
     validate_publication_target_roles(&spec, &requested_targets)?;
     if print_pages.is_some()
         && (requested_targets.len() != 1
@@ -612,9 +633,16 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
     // verifies them at execution. Planning never launches their version probes.
     let deferred_speech_ids = speech_provider_ids(spec.execution.speech.as_ref());
     let mut provider_inventory = tool_registry.assess_ids_current(
-        policy_graph.provider_ids().into_iter().filter(|id| !deferred_speech_ids.contains(id)),
+        policy_graph.provider_ids().into_iter().filter(|id|
+            !deferred_speech_ids.contains(id) && !is_screenplay_pdf_provider(id, spec.execution.screenplay_pdf.as_ref())),
     );
     apply_screenplay_version_requirement(&mut provider_inventory, spec.execution.screenplay.as_ref());
+    assess_screenplay_pdf_availability(
+        &mut provider_inventory, &spec, &tool_registry, &policy_graph.all_edges(),
+        |policy| afterwriting::preflight(policy, ProcessCancellationToken::default())
+            .map(|observation| (observation.node_version, observation.provider_version))
+            .map_err(|error| error.to_string()),
+    );
     let mut planning_provider_ids = provider_inventory.available_ids();
     planning_provider_ids.extend(deferred_speech_ids.iter().cloned());
     let available_graph = policy_graph.filtered_by_available_providers(&planning_provider_ids);
@@ -682,6 +710,13 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
         anyhow::bail!("fixed_epub.route: selected plan must contain only the exact fixed-layout EPUB capability");
     }
 
+    if spec.execution.screenplay_pdf.is_some()
+        && (dag.all_edges().len() != 1
+            || dag.all_edges()[0].capability_id.as_deref() != Some(SCREENPLAY_PDF_CAPABILITY))
+    {
+        anyhow::bail!("screenplay_pdf.route: selected plan must contain only the original Fountain to PDF edge");
+    }
+
     register_builtin_strategy_executors(
         &mut executor,
         &dag,
@@ -744,9 +779,16 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
 
     let selected_ids = selected_provider_ids(&dag);
     let mut selected_inventory = tool_registry.assess_ids_current(
-        selected_ids.iter().filter(|id| !deferred_speech_ids.contains(*id)),
+        selected_ids.iter().filter(|id|
+            !deferred_speech_ids.contains(*id) && !is_screenplay_pdf_provider(id, spec.execution.screenplay_pdf.as_ref())),
     );
     apply_screenplay_version_requirement(&mut selected_inventory, spec.execution.screenplay.as_ref());
+    selected_inventory.tools.extend(provider_inventory.tools.iter().filter(|tool|
+        is_screenplay_pdf_provider(tool.id.as_str(), spec.execution.screenplay_pdf.as_ref())
+            && selected_ids.contains(tool.id.as_str())).cloned());
+    if spec.execution.screenplay_pdf.is_some() {
+        plan.add_tool_diagnostic("screenplay_pdf.provider.unqualified: bounded preflight verifies configured Node/package pins, required package assets, and exact Node/package versions. This is availability evidence only; no PDF rendering or visual qualification occurs during planning. Execution independently inspects the emitted PDF; cache and checkpoint reuse remain disabled.");
+    }
     if spec.execution.screenplay.is_some() {
         plan.add_tool_diagnostic("screenplay.provider.unqualified: availability reflects only the configured executable version probe. Execution verifies its SHA-256 pin and validates source/output semantic subsets. These authored routes are unqualified; no full-fidelity, toolchain-attestation, or reusable-cache claim is made.");
     }
@@ -772,7 +814,8 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
             blocked.summary()
         ));
     }
-    if spec.execution.speech.is_none() && spec.execution.screenplay.is_none() && selected_inventory
+    if spec.execution.speech.is_none() && spec.execution.screenplay.is_none()
+        && spec.execution.screenplay_pdf.is_none() && selected_inventory
         .tools
         .iter()
         .all(|tool| tool.is_available())
@@ -1023,6 +1066,10 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
         &mut executor, &resolved.dag, resolved.spec.execution.speech.as_ref(),
         resolved.cancellation.clone(), Some(speech_run_observer.clone()),
     )?;
+    register_screenplay_pdf_executors(
+        &mut executor, &resolved.dag, resolved.spec.execution.screenplay_pdf.as_ref(),
+        resolved.cancellation.clone(),
+    )?;
     register_screenplay_executors(
         &mut executor, &resolved.dag, resolved.spec.execution.screenplay.as_ref(),
         resolved.cancellation.clone(),
@@ -1094,7 +1141,8 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
     } else {
         "canonical-cache.json".to_string()
     };
-    let executor = if resolved.spec.execution.speech.is_some() || resolved.spec.execution.screenplay.is_some() {
+    let executor = if resolved.spec.execution.speech.is_some() || resolved.spec.execution.screenplay.is_some()
+        || resolved.spec.execution.screenplay_pdf.is_some() {
         // No existing shared cache/checkpoint file is read or amended for this
         // unqualified native routes, including canonical subtitle descendants.
         executor
@@ -1275,7 +1323,7 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
             continue;
         };
 
-        let mut outcome = if resolved.print_pages.is_some() {
+        let mut outcome = if resolved.print_pages.is_some() || resolved.spec.execution.screenplay_pdf.is_some() {
             if resolved.spec.execution.validation.validators.is_empty() {
                 ArtifactValidationOutcome {
                     state: ValidationState::Valid,
@@ -1333,6 +1381,20 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
             if !valid {
                 outcome.state = ValidationState::Invalid;
             }
+        }
+        if let Some(policy) = &resolved.spec.execution.screenplay_pdf {
+            let check = validate_published_artifact(artifact, &source_artifact, &store, policy);
+            let state = if check.is_ok() { ValidationState::Valid } else { ValidationState::Invalid };
+            let validation_diagnostics = check.err().map(|error| vec![ValidationDiagnostic {
+                code: "screenplay_pdf.validation.evidence".to_owned(), message: error.to_string(),
+            }]).unwrap_or_default();
+            outcome.validators.push(ValidatorEvidence {
+                validator_id: "validator.screenplay_pdf.afterwriting".to_owned(),
+                validator_version: env!("CARGO_PKG_VERSION").to_owned(),
+                provider: "renderflow.core".to_owned(), state,
+                diagnostics: validation_diagnostics,
+            });
+            if state == ValidationState::Invalid { outcome.state = state; }
         }
         let step_id = producing_step_id(artifact, &report.steps);
         if let Some(step) = report.steps.iter_mut().find(|step| {
@@ -3029,6 +3091,148 @@ fn register_subtitle_executors(
     Ok(())
 }
 
+fn validate_screenplay_pdf_policy(source: Format, collection: bool, policy: &AfterwritingConfig) -> Result<()> {
+    policy.validate()?;
+    if collection || source != Format::Fountain {
+        anyhow::bail!("screenplay_pdf.policy.source: exactly one original Fountain source is required; native normalization and collections are separate work");
+    }
+    Ok(())
+}
+
+fn validate_screenplay_pdf_hygiene(spec: &SpecV2) -> Result<()> {
+    if effective_hygiene_policy(spec)?.is_some() {
+        anyhow::bail!("screenplay_pdf.policy.hygiene: inherited or direct post-render hygiene would detach the PDF from its independently inspected evidence");
+    }
+    Ok(())
+}
+
+fn validate_screenplay_pdf_targets(targets: &[ResolvedTarget]) -> Result<()> {
+    if targets.len() != 1 || targets[0].format != Format::Pdf {
+        anyhow::bail!("screenplay_pdf.target.unsupported: choose exactly one PDF target; same-format, text, canonical JSON, native screenplay formats, and transitive routes are unavailable");
+    }
+    let target = &targets[0];
+    if target.preset.is_some() || target.template.is_some() || target.variant.is_some() || !target.options.is_empty() {
+        anyhow::bail!("screenplay_pdf.target.options: formatting is selected only by execution.screenplay_pdf.profile; target presets, templates, variants, and custom options are unsupported");
+    }
+    Ok(())
+}
+
+fn register_screenplay_pdf_edge(
+    graph: &mut TransformGraph,
+    tools: &mut ToolRegistry,
+    source: Format,
+    policy: &AfterwritingConfig,
+) -> Result<()> {
+    validate_screenplay_pdf_policy(source, false, policy)?;
+    for id in [AFTERWRITING_PROVIDER_ID, NODE_PROVIDER_ID] {
+        let mut descriptor = tools.get(id)
+            .with_context(|| format!("screenplay_pdf.provider.registry: {id} descriptor missing"))?.clone();
+        // These providers deliberately retain explicit-configuration discovery.
+        // Only the bounded, environment-clearing adapter may probe Node.
+        descriptor.discovery = ToolDiscovery::RuntimeService {
+            service: format!("renderflow.configured.{}", id.trim_start_matches("tool.")),
+        };
+        descriptor.version = ToolVersionRequirement::default();
+        descriptor.determinism = ToolDeterminism::ConfigurationDependent;
+        descriptor.locality = ToolLocality::Local;
+        descriptor.fidelity = ToolFidelity::PartialLoss;
+        if id == AFTERWRITING_PROVIDER_ID {
+            descriptor.capabilities = vec![CapabilityId::new(SCREENPLAY_PDF_CAPABILITY)?];
+        }
+        tools.register(descriptor)?;
+    }
+    graph.add_transform(TransformEdge::new(Format::Fountain, Format::Pdf, 1.0, 0.0)
+        .with_provider(AFTERWRITING_PROVIDER_ID, SCREENPLAY_PDF_CAPABILITY)
+        .with_required_provider(NODE_PROVIDER_ID)
+        .with_evidence("adapter", SCREENPLAY_PDF_ADAPTER_EVIDENCE)
+        .with_evidence("family", "screenplay")
+        .with_evidence("transform_id", SCREENPLAY_PDF_CAPABILITY)
+        .with_evidence("screenplay_pdf_policy_sha256", sha256_serialized(policy)?.value)
+        .with_evidence("qualification", "authored_unqualified")
+        .with_evidence("quality_interpretation", "unqualified_not_fidelity_score")
+        .with_evidence("cache", "disabled"));
+    Ok(())
+}
+
+fn is_screenplay_pdf_provider(id: &str, policy: Option<&AfterwritingConfig>) -> bool {
+    policy.is_some() && matches!(id, AFTERWRITING_PROVIDER_ID | NODE_PROVIDER_ID)
+}
+
+/// A configured installation is not permission to probe a denied route. Use the
+/// surviving planning edges or selected execution edges and reapply the policy
+/// before invoking the callback, including at execution-time refresh.
+fn assess_screenplay_pdf_availability(
+    inventory: &mut ToolInventory,
+    spec: &SpecV2,
+    tools: &ToolRegistry,
+    edges: &[&TransformEdge],
+    probe: impl FnOnce(&AfterwritingConfig) -> std::result::Result<(String, String), String>,
+) -> bool {
+    let Some(policy) = &spec.execution.screenplay_pdf else { return false; };
+    let allowed = edges.iter().any(|edge| {
+        edge.from == Format::Fountain && edge.to == Format::Pdf
+            && edge.evidence.get("adapter").map(String::as_str) == Some(SCREENPLAY_PDF_ADAPTER_EVIDENCE)
+            && edge.provider_id.as_deref() == Some(AFTERWRITING_PROVIDER_ID)
+            && edge.required_provider_ids == vec![NODE_PROVIDER_ID.to_owned()]
+            && edge.capability_id.as_deref() == Some(SCREENPLAY_PDF_CAPABILITY)
+            && edge_allowed(edge, tools, spec)
+    });
+    if !allowed { return false; }
+    append_screenplay_pdf_availability(inventory, policy, probe(policy));
+    true
+}
+
+/// Keep this observation separate from generic executable discovery. The package
+/// has no version command, and Node must never inherit NODE_OPTIONS in a probe.
+fn append_screenplay_pdf_availability(
+    inventory: &mut ToolInventory,
+    policy: &AfterwritingConfig,
+    observed: std::result::Result<(String, String), String>,
+) {
+    for (id, name) in [(NODE_PROVIDER_ID, "Configured Node.js"), (AFTERWRITING_PROVIDER_ID, "Configured afterwriting")] {
+        let (status, version_line, diagnostic) = match &observed {
+            Ok((node_version, provider_version)) => (
+                ToolAvailabilityStatus::Available,
+                Some(if id == NODE_PROVIDER_ID { node_version.clone() } else { provider_version.clone() }),
+                Some("Pinned installation and runtime preflight passed; native rendering remains unqualified".to_owned()),
+            ),
+            Err(error) => (
+                ToolAvailabilityStatus::ProbeFailed, None,
+                Some(format!("{error}; configure execution.screenplay_pdf with an installed compatible Node executable, complete afterwriting package including required assets, and verified SHA-256 pins; no PATH fallback or installation is performed")),
+            ),
+        };
+        inventory.tools.push(ToolAvailability {
+            id: ToolId::new(id).expect("static provider ID"), name: name.to_owned(), status,
+            support_tier: ToolSupportTier::Experimental,
+            selected_executable: if id == NODE_PROVIDER_ID { Some(policy.node_executable.to_string_lossy().into_owned()) } else { None },
+            normalized_version: version_line.clone(), version_line, diagnostic,
+        });
+    }
+}
+
+fn register_screenplay_pdf_executors(
+    executor: &mut DagExecutor,
+    dag: &MultiTargetDag,
+    policy: Option<&AfterwritingConfig>,
+    cancellation: Option<Arc<AtomicBool>>,
+) -> Result<()> {
+    for edge in dag.all_edges() {
+        if edge.evidence.get("adapter").map(String::as_str) != Some(SCREENPLAY_PDF_ADAPTER_EVIDENCE) { continue; }
+        let policy = policy.context("screenplay_pdf.policy.missing: explicit afterwriting configuration is required")?;
+        if edge.from != Format::Fountain || edge.to != Format::Pdf
+            || edge.provider_id.as_deref() != Some(AFTERWRITING_PROVIDER_ID)
+            || edge.required_provider_ids != vec![NODE_PROVIDER_ID.to_owned()]
+            || edge.capability_id.as_deref() != Some(SCREENPLAY_PDF_CAPABILITY)
+            || edge.evidence.get("screenplay_pdf_policy_sha256") != Some(&sha256_serialized(policy)?.value)
+        {
+            anyhow::bail!("screenplay_pdf.plan.inconsistent: selected edge differs from the frozen direct rendering policy");
+        }
+        executor.register_artifact(Format::Fountain, Format::Pdf,
+            Arc::new(AfterwritingArtifactTransform::new(policy.clone(), cancellation.clone())?));
+    }
+    Ok(())
+}
+
 fn validate_screenplay_hygiene(spec: &SpecV2) -> Result<()> {
     if effective_hygiene_policy(spec)?.is_some() {
         anyhow::bail!("screenplay.policy.hygiene: post-conversion hygiene, including inherited profile hygiene, is unsupported because it would detach output bytes from scripttool evidence");
@@ -3391,6 +3595,11 @@ fn apply_execution_policy(
 }
 
 fn edge_allowed(edge: &TransformEdge, tools: &ToolRegistry, spec: &SpecV2) -> bool {
+    if edge.evidence.get("adapter").map(String::as_str) == Some(SCREENPLAY_PDF_ADAPTER_EVIDENCE)
+        && spec.execution.screenplay_pdf.is_none()
+    {
+        return false;
+    }
     if edge.evidence.get("adapter").map(String::as_str) == Some(SCREENPLAY_ADAPTER_EVIDENCE)
         && spec.execution.screenplay.is_none()
     {
@@ -3950,9 +4159,23 @@ fn preflight_selected_providers(resolved: &ResolvedExecution) -> Result<()> {
     let ids = selected_provider_ids(&resolved.dag);
     let deferred_speech_ids = speech_provider_ids(resolved.spec.execution.speech.as_ref());
     let mut inventory = resolved.tool_registry.assess_ids_current(
-        ids.iter().filter(|id| !deferred_speech_ids.contains(*id)),
+        ids.iter().filter(|id|
+            !deferred_speech_ids.contains(*id)
+                && !is_screenplay_pdf_provider(id, resolved.spec.execution.screenplay_pdf.as_ref())),
     );
     apply_screenplay_version_requirement(&mut inventory, resolved.spec.execution.screenplay.as_ref());
+    let screenplay_pdf_probed = assess_screenplay_pdf_availability(
+        &mut inventory, &resolved.spec, &resolved.tool_registry, &resolved.dag.all_edges(),
+        |policy| {
+            let cancellation = resolved.cancellation.clone().map(ProcessCancellationToken::from_shared).unwrap_or_default();
+            afterwriting::preflight(policy, cancellation)
+            .map(|observation| (observation.node_version, observation.provider_version))
+            .map_err(|error| error.to_string())
+        },
+    );
+    if resolved.spec.execution.screenplay_pdf.is_some() && !screenplay_pdf_probed {
+        anyhow::bail!("screenplay_pdf.provider.denied: selected route is missing or excluded by execution policy; configured providers were not probed");
+    }
     if let Some(policy) = &resolved.spec.execution.print_pdf_interior {
         validate_print_provider_version(&inventory, policy)?;
     }
@@ -4419,6 +4642,190 @@ mod tests {
             assert!(document_input_format(format).is_none());
         }
         assert_eq!(artifact_extension(Format::ScreenplayJson), "screenplay.json");
+    }
+
+    fn screenplay_pdf_policy() -> AfterwritingConfig {
+        AfterwritingConfig {
+            node_executable: std::env::temp_dir().join("node"), node_sha256: "a".repeat(64),
+            expected_node_version: "v24.0.0".to_owned(), package_root: std::env::temp_dir().join("afterwriting"),
+            package_tree_sha256: "b".repeat(64), expected_provider_version: "1.17.3".to_owned(),
+            profile: crate::screenplay::afterwriting::ScreenplayPdfProfile::A4,
+            timeout_seconds: 30, allow_unqualified: true,
+        }
+    }
+
+    #[test]
+    fn screenplay_pdf_edge_requires_original_fountain_and_both_configured_providers() {
+        let policy = screenplay_pdf_policy();
+        let mut graph = TransformGraph::new();
+        let mut tools = ToolRegistry::builtins();
+        register_screenplay_pdf_edge(&mut graph, &mut tools, Format::Fountain, &policy).unwrap();
+        let edges = graph.all_edges();
+        assert_eq!(edges.len(), 1);
+        assert_eq!((edges[0].from, edges[0].to), (Format::Fountain, Format::Pdf));
+        assert_eq!(edges[0].provider_id.as_deref(), Some(AFTERWRITING_PROVIDER_ID));
+        assert_eq!(edges[0].required_provider_ids, vec![NODE_PROVIDER_ID.to_owned()]);
+        assert_eq!(edges[0].capability_id.as_deref(), Some(SCREENPLAY_PDF_CAPABILITY));
+        assert_eq!(edges[0].evidence["cache"], "disabled");
+        for source in [Format::Fdx, Format::FadeIn, Format::Osf, Format::ScreenplayJson, Format::Markdown] {
+            assert!(validate_screenplay_pdf_policy(source, false, &policy).is_err());
+            assert!(graph.find_path(source, Format::Pdf).is_none());
+        }
+        assert!(validate_screenplay_pdf_policy(Format::Fountain, true, &policy).is_err());
+    }
+
+    #[test]
+    fn screenplay_pdf_policy_and_provider_denials_remove_the_exact_edge() {
+        let mut graph = TransformGraph::new();
+        let mut tools = ToolRegistry::builtins();
+        register_screenplay_pdf_edge(&mut graph, &mut tools, Format::Fountain, &screenplay_pdf_policy()).unwrap();
+        let mut spec = minimal_spec("fountain");
+        assert!(apply_execution_policy(&graph, &tools, &spec).all_edges().is_empty());
+        spec.execution.screenplay_pdf = Some(screenplay_pdf_policy());
+        assert_eq!(apply_execution_policy(&graph, &tools, &spec).all_edges().len(), 1);
+        for denied in [NODE_PROVIDER_ID, AFTERWRITING_PROVIDER_ID] {
+            spec.execution.tools.deny = vec![denied.to_owned()];
+            assert!(apply_execution_policy(&graph, &tools, &spec).all_edges().is_empty());
+        }
+    }
+
+    #[test]
+    fn screenplay_pdf_denied_routes_never_invoke_the_probe_callback() {
+        let mut graph = TransformGraph::new();
+        let mut tools = ToolRegistry::builtins();
+        register_screenplay_pdf_edge(&mut graph, &mut tools, Format::Fountain, &screenplay_pdf_policy()).unwrap();
+        let mut base = minimal_spec("fountain");
+        base.execution.screenplay_pdf = Some(screenplay_pdf_policy());
+        base.targets.exact = vec![TargetSpec { format: Some("pdf".to_owned()), ..Default::default() }];
+        let mut denied_specs = Vec::new();
+        for provider in [NODE_PROVIDER_ID, AFTERWRITING_PROVIDER_ID] {
+            let mut denied = base.clone();
+            denied.execution.tools.deny.push(provider.to_owned());
+            denied_specs.push(denied);
+            let mut excluded = base.clone();
+            excluded.execution.tools.allow.push(provider.to_owned());
+            denied_specs.push(excluded);
+        }
+        let mut denied_transform = base.clone();
+        denied_transform.execution.transforms.deny.push(SCREENPLAY_PDF_CAPABILITY.to_owned());
+        denied_specs.push(denied_transform);
+        let mut deterministic = base;
+        deterministic.execution.requirements.deterministic = true;
+        denied_specs.push(deterministic);
+
+        for spec in denied_specs {
+            let filtered = apply_execution_policy(&graph, &tools, &spec);
+            // Explicit targets survive intent resolution even when policy
+            // removes their edge, which previously still launched Node.
+            let targets = resolve_target_intent(&spec, &filtered, Format::Fountain).unwrap();
+            assert_eq!(targets.len(), 1);
+            assert_eq!(targets[0].format, Format::Pdf);
+            // Planning sees filtered edges; execution refresh must also refuse
+            // an otherwise selected edge when its current policy denies it.
+            for edges in [filtered.all_edges(), graph.all_edges()] {
+                let mut inventory = ToolInventory { tools: Vec::new() };
+                let mut calls = 0;
+                let probed = assess_screenplay_pdf_availability(&mut inventory, &spec, &tools, &edges, |_| {
+                    calls += 1;
+                    Ok(("v24.0.0".to_owned(), "1.17.3".to_owned()))
+                });
+                assert!(!probed);
+                assert_eq!(calls, 0);
+                assert!(inventory.tools.is_empty());
+            }
+        }
+    }
+
+    #[test]
+    fn screenplay_pdf_probe_requires_its_exact_selected_edge() {
+        let mut graph = TransformGraph::new();
+        let mut tools = ToolRegistry::builtins();
+        register_screenplay_pdf_edge(&mut graph, &mut tools, Format::Fountain, &screenplay_pdf_policy()).unwrap();
+        let mut spec = minimal_spec("fountain");
+        spec.execution.screenplay_pdf = Some(screenplay_pdf_policy());
+        let mut inventory = ToolInventory { tools: Vec::new() };
+        let mut calls = 0;
+        assert!(assess_screenplay_pdf_availability(&mut inventory, &spec, &tools, &graph.all_edges(), |_| {
+            calls += 1;
+            Ok(("v24.0.0".to_owned(), "1.17.3".to_owned()))
+        }));
+        assert_eq!(calls, 1);
+        assert_eq!(inventory.tools.len(), 2);
+        assert!(inventory.tools.iter().all(ToolAvailability::is_available));
+
+        let mut unrelated = graph.all_edges()[0].clone();
+        unrelated.capability_id = Some("screenplay.other".to_owned());
+        let mut unselected = ToolInventory { tools: Vec::new() };
+        for edges in [Vec::new(), vec![&unrelated]] {
+            assert!(!assess_screenplay_pdf_availability(&mut unselected, &spec, &tools, &edges, |_| {
+                calls += 1;
+                Ok(("v24.0.0".to_owned(), "1.17.3".to_owned()))
+            }));
+        }
+        assert_eq!(calls, 1);
+        assert!(unselected.tools.is_empty());
+    }
+
+    #[test]
+    fn screenplay_pdf_unavailable_pin_or_runtime_prunes_only_its_edge() {
+        let mut graph = TransformGraph::new();
+        let mut tools = ToolRegistry::builtins();
+        let policy = screenplay_pdf_policy();
+        register_screenplay_pdf_edge(&mut graph, &mut tools, Format::Fountain, &policy).unwrap();
+        graph.add_transform(TransformEdge::new(Format::Srt, Format::TimedTranscriptJson, 0.1, 1.0));
+        for failure in ["missing package font assets", "node version mismatch", "package SHA-256 mismatch", "cancelled probe"] {
+            let mut inventory = ToolInventory { tools: Vec::new() };
+            append_screenplay_pdf_availability(&mut inventory, &policy, Err(failure.to_owned()));
+            assert!(inventory.tools.iter().all(|tool| !tool.is_available()));
+            assert!(inventory.tools.iter().all(|tool| tool.diagnostic.as_deref().unwrap().contains("execution.screenplay_pdf")));
+            let available = graph.filtered_by_available_providers(&inventory.available_ids());
+            assert!(available.find_path(Format::Fountain, Format::Pdf).is_none());
+            assert!(available.find_path(Format::Srt, Format::TimedTranscriptJson).is_some());
+        }
+    }
+
+    #[test]
+    fn screenplay_pdf_availability_uses_safe_preflight_observations_without_generic_probe() {
+        let mut inventory = ToolInventory { tools: Vec::new() };
+        let policy = screenplay_pdf_policy();
+        append_screenplay_pdf_availability(&mut inventory, &policy, Ok(("v24.0.0".to_owned(), "1.17.3".to_owned())));
+        assert!(inventory.tools.iter().all(ToolAvailability::is_available));
+        assert_eq!(inventory.get(NODE_PROVIDER_ID).unwrap().version_line.as_deref(), Some("v24.0.0"));
+        assert_eq!(inventory.get(AFTERWRITING_PROVIDER_ID).unwrap().version_line.as_deref(), Some("1.17.3"));
+        assert!(is_screenplay_pdf_provider(NODE_PROVIDER_ID, Some(&policy)));
+        assert!(is_screenplay_pdf_provider(AFTERWRITING_PROVIDER_ID, Some(&policy)));
+        assert!(!is_screenplay_pdf_provider("tool.ffmpeg", Some(&policy)));
+        assert!(!is_screenplay_pdf_provider(NODE_PROVIDER_ID, None));
+    }
+
+    #[test]
+    fn screenplay_pdf_targets_refuse_same_format_and_ignored_formatting_options() {
+        assert!(validate_screenplay_pdf_targets(&[ResolvedTarget::generated(Format::Pdf)]).is_ok());
+        assert!(validate_screenplay_pdf_targets(&[]).is_err());
+        for format in [Format::Fountain, Format::ScreenplayJson, Format::Json, Format::Fdx] {
+            assert!(validate_screenplay_pdf_targets(&[ResolvedTarget::generated(format)]).is_err());
+        }
+        let mut target = ResolvedTarget::generated(Format::Pdf);
+        target.options.insert("font_family".to_owned(), serde_json::json!("Custom"));
+        assert!(validate_screenplay_pdf_targets(&[target]).is_err());
+        let mut target = ResolvedTarget::generated(Format::Pdf);
+        target.template = Some("custom.html".to_owned());
+        assert!(validate_screenplay_pdf_targets(&[target]).is_err());
+    }
+
+    #[test]
+    fn screenplay_pdf_refuses_hygiene_inherited_through_profiles() {
+        let mut spec = minimal_spec("fountain");
+        spec.execution.screenplay_pdf = Some(screenplay_pdf_policy());
+        spec.hygiene.insert("hygiene.screenplay".to_owned(), HygienePolicy::default());
+        spec.profiles.insert("screenplay.parent".to_owned(), DerivativeProfile {
+            hygiene_policy: Some("hygiene.screenplay".to_owned()), ..Default::default()
+        });
+        spec.profiles.insert("screenplay.child".to_owned(), DerivativeProfile {
+            extends: vec!["screenplay.parent".to_owned()], ..Default::default()
+        });
+        spec.targets.profiles.push("screenplay.child".to_owned());
+        assert!(validate_screenplay_pdf_hygiene(&spec).unwrap_err().to_string().contains("screenplay_pdf.policy.hygiene"));
     }
 
     fn screenplay_policy() -> ScripttoolConfig {

@@ -111,8 +111,10 @@ The Fade In fixture is a deterministic authored ZIP envelope. Native
 application acceptance and cross-format fidelity have not been tested.
 
 The #424 [scripttool checkpoint](scripttool.md) adds restricted, unqualified
-native imports and explicitly rejects reverse native writers. Existing issues add screenplay
-PDF output (#425), and explicitly lossy PDF recovery (#426). Full creative
+native imports and explicitly rejects reverse native writers. The #425
+[PDF and analysis checkpoint](screenplay-pdf.md) authors pinned afterwriting
+publication for a strict ASCII Fountain body and independent source reports.
+Existing #426 owns explicitly lossy PDF recovery. Full creative
 toolchain qualification (#429) and integration proof (#430) depend on those
 adapters and measured execution evidence. Resume from
 [the #423 handoff](../work/423/HANDOFF.md).

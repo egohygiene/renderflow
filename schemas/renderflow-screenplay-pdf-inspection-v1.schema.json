@@ -1,0 +1,246 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-screenplay-pdf-inspection-v1.schema.json",
+  "title": "Renderflow screenplay PDF inspection v1",
+  "description": "Independent evidence for a bounded passive PDF using the adopted unembedded base-14 Courier profile. This report does not establish source-text equivalence, visual fidelity, font embedding, or byte reproducibility.",
+  "$comment": "Successful inspection only. Consumers must bind sha256/byte_length to original PDF bytes, verify page_count equals pages.length and page numbering is contiguous, compare each MediaBox/CropBox to the requested paper (0.02pt tolerance), and bind this evidence to the provider record. Metadata utf8_value exists only when raw bytes are UTF-8; it is not a PDFDocEncoding decoder. JSON Schema does not execute PDF validation or establish digest equality.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "inspector",
+    "byte_length",
+    "sha256",
+    "page_count",
+    "pages",
+    "metadata",
+    "trailer_id_sha256",
+    "metadata_stream_sha256",
+    "byte_reproducibility_verified",
+    "source_text_equivalence_verified",
+    "visual_fidelity_verified",
+    "nondeterminism_notes",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "renderflow.screenplay-pdf-inspection/v1"
+    },
+    "inspector": {
+      "const": "renderflow.screenplay-pdf-inspector/v1+lopdf-0.45.0"
+    },
+    "byte_length": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 67108864
+    },
+    "sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "page_count": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000
+    },
+    "pages": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1000,
+      "items": {
+        "$ref": "#/$defs/page"
+      }
+    },
+    "metadata": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "$ref": "#/$defs/metadata"
+      }
+    },
+    "trailer_id_sha256": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/sha256"
+      },
+      "anyOf": [
+        {
+          "maxItems": 0
+        },
+        {
+          "minItems": 2,
+          "maxItems": 2
+        }
+      ]
+    },
+    "metadata_stream_sha256": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/sha256"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "byte_reproducibility_verified": {
+      "const": false
+    },
+    "source_text_equivalence_verified": {
+      "const": false
+    },
+    "visual_fidelity_verified": {
+      "const": false
+    },
+    "nondeterminism_notes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "rectangle": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {
+        "type": "number"
+      }
+    },
+    "font": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "resource_name",
+        "base_font",
+        "subtype",
+        "encoding",
+        "embedded",
+        "used_by_text"
+      ],
+      "properties": {
+        "resource_name": {
+          "type": "string"
+        },
+        "base_font": {
+          "enum": [
+            "Courier",
+            "Courier-Bold",
+            "Courier-Oblique",
+            "Courier-BoldOblique"
+          ]
+        },
+        "subtype": {
+          "const": "Type1"
+        },
+        "encoding": {
+          "const": "WinAnsiEncoding"
+        },
+        "embedded": {
+          "const": false
+        },
+        "used_by_text": {
+          "type": "boolean"
+        }
+      }
+    },
+    "page": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "page_number",
+        "media_box_pt",
+        "crop_box_pt",
+        "rotation",
+        "decoded_content_bytes",
+        "nonempty_text_operations",
+        "fonts"
+      ],
+      "properties": {
+        "page_number": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000
+        },
+        "media_box_pt": {
+          "$ref": "#/$defs/rectangle"
+        },
+        "crop_box_pt": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/rectangle"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "rotation": {
+          "const": 0
+        },
+        "decoded_content_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2097152
+        },
+        "nonempty_text_operations": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100000
+        },
+        "fonts": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4,
+          "items": {
+            "$ref": "#/$defs/font"
+          }
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "utf8_value",
+        "byte_length",
+        "value_sha256"
+      ],
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "utf8_value": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 4096
+        },
+        "byte_length": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4096
+        },
+        "value_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    }
+  }
+}

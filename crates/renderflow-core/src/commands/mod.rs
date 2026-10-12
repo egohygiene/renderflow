@@ -9,6 +9,7 @@ pub mod inspect;
 pub mod plugin;
 pub mod publication;
 pub mod screenplay;
+pub mod screenplay_pdf;
 pub mod spec;
 pub mod subtitles;
 pub mod speech;

@@ -6,8 +6,13 @@
 //! modules implement explicit, unqualified body-profile conversions only.
 
 mod codec;
+pub mod afterwriting;
+pub mod afterwriting_graph;
+pub mod analysis;
 pub mod graph;
+mod installation;
 pub mod native;
+pub mod pdf;
 pub mod provider;
 #[cfg(test)]
 mod tests;

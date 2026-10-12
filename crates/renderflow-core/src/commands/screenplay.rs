@@ -55,7 +55,7 @@ fn native_format(value: &str) -> Result<screenplay::native::NativeScreenplayForm
     }
 }
 
-fn require_new_bundle(output: &Path) -> Result<()> {
+pub(super) fn require_new_bundle(output: &Path) -> Result<()> {
     match std::fs::symlink_metadata(output) {
         Ok(_) => bail!("screenplay output directory must not already exist"),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
@@ -92,7 +92,7 @@ fn conversion_bundle(output: Vec<u8>, evidence: Vec<u8>) -> Result<(Vec<(String,
 
 /// Publish a new directory and write its completion receipt last. On I/O or
 /// cancellation failure a partial directory is retained without a receipt.
-fn publish_conversion_bundle(output: &Path, files: &[(String, Vec<u8>)], cancellation: &ProcessCancellationToken) -> Result<()> {
+pub(super) fn publish_conversion_bundle(output: &Path, files: &[(String, Vec<u8>)], cancellation: &ProcessCancellationToken) -> Result<()> {
     if cancellation.is_cancelled() { bail!("screenplay publication cancelled"); }
     std::fs::create_dir(output).context("cannot create new screenplay output directory")?;
     for (name, bytes) in files {
