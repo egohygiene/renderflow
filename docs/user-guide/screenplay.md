@@ -22,34 +22,39 @@ source identity, and directional loss policy. The inspected JSON bytes receive
 their own digest. Any source digest inside the document is a declaration; the
 source file is not reopened or verified by inspection.
 
-Native Fountain, FDX, Fade In, and OSF inputs require the adapters planned in
-#424. This command explicitly refuses those file types rather than parsing
-them as canonical JSON. A generic `.json` path is accepted only when its
-contents satisfy the canonical screenplay contract.
+This command refuses native Fountain, FDX, Fade In, and OSF files. The separate
+[scripttool conversion command](scripttool.md) authors three explicitly pinned,
+unqualified imports into Fountain under #424. Canonical inspection neither
+selects nor inventories those provider routes. A generic `.json` path is accepted
+only when its contents satisfy the canonical screenplay contract.
 
 ## Format and capability status
 
 | Graph identifier | Filename | Authored behavior |
 | --- | --- | --- |
-| `fountain` | `.fountain` | Extension recognition; no native parser or converter. |
-| `fdx` | `.fdx` | Extension recognition for Final Draft XML; no native parser or converter. |
-| `fadein` | `.fadein` | Extension recognition for the ZIP-based format; no native parser or converter. |
-| `osf` | `.osf` | Extension recognition for Open Screenplay Format XML; no native parser or converter. |
+| `fountain` | `.fountain` | Recognition and strict body-subset validation; output of three opt-in native imports. |
+| `fdx` | `.fdx` | Recognition for Final Draft XML; strict body-subset import to Fountain with explicit scripttool policy. |
+| `fadein` | `.fadein` | Recognition for the ZIP-based format; strict single-document body-subset import to Fountain. |
+| `osf` | `.osf` | Recognition for Open Screenplay Format XML; strict body-subset import to Fountain. |
 | `screenplay_json` | `.screenplay.json` | Canonical model parsing, structural validation, and inspection. |
 
-These identifiers do not create conversion graph edges. In particular,
+These identifiers alone do not create conversion graph edges. In particular,
 Fountain does not gain an executable converter from an installed Pandoc.
 Screenplay formats are not mapped to the existing Pandoc input path.
 
 Filename recognition is a low-confidence hint. XML and ZIP bytes alone cannot
 identify a screenplay. General intake may report native format/container
-conflicts, including `.fadein` versus ZIP, until a format-aware parser can
-establish the native envelope. The shared JSON intake recognizes the canonical
+conflicts, including `.fadein` versus ZIP. An explicit screenplay graph policy
+permits only the expected XML/ZIP wrapper conflict for its declared native
+source, then independently validates the native envelope during conversion.
+The shared JSON intake recognizes the canonical
 schema marker separately from generic JSON; that marker is not validation.
 
 Default artifact validation uses the bounded screenplay validator for canonical
-JSON. Native screenplay structural validation remains unavailable; nonempty
-UTF-8 text or a ZIP signature is insufficient screenplay evidence.
+JSON and the strict Fountain body profile. General FDX/OSF/Fade In artifact
+validation remains unavailable; their provider-local readers verify the
+restricted conversion inputs. Nonempty UTF-8 text or a ZIP signature is
+insufficient screenplay evidence.
 
 ## Canonical structure
 
@@ -85,9 +90,9 @@ necessary. Unsupported numeric values are rejected rather than silently rounded.
 
 The model is a conversion boundary. It does not establish that every native
 format represents each semantic feature identically. Directional assessments
-keep import/export support and potential losses separate; native adapters are
-unimplemented in this checkpoint. A missing writer must not become a lossless
-conversion claim.
+keep general canonical import/export policy separate from configured native
+body converters. No general canonical-to-native writer is implemented. A missing
+writer must not become a lossless conversion claim.
 
 Canonical parse/serialize operations preserve the supported semantic model.
 They do not preserve original JSON whitespace or key order, and do not prove
@@ -105,7 +110,8 @@ authored; upstream references supply format information, not script content.
 The Fade In fixture is a deterministic authored ZIP envelope. Native
 application acceptance and cross-format fidelity have not been tested.
 
-The remaining existing issues add screenplay interchange (#424), screenplay
+The #424 [scripttool checkpoint](scripttool.md) adds restricted, unqualified
+native imports and explicitly rejects reverse native writers. Existing issues add screenplay
 PDF output (#425), and explicitly lossy PDF recovery (#426). Full creative
 toolchain qualification (#429) and integration proof (#430) depend on those
 adapters and measured execution evidence. Resume from

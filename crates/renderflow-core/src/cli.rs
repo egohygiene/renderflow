@@ -334,7 +334,7 @@ pub enum Commands {
         subcommand: SpeechCommands,
     },
 
-    /// Inspect the canonical screenplay JSON model without invoking native adapters.
+    /// Inspect canonical screenplay JSON or explicitly opt into bounded native conversion.
     #[command(subcommand_required = true, arg_required_else_help = true)]
     Screenplay {
         #[command(subcommand)]
@@ -379,7 +379,7 @@ pub enum Commands {
 pub enum ScreenplayCommands {
     /// Validate canonical screenplay JSON and report structure and retained evidence.
     #[command(after_help = "Only the renderflow.screenplay/v1 JSON model is accepted.\n\
-        Native Fountain, FDX, Fade In, and OSF adapters remain pending; this command\n\
+        Native conversion uses the separate explicitly configured convert command; inspect\n\
         does not invoke tools, convert a screenplay, or verify upstream source bytes.")]
     Inspect {
         /// Canonical screenplay JSON file (16 MiB maximum); input is read only.
@@ -389,6 +389,45 @@ pub enum ScreenplayCommands {
         #[arg(long, default_value = "json", value_parser = ["json", "text"], value_name = "FORMAT")]
         format: String,
     },
+    /// Convert a supported native screenplay body with an explicitly pinned scripttool.
+    #[command(after_help = "Authored, unqualified import routes only: FDX/OSF/FadeIn to Fountain.\n\
+        Reverse native conversions and scripttool JSON are rejected. Unsupported\n\
+        structure or changed semantic content causes failure; no silent fallback.")]
+    Convert(ScreenplayConvertArguments),
+}
+
+#[derive(clap::Args)]
+pub struct ScreenplayConvertArguments {
+    /// Local native screenplay input; the original is read only.
+    #[arg(long, value_name = "FILE")]
+    pub input: String,
+    /// Explicit native source format.
+    #[arg(long, value_parser = ["fountain", "fdx", "osf", "fadein"], value_name = "FORMAT")]
+    pub input_format: String,
+    /// Explicit native target; this checkpoint adopts only Fountain outputs.
+    #[arg(long, value_parser = ["fountain", "fdx", "osf", "fadein"], value_name = "FORMAT")]
+    pub output_format: String,
+    /// New bundle directory; its parent must exist. Existing paths are refused.
+    #[arg(long, value_name = "DIRECTORY")]
+    pub output_dir: String,
+    /// Absolute path to the selected external scripttool executable.
+    #[arg(long, value_name = "FILE")]
+    pub scripttool_path: String,
+    /// Expected lowercase SHA-256 of that exact executable.
+    #[arg(long, value_name = "SHA256")]
+    pub scripttool_sha256: String,
+    /// Expected numeric provider version; only 0.0.10 is adopted by this source profile.
+    #[arg(long, default_value = "0.0.10", value_name = "VERSION")]
+    pub expected_version: String,
+    /// Optional expected SHA-256 of the original source bytes.
+    #[arg(long, value_name = "SHA256")]
+    pub source_sha256: Option<String>,
+    /// Maximum provider invocation duration in seconds.
+    #[arg(long, default_value_t = 30, value_name = "SECONDS")]
+    pub timeout_seconds: u64,
+    /// Explicitly accept that this authored provider profile has not been runtime-qualified.
+    #[arg(long)]
+    pub allow_unqualified: bool,
 }
 
 #[derive(Subcommand)]
@@ -1261,5 +1300,42 @@ mod screenplay_cli_tests {
             "--output", "converted.fdx",
         ]).is_err());
         assert!(Cli::try_parse_from(["renderflow", "screenplay", "convert"]).is_err());
+    }
+
+    fn conversion_arguments() -> Vec<&'static str> {
+        vec!["renderflow", "screenplay", "convert", "--input", "scene.fdx",
+            "--input-format", "fdx", "--output-format", "fountain",
+            "--output-dir", "new-bundle", "--scripttool-path", "/opt/scripttool",
+            "--scripttool-sha256", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]
+    }
+
+    #[test]
+    fn screenplay_conversion_requires_explicit_unqualified_opt_in() {
+        let cli = Cli::try_parse_from(conversion_arguments()).unwrap();
+        match cli.command {
+            Some(Commands::Screenplay { subcommand: ScreenplayCommands::Convert(arguments) }) => {
+                assert!(!arguments.allow_unqualified);
+                assert_eq!(arguments.expected_version, "0.0.10");
+                assert_eq!(arguments.timeout_seconds, 30);
+            }
+            _ => panic!("expected screenplay convert"),
+        }
+        let mut argv = conversion_arguments();
+        argv.push("--allow-unqualified");
+        let cli = Cli::try_parse_from(argv).unwrap();
+        assert!(matches!(cli.command, Some(Commands::Screenplay {
+            subcommand: ScreenplayCommands::Convert(arguments),
+        }) if arguments.allow_unqualified));
+    }
+
+    #[test]
+    fn screenplay_conversion_rejects_provider_json_and_missing_binary_pin() {
+        let mut argv = conversion_arguments();
+        let index = argv.iter().position(|arg| *arg == "--output-format").unwrap() + 1;
+        argv[index] = "json";
+        assert!(Cli::try_parse_from(argv).is_err());
+        let mut argv = conversion_arguments();
+        argv.truncate(argv.len() - 2);
+        assert!(Cli::try_parse_from(argv).is_err());
     }
 }

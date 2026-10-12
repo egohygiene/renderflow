@@ -11,6 +11,7 @@ use crate::config::Config;
 use crate::optimization::OptimizationMode;
 use crate::publication::{PageGeometry, PublicationContract};
 use crate::speech::policy::SpeechPolicy;
+use crate::screenplay::provider::ScripttoolConfig;
 
 pub const SPEC_V2_ID: &str = "renderflow/v2";
 pub const SPEC_V2_SCHEMA_PATH: &str = "schemas/renderflow-v2.schema.json";
@@ -518,6 +519,9 @@ pub struct ExecutionPolicy {
     /// Explicit pinned local speech recognition; requires an AI execution budget.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub speech: Option<SpeechPolicy>,
+    /// Explicit pinned, unqualified native screenplay conversion.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub screenplay: Option<ScripttoolConfig>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
@@ -666,6 +670,7 @@ impl Default for ExecutionPolicy {
             fixed_layout_epub: None,
             subtitles: None,
             speech: None,
+            screenplay: None,
         }
     }
 }
@@ -803,6 +808,23 @@ impl SpecV2 {
                     "$.execution.fixed_layout_epub",
                     "fixed_epub.policy.invalid",
                     error.to_string(),
+                ));
+            }
+        }
+
+        if let Some(screenplay) = &self.execution.screenplay {
+            if let Err(error) = screenplay.validate() {
+                diagnostics.push(SpecDiagnostic::new(
+                    "$.execution.screenplay", "screenplay.policy.invalid", error.to_string(),
+                ));
+            }
+            if self.execution.speech.is_some() || self.execution.subtitles.is_some()
+                || self.execution.print_pdf_interior.is_some() || self.execution.fixed_layout_epub.is_some()
+                || self.transforms.is_some() || self.execution.hygiene_policy.is_some()
+            {
+                diagnostics.push(SpecDiagnostic::new(
+                    "$.execution.screenplay", "screenplay.policy.ambiguous",
+                    "native screenplay conversion requires its own spec without other native policies, custom transforms, or post-conversion hygiene",
                 ));
             }
         }
@@ -1969,8 +1991,21 @@ pub fn json_schema() -> Value {
                     ,"fixed_layout_epub": {"anyOf": [{"$ref": "#/$defs/fixedLayoutEpub"}, {"type": "null"}]}
                     ,"subtitles": {"anyOf": [{"$ref": "#/$defs/subtitles"}, {"type": "null"}]}
                     ,"speech": {"anyOf": [{"$ref": "#/$defs/speechPolicy"}, {"type": "null"}]}
+                    ,"screenplay": {"anyOf": [{"$ref": "#/$defs/screenplayPolicy"}, {"type": "null"}]}
                 }
             },
+                "screenplayPolicy": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["executable", "executable_sha256", "expected_version", "timeout_seconds", "allow_unqualified"],
+                    "properties": {
+                        "executable": {"type": "string", "minLength": 1},
+                        "executable_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+                        "expected_version": {"const": "0.0.10"},
+                        "timeout_seconds": {"type": "integer", "minimum": 1, "maximum": 300},
+                        "allow_unqualified": {"const": true}
+                    }
+                },
                 "speechPolicy": {
                     "type": "object",
                     "additionalProperties": false,
@@ -2303,6 +2338,60 @@ variables:
             "subtitles": {"stream_index": 0}
         })).unwrap();
         assert_eq!(extraction.subtitles, Some(SubtitlePolicy { stream_index: Some(0) }));
+    }
+
+    fn screenplay_policy_value() -> serde_json::Value {
+        json!({
+            "executable": std::env::temp_dir().join("scripttool"),
+            "executable_sha256": "a".repeat(64),
+            "expected_version": "0.0.10",
+            "timeout_seconds": 30,
+            "allow_unqualified": true
+        })
+    }
+
+    #[test]
+    fn screenplay_policy_is_absent_by_default_and_requires_all_provider_pins() {
+        let default_execution: ExecutionPolicy = serde_json::from_value(json!({})).unwrap();
+        assert!(default_execution.screenplay.is_none());
+        assert!(serde_json::to_value(&default_execution).unwrap().get("screenplay").is_none());
+        let execution: ExecutionPolicy = serde_json::from_value(json!({
+            "screenplay": screenplay_policy_value()
+        })).unwrap();
+        assert!(execution.screenplay.unwrap().validate().is_ok());
+        for field in ["executable", "executable_sha256", "expected_version", "timeout_seconds", "allow_unqualified"] {
+            let mut incomplete = screenplay_policy_value();
+            incomplete.as_object_mut().unwrap().remove(field);
+            assert!(serde_json::from_value::<ExecutionPolicy>(json!({"screenplay": incomplete})).is_err());
+        }
+    }
+
+    #[test]
+    fn screenplay_spec_validation_reports_invalid_or_mixed_native_policy() {
+        let mut spec = load_spec_str(VALID_EXACT).unwrap().spec;
+        let mut policy: ScripttoolConfig = serde_json::from_value(screenplay_policy_value()).unwrap();
+        policy.allow_unqualified = false;
+        spec.execution.screenplay = Some(policy.clone());
+        assert!(spec.validate().iter().any(|diagnostic| diagnostic.code == "screenplay.policy.invalid"));
+        policy.allow_unqualified = true;
+        spec.execution.screenplay = Some(policy);
+        spec.execution.subtitles = Some(SubtitlePolicy::default());
+        assert!(spec.validate().iter().any(|diagnostic| diagnostic.code == "screenplay.policy.ambiguous"));
+        spec.execution.subtitles = None;
+        spec.transforms = Some("custom.yaml".to_owned());
+        assert!(spec.validate().iter().any(|diagnostic| diagnostic.code == "screenplay.policy.ambiguous"));
+    }
+
+    #[test]
+    fn screenplay_policy_schema_matches_runtime_schema_and_explicit_bounds() {
+        let runtime = json_schema();
+        let published: serde_json::Value = serde_json::from_str(include_str!("../../../schemas/renderflow-v2.schema.json")).unwrap();
+        assert_eq!(runtime["$defs"]["screenplayPolicy"], published["$defs"]["screenplayPolicy"]);
+        assert_eq!(runtime["$defs"]["executionPolicy"]["properties"]["screenplay"],
+            published["$defs"]["executionPolicy"]["properties"]["screenplay"]);
+        assert_eq!(runtime["$defs"]["screenplayPolicy"]["properties"]["allow_unqualified"]["const"], true);
+        assert_eq!(runtime["$defs"]["screenplayPolicy"]["properties"]["timeout_seconds"]["maximum"], 300);
+        assert_eq!(runtime["$defs"]["screenplayPolicy"]["additionalProperties"], false);
     }
 
     #[test]

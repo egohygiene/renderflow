@@ -241,11 +241,23 @@ elements and title metadata, explicit dialogue relationships, source-specific
 extensions, and directional loss evidence. Typed FDX/FadeIn/OSF/canonical JSON
 formats are registered, Fountain's incorrect Pandoc conversion claim is
 removed, and `screenplay inspect` validates canonical JSON without an external
-provider. Native screenplay formats remain recognition-only until #424.
+provider. Native screenplay formats were recognition-only in that checkpoint.
 Original synthetic fixtures and source records are authored; compilation,
 tests, schema/native qualification, and CI remain deferred. This does not close
 #423 or provide a released converter. Resume from
 [the #423 handoff](docs/work/423/HANDOFF.md).
+
+The #424 checkpoint authors three explicitly pinned scripttool imports:
+FDX, OSF, and Fade In to Fountain. Independent readers compare a restricted
+body-only profile before a standalone bundle or graph artifact is published.
+Reverse native writers are rejected based on upstream source findings;
+provider JSON is a separate rejected derivative candidate, never canonical
+screenplay JSON. Version, binary/source/output digests, argv identity, validation,
+and losses accompany accepted results. This remains an authored, unqualified
+draft stacked on #423; no tests, builds, native conversions, or CI have run.
+Keep #424 open for the deferred qualification pass. See
+[the #424 handoff](docs/work/424/HANDOFF.md) and
+[provider evaluation](docs/work/424/PROVIDER_EVALUATION.md).
 
 The #427 candidate authors a standalone `subtitles inspect/convert/extract`
 CLI, `renderflow.timed-transcript/v1`, strict plain-text SRT/WebVTT codecs,

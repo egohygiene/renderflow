@@ -57,6 +57,8 @@ use crate::speech::graph::{
 use crate::speech::policy::SpeechPolicy;
 use crate::speech::recovery::{receipt_bytes, SAVED_RESULT_FILENAME, SAVED_RESULT_SCHEMA};
 use crate::speech::WHISPER_PROVIDER_ID;
+use crate::screenplay::graph::{native_format, ScreenplayArtifactTransform};
+use crate::screenplay::provider::{supported_route, supported_version_line, ScripttoolConfig};
 use crate::super_resolution::{select_upscayl_variants, UpscaylModelCatalog};
 use crate::timed_text::graph::{
     supports_media_format, SubtitleExtractionTransform, TimedTextArtifactTransform,
@@ -64,6 +66,7 @@ use crate::timed_text::graph::{
 use crate::toolchain::{
     transform_capability_id, CapabilityId, ToolDeterminism, ToolDiscovery, ToolFidelity, ToolId,
     ToolLocality, ToolRegistry, ToolRuntimeContext, ToolVersionRequirement, ToolchainSnapshot,
+    ToolAvailabilityStatus, ToolInventory,
 };
 use crate::transforms::yaml_loader::build_graph_executor_and_tools_from_yaml;
 use crate::validation::{ArtifactValidationOutcome, ValidationRegistry};
@@ -109,6 +112,8 @@ const SUBTITLE_EXTRACTION_EVIDENCE: &str = "builtin.subtitle_extraction";
 const SPEECH_ADAPTER_EVIDENCE: &str = "builtin.speech";
 const SPEECH_CAPABILITY: &str = "speech.transcribe";
 const TIMED_TEXT_PROVIDER: &str = "tool.renderflow-timed-text";
+const SCREENPLAY_PROVIDER: &str = "tool.scripttool";
+const SCREENPLAY_ADAPTER_EVIDENCE: &str = "builtin.screenplay.scripttool";
 
 #[derive(Debug, Clone)]
 pub struct PlanningRequest {
@@ -479,6 +484,15 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
     let source_format = source_format.context("source collection has no members")?;
     let source_path = source_members[0].path.clone();
     let source_intake = &source_members[0].intake;
+    if let Some(policy) = &spec.execution.screenplay {
+        validate_screenplay_policy(source_format, collection, policy)?;
+        validate_screenplay_hygiene(&spec)?;
+        if source_intake.profile.conflicts.iter().any(|conflict| {
+            !screenplay_wrapper_conflict(source_format, source.format.as_deref(), &conflict.formats)
+        }) {
+            anyhow::bail!("screenplay.source.format_conflict: original source has conflicting format signals");
+        }
+    }
     if let Some(policy) = &spec.execution.speech {
         policy.validate_source(source_format, collection)?;
         if policy.source_sha256 != source_intake.source.digest().value() {
@@ -517,6 +531,9 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
         };
 
     register_builtin_strategy_edges(&mut graph, &mut tool_registry)?;
+    if let Some(policy) = &spec.execution.screenplay {
+        register_screenplay_edges(&mut graph, &mut tool_registry, source_format, policy)?;
+    }
     if let Some(policy) = &spec.execution.subtitles {
         register_subtitle_edges(
             &mut graph,
@@ -567,6 +584,12 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
     }) {
         anyhow::bail!("speech.target.unsupported: speech targets are timed_transcript_json, srt, or vtt");
     }
+    if spec.execution.screenplay.is_some() && requested_targets.iter().any(|target| {
+        !matches!((native_format(source_format), native_format(target.format)),
+            (Some(from), Some(to)) if supported_route(from, to))
+    }) {
+        anyhow::bail!("screenplay.target.unsupported: choose a directly supported scripttool conversion; same-format, transitive, PDF, text, and canonical screenplay JSON routes are not supplied by this policy");
+    }
     validate_publication_target_roles(&spec, &requested_targets)?;
     if print_pages.is_some()
         && (requested_targets.len() != 1
@@ -588,9 +611,10 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
     // Speech paths/hashes are declarations until their bounded native adapter
     // verifies them at execution. Planning never launches their version probes.
     let deferred_speech_ids = speech_provider_ids(spec.execution.speech.as_ref());
-    let provider_inventory = tool_registry.assess_ids_current(
+    let mut provider_inventory = tool_registry.assess_ids_current(
         policy_graph.provider_ids().into_iter().filter(|id| !deferred_speech_ids.contains(id)),
     );
+    apply_screenplay_version_requirement(&mut provider_inventory, spec.execution.screenplay.as_ref());
     let mut planning_provider_ids = provider_inventory.available_ids();
     planning_provider_ids.extend(deferred_speech_ids.iter().cloned());
     let available_graph = policy_graph.filtered_by_available_providers(&planning_provider_ids);
@@ -719,9 +743,13 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
     }
 
     let selected_ids = selected_provider_ids(&dag);
-    let selected_inventory = tool_registry.assess_ids_current(
+    let mut selected_inventory = tool_registry.assess_ids_current(
         selected_ids.iter().filter(|id| !deferred_speech_ids.contains(*id)),
     );
+    apply_screenplay_version_requirement(&mut selected_inventory, spec.execution.screenplay.as_ref());
+    if spec.execution.screenplay.is_some() {
+        plan.add_tool_diagnostic("screenplay.provider.unqualified: availability reflects only the configured executable version probe. Execution verifies its SHA-256 pin and validates source/output semantic subsets. These authored routes are unqualified; no full-fidelity, toolchain-attestation, or reusable-cache claim is made.");
+    }
     if let Some(policy) = &spec.execution.speech {
         if policy.recovery.is_some() {
             plan.add_tool_diagnostic("speech.saved_result.selected: execution will verify the explicitly pinned historical receipt and complete retained bundle before replay. Planning does not read the receipt or observe current native tools/models. Missing or incompatible evidence fails without native fallback; no current toolchain, recognition accuracy, or video-alignment claim is made.");
@@ -744,7 +772,7 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
             blocked.summary()
         ));
     }
-    if spec.execution.speech.is_none() && selected_inventory
+    if spec.execution.speech.is_none() && spec.execution.screenplay.is_none() && selected_inventory
         .tools
         .iter()
         .all(|tool| tool.is_available())
@@ -995,6 +1023,10 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
         &mut executor, &resolved.dag, resolved.spec.execution.speech.as_ref(),
         resolved.cancellation.clone(), Some(speech_run_observer.clone()),
     )?;
+    register_screenplay_executors(
+        &mut executor, &resolved.dag, resolved.spec.execution.screenplay.as_ref(),
+        resolved.cancellation.clone(),
+    )?;
     if let Some(pages) = &resolved.print_pages {
         let policy = resolved
             .spec
@@ -1062,9 +1094,9 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
     } else {
         "canonical-cache.json".to_string()
     };
-    let executor = if resolved.spec.execution.speech.is_some() {
+    let executor = if resolved.spec.execution.speech.is_some() || resolved.spec.execution.screenplay.is_some() {
         // No existing shared cache/checkpoint file is read or amended for this
-        // unqualified native route, including canonical subtitle descendants.
+        // unqualified native routes, including canonical subtitle descendants.
         executor
     } else {
         executor.with_cache(state_dir.join(cache_name)).with_checkpoints(
@@ -2997,6 +3029,125 @@ fn register_subtitle_executors(
     Ok(())
 }
 
+fn validate_screenplay_hygiene(spec: &SpecV2) -> Result<()> {
+    if effective_hygiene_policy(spec)?.is_some() {
+        anyhow::bail!("screenplay.policy.hygiene: post-conversion hygiene, including inherited profile hygiene, is unsupported because it would detach output bytes from scripttool evidence");
+    }
+    Ok(())
+}
+
+/// Generic XML/ZIP observations identify the wrapper, not the screenplay
+/// dialect. Only an explicit dialect declaration may resolve this exact pair;
+/// the native adapter still validates the envelope and its bounded semantics.
+fn screenplay_wrapper_conflict(source: Format, declared: Option<&str>, formats: &[String]) -> bool {
+    if declared.and_then(|value| value.parse::<Format>().ok()) != Some(source) { return false; }
+    let wrapper = match source {
+        Format::Fdx | Format::Osf => "xml",
+        Format::FadeIn => "zip",
+        _ => return false,
+    };
+    formats.len() == 2 && formats.iter().any(|format| format == wrapper)
+        && formats.iter().any(|format| format == &source.to_string())
+}
+
+fn validate_screenplay_policy(source: Format, collection: bool, policy: &ScripttoolConfig) -> Result<()> {
+    policy.validate()?;
+    if collection {
+        anyhow::bail!("screenplay.policy.collection: scripttool requires one source artifact");
+    }
+    let from = native_format(source)
+        .context("screenplay.policy.source: supported sources are FDX, OSF, or Fade In")?;
+    if !supported_route(from, crate::screenplay::native::NativeScreenplayFormat::Fountain) {
+        anyhow::bail!("screenplay.policy.source: only the FDX, OSF, and Fade In imports to Fountain are adopted; reverse writers and provider JSON are unavailable");
+    }
+    Ok(())
+}
+
+/// Register only direct edges from the selected original source. In particular,
+/// the graph cannot manufacture a reverse writer via a screenplay intermediate.
+fn register_screenplay_edges(
+    graph: &mut TransformGraph,
+    tools: &mut ToolRegistry,
+    source: Format,
+    policy: &ScripttoolConfig,
+) -> Result<()> {
+    validate_screenplay_policy(source, false, policy)?;
+    let mut descriptor = tools.get(SCREENPLAY_PROVIDER)
+        .context("screenplay.provider.registry: scripttool descriptor missing")?.clone();
+    let executable = policy.executable.to_str()
+        .context("screenplay.provider.path: executable must be valid UTF-8")?;
+    descriptor.discovery = ToolDiscovery::Executable {
+        candidates: vec![executable.to_owned()], version_args: vec!["-version".to_owned()],
+    };
+    // Exact version-line compatibility is applied to observations below. A
+    // numeric min/max range would accept builds outside this bounded adapter.
+    descriptor.version = ToolVersionRequirement::default();
+    descriptor.determinism = ToolDeterminism::ConfigurationDependent;
+    descriptor.locality = ToolLocality::Local;
+    descriptor.fidelity = ToolFidelity::PartialLoss;
+    let capability = CapabilityId::new(format!("screenplay.import.{source}.fountain"))?;
+    descriptor.capabilities = vec![capability.clone()];
+    tools.register(descriptor)?;
+    graph.add_transform(TransformEdge::new(source, Format::Fountain, 1.0, 0.0)
+        .with_provider(SCREENPLAY_PROVIDER, capability.to_string())
+        .with_evidence("adapter", SCREENPLAY_ADAPTER_EVIDENCE)
+        .with_evidence("family", "screenplay")
+        .with_evidence("transform_id", format!("builtin.screenplay.{source}.fountain"))
+        .with_evidence("screenplay_policy_sha256", sha256_serialized(policy)?.value)
+        .with_evidence("qualification", "authored_unqualified")
+        .with_evidence("quality_interpretation", "unqualified_not_fidelity_score")
+        .with_evidence("cache", "disabled"));
+    Ok(())
+}
+
+/// Keep missing and incompatible configured providers in the ordinary inventory
+/// so only their own graph branches are pruned. A successful version probe does
+/// not verify the executable SHA-256; the native adapter verifies that pin.
+fn apply_screenplay_version_requirement(inventory: &mut ToolInventory, policy: Option<&ScripttoolConfig>) {
+    let Some(policy) = policy else { return; };
+    for tool in &mut inventory.tools {
+        if tool.id.as_str() != SCREENPLAY_PROVIDER { continue; }
+        if tool.is_available() && !tool.version_line.as_deref().is_some_and(|line| {
+            supported_version_line(line, &policy.expected_version, &policy.executable)
+        }) {
+            tool.status = ToolAvailabilityStatus::UnsupportedVersion;
+            tool.diagnostic = Some(format!(
+                "configured scripttool version probe did not match the supported {} version line; select the supported executable and update execution.screenplay.executable_sha256 to its verified digest",
+                policy.expected_version,
+            ));
+        } else if !tool.is_available() {
+            let original = tool.diagnostic.as_deref().unwrap_or("configured executable unavailable");
+            tool.diagnostic = Some(format!(
+                "{original}; configure execution.screenplay.executable as an installed compatible scripttool path with an explicit SHA-256 pin; no installation or PATH fallback is performed"
+            ));
+        }
+    }
+}
+
+fn register_screenplay_executors(
+    executor: &mut DagExecutor,
+    dag: &MultiTargetDag,
+    policy: Option<&ScripttoolConfig>,
+    cancellation: Option<Arc<AtomicBool>>,
+) -> Result<()> {
+    for edge in dag.all_edges() {
+        if edge.evidence.get("adapter").map(String::as_str) != Some(SCREENPLAY_ADAPTER_EVIDENCE) {
+            continue;
+        }
+        let policy = policy.context("screenplay.policy.missing: selected edge requires explicit scripttool configuration")?;
+        if edge.provider_id.as_deref() != Some(SCREENPLAY_PROVIDER)
+            || edge.capability_id.as_deref() != Some(format!("screenplay.import.{}.{}", edge.from, edge.to).as_str())
+            || edge.evidence.get("screenplay_policy_sha256") != Some(&sha256_serialized(policy)?.value)
+        {
+            anyhow::bail!("screenplay.plan.inconsistent: edge differs from the frozen scripttool policy");
+        }
+        executor.register_artifact(edge.from, edge.to, Arc::new(ScreenplayArtifactTransform::new(
+            edge.from, edge.to, policy.clone(), cancellation.clone(),
+        )?));
+    }
+    Ok(())
+}
+
 fn speech_provider_ids(policy: Option<&SpeechPolicy>) -> HashSet<String> {
     let mut ids = HashSet::new();
     if let Some(policy) = policy {
@@ -3240,6 +3391,11 @@ fn apply_execution_policy(
 }
 
 fn edge_allowed(edge: &TransformEdge, tools: &ToolRegistry, spec: &SpecV2) -> bool {
+    if edge.evidence.get("adapter").map(String::as_str) == Some(SCREENPLAY_ADAPTER_EVIDENCE)
+        && spec.execution.screenplay.is_none()
+    {
+        return false;
+    }
     if edge.evidence.get("adapter").map(String::as_str) == Some(SPEECH_ADAPTER_EVIDENCE)
         && (spec.execution.speech.is_none() || spec.execution.ai == AiPolicy::Deny)
     {
@@ -3793,9 +3949,10 @@ fn preflight_selected_providers(resolved: &ResolvedExecution) -> Result<()> {
     }
     let ids = selected_provider_ids(&resolved.dag);
     let deferred_speech_ids = speech_provider_ids(resolved.spec.execution.speech.as_ref());
-    let inventory = resolved.tool_registry.assess_ids_current(
+    let mut inventory = resolved.tool_registry.assess_ids_current(
         ids.iter().filter(|id| !deferred_speech_ids.contains(*id)),
     );
+    apply_screenplay_version_requirement(&mut inventory, resolved.spec.execution.screenplay.as_ref());
     if let Some(policy) = &resolved.spec.execution.print_pdf_interior {
         validate_print_provider_version(&inventory, policy)?;
     }
@@ -4262,5 +4419,158 @@ mod tests {
             assert!(document_input_format(format).is_none());
         }
         assert_eq!(artifact_extension(Format::ScreenplayJson), "screenplay.json");
+    }
+
+    fn screenplay_policy() -> ScripttoolConfig {
+        ScripttoolConfig {
+            executable: std::env::temp_dir().join("scripttool"),
+            executable_sha256: "a".repeat(64),
+            expected_version: "0.0.10".to_owned(),
+            timeout_seconds: 30,
+            allow_unqualified: true,
+        }
+    }
+
+    struct ScreenplayProbe {
+        expected_executable: String,
+        status: crate::process::ToolProbeStatus,
+        line: Option<String>,
+    }
+
+    impl crate::toolchain::ToolProbe for ScreenplayProbe {
+        fn probe(&self, executable: &str, args: &[String]) -> crate::process::ToolProbeEvidence {
+            assert_eq!(executable, self.expected_executable);
+            assert_eq!(args, &["-version".to_owned()]);
+            crate::process::ToolProbeEvidence {
+                executable: executable.to_owned(),
+                status: self.status,
+                version_line: self.line.clone(),
+                duration_ms: 0,
+                platform: crate::process::ProcessPlatform {
+                    os: "linux", arch: "x86_64",
+                    tree_termination: crate::process::ProcessTreeTermination::DirectChild,
+                },
+                diagnostic: None,
+            }
+        }
+    }
+
+    #[test]
+    fn screenplay_registration_preserves_direct_direction_and_explicit_policy() {
+        for source in [Format::Fdx, Format::FadeIn, Format::Osf] {
+            let policy = screenplay_policy();
+            let mut graph = TransformGraph::new();
+            let mut tools = ToolRegistry::builtins();
+            register_screenplay_edges(&mut graph, &mut tools, source, &policy).unwrap();
+            let edges = graph.all_edges();
+            assert_eq!(edges.len(), 1);
+            assert_eq!((edges[0].from, edges[0].to), (source, Format::Fountain));
+            assert_eq!(edges[0].provider_id.as_deref(), Some(SCREENPLAY_PROVIDER));
+            assert_eq!(edges[0].evidence["qualification"], "authored_unqualified");
+            assert_eq!(edges[0].evidence["cache"], "disabled");
+            for unsupported in [Format::Fdx, Format::Osf, Format::FadeIn, Format::ScreenplayJson, Format::Json] {
+                assert!(graph.find_path(Format::Fountain, unsupported).is_none());
+            }
+            let mut spec = minimal_spec(&source.to_string());
+            assert!(apply_execution_policy(&graph, &tools, &spec).all_edges().is_empty());
+            spec.execution.screenplay = Some(policy);
+            assert_eq!(apply_execution_policy(&graph, &tools, &spec).all_edges().len(), 1);
+            spec.execution.tools.deny.push(SCREENPLAY_PROVIDER.to_owned());
+            assert!(apply_execution_policy(&graph, &tools, &spec).all_edges().is_empty());
+        }
+    }
+
+    #[test]
+    fn screenplay_missing_or_incompatible_configured_provider_prunes_only_its_routes() {
+        for (status, line, expected_status) in [
+            (crate::process::ToolProbeStatus::Missing, None, ToolAvailabilityStatus::MissingExecutable),
+            (crate::process::ToolProbeStatus::Available, Some("scripttool 0.0.9"), ToolAvailabilityStatus::UnsupportedVersion),
+            (crate::process::ToolProbeStatus::Available, Some("unexpected 0.0.10"), ToolAvailabilityStatus::UnsupportedVersion),
+        ] {
+            let policy = screenplay_policy();
+            let mut graph = TransformGraph::new();
+            let mut tools = ToolRegistry::builtins();
+            register_screenplay_edges(&mut graph, &mut tools, Format::Fdx, &policy).unwrap();
+            graph.add_transform(TransformEdge::new(Format::Srt, Format::TimedTranscriptJson, 0.1, 1.0)
+                .with_provider(TIMED_TEXT_PROVIDER, "subtitle.convert.srt.timed_transcript_json"));
+            let probe = ScreenplayProbe {
+                expected_executable: policy.executable.to_str().unwrap().to_owned(),
+                status, line: line.map(str::to_owned),
+            };
+            let mut inventory = tools.assess_ids_with(graph.provider_ids(), &probe,
+                &ToolRuntimeContext::for_platform("linux", "x86_64"));
+            apply_screenplay_version_requirement(&mut inventory, Some(&policy));
+            let blocked = inventory.get(SCREENPLAY_PROVIDER).unwrap();
+            assert_eq!(blocked.status, expected_status);
+            assert!(blocked.diagnostic.as_deref().unwrap().contains("execution.screenplay.executable"));
+            let available = graph.filtered_by_available_providers(&inventory.available_ids());
+            assert!(available.find_path(Format::Fdx, Format::Fountain).is_none());
+            assert!(available.find_path(Format::Srt, Format::TimedTranscriptJson).is_some());
+        }
+    }
+
+    #[test]
+    fn screenplay_compatible_version_remains_an_observation_not_pin_attestation() {
+        let policy = screenplay_policy();
+        let mut graph = TransformGraph::new();
+        let mut tools = ToolRegistry::builtins();
+        register_screenplay_edges(&mut graph, &mut tools, Format::Osf, &policy).unwrap();
+        let probe = ScreenplayProbe {
+            expected_executable: policy.executable.to_str().unwrap().to_owned(),
+            status: crate::process::ToolProbeStatus::Available,
+            line: Some("scripttool 0.0.10".to_owned()),
+        };
+        let mut inventory = tools.assess_ids_with(graph.provider_ids(), &probe,
+            &ToolRuntimeContext::for_platform("linux", "x86_64"));
+        apply_screenplay_version_requirement(&mut inventory, Some(&policy));
+        assert!(inventory.get(SCREENPLAY_PROVIDER).unwrap().is_available());
+        assert!(graph.filtered_by_available_providers(&inventory.available_ids())
+            .find_path(Format::Osf, Format::Fountain).is_some());
+        // No file is opened to establish this observation; the deliberately
+        // synthetic executable hash remains a declaration until execution.
+        assert_eq!(policy.executable_sha256, "a".repeat(64));
+    }
+
+    #[test]
+    fn screenplay_policy_rejects_collections_and_non_adopted_sources() {
+        for source in [Format::Fdx, Format::Osf, Format::FadeIn] {
+            assert!(validate_screenplay_policy(source, false, &screenplay_policy()).is_ok());
+            assert!(validate_screenplay_policy(source, true, &screenplay_policy()).is_err());
+        }
+        for source in [Format::Fountain, Format::ScreenplayJson, Format::Json, Format::Markdown] {
+            assert!(validate_screenplay_policy(source, false, &screenplay_policy()).is_err());
+        }
+    }
+
+    #[test]
+    fn screenplay_policy_rejects_hygiene_inherited_from_selected_profiles() {
+        let mut spec = minimal_spec("fdx");
+        spec.execution.screenplay = Some(screenplay_policy());
+        spec.hygiene.insert("hygiene.screenplay".to_owned(), HygienePolicy::default());
+        spec.profiles.insert("screenplay.parent".to_owned(), DerivativeProfile {
+            hygiene_policy: Some("hygiene.screenplay".to_owned()),
+            ..DerivativeProfile::default()
+        });
+        spec.profiles.insert("screenplay.child".to_owned(), DerivativeProfile {
+            extends: vec!["screenplay.parent".to_owned()],
+            ..DerivativeProfile::default()
+        });
+        spec.targets.profiles.push("screenplay.child".to_owned());
+        compose_selected_profiles(&mut spec).unwrap();
+        assert!(spec.execution.hygiene_policy.is_none());
+        assert!(validate_screenplay_hygiene(&spec).unwrap_err().to_string().contains("screenplay.policy.hygiene"));
+    }
+
+    #[test]
+    fn screenplay_wrapper_conflicts_require_explicit_dialects_and_exact_container_pairs() {
+        for (source, wrapper) in [(Format::Fdx, "xml"), (Format::Osf, "xml"), (Format::FadeIn, "zip")] {
+            let declared = source.to_string();
+            let pair = vec![declared.clone(), wrapper.to_owned()];
+            assert!(screenplay_wrapper_conflict(source, Some(&declared), &pair));
+            assert!(!screenplay_wrapper_conflict(source, None, &pair));
+            assert!(!screenplay_wrapper_conflict(source, Some("markdown"), &pair));
+            assert!(!screenplay_wrapper_conflict(source, Some(&declared), &[declared.clone(), "html".to_owned()]));
+            assert!(!screenplay_wrapper_conflict(source, Some(&declared), &[declared.clone(), wrapper.to_owned(), "pdf".to_owned()]));
+        }
     }
 }

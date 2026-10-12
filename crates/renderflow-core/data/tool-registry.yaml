@@ -339,6 +339,32 @@ tools:
     license_notes: "See the ImageMagick upstream license and the exact build's delegate licenses."
     distribution_notes: "Experimental constrained image fallback; arbitrary operations and delegates are not graph-enabled."
 
+  - id: tool.scripttool
+    name: scripttool screenplay import
+    discovery:
+      kind: executable
+      candidates: [scripttool]
+      version_args: [-version]
+    version:
+      min_inclusive: "0.0.10"
+      max_exclusive: "0.0.11"
+    operating_systems: [linux, macos, windows]
+    capabilities:
+      - screenplay.import.fdx.fountain
+      - screenplay.import.osf.fountain
+      - screenplay.import.fadein.fountain
+    input_media_types:
+      - application/vnd.renderflow.fdx+xml
+      - application/vnd.renderflow.osf+xml
+      - application/vnd.renderflow.fadein+zip
+    output_media_types: [text/x-fountain]
+    determinism: configuration_dependent
+    locality: local
+    fidelity: partial_loss
+    support_tier: experimental
+    license_notes: "Upstream root license is AGPL-3.0 with inconsistent per-file notices; review exact executable, dependencies, and distribution obligations independently. Renderflow invokes an explicitly supplied executable and does not vendor or link scripttool."
+    distribution_notes: "Authored, unqualified strict body-only FDX/OSF/Fade In imports to Fountain. Explicit executable SHA-256, exact 0.0.10 version, timeout, and allow_unqualified opt-in required. Independent native parsers and ordered semantic comparison must pass before publication. Version does not attest the inspected source revision. Reverse native exports, provider Fountain JSON, screenplay layout/title/styling fidelity, and native qualification are unavailable. No installation or default execution provider."
+
   - id: tool.tesseract
     name: Tesseract OCR
     discovery:

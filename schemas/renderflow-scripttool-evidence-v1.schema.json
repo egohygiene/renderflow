@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-scripttool-evidence-v1.schema.json",
+  "title": "Renderflow scripttool import evidence v1",
+  "description": "Evidence emitted after an explicitly enabled scripttool import passes independent parsing and comparison of the adopted screenplay body subset. Native application acceptance and complete screenplay fidelity remain unqualified.",
+  "$comment": "This schema describes successful-run records; validating JSON does not execute or attest a conversion. The consumer must verify source/output/provider bytes and digests, argv_sha256 over compact JSON serialization of argv, equal semantic element counts and content, and file identity throughout execution. provider_version is bounded to 4096 UTF-8 bytes and must exactly match the invoked executable basename followed by a space and 0.0.10. The adapter_reference_commit is the source inspected during authoring, not proof that the executable came from it. Process policy is not an operating-system sandbox or executable/dependency attestation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "provider_id", "provider_version", "provider_sha256",
+    "adapter_reference_commit", "executable_source_attested", "source_sha256",
+    "output_sha256", "source_format", "target_format", "argv", "argv_sha256",
+    "source_element_count", "output_element_count", "input_structure_validated",
+    "output_structure_validated", "semantic_projection_matched", "qualification",
+    "fidelity", "losses"
+  ],
+  "properties": {
+    "schema_version": { "const": "renderflow.scripttool-evidence/v1" },
+    "provider_id": { "const": "tool.scripttool" },
+    "provider_version": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 4096,
+      "pattern": "^[^\\u0000-\\u001f\\u007f-\\u009f]+ 0\\.0\\.10$"
+    },
+    "provider_sha256": { "$ref": "#/$defs/sha256" },
+    "adapter_reference_commit": { "const": "ea8ed24020b6f6989e01df44eef64febdfa7bfb2" },
+    "executable_source_attested": { "const": false },
+    "source_sha256": { "$ref": "#/$defs/sha256" },
+    "output_sha256": { "$ref": "#/$defs/sha256" },
+    "source_format": { "enum": ["fdx", "osf", "fadein"] },
+    "target_format": { "const": "fountain" },
+    "argv": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "items": { "type": "string" }
+    },
+    "argv_sha256": { "$ref": "#/$defs/sha256" },
+    "source_element_count": { "$ref": "#/$defs/element_count" },
+    "output_element_count": { "$ref": "#/$defs/element_count" },
+    "input_structure_validated": { "const": true },
+    "output_structure_validated": { "const": true },
+    "semantic_projection_matched": { "const": true },
+    "qualification": { "const": "authored_unqualified" },
+    "fidelity": { "const": "semantic_subset" },
+    "losses": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": false,
+      "prefixItems": [
+        { "allOf": [{ "$ref": "#/$defs/loss" }], "properties": { "kind": { "const": "stable_ids" } } },
+        { "allOf": [{ "$ref": "#/$defs/loss" }], "properties": { "kind": { "const": "layout" } } },
+        { "allOf": [{ "$ref": "#/$defs/loss" }], "properties": { "kind": { "const": "pagination" } } },
+        { "allOf": [{ "$ref": "#/$defs/loss" }], "properties": { "kind": { "const": "source_provenance" } } }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "source_format": { "const": "fdx" } } },
+      "then": {
+        "properties": {
+          "argv": { "const": ["fdx2fountain", "-i", "source.fdx", "-o", "output.fountain"] },
+          "losses": { "items": { "properties": { "format": { "const": "fdx" } } } }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "source_format": { "const": "osf" } } },
+      "then": {
+        "properties": {
+          "argv": { "const": ["osf2fountain", "-i", "source.osf", "-o", "output.fountain"] },
+          "losses": { "items": { "properties": { "format": { "const": "osf" } } } }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "source_format": { "const": "fadein" } } },
+      "then": {
+        "properties": {
+          "argv": { "const": ["fadein2fountain", "-i", "source.fadein", "-o", "output.fountain"] },
+          "losses": { "items": { "properties": { "format": { "const": "fadein" } } } }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "element_count": { "type": "integer", "minimum": 1, "maximum": 100000 },
+    "loss": {
+      "allOf": [{ "$ref": "renderflow-screenplay-v1.schema.json#/$defs/loss" }],
+      "properties": { "direction": { "const": "import" } }
+    }
+  }
+}
