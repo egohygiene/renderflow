@@ -361,6 +361,7 @@ pub fn run_cli(cli: Cli) -> Result<()> {
             ScreenplayCommands::Inspect { input, format } => {
                 commands::screenplay::run_inspect(&input, &format)?
             }
+            ScreenplayCommands::Convert(arguments) => commands::screenplay::run_convert(arguments)?,
         },
         Some(Commands::Speech { subcommand }) => match subcommand {
             SpeechCommands::Inspect(arguments) => commands::speech::run_inspect(arguments)?,

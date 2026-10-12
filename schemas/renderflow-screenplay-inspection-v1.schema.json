@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-screenplay-inspection-v1.schema.json",
   "title": "Renderflow screenplay inspection v1",
-  "description": "Observed canonical JSON identity and semantic counts, separate from unverified upstream source declarations and independent directional adapter policies. This checkpoint has no native screenplay adapters.",
+  "description": "Observed canonical JSON identity and semantic counts, separate from unverified upstream source declarations and canonical-model adapter policies. This inspection does not select or inventory separately configured native conversion routes.",
   "$comment": "Application produces counts from a validated canonical model, an SHA-256 of the exact inspected bytes, five independent import policies and seven independent export policies. Preservation describes canonical model retention only; no native roundtrip or original source completeness is asserted.",
   "type": "object",
   "additionalProperties": false,

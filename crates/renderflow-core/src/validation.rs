@@ -114,6 +114,7 @@ impl ValidationRegistry {
         registry.register(Arc::new(Utf8Validator));
         registry.register(Arc::new(TimedTextValidator));
         registry.register(Arc::new(ScreenplayValidator));
+        registry.register(Arc::new(FountainSubsetValidator));
         registry.register(Arc::new(JsonValidator));
         registry.register(Arc::new(YamlValidator));
         registry.register(Arc::new(MarkupValidator));
@@ -241,6 +242,7 @@ impl ValidationRegistry {
             }
             Format::Json => Some("validator.core.json"),
             Format::ScreenplayJson => Some("validator.core.screenplay"),
+            Format::Fountain => Some("validator.core.fountain_subset"),
             Format::Yaml => Some("validator.core.yaml"),
             Format::Html | Format::Xml | Format::Svg => Some("validator.core.markup"),
             Format::Csv | Format::Tsv => Some("validator.core.delimited_text"),
@@ -443,9 +445,9 @@ impl ArtifactValidator for TimedTextValidator {
 
 struct JsonValidator;
 
-/// Structural validation of canonical screenplay JSON only. Native screenplay
-/// formats deliberately keep unavailable structural validation until their
-/// parsers land; UTF-8 or ZIP recognition does not validate a screenplay.
+/// Structural validation of canonical screenplay JSON. The separate Fountain
+/// validator covers only the explicit import subset; generic UTF-8 or ZIP
+/// recognition does not establish screenplay structure.
 struct ScreenplayValidator;
 
 impl ArtifactValidator for ScreenplayValidator {
@@ -483,6 +485,44 @@ impl ArtifactValidator for ScreenplayValidator {
             Err(error) => Ok(ValidationCheck::invalid(
                 "validation.invalid_screenplay",
                 error.to_string(),
+            )),
+        }
+    }
+}
+
+/// Independent structural validation of the body-only, single-line Fountain
+/// profile used by scripttool imports. This is not a full Fountain grammar or
+/// native-application validator, and adds no native export capability.
+struct FountainSubsetValidator;
+
+impl ArtifactValidator for FountainSubsetValidator {
+    fn descriptor(&self) -> ValidatorDescriptor {
+        descriptor(
+            "validator.core.fountain_subset",
+            &[Format::Fountain],
+            ValidatorSupportTier::Experimental,
+        )
+    }
+
+    fn validate(&self, artifact: &Artifact, store: &ArtifactStore) -> Result<ValidationCheck> {
+        use crate::screenplay::native::{parse_native, NativeScreenplayFormat};
+        use crate::screenplay::MAX_INPUT_BYTES;
+
+        let too_large = || ValidationCheck::invalid(
+            "validation.fountain_subset_too_large",
+            "Fountain artifact exceeds the subset validator's 16 MiB input limit",
+        );
+        if artifact.size_bytes() > MAX_INPUT_BYTES as u64 { return Ok(too_large()); }
+        let file = store.open(artifact)?;
+        if file.metadata()?.len() > MAX_INPUT_BYTES as u64 { return Ok(too_large()); }
+        let mut bytes = Vec::new();
+        file.take(MAX_INPUT_BYTES as u64 + 1).read_to_end(&mut bytes)?;
+        if bytes.len() > MAX_INPUT_BYTES { return Ok(too_large()); }
+        match parse_native(&bytes, NativeScreenplayFormat::Fountain) {
+            Ok(_) => Ok(ValidationCheck::valid()),
+            Err(error) => Ok(ValidationCheck::invalid(
+                "validation.invalid_fountain_subset",
+                format!("Artifact is malformed or outside the supported body-only, single-line Fountain profile: {error}"),
             )),
         }
     }
@@ -994,14 +1034,62 @@ mod tests {
 
     #[test]
     fn native_screenplay_defaults_do_not_claim_structural_validation() {
-        for format in [Format::Fountain, Format::Fdx, Format::FadeIn, Format::Osf] {
+        for format in [Format::Fdx, Format::FadeIn, Format::Osf] {
             let outcome = timed_text_outcome(format, b"nonempty text is not a validated screenplay");
             assert_eq!(outcome.state, ValidationState::Unavailable);
             assert!(!outcome.validators.iter().any(|evidence| {
                 evidence.validator_id == "validator.core.utf8"
                     || evidence.validator_id == "validator.core.screenplay"
+                    || evidence.validator_id == "validator.core.fountain_subset"
             }));
         }
+    }
+
+    #[test]
+    fn fountain_defaults_validate_the_independent_import_subset() {
+        let bytes = include_bytes!("../../../tests/fixtures/screenplay/native-424/strict.fountain");
+        let outcome = timed_text_outcome(Format::Fountain, bytes);
+        assert_eq!(outcome.state, ValidationState::Valid);
+        assert!(outcome.validators.iter().any(|evidence| {
+            evidence.validator_id == "validator.core.fountain_subset" && evidence.state == ValidationState::Valid
+        }));
+        assert!(!outcome.validators.iter().any(|evidence| evidence.validator_id == "validator.core.declared_signature"));
+        let descriptor = ValidationRegistry::builtins().get("validator.core.fountain_subset").unwrap().descriptor();
+        assert_eq!(descriptor.support_tier, ValidatorSupportTier::Experimental);
+        assert_eq!(descriptor.formats, vec!["fountain".to_owned()]);
+    }
+
+    #[test]
+    fn fountain_defaults_reject_malformed_and_unsupported_profile_without_utf8_fallback() {
+        for bytes in [
+            b"ordinary nonempty UTF-8 text".as_slice(),
+            b"INT. ROOM - DAY\n\nNOVA\n(unfinished)\n".as_slice(),
+            b"Title: outside this profile\n\nINT. ROOM - DAY\n".as_slice(),
+            b"INT. ROOM - DAY\n\n*Styled action*\n".as_slice(),
+            b"INT. ROOM - DAY\n\ninvalid\0control\n".as_slice(),
+        ] {
+            let outcome = timed_text_outcome(Format::Fountain, bytes);
+            assert_eq!(outcome.state, ValidationState::Invalid);
+            assert!(outcome.validators.iter().any(|evidence| evidence.diagnostics.iter()
+                .any(|diagnostic| diagnostic.code == "validation.invalid_fountain_subset")));
+            assert!(!outcome.validators.iter().any(|evidence| evidence.validator_id == "validator.core.utf8"));
+        }
+    }
+
+    #[test]
+    fn fountain_subset_validator_bounds_actual_store_payload_before_read() {
+        let directory = tempfile::tempdir().unwrap();
+        let store = ArtifactStore::new(directory.path()).unwrap();
+        let artifact = store.put_bytes(
+            b"small",
+            ArtifactDescriptor::for_format(Format::Fountain, ArtifactStorageClass::Terminal),
+        ).unwrap();
+        std::fs::OpenOptions::new().write(true)
+            .open(store.payload_path(&artifact).unwrap()).unwrap()
+            .set_len(crate::screenplay::MAX_INPUT_BYTES as u64 + 1).unwrap();
+        let check = FountainSubsetValidator.validate(&artifact, &store).unwrap();
+        assert_eq!(check.state, ValidationState::Invalid);
+        assert_eq!(check.diagnostics[0].code, "validation.fountain_subset_too_large");
     }
 
     #[test]

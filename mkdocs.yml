@@ -83,6 +83,7 @@ nav:
       - Whole-file Video: handbrake-adapter.md
       - Subtitles: user-guide/subtitles.md
       - Screenplay Artifacts: user-guide/screenplay.md
+      - Scripttool Imports: user-guide/scripttool.md
       - Super Resolution: user-guide/super-resolution.md
       - Upscayl Models: user-guide/upscayl-models.md
       - Pipelines: user-guide/pipelines.md

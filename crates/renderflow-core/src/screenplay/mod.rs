@@ -1,11 +1,14 @@
 //! Provider-neutral, bounded screenplay interchange.
 //!
 //! The canonical JSON codec preserves this semantic model, not the original
-//! source bytes or native application layout. Native screenplay readers and
-//! writers are deliberately absent. Source identity is a declaration until a
-//! future adapter independently observes those source bytes.
+//! source bytes or native application layout. Canonical inspection treats
+//! upstream source identity as a declaration. The separate native/provider
+//! modules implement explicit, unqualified body-profile conversions only.
 
 mod codec;
+pub mod graph;
+pub mod native;
+pub mod provider;
 #[cfg(test)]
 mod tests;
 
@@ -461,8 +464,8 @@ pub struct ScreenplayImportAssessment {
     pub detail: String,
 }
 
-/// Reader availability is independent of writer availability. Recognizing a
-/// native suffix does not establish structural parsing or source preservation.
+/// General canonical-model import policy, independent of provider-local body
+/// validation. It does not configure or qualify a native conversion route.
 pub fn assess_import(format: ScreenplayImportFormat) -> ScreenplayImportAssessment {
     if format == ScreenplayImportFormat::ScreenplayJson {
         return ScreenplayImportAssessment {
@@ -478,7 +481,7 @@ pub fn assess_import(format: ScreenplayImportFormat) -> ScreenplayImportAssessme
         adapter_available: false,
         preservation: ScreenplayPreservation::Unassessed,
         review_required: vec![ScreenplayLossKind::TitlePage, ScreenplayLossKind::ElementKinds, ScreenplayLossKind::StableIds, ScreenplayLossKind::DualDialogue, ScreenplayLossKind::TextStyling, ScreenplayLossKind::Layout, ScreenplayLossKind::Pagination, ScreenplayLossKind::SourceExtensions, ScreenplayLossKind::SourceProvenance, ScreenplayLossKind::UnknownSourceData, ScreenplayLossKind::PriorLossEvidence],
-        detail: "No reader is implemented for this native format in the canonical-model checkpoint. A future adapter must retain supported structure, carry opaque source data explicitly, or declare directional import losses; format recognition alone does not qualify an import.".to_owned(),
+        detail: "This canonical inspection API does not import native sources. The separate opt-in scripttool adapter validates a restricted body profile for native-to-Fountain conversion; it supplies no general native-to-canonical import or preservation qualification.".to_owned(),
     }
 }
 
@@ -518,7 +521,7 @@ pub fn assess_export(screenplay: &Screenplay, target: ScreenplayExportTarget) ->
         adapter_available: false,
         preservation: ScreenplayPreservation::Unassessed,
         review_required,
-        detail: "No writer is implemented for this target in the canonical-model checkpoint. Preservation and losses require a directional adapter contract and qualification; this assessment authorizes no conversion.".to_owned(),
+        detail: "No canonical-model writer is implemented for this target. The separate native-to-Fountain adapter does not export this canonical document. Preservation and losses require a directional adapter contract and qualification; this assessment authorizes no conversion.".to_owned(),
     })
 }
 
@@ -544,6 +547,8 @@ pub struct ScreenplayInspection {
     /// Count of top-level namespaced entries across all extension bags.
     pub extension_entries: usize,
     pub prior_losses: Vec<ScreenplayLossEvidence>,
+    /// No native adapter is selected by canonical JSON inspection. This field
+    /// does not inventory separately configured provider conversion routes.
     pub native_adapters_available: bool,
     pub import_assessments: Vec<ScreenplayImportAssessment>,
     pub export_assessments: Vec<ScreenplayExportAssessment>,

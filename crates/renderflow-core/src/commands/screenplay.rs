@@ -1,15 +1,110 @@
-//! Read-only inspection of the canonical screenplay JSON model.
+//! Canonical JSON inspection and explicitly configured native conversion.
 //!
-//! Native screenplay import and export remain separate adapters. This command
-//! never launches a tool, reads a declared upstream source, or creates an output.
+//! Inspection never launches a tool or creates an output. Conversion invokes
+//! the bounded provider and publishes a new receipt-last evidence bundle.
 
 use std::fs::File;
 use std::io::{Read, Write};
 use std::path::Path;
 
 use anyhow::{bail, Context, Result};
+use sha2::{Digest, Sha256};
 
+use crate::cli::ScreenplayConvertArguments;
+use crate::process::ProcessCancellationToken;
 use crate::screenplay::{self, ScreenplayInspection, ScreenplayPreservation, MAX_INPUT_BYTES};
+
+pub fn run_convert(arguments: ScreenplayConvertArguments) -> Result<()> {
+    use crate::screenplay::provider::{ScripttoolConfig, ScripttoolRequest};
+
+    let output = Path::new(&arguments.output_dir);
+    require_new_bundle(output)?;
+    let request = ScripttoolRequest {
+        input: arguments.input.into(),
+        source_format: native_format(&arguments.input_format)?,
+        target_format: native_format(&arguments.output_format)?,
+        config: ScripttoolConfig {
+            executable: arguments.scripttool_path.into(),
+            executable_sha256: arguments.scripttool_sha256,
+            expected_version: arguments.expected_version,
+            timeout_seconds: arguments.timeout_seconds,
+            allow_unqualified: arguments.allow_unqualified,
+        },
+        expected_source_sha256: arguments.source_sha256,
+    };
+    let cancellation = ProcessCancellationToken::new();
+    let signal = cancellation.clone();
+    ctrlc::set_handler(move || signal.cancel())?;
+    let result = screenplay::provider::convert(&request, cancellation.clone())?;
+    let mut evidence = serde_json::to_vec_pretty(&result.evidence)?;
+    evidence.push(b'\n');
+    let (files, receipt) = conversion_bundle(result.output, evidence)?;
+    publish_conversion_bundle(output, &files, &cancellation)?;
+    std::io::stdout().write_all(&receipt)?;
+    Ok(())
+}
+
+fn native_format(value: &str) -> Result<screenplay::native::NativeScreenplayFormat> {
+    use screenplay::native::NativeScreenplayFormat;
+    match value {
+        "fountain" => Ok(NativeScreenplayFormat::Fountain),
+        "fdx" => Ok(NativeScreenplayFormat::Fdx),
+        "osf" => Ok(NativeScreenplayFormat::Osf),
+        "fadein" => Ok(NativeScreenplayFormat::FadeIn),
+        _ => bail!("unsupported native screenplay format: {value}"),
+    }
+}
+
+fn require_new_bundle(output: &Path) -> Result<()> {
+    match std::fs::symlink_metadata(output) {
+        Ok(_) => bail!("screenplay output directory must not already exist"),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => return Err(error).context("cannot inspect screenplay output directory"),
+    }
+    let parent = output.parent().filter(|path| !path.as_os_str().is_empty()).unwrap_or(Path::new("."));
+    if !parent.is_dir() {
+        bail!("screenplay output parent directory must already exist");
+    }
+    Ok(())
+}
+
+fn conversion_bundle(output: Vec<u8>, evidence: Vec<u8>) -> Result<(Vec<(String, Vec<u8>)>, Vec<u8>)> {
+    let mut files = vec![
+        ("screenplay.fountain".to_owned(), output),
+        ("provider-evidence.json".to_owned(), evidence),
+    ];
+    let members = files.iter().map(|(name, bytes)| serde_json::json!({
+        "path": name,
+        "sha256": format!("{:x}", Sha256::digest(bytes)),
+        "size_bytes": bytes.len(),
+    })).collect::<Vec<_>>();
+    let mut receipt = serde_json::to_vec_pretty(&serde_json::json!({
+        "schema_version": "renderflow.screenplay-bundle/v1",
+        "status": "completed",
+        "runtime_qualified": false,
+        "files": members,
+        "limits": "A successful run validates only the adopted body profile and observed tool invocation; native application acceptance and complete screenplay fidelity remain unqualified.",
+    }))?;
+    receipt.push(b'\n');
+    files.push(("bundle.json".to_owned(), receipt.clone()));
+    Ok((files, receipt))
+}
+
+/// Publish a new directory and write its completion receipt last. On I/O or
+/// cancellation failure a partial directory is retained without a receipt.
+fn publish_conversion_bundle(output: &Path, files: &[(String, Vec<u8>)], cancellation: &ProcessCancellationToken) -> Result<()> {
+    if cancellation.is_cancelled() { bail!("screenplay publication cancelled"); }
+    std::fs::create_dir(output).context("cannot create new screenplay output directory")?;
+    for (name, bytes) in files {
+        if cancellation.is_cancelled() { bail!("screenplay publication cancelled"); }
+        let mut temporary = tempfile::NamedTempFile::new_in(output)?;
+        temporary.write_all(bytes)?;
+        temporary.as_file().sync_all()?;
+        if cancellation.is_cancelled() { bail!("screenplay publication cancelled"); }
+        temporary.persist_noclobber(output.join(name)).map_err(|error| error.error)?;
+    }
+    Ok(())
+}
 
 pub fn run_inspect(input: &str, format: &str) -> Result<()> {
     // Reject an unsupported output request before touching the input, including
@@ -36,9 +131,9 @@ fn require_canonical_extension(input: &Path) -> Result<()> {
         "json" => Ok(()),
         "fdx" | "fadein" | "fade_in" | "osf" | "fountain" => {
             bail!(
-                "native screenplay filename extension .{extension} is recognized, but its parser is not implemented; \
-                native adapters remain pending in #424. screenplay inspect accepts only \
-                renderflow.screenplay/v1 JSON; it does not treat native files as generic text"
+                "native screenplay filename extension .{extension} is recognized; \
+                screenplay inspect accepts only renderflow.screenplay/v1 JSON. \
+                Use screenplay convert with explicit provider pins for supported native body imports"
             )
         }
         _ => bail!(
@@ -123,7 +218,7 @@ fn render_report(inspection: &ScreenplayInspection, format: &str) -> Result<Stri
         ));
     }
     output.push_str(
-        "Native adapters: pending; no conversion was attempted.\n\
+        "Native adapters: not selected by canonical inspection; no conversion was attempted.\n\
         Structure acceptance does not establish source fidelity, semantic accuracy, \
         or a lossless native-format round trip.\n",
     );
@@ -140,6 +235,69 @@ fn preservation_label(preservation: ScreenplayPreservation) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn conversion_bundle_receipt_binds_exact_bytes_and_is_last() {
+        let (files, receipt) = conversion_bundle(b"Scene.\n".to_vec(), b"{}\n".to_vec()).unwrap();
+        assert_eq!(files.iter().map(|(name, _)| name.as_str()).collect::<Vec<_>>(),
+            vec!["screenplay.fountain", "provider-evidence.json", "bundle.json"]);
+        assert_eq!(files[2].1, receipt);
+        let value: serde_json::Value = serde_json::from_slice(&receipt).unwrap();
+        assert_eq!(value["runtime_qualified"], false);
+        for (index, (name, bytes)) in files[..2].iter().enumerate() {
+            assert_eq!(value["files"][index]["path"], *name);
+            assert_eq!(value["files"][index]["size_bytes"], bytes.len());
+            assert_eq!(value["files"][index]["sha256"], format!("{:x}", Sha256::digest(bytes)));
+        }
+    }
+
+    #[test]
+    fn conversion_publication_refuses_existing_paths_and_missing_parents() {
+        let directory = tempfile::tempdir().unwrap();
+        assert!(require_new_bundle(directory.path()).is_err());
+        let existing = directory.path().join("source.fdx");
+        std::fs::write(&existing, b"original").unwrap();
+        assert!(require_new_bundle(&existing).is_err());
+        assert!(require_new_bundle(&directory.path().join("missing").join("bundle")).is_err());
+        assert_eq!(std::fs::read(existing).unwrap(), b"original");
+    }
+
+    #[test]
+    fn conversion_publication_cancellation_creates_no_directory() {
+        let directory = tempfile::tempdir().unwrap();
+        let output = directory.path().join("bundle");
+        let cancellation = ProcessCancellationToken::new();
+        cancellation.cancel();
+        let (files, _) = conversion_bundle(b"Scene.\n".to_vec(), b"{}\n".to_vec()).unwrap();
+        assert!(publish_conversion_bundle(&output, &files, &cancellation).is_err());
+        assert!(!output.exists());
+    }
+
+    #[test]
+    fn partial_conversion_publication_has_no_completion_receipt() {
+        let directory = tempfile::tempdir().unwrap();
+        let output = directory.path().join("bundle");
+        // A duplicate member deterministically exercises persist_noclobber
+        // failure after a member was published but before the receipt.
+        let files = vec![("screenplay.fountain".to_owned(), b"first".to_vec()),
+            ("screenplay.fountain".to_owned(), b"second".to_vec()),
+            ("bundle.json".to_owned(), b"{}".to_vec())];
+        assert!(publish_conversion_bundle(&output, &files, &ProcessCancellationToken::new()).is_err());
+        assert_eq!(std::fs::read(output.join("screenplay.fountain")).unwrap(), b"first");
+        assert!(!output.join("bundle.json").exists());
+    }
+
+    #[test]
+    fn conversion_publication_commits_bundle_members_without_replacing_source() {
+        let directory = tempfile::tempdir().unwrap();
+        let output = directory.path().join("bundle");
+        let source = directory.path().join("scene.fdx");
+        std::fs::write(&source, b"original").unwrap();
+        let (files, receipt) = conversion_bundle(b"Scene.\n".to_vec(), b"{}\n".to_vec()).unwrap();
+        publish_conversion_bundle(&output, &files, &ProcessCancellationToken::new()).unwrap();
+        assert_eq!(std::fs::read(output.join("bundle.json")).unwrap(), receipt);
+        assert_eq!(std::fs::read(source).unwrap(), b"original");
+    }
 
     fn canonical_bytes() -> Vec<u8> {
         serde_json::to_vec(&serde_json::json!({
@@ -212,7 +370,7 @@ mod tests {
         for extension in ["fdx", "FDX", "fadein", "fade_in", "osf", "fountain"] {
             let error = read_canonical_input(Path::new(&format!("missing.{extension}")))
                 .unwrap_err().to_string();
-            assert!(error.contains("native adapters remain pending in #424"));
+            assert!(error.contains("screenplay inspect accepts only renderflow.screenplay/v1 JSON"));
         }
     }
 
