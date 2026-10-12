@@ -45,6 +45,7 @@ pub mod strategies;
 pub mod super_resolution;
 pub mod timed_text;
 pub mod toolchain;
+pub mod creative_doctor;
 pub mod transforms;
 pub mod validation;
 pub mod video;

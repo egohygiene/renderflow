@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-creative-doctor-v1.schema.json",
+  "title": "Renderflow creative-publishing doctor report v1",
+  "description": "Independent optional provider discovery, authored route status, and unresolved model/font/license requirements. This observation fingerprint is not an execution cache key or a byte/model/environment attestation.",
+  "$comment": "The Rust producer orders tools, routes, and provider requirements deterministically and hashes its complete compact report with fingerprint temporarily set to the empty string. No timestamp or probe duration is included. Consumers cannot infer conversion readiness from provider_status or strict success. not_probed is an explicit absence of reviewed discovery, not proof that the executable is missing.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "profile", "fingerprint", "fingerprint_scope", "operating_system", "architecture", "registry_schema", "tools", "routes", "requirements", "limitations"],
+  "properties": {
+    "schema": { "const": "renderflow.creative-doctor/v1" },
+    "profile": { "const": "creative-publishing" },
+    "fingerprint": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "fingerprint_scope": { "const": "provider-discovery-observations/v1" },
+    "operating_system": { "type": "string" },
+    "architecture": { "type": "string" },
+    "registry_schema": { "const": "renderflow.tool-registry/v1" },
+    "tools": { "type": "array", "minItems": 8, "maxItems": 8, "items": { "$ref": "#/$defs/tool" } },
+    "routes": { "type": "array", "items": { "$ref": "#/$defs/route" } },
+    "requirements": { "type": "array", "items": { "$ref": "#/$defs/requirement" } },
+    "limitations": { "$ref": "#/$defs/strings" }
+  },
+  "$defs": {
+    "strings": { "type": "array", "items": { "type": "string" } },
+    "nullableString": { "type": ["string", "null"] },
+    "supportTier": { "enum": ["required", "optional", "experimental"] },
+    "availability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "status", "support_tier", "selected_executable", "version_line", "normalized_version", "diagnostic"],
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "status": { "enum": ["available", "not_probed", "missing_executable", "unsupported_version", "missing_runtime_service", "missing_credential", "missing_configuration", "unsupported_platform", "probe_failed", "unknown_provider"] },
+        "support_tier": { "$ref": "#/$defs/supportTier" },
+        "selected_executable": { "$ref": "#/$defs/nullableString" },
+        "version_line": { "$ref": "#/$defs/nullableString" },
+        "normalized_version": { "$ref": "#/$defs/nullableString" },
+        "diagnostic": { "$ref": "#/$defs/nullableString" }
+      }
+    },
+    "discovery": {
+      "oneOf": [
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["kind", "candidates", "version_args"],
+          "properties": {
+            "kind": { "const": "executable" },
+            "candidates": { "$ref": "#/$defs/strings" },
+            "version_args": { "$ref": "#/$defs/strings" }
+          }
+        },
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["kind", "service"],
+          "properties": { "kind": { "const": "runtime_service" }, "service": { "type": "string" } }
+        },
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["kind", "reason"],
+          "properties": { "kind": { "const": "unprobed" }, "reason": { "type": "string" } }
+        },
+        {
+          "type": "object", "additionalProperties": false,
+          "required": ["kind"],
+          "properties": { "kind": { "const": "virtual" } }
+        }
+      ]
+    },
+    "descriptor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "discovery", "version", "operating_systems", "architectures", "capabilities", "input_media_types", "output_media_types", "determinism", "locality", "fidelity", "required_environment", "required_configuration", "required_services", "fallbacks", "support_tier", "license_notes", "distribution_notes"],
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "discovery": { "$ref": "#/$defs/discovery" },
+        "version": {
+          "type": "object", "additionalProperties": false,
+          "required": ["min_inclusive", "max_exclusive"],
+          "properties": { "min_inclusive": { "$ref": "#/$defs/nullableString" }, "max_exclusive": { "$ref": "#/$defs/nullableString" } }
+        },
+        "operating_systems": { "$ref": "#/$defs/strings" },
+        "architectures": { "$ref": "#/$defs/strings" },
+        "capabilities": { "$ref": "#/$defs/strings" },
+        "input_media_types": { "$ref": "#/$defs/strings" },
+        "output_media_types": { "$ref": "#/$defs/strings" },
+        "determinism": { "enum": ["deterministic", "configuration_dependent", "nondeterministic"] },
+        "locality": { "enum": ["local", "local_service", "network_optional", "network_required"] },
+        "fidelity": { "enum": ["lossless", "partial_loss", "lossy", "path_dependent"] },
+        "required_environment": {
+          "type": "array",
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["name", "credential"],
+            "properties": { "name": { "type": "string" }, "credential": { "type": "boolean" } }
+          }
+        },
+        "required_configuration": { "$ref": "#/$defs/strings" },
+        "required_services": { "$ref": "#/$defs/strings" },
+        "fallbacks": { "$ref": "#/$defs/strings" },
+        "support_tier": { "$ref": "#/$defs/supportTier" },
+        "license_notes": { "$ref": "#/$defs/nullableString" },
+        "distribution_notes": { "$ref": "#/$defs/nullableString" }
+      }
+    },
+    "tool": {
+      "type": "object", "additionalProperties": false,
+      "required": ["availability", "descriptor"],
+      "properties": {
+        "availability": { "$ref": "#/$defs/availability" },
+        "descriptor": { "oneOf": [{ "$ref": "#/$defs/descriptor" }, { "type": "null" }] }
+      }
+    },
+    "route": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "implementation", "provider_status", "providers", "blocked_providers", "required_configuration", "detail"],
+      "properties": {
+        "id": { "type": "string" },
+        "implementation": { "enum": ["not_implemented", "authored_unqualified"] },
+        "provider_status": { "enum": ["available", "unavailable", "unobserved"] },
+        "providers": { "$ref": "#/$defs/strings" },
+        "blocked_providers": { "$ref": "#/$defs/strings" },
+        "required_configuration": { "$ref": "#/$defs/strings" },
+        "detail": { "type": "string" }
+      }
+    },
+    "requirement": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "status", "detail"],
+      "properties": {
+        "id": { "type": "string" },
+        "status": { "enum": ["unobserved", "configuration_required", "operator_review_required"] },
+        "detail": { "type": "string" }
+      }
+    }
+  }
+}

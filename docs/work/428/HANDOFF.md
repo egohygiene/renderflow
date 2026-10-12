@@ -1,5 +1,16 @@
 # Renderflow #428 / #440 — speech and explicit alignment checkpoint 6
 
+## 2026-10-12 merged status
+
+The user subsequently authorized merging the stack. PR #438 merged first;
+PR #439 was retargeted to `main` and merged at
+`31822e5348dd7793b1beb8a79817809aa0dc00c4`, tree
+`8fd448b5f815f599101b292994142bc1698ee612`. #428 and #440 remain open for
+deferred qualification. No tests, builds, lint, schema checks, native runs, or
+CI were executed as part of merging. Implementation continues in existing
+[#429](../429/HANDOFF.md). This status supersedes the historical draft and
+merge-authorization statements below; checkpoint details remain preserved.
+
 ## Authority and branch
 
 - Issue: https://github.com/egohygiene/renderflow/issues/428 under #421.

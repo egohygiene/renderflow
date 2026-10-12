@@ -283,6 +283,21 @@ runtime qualification, and measured synchronization evidence remain deferred.
 Resume from
 [the #428 handoff](docs/work/428/HANDOFF.md).
 
+On 2026-10-12, PR #438 and PR #439 merged in dependency order with explicit
+maintainer authorization. The implementation is on `main`; #427, #428, and
+#440 remain open for their deferred qualification work. Merge does not establish
+acceptance or release readiness.
+
+The first #429 checkpoint authors the optional `creative-publishing` doctor
+profile, independent tool observations, separate route/configuration status,
+and a JSON observation fingerprint. Four new screenplay/PDF candidates have
+no conversion edges; Afterwriting is explicitly unprobed because the reviewed
+CLI has no version-only query. Existing planner isolation is retained. The
+screenplay adapters, real fixture/release versions, platform qualification,
+and all execution checks remain outstanding; #429 is not complete. Resume
+from [the #429 handoff](docs/work/429/HANDOFF.md) and
+[profile guide](docs/user-guide/creative-toolchain.md).
+
 The exhaustive planner must materialize each eligible target identity at most
 once, suppress source-format regeneration unless explicitly requested, avoid
 repeated format nodes inside a path, and retain provider/fidelity/provenance

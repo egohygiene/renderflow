@@ -1,6 +1,75 @@
 schema: renderflow.tool-registry/v1
 
 tools:
+  # Discovery-only candidates for the explicit creative doctor profile.
+  # Empty capabilities/media types deliberately register no conversion route.
+  - id: tool.scripttool
+    name: scripttool screenplay candidate
+    discovery:
+      kind: executable
+      candidates: [scripttool]
+      version_args: [-version]
+    operating_systems: [linux, macos, windows]
+    capabilities: []
+    input_media_types: []
+    output_media_types: []
+    determinism: configuration_dependent
+    locality: local
+    fidelity: path_dependent
+    support_tier: experimental
+    license_notes: "The upstream repository LICENSE is AGPL-3.0; individual source headers retain other notices. Review the exact release and dependencies before packaging. This is an external candidate, not bundled or linked code."
+    distribution_notes: "Optional discovery for screenplay interchange issue #424; no Renderflow conversion adapter is registered. Upstream documents release/source installation for Linux, macOS, and Windows; no install or platform qualification is performed by doctor. Version argv is source-reviewed only; see docs/work/429/PROVIDER_SOURCES.md."
+
+  - id: tool.node
+    name: Node.js creative runtime candidate
+    discovery:
+      kind: executable
+      candidates: [node]
+      version_args: [--version]
+    operating_systems: [linux, macos, windows]
+    capabilities: []
+    input_media_types: []
+    output_media_types: []
+    determinism: configuration_dependent
+    locality: local
+    fidelity: path_dependent
+    support_tier: optional
+    license_notes: "Node.js uses an MIT-style license for its own code and includes separately licensed components. Record the exact distribution's notices before redistribution."
+    distribution_notes: "Optional runtime candidate for Afterwriting issue #425. Discovering Node.js does not establish an installed Afterwriting package, compatible dependency set, fonts, or a Renderflow PDF adapter. Obtain an appropriate supported runtime from nodejs.org separately; doctor never installs it."
+
+  - id: tool.afterwriting
+    name: Afterwriting screenplay PDF candidate
+    discovery:
+      kind: unprobed
+      reason: "The reviewed Afterwriting CLI exposes no version-only option. Doctor does not launch it, infer package identity from help output, or claim it is installed. Package and dependency identity need a separate qualification contract."
+    operating_systems: [linux, macos, windows]
+    capabilities: []
+    input_media_types: []
+    output_media_types: []
+    determinism: configuration_dependent
+    locality: local
+    fidelity: path_dependent
+    support_tier: experimental
+    license_notes: "Afterwriting's README and package metadata declare MIT. Fonts and third-party dependencies have separate licenses; Courier Prime, for example, carries SIL OFL-1.1. No fonts or packages are bundled or qualified here."
+    distribution_notes: "Optional candidate for issue #425. Upstream npm package afterwriting declares executable afterwriting -> awc.js and documents npm or source installation with Node.js. It documents --help, not --version; this descriptor intentionally remains not_probed. Platform/package/font compatibility and the Renderflow PDF adapter remain unqualified."
+
+  - id: tool.pdftotext
+    name: Poppler pdftotext creative QA candidate
+    discovery:
+      kind: executable
+      candidates: [pdftotext]
+      version_args: [-v]
+    operating_systems: [linux, macos, windows]
+    capabilities: []
+    input_media_types: []
+    output_media_types: []
+    determinism: configuration_dependent
+    locality: local
+    fidelity: partial_loss
+    support_tier: optional
+    license_notes: "Poppler is GPL licensed; pdftotext source identifies Poppler changes as GPL-2.0-or-later. Distribution dependencies and notices require separate review. This candidate is not bundled or linked."
+    distribution_notes: "Optional PDF text QA candidate. The source-reviewed -v probe prints version information to stderr. A successful executable probe does not attest that a same-named binary is Poppler or establish PDF extraction fidelity. Install Poppler utilities separately through an appropriate distribution; no conversion route is registered."
+
   - id: tool.renderflow-epub
     name: Renderflow fixed-layout EPUB packager
     discovery:
