@@ -220,6 +220,16 @@
             "null"
           ]
         },
+        "subtitles": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/subtitles"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "timeout_policy": {
           "type": [
             "string",
@@ -234,6 +244,20 @@
         },
         "validation": {
           "$ref": "#/$defs/validation"
+        }
+      },
+      "type": "object"
+    },
+    "subtitles": {
+      "additionalProperties": false,
+      "properties": {
+        "stream_index": {
+          "maximum": 4294967295,
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
         }
       },
       "type": "object"

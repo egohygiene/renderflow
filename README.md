@@ -30,7 +30,8 @@ The official documentation site is published at <https://egohygiene.github.io/re
 
 The [subtitle workflow](docs/user-guide/subtitles.md) is an **unvalidated draft**
 under [#427](https://github.com/egohygiene/renderflow/issues/427): standalone
-SRT/WebVTT conversion and bounded local subtitle extraction. See the
+SRT/WebVTT conversion, bounded local subtitle extraction, and opt-in graph/SDK
+routes through a canonical transcript artifact. See the
 [checkpoint handoff](docs/work/427/HANDOFF.md) before relying on it.
 
 ---

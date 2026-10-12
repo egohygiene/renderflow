@@ -7,6 +7,7 @@
 //! milliseconds in the shared SRT/WebVTT range 00:00:00.000–99:59:59.999.
 
 mod codec;
+pub mod graph;
 pub mod provider;
 
 use std::collections::BTreeSet;

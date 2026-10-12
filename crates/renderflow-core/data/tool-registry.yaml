@@ -17,6 +17,28 @@ tools:
     license_notes: "In-process Renderflow implementation; see the Renderflow repository license."
     distribution_notes: "Exact bounded ordered-page PNG/JPEG route only; SVG, reflowable EPUB, fixed-layout KEPUB, retailer acceptance, and optional EPUBCheck conformance are separate contracts."
 
+  - id: tool.renderflow-timed-text
+    name: Renderflow plain timed-text codec
+    discovery:
+      kind: virtual
+    operating_systems: [linux, macos, windows]
+    capabilities:
+      - subtitle.convert.plain
+    input_media_types:
+      - application/x-subrip
+      - text/vtt
+      - application/vnd.renderflow.timed-transcript+json
+    output_media_types:
+      - application/x-subrip
+      - text/vtt
+      - application/vnd.renderflow.timed-transcript+json
+    determinism: deterministic
+    locality: local
+    fidelity: path_dependent
+    support_tier: experimental
+    license_notes: "In-process Renderflow implementation; see the Renderflow repository license."
+    distribution_notes: "Explicitly enabled graph/SDK route for the bounded plain-text SRT/WebVTT and renderflow.timed-transcript/v1 profile. Export losses are recorded; ASS/SSA/TTML, plain-text graph output, and speech recognition are excluded. Implementation is authored and unqualified; virtual availability does not establish tested behavior."
+
   - id: tool.lulu-rules
     name: Pinned Lulu publication rule pack
     discovery:

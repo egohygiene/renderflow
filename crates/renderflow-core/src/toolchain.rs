@@ -1269,6 +1269,7 @@ mod tests {
         assert!(registry.get("tool.tectonic").is_some());
         assert!(registry.get("tool.ffmpeg").is_some());
         assert!(registry.get("tool.ffprobe").is_some());
+        assert!(registry.get("tool.renderflow-timed-text").is_some());
         assert!(registry.get("tool.ghostscript").is_some());
     }
 

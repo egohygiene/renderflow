@@ -112,6 +112,7 @@ impl ValidationRegistry {
         let mut registry = Self::new();
         registry.register(Arc::new(NonEmptyValidator));
         registry.register(Arc::new(Utf8Validator));
+        registry.register(Arc::new(TimedTextValidator));
         registry.register(Arc::new(JsonValidator));
         registry.register(Arc::new(YamlValidator));
         registry.register(Arc::new(MarkupValidator));
@@ -234,6 +235,9 @@ impl ValidationRegistry {
     fn default_validator_ids(&self, format: Format) -> Vec<String> {
         let mut ids = vec!["validator.core.non_empty".to_string()];
         let specific = match format {
+            Format::Srt | Format::WebVtt | Format::TimedTranscriptJson => {
+                Some("validator.core.timed_text")
+            }
             Format::Json => Some("validator.core.json"),
             Format::Yaml => Some("validator.core.yaml"),
             Format::Html | Format::Xml | Format::Svg => Some("validator.core.markup"),
@@ -248,9 +252,7 @@ impl ValidationRegistry {
             | Format::Rst
             | Format::Latex
             | Format::Fountain
-            | Format::Toml
-            | Format::Srt
-            | Format::WebVtt => Some("validator.core.utf8"),
+            | Format::Toml => Some("validator.core.utf8"),
             _ => Some("validator.core.declared_signature"),
         };
         if let Some(specific) = specific {
@@ -376,6 +378,63 @@ impl ArtifactValidator for Utf8Validator {
             Err(_) => Ok(ValidationCheck::invalid(
                 "validation.invalid_utf8",
                 "Text artifact is not valid UTF-8",
+            )),
+        }
+    }
+}
+
+/// Validate the bounded plain-text subtitle profile, including its canonical
+/// transcript JSON. Generic JSON remains a separate format and validator.
+struct TimedTextValidator;
+
+impl ArtifactValidator for TimedTextValidator {
+    fn descriptor(&self) -> ValidatorDescriptor {
+        descriptor(
+            "validator.core.timed_text",
+            &[Format::Srt, Format::WebVtt, Format::TimedTranscriptJson],
+            ValidatorSupportTier::Experimental,
+        )
+    }
+
+    fn validate(&self, artifact: &Artifact, store: &ArtifactStore) -> Result<ValidationCheck> {
+        use crate::timed_text::{self, TimedTextFormat, MAX_INPUT_BYTES};
+
+        let format = match artifact.format().as_str().parse::<Format>()? {
+            Format::Srt => TimedTextFormat::Srt,
+            Format::WebVtt => TimedTextFormat::WebVtt,
+            Format::TimedTranscriptJson => TimedTextFormat::Json,
+            _ => {
+                return Ok(ValidationCheck::unavailable(
+                    "validation.format_unsupported",
+                    "Timed-text validation requires SRT, WebVTT, or timed-transcript JSON",
+                ));
+            }
+        };
+        let too_large = || {
+            ValidationCheck::invalid(
+                "validation.timed_text_too_large",
+                "Timed-text artifact exceeds the 16 MiB input limit",
+            )
+        };
+        if artifact.size_bytes() > MAX_INPUT_BYTES as u64 {
+            return Ok(too_large());
+        }
+        let file = store.open(artifact)?;
+        if file.metadata()?.len() > MAX_INPUT_BYTES as u64 {
+            return Ok(too_large());
+        }
+        // Bound the actual read as well as both size declarations: an object
+        // may have grown after its metadata was observed.
+        let mut bytes = Vec::new();
+        file.take(MAX_INPUT_BYTES as u64 + 1).read_to_end(&mut bytes)?;
+        if bytes.len() > MAX_INPUT_BYTES {
+            return Ok(too_large());
+        }
+        match timed_text::parse(&bytes, format) {
+            Ok(_) => Ok(ValidationCheck::valid()),
+            Err(error) => Ok(ValidationCheck::invalid(
+                "validation.invalid_timed_text",
+                error.to_string(),
             )),
         }
     }
@@ -853,6 +912,106 @@ fn golden_fixture_ids(format: &str) -> Vec<String> {
 mod tests {
     use super::*;
     use crate::artifact::{ArtifactDescriptor, ArtifactStorageClass};
+
+    fn timed_text_outcome(format: Format, bytes: &[u8]) -> ArtifactValidationOutcome {
+        let directory = tempfile::tempdir().unwrap();
+        let store = ArtifactStore::new(directory.path()).unwrap();
+        let artifact = store
+            .put_bytes(
+                bytes,
+                ArtifactDescriptor::for_format(format, ArtifactStorageClass::Terminal),
+            )
+            .unwrap();
+        ValidationRegistry::builtins().validate_in_store(&artifact, format, &[], &store)
+    }
+
+    #[test]
+    fn subtitle_defaults_parse_timing_and_supported_profile() {
+        for (format, bytes) in [
+            (Format::Srt, b"1\n00:00:01,000 --> 00:00:02,000\nHello.\n".as_slice()),
+            (Format::WebVtt, b"WEBVTT\n\ncue-one\n00:00:01.000 --> 00:00:02.000\nHello.\n".as_slice()),
+        ] {
+            let outcome = timed_text_outcome(format, bytes);
+            assert_eq!(outcome.state, ValidationState::Valid);
+            assert!(outcome.validators.iter().any(|evidence| {
+                evidence.validator_id == "validator.core.timed_text"
+                    && evidence.state == ValidationState::Valid
+            }));
+            assert!(!outcome.validators.iter().any(|evidence| {
+                evidence.validator_id == "validator.core.utf8"
+            }));
+        }
+    }
+
+    #[test]
+    fn subtitle_defaults_refuse_utf8_with_invalid_timing_or_unsupported_features() {
+        for (format, bytes) in [
+            (Format::Srt, b"1\n00:00:02,000 --> 00:00:01,000\nHello.\n".as_slice()),
+            (Format::Srt, b"1\n00:00:01,000 --> 00:00:02,000\n<i>Hello.</i>\n".as_slice()),
+            (Format::WebVtt, b"WEBVTT\n\n00:00:01.000 --> 00:00:02.000 align:start\nHello.\n".as_slice()),
+            (Format::WebVtt, b"WEBVTT\n\nSTYLE\n::cue { color: lime; }\n".as_slice()),
+            (Format::Srt, b"ordinary nonempty UTF-8 text".as_slice()),
+        ] {
+            let outcome = timed_text_outcome(format, bytes);
+            assert_eq!(outcome.state, ValidationState::Invalid);
+            assert!(outcome.validators.iter().any(|evidence| {
+                evidence.diagnostics.iter().any(|diagnostic| {
+                    diagnostic.code == "validation.invalid_timed_text"
+                })
+            }));
+        }
+    }
+
+    #[test]
+    fn canonical_transcript_validation_is_distinct_from_generic_json() {
+        use crate::timed_text::{self, TimedTextFormat};
+
+        let transcript = timed_text::parse(
+            b"1\n00:00:01,000 --> 00:00:02,000\nHello.\n",
+            TimedTextFormat::Srt,
+        ).unwrap();
+        let bytes = timed_text::render(&transcript, TimedTextFormat::Json).unwrap();
+        assert_eq!(
+            timed_text_outcome(Format::TimedTranscriptJson, &bytes).state,
+            ValidationState::Valid,
+        );
+        assert_eq!(
+            timed_text_outcome(Format::TimedTranscriptJson, b"{}").state,
+            ValidationState::Invalid,
+        );
+        assert_eq!(
+            timed_text_outcome(Format::Json, b"{}").state,
+            ValidationState::Valid,
+        );
+        let mut invalid: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        invalid["cues"][0]["end_ms"] = serde_json::json!(0);
+        assert_eq!(
+            timed_text_outcome(Format::TimedTranscriptJson, &serde_json::to_vec(&invalid).unwrap()).state,
+            ValidationState::Invalid,
+        );
+    }
+
+    #[test]
+    fn timed_text_validator_bounds_actual_file_before_payload_allocation() {
+        let directory = tempfile::tempdir().unwrap();
+        let store = ArtifactStore::new(directory.path()).unwrap();
+        let artifact = store.put_bytes(
+            b"small",
+            ArtifactDescriptor::for_format(Format::Srt, ArtifactStorageClass::Terminal),
+        ).unwrap();
+        // Simulate an object growing after import without allocating a large
+        // in-memory fixture. Call the structural validator directly so the
+        // independent immutable-digest guard does not mask this size check.
+        std::fs::OpenOptions::new()
+            .write(true)
+            .open(store.payload_path(&artifact).unwrap())
+            .unwrap()
+            .set_len(crate::timed_text::MAX_INPUT_BYTES as u64 + 1)
+            .unwrap();
+        let check = TimedTextValidator.validate(&artifact, &store).unwrap();
+        assert_eq!(check.state, ValidationState::Invalid);
+        assert_eq!(check.diagnostics[0].code, "validation.timed_text_too_large");
+    }
 
     #[test]
     fn truncated_png_is_invalid_even_when_non_empty() {

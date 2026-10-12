@@ -19,6 +19,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use thiserror::Error;
 
+use crate::graph::Format;
 use crate::process::{
     ProcessCancellationToken, ProcessEnvironment, ProcessError, ProcessExecutor,
     ProcessNetworkPolicy, ProcessOutputMode, ProcessRequest, ProcessResult, ProcessTermination,
@@ -147,6 +148,39 @@ pub fn extract_with_cancellation(
     cancellation: ProcessCancellationToken,
 ) -> Result<TimedTranscript, SubtitleProviderError> {
     let source = SourceSnapshot::read(input, &cancellation)?;
+    extract_snapshot(source, stream_index, cancellation)
+}
+
+/// Extract from an immutable artifact-store object, whose filename has no
+/// extension. Only the graph's closed format enum may select this demuxer.
+/// The supplied object digest is checked before any native process is started;
+/// no original source path is reopened and no media copy is staged for a suffix.
+pub(crate) fn extract_stored(
+    input: &Path,
+    format: Format,
+    expected_sha256: &str,
+    stream_index: u32,
+    cancellation: ProcessCancellationToken,
+) -> Result<TimedTranscript, SubtitleProviderError> {
+    let extension = match format {
+        Format::Mkv => "mkv",
+        Format::WebM => "webm",
+        Format::Mp4 => "mp4",
+        Format::Mov => "mov",
+        _ => return Err(SubtitleProviderError::UnsupportedContainer(format.to_string())),
+    };
+    let source = SourceSnapshot::read_as(input, Some(extension), &cancellation)?;
+    if source.sha256 != expected_sha256 {
+        return Err(SubtitleProviderError::SourceChanged);
+    }
+    extract_snapshot(source, stream_index, cancellation)
+}
+
+fn extract_snapshot(
+    source: SourceSnapshot,
+    stream_index: u32,
+    cancellation: ProcessCancellationToken,
+) -> Result<TimedTranscript, SubtitleProviderError> {
     let executor = ProcessExecutor::new();
     let inspection = inspect_source(&source, &executor, &cancellation)?;
     let stream = selected_stream(&inspection.streams, stream_index)?;
@@ -489,6 +523,14 @@ struct SourceSnapshot {
 
 impl SourceSnapshot {
     fn read(input: &Path, cancellation: &ProcessCancellationToken) -> Result<Self, SubtitleProviderError> {
+        Self::read_as(input, None, cancellation)
+    }
+
+    fn read_as(
+        input: &Path,
+        declared_extension: Option<&str>,
+        cancellation: &ProcessCancellationToken,
+    ) -> Result<Self, SubtitleProviderError> {
         ensure_not_cancelled(cancellation)?;
         let metadata = fs::symlink_metadata(input)
             .map_err(|error| SubtitleProviderError::InvalidSource(error.to_string()))?;
@@ -496,7 +538,8 @@ impl SourceSnapshot {
             return Err(SubtitleProviderError::InvalidSource(input.display().to_string()));
         }
         let path = fs::canonicalize(input)?;
-        let extension = path.extension().and_then(|extension| extension.to_str())
+        let extension = declared_extension
+            .or_else(|| path.extension().and_then(|extension| extension.to_str()))
             .unwrap_or("").to_ascii_lowercase();
         let container = Container::from_extension(&extension)?;
         // Validate representability before hashing a potentially large file.
@@ -661,5 +704,20 @@ mod tests {
     fn overlarge_probe_capture_is_not_parsed_as_complete() {
         let bytes = vec![b' '; MAX_PROBE_BYTES + 1];
         assert!(matches!(parse_probe(&bytes), Err(SubtitleProviderError::TruncatedCapture(_))));
+    }
+
+    #[test]
+    fn stored_media_uses_declared_format_without_a_suffix_or_media_copy() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("0123456789abcdef");
+        fs::write(&path, b"synthetic container").unwrap();
+        let token = ProcessCancellationToken::new();
+        let snapshot = SourceSnapshot::read_as(&path, Some("mkv"), &token).unwrap();
+        assert_eq!(snapshot.path, fs::canonicalize(&path).unwrap());
+        assert_eq!(snapshot.extension, "mkv");
+        assert_eq!(snapshot.container, Container::Matroska);
+        assert_eq!(fs::read_dir(directory.path()).unwrap().count(), 1);
+        assert!(matches!(extract_stored(&path, Format::Mkv, &"0".repeat(64), 2, token),
+            Err(SubtitleProviderError::SourceChanged)));
     }
 }

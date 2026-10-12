@@ -86,7 +86,78 @@ The export report hashes the immediate input as well as retaining the original
 source metadata carried by a supplied transcript; supplied provenance is not
 independently attested by JSON validation.
 
-These are standalone CLI and Rust module operations. They do not yet add
-subtitle execution edges to `build`, the exhaustive forest, or Flow's released
-provider contract. Speech recognition is #428; temporal editing belongs to
-Aniflow.
+## Opt in to graph and SDK execution
+
+The second draft checkpoint connects the same codecs to canonical `build`
+planning and the Rust SDK. The optional `execution.subtitles` object enables
+these routes; omitting it leaves subtitle graph routes disabled. This is still
+unvalidated implementation work, not a released Flow provider qualification.
+
+For a local SRT file, save this as `subtitles.yaml` beside `captions.srt`:
+
+```yaml
+schema: renderflow/v2
+sources:
+  - id: captions
+    path: captions.srt
+    format: srt
+targets:
+  exact:
+    - format: timed_transcript_json
+      role: transcript
+    - format: vtt
+      role: captions
+execution:
+  subtitles: {}
+output:
+  bundle_root: dist
+```
+
+```bash
+renderflow build --config "subtitles.yaml"
+```
+
+The graph parses SRT into a first-class `timed_transcript_json` artifact, then
+exports WebVTT from that artifact. With the default naming template, this
+configuration selects `dist/captions/transcript.timed-transcript.json` and
+`dist/captions/captions.vtt`. Keep the JSON target when you want a portable copy
+of provenance and editorial metadata. Generic `json` is a different format;
+use `timed_transcript_json` or the `.timed-transcript.json` filename suffix for
+transcript input. Intake also recognizes the exact transcript schema marker;
+the codec still validates the full model before conversion. Plain transcript
+text remains a standalone CLI export.
+
+For embedded subtitles, change the source to a supported `mkv`, `webm`, `mp4`,
+or `mov` artifact, and select the absolute subtitle index discovered with
+`subtitles inspect`:
+
+```yaml
+execution:
+  subtitles:
+    stream_index: 2
+```
+
+The planner never defaults to the first stream. A stream index on a subtitle
+text source, an unsupported container, or a collection is refused. One selected
+stream per execution is supported. Extraction reads the imported artifact-store
+bytes directly; it does not reopen the original media or copy it just to add a
+filename extension. The regular artifact-store source import still requires
+storage for a source copy. Native extraction bypasses cache/checkpoint reuse
+while provider versions are not pinned to the planned snapshot.
+
+SDK callers use the existing `Engine::plan`, `Engine::resolve_execution`, and
+`Engine::execute_resolved` interfaces with the same configuration. The SDK's
+cancellation token reaches native extraction, and subtitle cancellation is
+recorded as cancellation in step evidence.
+
+Parser-backed validators check SRT, WebVTT, and transcript JSON outputs against
+the same strict profile. Native `renderflow-run.json` artifact metadata under
+`renderflow.subtitle` retains immediate input hashes, transcript provenance,
+selected stream/provider evidence, prior losses, and export losses. Export
+artifacts reference the canonical transcript through
+their source IDs. Flow's existing `flow.artifact/v1` projection retains artifact
+digests and lineage but has no metadata field: detailed evidence remains in the
+canonical JSON and native run manifest. Supplied JSON provenance is still not
+independently attested.
+
+Speech recognition is #428; temporal editing belongs to Aniflow.

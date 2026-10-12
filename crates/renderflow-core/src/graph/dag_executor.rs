@@ -165,8 +165,14 @@ fn failed_step(
     let fixed_epub_failure = error
         .chain()
         .find_map(|cause| cause.downcast_ref::<crate::fixed_layout_epub::FixedEpubError>());
+    let subtitle_failure = error.chain().find_map(|cause| {
+        cause.downcast_ref::<crate::timed_text::provider::SubtitleProviderError>()
+    });
     let cancelled = provider_failure.is_some_and(|failure| failure.cancelled)
-        || fixed_epub_failure.is_some_and(|failure| failure.cancelled);
+        || fixed_epub_failure.is_some_and(|failure| failure.cancelled)
+        || subtitle_failure.is_some_and(|failure| {
+            matches!(failure, crate::timed_text::provider::SubtitleProviderError::Cancelled)
+        });
     StepEvidence {
         step_id: step_id.clone(),
         transform: edge_identity(edge),
@@ -211,8 +217,9 @@ fn failed_step(
                 .map(|failure| failure.code)
                 .or_else(|| inspection_failure.map(|failure| failure.code))
                 .or_else(|| fixed_epub_failure.map(|failure| failure.code))
-                .unwrap_or("execution.transform_failed")
-                .to_string(),
+                .map(str::to_string)
+                .or_else(|| subtitle_failure.map(|failure| format!("subtitle.{}", failure.code())))
+                .unwrap_or_else(|| "execution.transform_failed".to_string()),
             message,
             step_id: Some(step_id),
         }],
@@ -1216,6 +1223,39 @@ mod tests {
 
     use super::*;
     use crate::graph::{InputKind, TransformGraph};
+
+    #[test]
+    fn subtitle_provider_cancellation_retains_typed_step_evidence() {
+        let edge = TransformEdge::new(Format::Mkv, Format::TimedTranscriptJson, 1.0, 1.0)
+            .with_provider("adapter.subtitles.ffmpeg", "subtitle.extract.plain");
+        let error = anyhow::Error::new(crate::timed_text::provider::SubtitleProviderError::Cancelled)
+            .context("Subtitle extraction transform failed");
+        let step = failed_step(&edge, None, &error, 0, 1);
+        assert_eq!(step.state, StepState::Cancelled);
+        assert_eq!(step.validation, ValidationState::Skipped);
+        assert!(step.output_artifacts.is_empty());
+        assert_eq!(step.diagnostics[0].severity, DiagnosticSeverity::Cancelled);
+        assert_eq!(step.diagnostics[0].code, "subtitle.cancelled");
+    }
+
+    #[test]
+    fn subtitle_provider_failure_preserves_specific_diagnostic_code() {
+        let edge = TransformEdge::new(Format::Mkv, Format::TimedTranscriptJson, 1.0, 1.0)
+            .with_provider("adapter.subtitles.ffmpeg", "subtitle.extract.plain");
+        for (failure, code) in [
+            (crate::timed_text::provider::SubtitleProviderError::SourceChanged, "subtitle.source_changed"),
+            (crate::timed_text::provider::SubtitleProviderError::StreamNotFound(7), "subtitle.stream_not_found"),
+            (crate::timed_text::provider::SubtitleProviderError::MissingProvider("ffmpeg".to_string()), "subtitle.missing_provider"),
+        ] {
+            let error = anyhow::Error::new(failure).context("Subtitle extraction transform failed");
+            let step = failed_step(&edge, None, &error, 0, 1);
+            assert_eq!(step.state, StepState::Failed);
+            assert_eq!(step.validation, ValidationState::Unavailable);
+            assert!(step.output_artifacts.is_empty());
+            assert_eq!(step.diagnostics[0].severity, DiagnosticSeverity::FatalFailure);
+            assert_eq!(step.diagnostics[0].code, code);
+        }
+    }
 
     struct AppendTransform(&'static str);
 

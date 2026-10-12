@@ -238,9 +238,11 @@ embedded subtitle extraction from speech recognition.
 
 The #427 candidate authors a standalone `subtitles inspect/convert/extract`
 CLI, `renderflow.timed-transcript/v1`, strict plain-text SRT/WebVTT codecs,
-and bounded FFprobe/FFmpeg adapters. It is **unvalidated draft work**: no
-executable checks or native-provider fixtures have run. New executable graph
-edges, released support, and completion are not claimed. Resume from
+and bounded FFprobe/FFmpeg adapters. Its second checkpoint adds opt-in
+`execution.subtitles` graph/SDK routes through a canonical transcript artifact,
+parser-backed validation, and native manifest provenance/loss evidence.
+It is **unvalidated draft work**: no executable checks or native-provider
+fixtures have run. Released support and completion are not claimed. Resume from
 [the #427 handoff](docs/work/427/HANDOFF.md); #428 remains separate.
 
 The exhaustive planner must materialize each eligible target identity at most
