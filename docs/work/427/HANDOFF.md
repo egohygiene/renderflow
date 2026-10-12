@@ -200,9 +200,15 @@ automation may react to a PR independently of this worker.
    to its completion pass. Hosted CI/release evidence stays separate.
 
 Keep #427 open until its acceptance criteria are actually proven. Do not use
-an automatic closing keyword in this draft PR. The user has authorized the
-focused integration check, but it remains environment-blocked; do not treat
-provider-only smoke as proof of the shared transcript contract for #428.
+an automatic closing keyword in this draft PR. After checkpoint 4, the user
+explicitly deferred tests again and authorized implementation-first progress.
+#428 may proceed in a dependent draft while this validation debt stays open;
+provider-only smoke is not proof of the shared transcript contract.
+
+Source inspection during that continuation found the two new integration
+targets imported the private `renderflow::sdk` module. They now import the
+existing public crate-root re-exports. This concrete source correction is
+uncompiled and does not change the recorded checkpoint-4 execution results.
 
 ## Resume and parallel work
 
