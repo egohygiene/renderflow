@@ -244,6 +244,16 @@
         },
         "validation": {
           "$ref": "#/$defs/validation"
+        },
+        "speech": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/speechPolicy"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "type": "object"
@@ -1273,6 +1283,171 @@
         }
       },
       "type": "object"
+    },
+    "speechPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "allOf": [{
+        "if": {"properties": {"saved_results": {"const": "reuse_if_available"}}, "required": ["saved_results"]},
+        "then": {"properties": {"recovery": {"type": "null"}}}
+      }],
+      "required": [
+        "source_sha256",
+        "provider",
+        "model"
+      ],
+      "properties": {
+        "source_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "provider": {
+          "$ref": "#/$defs/speechTool"
+        },
+        "model": {
+          "$ref": "#/$defs/speechModel"
+        },
+        "options": {
+          "$ref": "#/$defs/speechOptions"
+        },
+        "audio": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/speechAudio"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "saved_results": {
+          "enum": ["disabled", "reuse_if_available"],
+          "default": "disabled",
+          "description": "Opt-in verified historical result discovery in the local artifact store; a present invalid entry fails without native fallback."
+        },
+        "recovery": {
+          "anyOf": [
+            { "$ref": "#/$defs/speechRecovery" },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
+    "speechRecovery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["receipt_path", "receipt_sha256"],
+      "properties": {
+        "receipt_path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096,
+          "description": "Absolute local saved-result receipt path without parent traversal or control characters. Explicit historical replay fails without native fallback."
+        },
+        "receipt_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "speechTool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096,
+          "description": "Absolute local file path without parent traversal or control characters; interpreted on the execution host."
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "speechModel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256",
+        "id"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096,
+          "description": "Absolute local file path without parent traversal or control characters; interpreted on the execution host."
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      }
+    },
+    "speechAudio": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stream_index",
+        "ffprobe",
+        "ffmpeg"
+      ],
+      "properties": {
+        "stream_index": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "ffprobe": {
+          "$ref": "#/$defs/speechTool"
+        },
+        "ffmpeg": {
+          "$ref": "#/$defs/speechTool"
+        },
+        "timeout_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3600,
+          "default": 300
+        }
+      }
+    },
+    "speechOptions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "language",
+        "threads",
+        "timeout_seconds"
+      ],
+      "properties": {
+        "language": {
+          "type": "string",
+          "pattern": "^(auto|[a-z]{2,3})$"
+        },
+        "threads": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 64
+        },
+        "timeout_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3600
+        }
+      }
     }
   },
   "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-v2.schema.json",

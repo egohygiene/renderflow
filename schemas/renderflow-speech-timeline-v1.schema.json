@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-speech-timeline-v1.schema.json",
+  "title": "Renderflow retained speech timeline assessment v1",
+  "description": "Read-only clock assessment from a verified saved speech result. Original strict WAV cues address that input's sample clock. Every prepared-media result requires a verified sample-to-media mapping; reported stream start time is informational only.",
+  "$comment": "Schema validation cannot verify retained bytes, reconstruction from raw recognition output, source identities, or recognition accuracy. Public assessment APIs require the recovery verifier's opaque saved result. Original source identity is recorded evidence; the original media file is not read again. No offset is inferred and no cues are shifted. This assessment establishes no alignment to another video or synchronization accuracy.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "status", "timestamp_origin", "verification_scope", "original_source_sha256",
+    "transcript_source_sha256", "provider_output_sha256", "speech_reuse_key", "limitations"
+  ],
+  "properties": {
+    "schema_version": { "const": "renderflow.speech-timeline/v1" },
+    "status": { "enum": ["original_input_wav_sample_clock", "original_media_mapping_required"] },
+    "timestamp_origin": { "enum": ["input_wav_samples_from_zero", "selected_stream_decoded_samples_from_zero"] },
+    "verification_scope": { "const": "retained_bundle_and_recorded_source_identity" },
+    "original_source_sha256": { "$ref": "#/$defs/sha256" },
+    "transcript_source_sha256": { "$ref": "#/$defs/sha256" },
+    "provider_output_sha256": { "$ref": "#/$defs/sha256" },
+    "speech_reuse_key": { "$ref": "#/$defs/sha256" },
+    "prepared_audio": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["prepared_wav_sha256", "prepared_wav_duration_ms", "selected_stream_index"],
+      "properties": {
+        "prepared_wav_sha256": { "$ref": "#/$defs/sha256" },
+        "prepared_wav_duration_ms": { "type": "integer", "minimum": 1, "maximum": 600000 },
+        "selected_stream_index": { "type": "integer", "minimum": 0, "maximum": 4294967295 },
+        "recorded_stream_start_time_ms": { "type": "integer", "minimum": -9223372036854775808, "maximum": 9223372036854775807 }
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1, "maxLength": 4096 }
+    }
+  },
+  "if": { "properties": { "status": { "const": "original_media_mapping_required" } } },
+  "then": {
+    "required": ["prepared_audio"],
+    "properties": { "timestamp_origin": { "const": "selected_stream_decoded_samples_from_zero" } }
+  },
+  "else": {
+    "properties": {
+      "timestamp_origin": { "const": "input_wav_samples_from_zero" },
+      "prepared_audio": false
+    }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+  }
+}

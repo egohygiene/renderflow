@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-speech-transcription-v1.schema.json",
+  "title": "Renderflow speech transcription v1",
+  "description": "Unreviewed local speech-recognition segments wrapped with provider, model, source, configuration, normalization, and uncertainty evidence. Optional audio preparation records original media, explicitly selected audio stream, and pinned decoding tools. The embedded timed transcript retains its existing v1 contract and addresses the prepared WAV.",
+  "$comment": "Application validation additionally enforces a 16 MiB provider input and compact encoded envelope limit; rejects duplicate keys in all provider objects; validates cue byte limits, ordering, durations, unique IDs and plain text; and checks requested/detected language consistency. The runtime adapter checks provider-reported model path against invocation, source duration, and original byte identities. Equality across source.sha256, identity.source_sha256, audio_preparation.prepared_wav_sha256, language fields and recomputed SHA-256 values cannot be established by this schema alone. Prepared timestamps count decoded samples from zero, not the original video clock. Provider token probabilities are not calibrated accuracy and are not exported as confidence. Reuse identity includes the original media and selection when preparation is present, but does not activate caching.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "transcript", "evidence"],
+  "properties": {
+    "schema_version": { "const": "renderflow.speech-transcription/v1" },
+    "transcript": {
+      "allOf": [
+        { "$ref": "renderflow-timed-transcript-v1.schema.json" },
+        {
+          "type": "object",
+          "required": ["language"],
+          "properties": {
+            "source": {
+              "properties": {
+                "format": { "const": "wav" },
+                "stream": false,
+                "extraction": false
+              }
+            },
+            "language": { "$ref": "#/$defs/detectedLanguage" },
+            "overlap_policy": { "const": "preserve" },
+            "losses": { "const": [] },
+            "cues": {
+              "items": {
+                "properties": {
+                  "id": { "type": "string", "pattern": "^speech-[0-9]{6}$" },
+                  "speaker": false
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "evidence": { "$ref": "#/$defs/evidence" }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "label": {
+      "type": "string",
+      "minLength": 1,
+      "allOf": [
+        { "pattern": "\\S" },
+        { "not": { "pattern": "[\\u0000-\\u001f\\u007f-\\u009f]" } }
+      ]
+    },
+    "requestedLanguage": { "type": "string", "pattern": "^(auto|[a-z]{2,3})$" },
+    "detectedLanguage": { "type": "string", "pattern": "^[a-z]{2,3}$" },
+    "options": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["language", "threads", "timeout_seconds"],
+      "properties": {
+        "language": { "$ref": "#/$defs/requestedLanguage" },
+        "threads": { "type": "integer", "minimum": 1, "maximum": 64 },
+        "timeout_seconds": { "type": "integer", "minimum": 1, "maximum": 3600 }
+      }
+    },
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider_id", "provider_version", "provider_sha256", "model_id", "model_sha256", "source_sha256"],
+      "properties": {
+        "provider_id": { "allOf": [{ "$ref": "#/$defs/label" }, { "maxLength": 256 }] },
+        "provider_version": { "allOf": [{ "$ref": "#/$defs/label" }, { "maxLength": 4096 }] },
+        "provider_sha256": { "$ref": "#/$defs/sha256" },
+        "model_id": { "allOf": [{ "$ref": "#/$defs/label" }, { "maxLength": 256 }] },
+        "model_sha256": { "$ref": "#/$defs/sha256" },
+        "source_sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "identity", "options", "provider_output_sha256", "configuration_sha256", "reuse_key",
+        "provider_reported_model", "provider_reported_language", "requested_language", "detected_language",
+        "timestamp_policy", "text_normalization", "trimmed_segment_count", "confidence", "human_reviewed", "limitations"
+      ],
+      "properties": {
+        "identity": { "$ref": "#/$defs/identity" },
+        "options": { "$ref": "#/$defs/options" },
+        "provider_output_sha256": { "$ref": "#/$defs/sha256" },
+        "configuration_sha256": { "$ref": "#/$defs/sha256" },
+        "reuse_key": { "$ref": "#/$defs/sha256" },
+        "provider_reported_model": { "allOf": [{ "$ref": "#/$defs/label" }, { "maxLength": 4096 }] },
+        "provider_reported_language": { "$ref": "#/$defs/requestedLanguage" },
+        "requested_language": { "$ref": "#/$defs/requestedLanguage" },
+        "detected_language": { "$ref": "#/$defs/detectedLanguage" },
+        "timestamp_policy": { "const": "provider_segment_milliseconds" },
+        "text_normalization": { "const": "trim_segment_edges" },
+        "trimmed_segment_count": { "type": "integer", "minimum": 0, "maximum": 100000 },
+        "confidence": { "const": "unavailable" },
+        "human_reviewed": { "const": false },
+        "audio_preparation": { "$ref": "renderflow-audio-inventory-v1.schema.json#/$defs/audioPreparation" },
+        "limitations": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": { "allOf": [{ "$ref": "#/$defs/label" }, { "maxLength": 4096 }] }
+        }
+      }
+    }
+  }
+}

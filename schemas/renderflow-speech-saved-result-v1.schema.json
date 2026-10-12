@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-speech-saved-result-v1.schema.json",
+  "title": "Renderflow portable saved speech result v1",
+  "description": "An explicitly pinned historical speech result. The fixed saved-result.json receipt accompanies transcript.timed-transcript.json, provider-output.json, transcription.json, and optional audio-probe.json/prepared.wav.",
+  "$comment": "Readers enforce a 256 KiB receipt bound, caller-supplied SHA-256, complete artifact relationships, exact provider normalization, bounded payload hashes, and preparation semantics. Source payload and native tools are absent from the bundle. source_wav_duration_ms is a recorded observation; execution rechecks the current original WAV. The receipt is not a signature, process attestation, or promise of reproducible inference.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "profile", "configuration_sha256", "policy", "source", "canonical"],
+  "properties": {
+    "schema_version": { "const": "renderflow.speech-saved-result/v1" },
+    "profile": { "const": "portable-speech-output-replay/v1" },
+    "configuration_sha256": { "$ref": "#/$defs/sha256" },
+    "policy": {
+      "allOf": [{ "$ref": "renderflow-v2.schema.json#/$defs/speechPolicy" }],
+      "required": ["options"],
+      "properties": { "audio": { "type": "object" } },
+      "not": { "anyOf": [{ "required": ["recovery"] }, { "required": ["saved_results"] }] }
+    },
+    "source": {
+      "allOf": [{ "$ref": "#/$defs/artifact" }],
+      "properties": {
+        "format": { "enum": ["wav", "flac", "mp3", "m4a_alac", "m4a", "aac", "ogg", "opus", "mkv", "webm", "mp4", "mov", "avi"] },
+        "size_bytes": { "maximum": 4294967296 },
+        "sources": { "maxItems": 0 },
+        "metadata": { "maxProperties": 0 },
+        "storage_class": { "const": "source" }
+      }
+    },
+    "source_wav_duration_ms": { "type": "integer", "minimum": 1, "maximum": 600000 },
+    "canonical": {
+      "allOf": [{ "$ref": "#/$defs/artifact" }],
+      "properties": {
+        "format": { "const": "timed_transcript_json" },
+        "media_type": { "const": "application/vnd.renderflow.timed-transcript+json" },
+        "size_bytes": { "maximum": 16777216 },
+        "storage_class": { "const": "intermediate" },
+        "sources": { "minItems": 3, "maxItems": 5 },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["renderflow.speech"],
+          "properties": { "renderflow.speech": { "$ref": "renderflow-speech-artifact-v1.schema.json" } }
+        }
+      }
+    }
+  },
+  "allOf": [{
+    "if": { "properties": { "policy": { "required": ["audio"], "properties": { "audio": { "type": "object" } } } } },
+    "then": { "not": { "required": ["source_wav_duration_ms"] } },
+    "else": {
+      "required": ["source_wav_duration_ms"],
+      "properties": { "source": { "properties": { "format": { "const": "wav" }, "size_bytes": { "maximum": 33554432 } } } }
+    }
+  }],
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "artifactId": { "type": "string", "pattern": "^artifact:sha256:[a-f0-9]{64}$" },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "format", "media_type", "digest", "size_bytes", "payload", "metadata", "sources", "storage_class"],
+      "properties": {
+        "id": { "$ref": "#/$defs/artifactId" },
+        "format": { "type": "string" },
+        "media_type": { "type": "string" },
+        "digest": {
+          "type": "object", "additionalProperties": false,
+          "required": ["algorithm", "value"],
+          "properties": { "algorithm": { "const": "sha256" }, "value": { "$ref": "#/$defs/sha256" } }
+        },
+        "size_bytes": { "type": "integer", "minimum": 1 },
+        "payload": {
+          "type": "object", "additionalProperties": false,
+          "required": ["relative_path"],
+          "properties": { "relative_path": { "type": "string", "pattern": "^objects[/\\\\]sha256[/\\\\][a-f0-9]{2}[/\\\\][a-f0-9]{64}$" } }
+        },
+        "metadata": { "type": "object" },
+        "sources": { "type": "array", "items": { "$ref": "#/$defs/artifactId" } },
+        "storage_class": { "enum": ["source", "intermediate"] }
+      }
+    }
+  }
+}

@@ -10,6 +10,9 @@ run, but the Rust kit and SDK remain unexecuted because the validation host
 lacked Rust/Cargo. See the [validation record](../work/427/VALIDATION.md) for
 the exact evidence and limits.
 
+To recognize spoken audio rather than extract existing captions, see the
+separate experimental [local speech transcription](speech.md) interface.
+
 ## Convert a subtitle file
 
 The local text converter accepts the strict plain-text SRT/WebVTT profile and

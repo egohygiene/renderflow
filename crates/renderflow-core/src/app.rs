@@ -4,7 +4,7 @@ use tracing::info;
 
 use crate::cli::{
     AiCommands, AiSkillCommands, Cli, Commands, DnaCommands, EbookCommands, FontCommands,
-    GraphCommands, LuluCommands, PluginCommands, PublicationCommands, SpecCommands, SubtitleCommands, ToolCommands,
+    GraphCommands, LuluCommands, PluginCommands, PublicationCommands, SpecCommands, SpeechCommands, SubtitleCommands, ToolCommands,
     VideoCommands,
 };
 use crate::video::HandBrakeLimits;
@@ -356,6 +356,12 @@ pub fn run_cli(cli: Cli) -> Result<()> {
                     epubcheck,
                 )?,
             },
+        },
+        Some(Commands::Speech { subcommand }) => match subcommand {
+            SpeechCommands::Inspect(arguments) => commands::speech::run_inspect(arguments)?,
+            SpeechCommands::Transcribe(arguments) => commands::speech::run_transcribe(arguments)?,
+            SpeechCommands::Timeline(arguments) => commands::speech::run_timeline(arguments)?,
+            SpeechCommands::Align(arguments) => commands::speech::run_align(arguments)?,
         },
         Some(Commands::Subtitles { subcommand }) => match subcommand {
             SubtitleCommands::Inspect { input } => commands::subtitles::run_inspect(&input)?,

@@ -40,6 +40,7 @@ pub mod process;
 pub mod publication;
 mod sdk;
 pub mod spec;
+pub mod speech;
 pub mod strategies;
 pub mod super_resolution;
 pub mod timed_text;

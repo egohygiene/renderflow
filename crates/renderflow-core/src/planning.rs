@@ -6,9 +6,11 @@
 
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::fs;
-use std::io::Write;
+use std::io::{Read, Write};
+
+use sha2::{Digest, Sha256};
 use std::path::{Component, Path, PathBuf};
-use std::sync::{atomic::AtomicBool, Arc};
+use std::sync::{atomic::AtomicBool, Arc, Mutex};
 
 use anyhow::{Context, Result};
 
@@ -48,6 +50,13 @@ use crate::spec::{
     SourceKind, SourceSpec, SourceSpecVersion, SpecV2, TargetRequirement, TargetSelection,
     SubtitlePolicy, TargetSpec, ValidationFailureMode,
 };
+use crate::speech::graph::{
+    retained_artifacts, retained_artifact_name, SpeechArtifactTransform, SpeechProgressObserver,
+    SpeechProgressPhase,
+};
+use crate::speech::policy::SpeechPolicy;
+use crate::speech::recovery::{receipt_bytes, SAVED_RESULT_FILENAME, SAVED_RESULT_SCHEMA};
+use crate::speech::WHISPER_PROVIDER_ID;
 use crate::super_resolution::{select_upscayl_variants, UpscaylModelCatalog};
 use crate::timed_text::graph::{
     supports_media_format, SubtitleExtractionTransform, TimedTextArtifactTransform,
@@ -59,9 +68,46 @@ use crate::toolchain::{
 use crate::transforms::yaml_loader::build_graph_executor_and_tools_from_yaml;
 use crate::validation::{ArtifactValidationOutcome, ValidationRegistry};
 
+/// Record actual execution separately from the plan's unobserved declarations.
+struct SpeechRunObserver {
+    downstream: Option<Arc<dyn SpeechProgressObserver>>,
+    diagnostics: Mutex<Vec<ExecutionDiagnostic>>,
+}
+
+impl SpeechRunObserver {
+    fn record(&self, code: &str, message: String) {
+        self.diagnostics.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).push(ExecutionDiagnostic {
+            severity: DiagnosticSeverity::Info, code: code.to_owned(), message, step_id: None,
+        });
+    }
+}
+
+impl SpeechProgressObserver for SpeechRunObserver {
+    fn phase(&self, phase: SpeechProgressPhase) {
+        match phase {
+            SpeechProgressPhase::SavedResultHit => self.record("speech.saved_results.hit",
+                "A verified historical result was selected from the local index; no current native tool or model was observed".to_owned()),
+            SpeechProgressPhase::SavedResultMiss => self.record("speech.saved_results.miss",
+                "No saved-result index entry exists for this source and recognition policy; native recognition may proceed".to_owned()),
+            SpeechProgressPhase::Transcribe => self.record("speech.native.started",
+                "Execution entered native speech recognition".to_owned()),
+            _ => {}
+        }
+        if let Some(observer) = &self.downstream { observer.phase(phase); }
+    }
+
+    fn saved_result(&self, receipt_sha256: &str) {
+        self.record("speech.saved_result.selected", format!(
+            "Selected historical speech receipt SHA-256 {receipt_sha256}; execution revalidates the current source before restoring artifacts"));
+        if let Some(observer) = &self.downstream { observer.saved_result(receipt_sha256); }
+    }
+}
+
 const BUILTIN_ADAPTER_EVIDENCE: &str = "builtin.strategy";
 const SUBTITLE_ADAPTER_EVIDENCE: &str = "builtin.timed_text";
 const SUBTITLE_EXTRACTION_EVIDENCE: &str = "builtin.subtitle_extraction";
+const SPEECH_ADAPTER_EVIDENCE: &str = "builtin.speech";
+const SPEECH_CAPABILITY: &str = "speech.transcribe";
 const TIMED_TEXT_PROVIDER: &str = "tool.renderflow-timed-text";
 
 #[derive(Debug, Clone)]
@@ -188,6 +234,7 @@ pub struct ResolvedExecution {
     tool_registry: ToolRegistry,
     resume_checkpoints: bool,
     cancellation: Option<Arc<AtomicBool>>,
+    speech_observer: Option<Arc<dyn SpeechProgressObserver>>,
 }
 
 #[derive(Debug, Clone)]
@@ -236,6 +283,12 @@ impl ResolvedExecution {
 
     pub(crate) fn with_resume(mut self, resume: bool) -> Self {
         self.resume_checkpoints = resume;
+        self
+    }
+
+    /// Receive bounded speech phases during native execution.
+    pub fn with_speech_observer(mut self, observer: Arc<dyn SpeechProgressObserver>) -> Self {
+        self.speech_observer = Some(observer);
         self
     }
 
@@ -426,6 +479,18 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
     let source_format = source_format.context("source collection has no members")?;
     let source_path = source_members[0].path.clone();
     let source_intake = &source_members[0].intake;
+    if let Some(policy) = &spec.execution.speech {
+        policy.validate_source(source_format, collection)?;
+        if policy.source_sha256 != source_intake.source.digest().value() {
+            anyhow::bail!("speech.source.digest_mismatch: original source differs from execution.speech.source_sha256");
+        }
+        if !source_intake.profile.conflicts.is_empty() {
+            anyhow::bail!("speech.source.format_conflict: original source has conflicting format signals");
+        }
+        if spec.transforms.is_some() || spec.execution.hygiene_policy.is_some() {
+            anyhow::bail!("speech.policy.route: custom transforms and post-transcription hygiene are unsupported for this bounded route");
+        }
+    }
     let print_pages = resolve_print_pages(&spec, collection, source_format, &source_members)?;
     let fixed_epub_pages =
         resolve_fixed_epub_pages(&spec, collection, source_format, &source_members)?;
@@ -475,6 +540,17 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
             publication,
         )?;
     }
+    if let Some(policy) = &spec.execution.speech {
+        register_speech_edges(&mut graph, &mut tool_registry, source_format, policy)?;
+        // Recognition consumes the original artifact directly. Do not let an
+        // unrelated media conversion silently change the waveform or identity.
+        graph = graph.filtered_by(|edge| {
+            edge.evidence.get("adapter").map(String::as_str) == Some(SPEECH_ADAPTER_EVIDENCE)
+                || (edge.evidence.get("adapter").map(String::as_str) == Some(SUBTITLE_ADAPTER_EVIDENCE)
+                    && edge.from == Format::TimedTranscriptJson
+                    && matches!(edge.to, Format::Srt | Format::WebVtt))
+        });
+    }
     let policy_graph = apply_execution_policy(&graph, &tool_registry, &spec);
     let policy_graph = if collection {
         policy_graph
@@ -485,6 +561,11 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
     let requested_targets = resolve_target_intent(&spec, &policy_graph, source_format)?;
     if requested_targets.is_empty() {
         anyhow::bail!("target selection resolved to no executable artifact formats");
+    }
+    if spec.execution.speech.is_some() && requested_targets.iter().any(|target| {
+        !matches!(target.format, Format::TimedTranscriptJson | Format::Srt | Format::WebVtt)
+    }) {
+        anyhow::bail!("speech.target.unsupported: speech targets are timed_transcript_json, srt, or vtt");
     }
     validate_publication_target_roles(&spec, &requested_targets)?;
     if print_pages.is_some()
@@ -504,9 +585,15 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
         anyhow::bail!("fixed_epub.target: exactly one required EPUB target with role 'ebook' must be selected");
     }
 
-    let provider_inventory = tool_registry.assess_ids_current(policy_graph.provider_ids());
-    let available_graph =
-        policy_graph.filtered_by_available_providers(&provider_inventory.available_ids());
+    // Speech paths/hashes are declarations until their bounded native adapter
+    // verifies them at execution. Planning never launches their version probes.
+    let deferred_speech_ids = speech_provider_ids(spec.execution.speech.as_ref());
+    let provider_inventory = tool_registry.assess_ids_current(
+        policy_graph.provider_ids().into_iter().filter(|id| !deferred_speech_ids.contains(id)),
+    );
+    let mut planning_provider_ids = provider_inventory.available_ids();
+    planning_provider_ids.extend(deferred_speech_ids.iter().cloned());
+    let available_graph = policy_graph.filtered_by_available_providers(&planning_provider_ids);
     let available_formats = available_graph
         .reachable_from(source_format)
         .into_iter()
@@ -632,7 +719,18 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
     }
 
     let selected_ids = selected_provider_ids(&dag);
-    let selected_inventory = tool_registry.assess_ids_current(selected_ids.iter());
+    let selected_inventory = tool_registry.assess_ids_current(
+        selected_ids.iter().filter(|id| !deferred_speech_ids.contains(*id)),
+    );
+    if let Some(policy) = &spec.execution.speech {
+        if policy.recovery.is_some() {
+            plan.add_tool_diagnostic("speech.saved_result.selected: execution will verify the explicitly pinned historical receipt and complete retained bundle before replay. Planning does not read the receipt or observe current native tools/models. Missing or incompatible evidence fails without native fallback; no current toolchain, recognition accuracy, or video-alignment claim is made.");
+        } else if policy.saved_results.is_enabled() {
+            plan.add_tool_diagnostic("speech.saved_results.unobserved: execution will inspect the local saved-result index after verifying the source. A verified historical match is replayed; a missing entry permits native recognition; a present invalid entry fails without fallback. Planning does not read the index or observe current native tools/models.");
+        } else {
+            plan.add_tool_diagnostic("speech.provider.unobserved: explicit provider/model/audio paths and digests are planned intent; native identity and availability are checked only during execution. No observed toolchain, automatically reusable result, calibrated confidence, or video-alignment claim is made.");
+        }
+    }
     if let Some(policy) = &spec.execution.print_pdf_interior {
         validate_print_provider_version(&selected_inventory, policy)?;
     }
@@ -646,7 +744,7 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
             blocked.summary()
         ));
     }
-    if selected_inventory
+    if spec.execution.speech.is_none() && selected_inventory
         .tools
         .iter()
         .all(|tool| tool.is_available())
@@ -690,6 +788,7 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
         tool_registry,
         resume_checkpoints: false,
         cancellation: None,
+        speech_observer: None,
     })
 }
 
@@ -887,6 +986,14 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
         &resolved.dag,
         resolved.spec.execution.subtitles.as_ref(),
         resolved.cancellation.clone(),
+        resolved.spec.execution.speech.is_some(),
+    )?;
+    let speech_run_observer = Arc::new(SpeechRunObserver {
+        downstream: resolved.speech_observer.clone(), diagnostics: Mutex::new(Vec::new()),
+    });
+    register_speech_executors(
+        &mut executor, &resolved.dag, resolved.spec.execution.speech.as_ref(),
+        resolved.cancellation.clone(), Some(speech_run_observer.clone()),
     )?;
     if let Some(pages) = &resolved.print_pages {
         let policy = resolved
@@ -955,14 +1062,16 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
     } else {
         "canonical-cache.json".to_string()
     };
-    let mut executor = executor
-        .with_cache(state_dir.join(cache_name))
-        .with_checkpoints(
-            state_dir.join("checkpoints.json"),
-            checkpoint_context,
-            resolved.resume_checkpoints,
+    let executor = if resolved.spec.execution.speech.is_some() {
+        // No existing shared cache/checkpoint file is read or amended for this
+        // unqualified native route, including canonical subtitle descendants.
+        executor
+    } else {
+        executor.with_cache(state_dir.join(cache_name)).with_checkpoints(
+            state_dir.join("checkpoints.json"), checkpoint_context, resolved.resume_checkpoints,
         )
-        .with_max_parallel(resolved.spec.execution.max_parallel);
+    };
+    let mut executor = executor.with_max_parallel(resolved.spec.execution.max_parallel);
     if let Some(cancellation) = &resolved.cancellation {
         executor = executor.with_cancellation_flag(cancellation.clone());
     }
@@ -1017,6 +1126,8 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
 
     let mut diagnostics = plan_diagnostics(&resolved);
     diagnostics.append(&mut report.diagnostics);
+    diagnostics.append(&mut speech_run_observer.diagnostics.lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner()));
     let mut hygiene_evidence = HashMap::<String, HygieneEvidence>::new();
     let mut hygiene_blocked = HashSet::<String>::new();
     let mut hygiene_failures = false;
@@ -1087,8 +1198,26 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
     let mut actual_outputs = Vec::new();
     let mut target_failures = hygiene_failures;
     let mut fatal_validation_failure = false;
+    let mut speech_publication_failed = false;
+    let mut speech_publication_cancelled = false;
+    let retained_speech = match collect_speech_artifacts(&resolved, &report, &store) {
+        Ok(retained) => retained,
+        Err(error) => {
+            target_failures = true;
+            speech_publication_failed = true;
+            speech_publication_cancelled = matches!(error.downcast_ref::<crate::speech::SpeechError>(),
+                Some(crate::speech::SpeechError::Cancelled));
+            diagnostics.push(ExecutionDiagnostic {
+                severity: if speech_publication_cancelled { DiagnosticSeverity::Cancelled } else { DiagnosticSeverity::FatalFailure },
+                code: if speech_publication_cancelled { "execution.cancelled" } else { "speech.evidence.invalid" }.to_owned(),
+                message: redact_sensitive_text(&error.to_string()),
+                step_id: None,
+            });
+            Vec::new()
+        }
+    };
 
-    if let Err(error) = validate_post_execution_budgets(&resolved, &report.artifacts) {
+    if let Err(error) = validate_post_execution_budgets(&resolved, &report.artifacts, &retained_speech) {
         target_failures = true;
         diagnostics.push(ExecutionDiagnostic {
             severity: DiagnosticSeverity::FatalFailure,
@@ -1243,11 +1372,50 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
         validation_outcomes.insert(artifact.id().to_string(), outcome);
     }
 
+    let mut retained_locators = HashMap::<String, String>::new();
+    if resolved.spec.execution.speech.is_some() {
+        speech_publication_failed |= fatal_validation_failure || !blocked_artifacts.is_empty()
+            || diagnostics.iter().any(|diagnostic| diagnostic.code == "execution.post_budget_failed");
+        if !speech_publication_failed {
+            match publish_speech_artifacts(&resolved, &retained_speech, &store, &output_root, &predicted) {
+                Ok(published) => {
+                    for (artifact_id, destination) in published {
+                        retained_locators.insert(artifact_id, bundle_locator(&output_root, &destination));
+                        actual_outputs.push(destination.display().to_string());
+                    }
+                }
+                Err(error) => {
+                    target_failures = true;
+                    speech_publication_failed = true;
+                    speech_publication_cancelled = matches!(error.downcast_ref::<crate::speech::SpeechError>(),
+                        Some(crate::speech::SpeechError::Cancelled));
+                    diagnostics.push(ExecutionDiagnostic {
+                        severity: if speech_publication_cancelled { DiagnosticSeverity::Cancelled } else { DiagnosticSeverity::FatalFailure },
+                        code: if speech_publication_cancelled { "execution.cancelled" } else { "speech.evidence.publication_failed" }.to_owned(),
+                        message: redact_sensitive_text(&error.to_string()),
+                        step_id: None,
+                    });
+                }
+            }
+        }
+    }
+
     for (target, destination) in resolved.targets.iter().zip(predicted.iter()) {
+        if resolved.spec.execution.speech.is_some() && speech_not_cancelled(&resolved).is_err() {
+            speech_publication_cancelled = true;
+            diagnostics.push(ExecutionDiagnostic {
+                severity: DiagnosticSeverity::Cancelled,
+                code: "execution.cancelled".to_owned(),
+                message: "speech publication was cancelled before selected target materialization".to_owned(),
+                step_id: None,
+            });
+            break;
+        }
         let Some(artifact) = report.artifacts.get(&target.format) else {
             continue;
         };
-        if fatal_validation_failure || blocked_artifacts.contains(artifact.id().as_str()) {
+        if fatal_validation_failure || speech_publication_failed
+            || blocked_artifacts.contains(artifact.id().as_str()) {
             continue;
         }
         if target_failures
@@ -1280,6 +1448,8 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
         &diagnostics,
         &validation_outcomes,
         &hygiene_evidence,
+        &retained_speech,
+        &retained_locators,
     );
     let materialized_artifact_count = actual_outputs.len();
     if let Some(publication) = &resolved.spec.publication {
@@ -1305,7 +1475,7 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
         .iter()
         .any(|step| step.state == StepState::Cancelled);
     let has_failure = target_failures || has_failed_step;
-    let state = if has_cancelled_step {
+    let state = if has_cancelled_step || speech_publication_cancelled {
         RunState::Cancelled
     } else if has_failure && materialized_artifact_count == 0 {
         RunState::Failed
@@ -1314,7 +1484,7 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
     } else {
         RunState::Complete
     };
-    let run_manifest = build_run_manifest(
+    let mut run_manifest = build_run_manifest(
         &resolved,
         started_at_unix_ms,
         state,
@@ -1324,6 +1494,42 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
         diagnostics,
     )?;
     let manifest_path = persist_run_manifest(&output_root, &run_manifest)?;
+    if run_manifest.state == RunState::Complete {
+        if let Some(policy) = resolved.spec.execution.speech.as_ref()
+            .filter(|policy| policy.saved_results.is_enabled())
+        {
+            // Only successful exports with a durable run manifest enter index
+            // promotion. Cancellation after atomic promotion can leave a valid
+            // pointer; never remove a concurrently selected verified result.
+            let cancellation = resolved.cancellation.clone()
+                .map(crate::process::ProcessCancellationToken::from_shared).unwrap_or_default();
+            let remembered = report.artifacts.get(&Format::TimedTranscriptJson)
+                .context("speech saved-result indexing requires a canonical transcript")
+                .and_then(|canonical| crate::speech::cache::remember_saved_result(
+                    &store, policy, &source_artifact, canonical, &cancellation));
+            let diagnostic = match remembered {
+                Ok(saved) => ExecutionDiagnostic {
+                    severity: DiagnosticSeverity::Info,
+                    code: "speech.saved_results.recorded".to_owned(),
+                    message: format!("Verified historical result index points to receipt SHA-256 {}; an existing verified first-writer entry is retained even if this run produced another result", saved.receipt_sha256()),
+                    step_id: None,
+                },
+                Err(error) => {
+                    let cancelled = matches!(error.downcast_ref::<crate::speech::SpeechError>(),
+                        Some(crate::speech::SpeechError::Cancelled));
+                    run_manifest.state = if cancelled { RunState::Cancelled } else { RunState::Partial };
+                    ExecutionDiagnostic {
+                        severity: if cancelled { DiagnosticSeverity::Cancelled } else { DiagnosticSeverity::RecoverableFailure },
+                        code: if cancelled { "speech.cancelled" } else { "speech.saved_results.record_failed" }.to_owned(),
+                        message: redact_sensitive_text(&error.to_string()), step_id: None,
+                    }
+                }
+            };
+            run_manifest.diagnostics.push(diagnostic);
+            run_manifest.completed_at_unix_ms = unix_time_ms();
+            persist_run_manifest(&output_root, &run_manifest)?;
+        }
+    }
 
     Ok(CanonicalExecutionResult {
         plan: resolved.plan.clone(),
@@ -1583,6 +1789,8 @@ fn artifact_evidence(
     diagnostics: &[ExecutionDiagnostic],
     validation_outcomes: &HashMap<String, ArtifactValidationOutcome>,
     hygiene_evidence: &HashMap<String, HygieneEvidence>,
+    retained_speech: &[Artifact],
+    retained_locators: &HashMap<String, String>,
 ) -> Vec<ArtifactEvidence> {
     let mut evidence = source_evidence(resolved, sources);
     let mut artifacts = report.artifacts.iter().collect::<Vec<_>>();
@@ -1643,6 +1851,7 @@ fn artifact_evidence(
                 .unwrap_or_else(|| artifact.format().to_string());
             let locator = target
                 .and_then(|target| output_locators.get(&target_evidence_key(target)).cloned())
+                .or_else(|| retained_locators.get(artifact.id().as_str()).cloned())
                 .unwrap_or_else(|| artifact_store_locator(artifact));
             let mut item = ArtifactEvidence::from_artifact(
                 artifact,
@@ -1680,7 +1889,231 @@ fn artifact_evidence(
             evidence.push(item);
         }
     }
+    for artifact in retained_speech {
+        if evidence.iter().any(|item| item.artifact_id == artifact.id().as_str()) {
+            continue;
+        }
+        let producing_step = report.steps.iter().find(|step| step.capability.as_deref() == Some(SPEECH_CAPABILITY));
+        let producer = producing_step.map(|step| ProducerEvidence {
+            system: "renderflow".to_owned(), transform: Some(step.transform.clone()),
+            capability: step.capability.clone(), provider: step.provider.clone(),
+            version: Some(step.transform_version.clone()),
+        }).unwrap_or_else(ProducerEvidence::source);
+        let role = artifact.metadata().get("renderflow.speech.role")
+            .and_then(serde_json::Value::as_str).unwrap_or("speech_evidence");
+        evidence.push(ArtifactEvidence::from_artifact(
+            artifact, format!("speech.{role}"), ArtifactRole::Intermediate,
+            retained_locators.get(artifact.id().as_str()).cloned()
+                .unwrap_or_else(|| artifact_store_locator(artifact)),
+            producer, ValidationState::NotRequested, FidelityDeclaration::Unknown,
+        ));
+    }
     evidence
+}
+
+/// Validate native speech record links and retained bytes before publication.
+/// Include the canonical transcript even for an SRT-only request, so the output
+/// bundle carries the complete recognition chain without the private store.
+fn collect_speech_artifacts(
+    resolved: &ResolvedExecution,
+    report: &DagExecutionReport,
+    store: &ArtifactStore,
+) -> Result<Vec<Artifact>> {
+    let Some(policy) = &resolved.spec.execution.speech else { return Ok(Vec::new()); };
+    let Some(canonical) = report.artifacts.get(&Format::TimedTranscriptJson) else {
+        if report.steps.iter().any(|step| step.capability.as_deref() == Some(SPEECH_CAPABILITY)
+            && step.state == StepState::Complete)
+        {
+            anyhow::bail!("completed speech step did not retain its canonical transcript");
+        }
+        return Ok(Vec::new());
+    };
+    let mut retained = retained_artifacts(canonical)?;
+    let expected_count = if policy.audio.is_some() { 4 } else { 2 };
+    if retained.len() != expected_count {
+        anyhow::bail!("speech canonical transcript is missing required retained artifacts");
+    }
+    let source = report.artifacts.get(&resolved.source_format)
+        .context("speech execution did not retain its original source record")?;
+    let metadata = canonical.metadata().get("renderflow.speech")
+        .context("speech canonical metadata is missing")?;
+    if metadata["input_sha256"].as_str() != Some(policy.source_sha256.as_str())
+        || metadata["input_artifact_id"].as_str() != Some(source.id().as_str())
+        || source.digest().value() != policy.source_sha256
+    {
+        anyhow::bail!("speech evidence does not reference the pinned original source");
+    }
+    for (format, artifact) in &report.artifacts {
+        if *format == resolved.source_format { continue; }
+        if retained_artifacts(artifact)? != retained
+            || artifact.metadata().get("renderflow.speech") != Some(metadata)
+        {
+            anyhow::bail!("speech derivative has missing or inconsistent retained evidence");
+        }
+    }
+    retained.push(canonical.clone());
+    for artifact in &retained {
+        speech_not_cancelled(resolved)?;
+        verify_speech_file(resolved, &store.payload_path(artifact)?, artifact)
+            .context("retained speech payload is missing or changed")?;
+    }
+    // The receipt commits the canonical record and its supporting records;
+    // canonical lineage never points back to the receipt. Keep it last so a
+    // portable completion marker is published only after every required file.
+    let cancellation = resolved.cancellation.clone()
+        .map(crate::process::ProcessCancellationToken::from_shared).unwrap_or_default();
+    let bytes = receipt_bytes(source, policy, canonical, store, &cancellation)?;
+    speech_not_cancelled(resolved)?;
+    retained.push(store.put_bytes(&bytes,
+        ArtifactDescriptor::for_format(Format::Json, ArtifactStorageClass::Intermediate)
+            .with_source(canonical.id().clone())
+            .with_metadata("renderflow.speech.role", "saved_result")
+            .with_metadata("renderflow.speech.saved_result_schema", SAVED_RESULT_SCHEMA))?);
+    Ok(retained)
+}
+
+/// Publish evidence under a content-addressed directory. Existing identical
+/// files are acceptable; an existing different file or symlink is refused.
+/// A partial directory may remain after an I/O failure, but no selected target
+/// is published unless every required supporting artifact was retained.
+fn publish_speech_artifacts(
+    resolved: &ResolvedExecution,
+    artifacts: &[Artifact],
+    store: &ArtifactStore,
+    output_root: &Path,
+    target_paths: &[PathBuf],
+) -> Result<Vec<(String, PathBuf)>> {
+    if artifacts.is_empty() { return Ok(Vec::new()); }
+    // A selected target alias must not overwrite a retained file through an
+    // existing directory symlink after the lexical collision check below.
+    for target in target_paths {
+        let relative = target.strip_prefix(output_root)
+            .context("speech target must remain inside its output bundle")?;
+        let mut prefix = output_root.to_path_buf();
+        for component in std::iter::once(None).chain(relative.components().map(Some)) {
+            if let Some(component) = component {
+                if !matches!(component, Component::Normal(_)) {
+                    anyhow::bail!("speech target paths must contain only normal relative components");
+                }
+                prefix.push(component.as_os_str());
+            }
+            match fs::symlink_metadata(&prefix) {
+                Ok(metadata) if metadata.file_type().is_symlink() => {
+                    anyhow::bail!("speech target paths must not traverse existing symlinks");
+                }
+                Ok(_) => {}
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                Err(error) => return Err(error.into()),
+            }
+        }
+    }
+    let envelope = artifacts.iter().find(|artifact| {
+        artifact.metadata().get("renderflow.speech.role").and_then(serde_json::Value::as_str)
+            == Some("transcription")
+    }).context("retained speech transcription envelope is missing")?;
+    let parent = output_root.join("speech");
+    let directory = parent.join(envelope.digest().value());
+    let mut destinations = Vec::new();
+    for artifact in artifacts {
+        let name = if artifact.metadata().get("renderflow.speech.role")
+            .and_then(serde_json::Value::as_str) == Some("saved_result")
+        {
+            SAVED_RESULT_FILENAME
+        } else if artifact.format().as_str() == Format::TimedTranscriptJson.to_string() {
+            "transcript.timed-transcript.json"
+        } else {
+            retained_artifact_name(artifact)?
+        };
+        let destination = directory.join(name);
+        if target_paths.iter().any(|target| target == &destination) {
+            anyhow::bail!("selected target path collides with reserved speech evidence path");
+        }
+        destinations.push((artifact, destination));
+    }
+    speech_not_cancelled(resolved)?;
+    ensure_speech_directory(&parent)?;
+    ensure_speech_directory(&directory)?;
+    let mut published = Vec::new();
+    for (artifact, destination) in destinations {
+        speech_not_cancelled(resolved)?;
+        match fs::symlink_metadata(&destination) {
+            Ok(_) => verify_speech_file(resolved, &destination, artifact)?,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                let mut input = store.open(artifact)?;
+                let mut temporary = tempfile::NamedTempFile::new_in(&directory)?;
+                let mut buffer = [0_u8; 64 * 1024];
+                let mut size = 0_u64;
+                let mut hasher = Sha256::new();
+                loop {
+                    speech_not_cancelled(resolved)?;
+                    let count = input.read(&mut buffer)?;
+                    if count == 0 { break; }
+                    size = size.checked_add(count as u64).context("speech evidence size overflow")?;
+                    if size > artifact.size_bytes() { anyhow::bail!("speech payload changed during publication"); }
+                    hasher.update(&buffer[..count]);
+                    temporary.write_all(&buffer[..count])?;
+                }
+                if size != artifact.size_bytes() || format!("{:x}", hasher.finalize()) != artifact.digest().value() {
+                    anyhow::bail!("speech payload changed during publication");
+                }
+                temporary.as_file().sync_all()?;
+                speech_not_cancelled(resolved)?;
+                match temporary.persist_noclobber(&destination) {
+                    Ok(_) => {}
+                    Err(error) if error.error.kind() == std::io::ErrorKind::AlreadyExists => {
+                        verify_speech_file(resolved, &destination, artifact)?;
+                    }
+                    Err(error) => return Err(error.error.into()),
+                }
+            }
+            Err(error) => return Err(error.into()),
+        }
+        published.push((artifact.id().to_string(), destination));
+    }
+    Ok(published)
+}
+
+fn ensure_speech_directory(path: &Path) -> Result<()> {
+    match fs::create_dir(path) {
+        Ok(()) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
+        Err(error) => return Err(error.into()),
+    }
+    let metadata = fs::symlink_metadata(path)?;
+    if !metadata.is_dir() || metadata.file_type().is_symlink() {
+        anyhow::bail!("speech evidence directory must be a real directory");
+    }
+    Ok(())
+}
+
+fn verify_speech_file(resolved: &ResolvedExecution, path: &Path, artifact: &Artifact) -> Result<()> {
+    let metadata = fs::symlink_metadata(path)?;
+    if !metadata.is_file() || metadata.file_type().is_symlink() || metadata.len() != artifact.size_bytes() {
+        anyhow::bail!("existing speech evidence path is not the required immutable payload");
+    }
+    let mut file = fs::File::open(path)?;
+    let mut hasher = Sha256::new();
+    let mut size = 0_u64;
+    let mut buffer = [0_u8; 64 * 1024];
+    loop {
+        speech_not_cancelled(resolved)?;
+        let count = file.read(&mut buffer)?;
+        if count == 0 { break; }
+        size = size.checked_add(count as u64).context("speech evidence size overflow")?;
+        if size > artifact.size_bytes() { anyhow::bail!("existing speech evidence grew while read"); }
+        hasher.update(&buffer[..count]);
+    }
+    if size != artifact.size_bytes() || format!("{:x}", hasher.finalize()) != artifact.digest().value() {
+        anyhow::bail!("existing speech evidence differs from the required immutable payload");
+    }
+    Ok(())
+}
+
+fn speech_not_cancelled(resolved: &ResolvedExecution) -> Result<()> {
+    if resolved.cancellation.as_ref().is_some_and(|flag| flag.load(std::sync::atomic::Ordering::SeqCst)) {
+        return Err(crate::speech::SpeechError::Cancelled.into());
+    }
+    Ok(())
 }
 
 fn target_evidence_key(target: &ResolvedTarget) -> String {
@@ -2531,15 +2964,14 @@ fn register_subtitle_executors(
     dag: &MultiTargetDag,
     policy: Option<&SubtitlePolicy>,
     cancellation: Option<Arc<AtomicBool>>,
+    speech: bool,
 ) -> Result<()> {
     for edge in dag.all_edges() {
         match edge.evidence.get("adapter").map(String::as_str) {
             Some(SUBTITLE_ADAPTER_EVIDENCE) => {
-                executor.register_artifact(
-                    edge.from,
-                    edge.to,
-                    Arc::new(TimedTextArtifactTransform::new(edge.from, edge.to)?),
-                );
+                let transform = TimedTextArtifactTransform::new(edge.from, edge.to)?;
+                let transform = if speech { transform.without_cache() } else { transform };
+                executor.register_artifact(edge.from, edge.to, Arc::new(transform));
             }
             Some(SUBTITLE_EXTRACTION_EVIDENCE) => {
                 let stream_index = policy.and_then(|policy| policy.stream_index)
@@ -2561,6 +2993,115 @@ fn register_subtitle_executors(
             }
             _ => {}
         }
+    }
+    Ok(())
+}
+
+fn speech_provider_ids(policy: Option<&SpeechPolicy>) -> HashSet<String> {
+    let mut ids = HashSet::new();
+    if let Some(policy) = policy {
+        ids.insert(WHISPER_PROVIDER_ID.to_owned());
+        if policy.audio.is_some() {
+            ids.extend(["tool.ffmpeg".to_owned(), "tool.ffprobe".to_owned()]);
+        }
+    }
+    ids
+}
+
+fn register_speech_edges(
+    graph: &mut TransformGraph,
+    tools: &mut ToolRegistry,
+    source_format: Format,
+    policy: &SpeechPolicy,
+) -> Result<()> {
+    policy.validate_source(source_format, false)?;
+    let mut descriptor = tools.get("tool.whisper_cpp")
+        .context("speech.provider.registry: whisper.cpp descriptor missing")?.clone();
+    descriptor.id = ToolId::new(WHISPER_PROVIDER_ID)?;
+    descriptor.discovery = ToolDiscovery::Executable {
+        candidates: vec![policy.provider.path.clone()], version_args: vec!["--version".to_owned()],
+    };
+    descriptor.capabilities = vec![CapabilityId::new(SPEECH_CAPABILITY)?];
+    descriptor.determinism = ToolDeterminism::ConfigurationDependent;
+    descriptor.locality = ToolLocality::Local;
+    descriptor.fidelity = ToolFidelity::PathDependent;
+    tools.register(descriptor)?;
+    let mut edge = TransformEdge::new(source_format, Format::TimedTranscriptJson, 1.0, 0.0)
+        .with_provider(WHISPER_PROVIDER_ID, SPEECH_CAPABILITY)
+        .with_variant(policy.model.id.clone())
+        .with_evidence("adapter", SPEECH_ADAPTER_EVIDENCE)
+        .with_evidence("transform_id", SPEECH_CAPABILITY)
+        .with_evidence("family", "speech")
+        .with_evidence("speech_policy_sha256", sha256_serialized(policy)?.value)
+        .with_evidence("provider_identity", if policy.recovery.is_some() {
+            "historical_receipt_unverified"
+        } else if policy.saved_results.is_enabled() {
+            "historical_index_unverified"
+        } else { "declared_unobserved" })
+        .with_evidence("speech_execution", if policy.recovery.is_some() {
+            "explicit_saved_result"
+        } else if policy.saved_results.is_enabled() {
+            "reuse_saved_result_if_available"
+        } else { "native" })
+        .with_evidence("quality_interpretation", "unqualified_not_accuracy")
+        .with_evidence("cache", "disabled");
+    if let Some(audio) = &policy.audio {
+        for (id, pinned) in [("tool.ffmpeg", &audio.ffmpeg), ("tool.ffprobe", &audio.ffprobe)] {
+            let mut descriptor = tools.get(id)
+                .with_context(|| format!("speech.provider.registry: {id} descriptor missing"))?.clone();
+            descriptor.discovery = ToolDiscovery::Executable {
+                candidates: vec![pinned.path.clone()], version_args: vec!["-version".to_owned()],
+            };
+            descriptor.locality = ToolLocality::Local;
+            descriptor.determinism = ToolDeterminism::ConfigurationDependent;
+            tools.register(descriptor)?;
+            tools.add_capability(&ToolId::new(id)?, CapabilityId::new(SPEECH_CAPABILITY)?)?;
+            edge = edge.with_required_provider(id);
+        }
+        edge = edge.with_evidence("audio_stream_index", audio.stream_index.to_string());
+    }
+    graph.add_transform(edge);
+    // Conversion exports reuse the same canonical transcript from the one ASR
+    // edge. No native subtitle extraction is registered under speech intent.
+    for to in [Format::Srt, Format::WebVtt] {
+        let from = Format::TimedTranscriptJson;
+        let capability = CapabilityId::new(format!("subtitle.convert.{from}.{to}"))?;
+        tools.add_capability(&ToolId::new(TIMED_TEXT_PROVIDER)?, capability.clone())?;
+        graph.add_transform(TransformEdge::new(from, to, 0.1, 0.95)
+            .with_provider(TIMED_TEXT_PROVIDER, capability.to_string())
+            .with_evidence("adapter", SUBTITLE_ADAPTER_EVIDENCE)
+            .with_evidence("family", "subtitle")
+            .with_evidence("transform_id", format!("builtin.subtitle.{from}.{to}"))
+            .with_evidence("cache", "disabled"));
+    }
+    Ok(())
+}
+
+fn register_speech_executors(
+    executor: &mut DagExecutor,
+    dag: &MultiTargetDag,
+    policy: Option<&SpeechPolicy>,
+    cancellation: Option<Arc<AtomicBool>>,
+    observer: Option<Arc<dyn SpeechProgressObserver>>,
+) -> Result<()> {
+    for edge in dag.all_edges() {
+        if edge.evidence.get("adapter").map(String::as_str) != Some(SPEECH_ADAPTER_EVIDENCE) {
+            continue;
+        }
+        let policy = policy.context("speech.policy.missing: selected ASR edge has no explicit policy")?;
+        if edge.to != Format::TimedTranscriptJson
+            || edge.provider_id.as_deref() != Some(WHISPER_PROVIDER_ID)
+            || edge.capability_id.as_deref() != Some(SPEECH_CAPABILITY)
+            || edge.evidence.get("speech_policy_sha256") != Some(&sha256_serialized(policy)?.value)
+        {
+            anyhow::bail!("speech.plan.inconsistent: selected ASR edge differs from frozen speech policy");
+        }
+        let transform = SpeechArtifactTransform::new(edge.from, policy.clone(), cancellation.clone())?;
+        let transform = match &observer {
+            Some(observer) => transform.with_observer(observer.clone()),
+            None => transform,
+        };
+        executor.register_artifact(edge.from, edge.to, Arc::new(transform));
     }
     Ok(())
 }
@@ -2699,6 +3240,11 @@ fn apply_execution_policy(
 }
 
 fn edge_allowed(edge: &TransformEdge, tools: &ToolRegistry, spec: &SpecV2) -> bool {
+    if edge.evidence.get("adapter").map(String::as_str) == Some(SPEECH_ADAPTER_EVIDENCE)
+        && (spec.execution.speech.is_none() || spec.execution.ai == AiPolicy::Deny)
+    {
+        return false;
+    }
     if spec
         .execution
         .minimum_fidelity
@@ -3246,7 +3792,10 @@ fn preflight_selected_providers(resolved: &ResolvedExecution) -> Result<()> {
         anyhow::bail!("print_pdf.provider.unavailable: print interior was planned without an observed compatible img2pdf toolchain; re-plan when it is installed");
     }
     let ids = selected_provider_ids(&resolved.dag);
-    let inventory = resolved.tool_registry.assess_ids_current(ids.iter());
+    let deferred_speech_ids = speech_provider_ids(resolved.spec.execution.speech.as_ref());
+    let inventory = resolved.tool_registry.assess_ids_current(
+        ids.iter().filter(|id| !deferred_speech_ids.contains(*id)),
+    );
     if let Some(policy) = &resolved.spec.execution.print_pdf_interior {
         validate_print_provider_version(&inventory, policy)?;
     }
@@ -3292,12 +3841,12 @@ fn validate_pre_execution_budgets(resolved: &ResolvedExecution) -> Result<()> {
         }
     }
     if let Some(max_artifacts) = budgets.max_artifacts {
-        if resolved.plan.metadata.total_nodes as u64 > max_artifacts {
-            anyhow::bail!(
-                "execution plan artifact estimate {} exceeds max_artifacts budget {}",
-                resolved.plan.metadata.total_nodes,
-                max_artifacts
-            );
+        let retained_count = resolved.spec.execution.speech.as_ref()
+            .map(|policy| if policy.audio.is_some() { 5 } else { 3 }).unwrap_or(0);
+        let estimate = (resolved.plan.metadata.total_nodes as u64).checked_add(retained_count)
+            .context("execution artifact estimate overflow")?;
+        if estimate > max_artifacts {
+            anyhow::bail!("execution plan artifact estimate {estimate} exceeds max_artifacts budget {max_artifacts}");
         }
     }
     Ok(())
@@ -3306,6 +3855,7 @@ fn validate_pre_execution_budgets(resolved: &ResolvedExecution) -> Result<()> {
 fn validate_post_execution_budgets(
     resolved: &ResolvedExecution,
     artifacts: &HashMap<Format, crate::artifact::Artifact>,
+    retained_speech: &[Artifact],
 ) -> Result<()> {
     let budgets = &resolved.spec.execution.budgets;
     let target_formats: HashSet<Format> = resolved
@@ -3314,11 +3864,17 @@ fn validate_post_execution_budgets(
         .map(|target| target.format)
         .collect();
     if let Some(max_output) = budgets.max_output_bytes {
-        let total: u64 = artifacts
-            .iter()
-            .filter(|(format, _)| target_formats.contains(format))
-            .map(|(_, artifact)| artifact.size_bytes())
-            .sum();
+        let selected_sizes = if resolved.spec.execution.speech.is_some() {
+            // Multiple selected roles can publish copies of the same format.
+            resolved.targets.iter().filter_map(|target| artifacts.get(&target.format))
+                .map(Artifact::size_bytes).collect::<Vec<_>>()
+        } else {
+            artifacts.iter().filter(|(format, _)| target_formats.contains(format))
+                .map(|(_, artifact)| artifact.size_bytes()).collect::<Vec<_>>()
+        };
+        let total: u64 = selected_sizes.into_iter()
+            .chain(retained_speech.iter().map(Artifact::size_bytes))
+            .try_fold(0_u64, |total, size| total.checked_add(size).context("artifact byte count overflow"))?;
         if total > max_output {
             anyhow::bail!(
                 "produced output bytes {total} exceed max_output_bytes budget {max_output}"
@@ -3326,14 +3882,26 @@ fn validate_post_execution_budgets(
         }
     }
     if let Some(max_storage) = budgets.max_storage_bytes {
-        let total: u64 = artifacts
-            .values()
-            .map(|artifact| artifact.size_bytes())
-            .sum();
+        let mut seen = HashSet::new();
+        let total: u64 = artifacts.values().chain(retained_speech.iter())
+            .filter(|artifact| seen.insert(artifact.id().to_string()))
+            .map(Artifact::size_bytes)
+            .try_fold(0_u64, |total, size| total.checked_add(size).context("artifact byte count overflow"))?;
+        let total = if resolved.spec.execution.speech.as_ref().is_some_and(|policy| policy.saved_results.is_enabled()) {
+            total.checked_add(crate::speech::cache::MAX_INDEX_BYTES as u64)
+                .context("speech index storage reservation overflow")?
+        } else { total };
         if total > max_storage {
             anyhow::bail!(
                 "execution artifact bytes {total} exceed max_storage_bytes budget {max_storage}"
             );
+        }
+    }
+    if let Some(max_artifacts) = budgets.max_artifacts {
+        let count = artifacts.values().chain(retained_speech.iter())
+            .map(|artifact| artifact.id().to_string()).collect::<HashSet<_>>().len() as u64;
+        if count > max_artifacts {
+            anyhow::bail!("execution artifact count {count} exceeds max_artifacts budget {max_artifacts}");
         }
     }
     Ok(())

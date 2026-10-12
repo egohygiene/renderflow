@@ -327,6 +327,13 @@ pub enum Commands {
         subcommand: SubtitleCommands,
     },
 
+    /// Inspect local speech, transcribe offline, or map a retained transcript clock.
+    #[command(subcommand_required = true, arg_required_else_help = true)]
+    Speech {
+        #[command(subcommand)]
+        subcommand: SpeechCommands,
+    },
+
     /// List stable provider capability IDs and their implementations.
     Capabilities {
         /// Output format: text (default), json, or yaml.
@@ -359,6 +366,107 @@ pub enum Commands {
         #[arg(long)]
         strict: bool,
     },
+}
+
+#[derive(Subcommand)]
+pub enum SpeechCommands {
+    /// List audio streams using an explicitly pinned local FFprobe executable.
+    Inspect(SpeechInspectArguments),
+    /// Produce an unreviewed transcript bundle from WAV or an explicit audio stream.
+    Transcribe(SpeechTranscribeArguments),
+    /// Assess transcript clock readiness from a pinned saved-result bundle.
+    Timeline(SpeechTimelineArguments),
+    /// Export a new transcript using an explicit, pinned operator-supplied time map.
+    Align(SpeechAlignArguments),
+}
+
+#[derive(clap::Args)]
+pub struct SpeechAlignArguments {
+    /// Saved-result receipt published by a prepared-media speech graph run.
+    #[arg(long, value_name = "FILE")]
+    pub receipt: String,
+    /// Expected lowercase SHA-256 of the selected receipt.
+    #[arg(long, value_name = "SHA256")]
+    pub receipt_sha256: String,
+    /// Explicit mapping from prepared-audio milliseconds to original-media milliseconds.
+    #[arg(long, value_name = "FILE")]
+    pub mapping: String,
+    /// Expected lowercase SHA-256 of the exact mapping file.
+    #[arg(long, value_name = "SHA256")]
+    pub mapping_sha256: String,
+    /// New bundle directory; its parent must exist. Existing paths are refused.
+    #[arg(long, value_name = "DIRECTORY")]
+    pub output_dir: String,
+}
+
+#[derive(clap::Args)]
+pub struct SpeechTimelineArguments {
+    /// Saved-result receipt published by a speech graph run.
+    #[arg(long, value_name = "FILE")]
+    pub receipt: String,
+    /// Expected lowercase SHA-256 of the selected receipt.
+    #[arg(long, value_name = "SHA256")]
+    pub receipt_sha256: String,
+    /// Print the assessment, then fail if original-media clock mapping is missing.
+    #[arg(long)]
+    pub require_original_media: bool,
+}
+
+#[derive(clap::Args)]
+pub struct SpeechInspectArguments {
+    #[arg(long, value_name = "FILE")]
+    pub input: String,
+    #[arg(long, value_name = "FILE")]
+    pub ffprobe: String,
+    #[arg(long, value_name = "SHA256")]
+    pub ffprobe_sha256: String,
+}
+
+#[derive(clap::Args)]
+pub struct SpeechTranscribeArguments {
+    #[arg(long, value_name = "FILE")]
+    pub input: String,
+    /// Global audio stream index from speech inspect; never selected implicitly.
+    #[arg(long, requires_all = ["input_sha256", "ffprobe", "ffprobe_sha256", "ffmpeg", "ffmpeg_sha256"])]
+    pub audio_stream: Option<u32>,
+    /// Source digest from speech inspect, binding the choice to that exact file.
+    #[arg(long, value_name = "SHA256", requires = "audio_stream")]
+    pub input_sha256: Option<String>,
+    #[arg(long, value_name = "FILE", requires = "audio_stream")]
+    pub ffprobe: Option<String>,
+    #[arg(long, value_name = "SHA256", requires = "audio_stream")]
+    pub ffprobe_sha256: Option<String>,
+    #[arg(long, value_name = "FILE", requires = "audio_stream")]
+    pub ffmpeg: Option<String>,
+    #[arg(long, value_name = "SHA256", requires = "audio_stream")]
+    pub ffmpeg_sha256: Option<String>,
+    /// Audio preparation timeout (1–3600 seconds); default 300 for media input.
+    #[arg(long, requires = "audio_stream")]
+    pub audio_timeout_seconds: Option<u64>,
+    /// Local whisper-cli executable; never downloaded or selected implicitly.
+    #[arg(long, value_name = "FILE")]
+    pub provider: String,
+    /// Expected lowercase SHA-256 of the exact executable.
+    #[arg(long, value_name = "SHA256")]
+    pub provider_sha256: String,
+    #[arg(long, value_name = "FILE")]
+    pub model: String,
+    /// Operator-assigned identity for the local model artifact.
+    #[arg(long, value_name = "ID")]
+    pub model_id: String,
+    /// Expected lowercase SHA-256 of the exact model file.
+    #[arg(long, value_name = "SHA256")]
+    pub model_sha256: String,
+    /// Language code, or auto to request language detection.
+    #[arg(long, default_value = "en")]
+    pub language: String,
+    #[arg(long, default_value_t = 4)]
+    pub threads: u32,
+    #[arg(long, default_value_t = 900)]
+    pub timeout_seconds: u64,
+    /// New bundle directory; its parent must exist. Existing paths are refused.
+    #[arg(long, value_name = "DIRECTORY")]
+    pub output_dir: String,
 }
 
 #[derive(Subcommand)]

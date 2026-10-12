@@ -248,7 +248,40 @@ completion pass is blocked by an unavailable toolchain. The Rust adapter/SDK
 and qualification harness remain unvalidated; released support and completion
 are not claimed. Executed scope is recorded in
 [the validation record](docs/work/427/VALIDATION.md). Resume from
-[the #427 handoff](docs/work/427/HANDOFF.md); #428 remains separate.
+[the #427 handoff](docs/work/427/HANDOFF.md). The user has deferred remaining
+tests and authorized dependent implementation work without claiming acceptance.
+
+The first #428 checkpoint authors a standalone local WAV speech-transcription
+route with explicit executable/model hashes, segment normalization, and a
+separate speech-evidence envelope around the unchanged timed-transcript model.
+One recognition result produces JSON/SRT/WebVTT/text plus retained provider
+output and a bundle receipt. It has not been compiled, tested, or run with a
+model. Checkpoint 2 adds pinned local audio inspection, explicit stream/source
+selection, bounded PCM preparation, and retained WAV/probe lineage in the
+standalone bundle. Prepared transcript clocks start at audio sample zero;
+original-video synchronization is not claimed. Both checkpoints remain unrun.
+Checkpoint 3 authors explicit graph/SDK speech policy, one recognition edge
+feeding subtitle derivatives, retained evidence artifacts, phase events, and
+typed cancellation. Speech and descendants deliberately bypass generic cache/checkpoint
+reuse; provider availability stays unobserved until execution. These changes
+also remain uncompiled/unrun. Checkpoint 4 adds explicit digest-pinned replay of
+portable saved results, including complete retained-evidence checks and SDK
+resume assessment. An offline
+timing assessment exposes strict-WAV sample clocks and refuses original-media
+mapping for prepared audio; it does not shift timestamps. Checkpoint 5 adds an
+opt-in speech result index that reuses completely verified historical results
+from the existing artifact store. Missing entries permit fresh recognition;
+damaged entries fail without native fallback. Generic DAG caches/checkpoints
+stay disabled for speech, and no fresh-inference reproducibility is claimed.
+Checkpoint 6 separately scopes [#440](https://github.com/egohygiene/renderflow/issues/440):
+an explicit pinned time map can translate whole cues from a verified prepared-media
+result into original-media subtitle candidates. The offline operation records
+operator-supplied timing in a separate envelope and new output bundle; it refuses
+unmapped or boundary-crossing cues and does not infer synchronization. Original
+recognition artifacts and timeline assessment remain unchanged. Compilation,
+runtime qualification, and measured synchronization evidence remain deferred.
+Resume from
+[the #428 handoff](docs/work/428/HANDOFF.md).
 
 The exhaustive planner must materialize each eligible target identity at most
 once, suppress source-format regeneration unless explicitly requested, avoid
