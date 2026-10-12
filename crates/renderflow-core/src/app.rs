@@ -3,8 +3,9 @@ use clap::Parser;
 use tracing::info;
 
 use crate::cli::{
-    AiCommands, AiSkillCommands, Cli, Commands, DnaCommands, EbookCommands, FontCommands,
-    GraphCommands, LuluCommands, PluginCommands, PublicationCommands, ScreenplayCommands, SpecCommands, SpeechCommands, SubtitleCommands, ToolCommands,
+    AiCommands, AiSkillCommands, Cli, Commands, DnaCommands, DoctorProfile, DoctorReportFormat,
+    EbookCommands, FontCommands, GraphCommands, LuluCommands, PluginCommands, PublicationCommands,
+    ScreenplayCommands, SpecCommands, SpeechCommands, SubtitleCommands, ToolCommands,
     VideoCommands,
 };
 use crate::video::HandBrakeLimits;
@@ -446,7 +447,12 @@ pub fn run_cli(cli: Cli) -> Result<()> {
         },
         Some(Commands::Version) => commands::system::run_version(),
         Some(Commands::Env) => commands::system::run_env(),
-        Some(Commands::Doctor { strict }) => commands::system::run_doctor(strict)?,
+        Some(Commands::Doctor { strict, profile, format }) => match profile {
+            None => commands::system::run_doctor(strict)?,
+            Some(DoctorProfile::CreativePublishing) => commands::system::run_creative_doctor(
+                strict, format.unwrap_or(DoctorReportFormat::Text),
+            )?,
+        },
         None => {
             info!("No subcommand provided, defaulting to build");
             match cli.input {

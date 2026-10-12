@@ -1,6 +1,17 @@
 # Renderflow #425 — afterwriting PDF and independent analysis checkpoint
 
-## Authority and base
+## Current integration status — 2026-10-12
+
+With explicit maintainer approval, #444 merged at
+`3ca1f97673c2369f487a21e390b697f8fbf37d99` after #442 and #443. Its tree is
+`ef5330759ea307d357b88c0da4632cbd38ccfd84`, matching the reviewed local wrap-up.
+The #441 integration keeps one entry per provider, generic Node/afterwriting
+discovery unprobed, and configured adapter preflight intact. Tests, builds,
+linting, native/visual/reproducibility qualification and CI remain deferred.
+#425 retains these gaps for the deep test session. The original checkpoint
+record follows; its earlier no-merge scope has been superseded by this approval.
+
+## Original authority and base
 
 - Existing issue: https://github.com/egohygiene/renderflow/issues/425 under #421.
 - The user explicitly approved #425 after the #424 draft checkpoint. No merge,
@@ -119,10 +130,8 @@ authored guidance, not evidence that these checks ran.
 4. Perform visual/readability/print review separately, including nonembedded
    Courier substitution. Do not equate structural validity with complete source
    fidelity, typography, PDF/A, or publishing approval.
-5. Land parent drafts #442 then #443 before this stacked draft. Reconcile #441's
-   separate #429 doctor registry entries (`tool.scripttool`, `tool.node`, and
-   `tool.afterwriting`) without duplicating IDs or losing its doctor surface.
-   Preserve this configured-only availability path and exact capability scope.
+5. Preserve the reconciled single registry entries, doctor surface, configured
+   availability path, and exact capability scope when extending #429.
 6. Existing #426 owns explicitly lossy PDF recovery; #429 owns toolchain
    qualification and #430 integration proof. This checkpoint does not close
    those issues, authorize their execution, or publish a release.

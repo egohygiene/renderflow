@@ -1,5 +1,15 @@
 # Renderflow #427 — timed-text checkpoint 4
 
+## 2026-10-12 merged status
+
+The user subsequently authorized merging the stack. PR #438 merged at
+`425d0ea3ae499ffe04b27c688d7ea84fa890b8dc`, followed by PR #439 onto `main`.
+#427 remains open for deferred Rust/SDK qualification. No additional tests,
+builds, lint, schema checks, native runs, or CI were executed as part of merging.
+Implementation continues in existing [#429](../429/HANDOFF.md). This status
+supersedes the historical draft statements below; earlier checkpoint and
+validation records remain preserved.
+
 ## Scope and observed state
 
 - Parent: https://github.com/egohygiene/renderflow/issues/427 (under #421).

@@ -368,11 +368,74 @@ pub enum Commands {
     Env,
 
     /// Run installation diagnostics
+    #[command(after_help = "Examples:\n  renderflow doctor\n  renderflow doctor --profile creative-publishing\n  renderflow doctor --profile creative-publishing --format json --strict")]
     Doctor {
-        /// Exit with non-zero status when required dependencies are missing
+        /// Fail for missing required core tools, or failed supported discovery probes in a profile.
         #[arg(long)]
         strict: bool,
+
+        /// Inspect an optional provider stack without installing tools or enabling conversion routes.
+        #[arg(long, value_enum)]
+        profile: Option<DoctorProfile>,
+
+        /// Profile report format (defaults to text); requires --profile.
+        #[arg(long, value_enum, requires = "profile")]
+        format: Option<DoctorReportFormat>,
     },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum DoctorProfile {
+    CreativePublishing,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum DoctorReportFormat {
+    Text,
+    Json,
+}
+
+#[cfg(test)]
+mod doctor_arguments_tests {
+    use super::{Cli, Commands, DoctorProfile, DoctorReportFormat};
+    use clap::Parser;
+
+    #[test]
+    fn legacy_doctor_does_not_select_an_optional_profile() {
+        let cli = Cli::try_parse_from(["renderflow", "doctor", "--strict"]).unwrap();
+        assert!(matches!(cli.command, Some(Commands::Doctor {
+            strict: true, profile: None, format: None,
+        })));
+    }
+
+    #[test]
+    fn creative_doctor_accepts_default_text_and_explicit_json() {
+        let default = Cli::try_parse_from([
+            "renderflow", "doctor", "--profile", "creative-publishing",
+        ]).unwrap();
+        assert!(matches!(default.command, Some(Commands::Doctor {
+            strict: false, profile: Some(DoctorProfile::CreativePublishing), format: None,
+        })));
+        let json = Cli::try_parse_from([
+            "renderflow", "doctor", "--profile", "creative-publishing",
+            "--format", "json", "--strict",
+        ]).unwrap();
+        assert!(matches!(json.command, Some(Commands::Doctor {
+            strict: true, profile: Some(DoctorProfile::CreativePublishing),
+            format: Some(DoctorReportFormat::Json),
+        })));
+    }
+
+    #[test]
+    fn doctor_rejects_format_without_profile_and_unknown_values() {
+        for arguments in [
+            vec!["renderflow", "doctor", "--format", "json"],
+            vec!["renderflow", "doctor", "--profile", "everything"],
+            vec!["renderflow", "doctor", "--profile", "creative-publishing", "--format", "yaml"],
+        ] {
+            assert!(Cli::try_parse_from(arguments).is_err());
+        }
+    }
 }
 
 #[derive(Subcommand)]

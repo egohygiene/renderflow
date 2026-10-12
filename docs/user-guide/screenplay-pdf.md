@@ -1,7 +1,7 @@
 # Screenplay PDF and source analysis
 
 The #425 checkpoint authors an optional afterwriting adapter for a restricted
-Fountain body profile. It is an **unqualified draft**: tests, builds, schema
+Fountain body profile. It is **merged and unqualified**: tests, builds, schema
 validation, native rendering, visual review, reproducibility runs, and CI are
 deferred. The examples below have not been run.
 

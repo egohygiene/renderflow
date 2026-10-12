@@ -1,6 +1,15 @@
 # Renderflow #424 — bounded scripttool import checkpoint
 
-## Authority and base
+## Current integration status — 2026-10-12
+
+With explicit maintainer approval, #443 merged at
+`dea72f3ced5e43d71800fcc7cfdabc55484246f4` after #442; #444 is also merged.
+The #441 integration keeps one `tool.scripttool` entry with the three import
+capabilities and the doctor surface. Tests, builds, linting, native qualification
+and CI remain deferred to the deep test session. #424 retains its acceptance
+work. The original checkpoint record follows.
+
+## Original authority and base
 
 - Existing issue: https://github.com/egohygiene/renderflow/issues/424 under #421.
 - The user explicitly approved #424. Implement the existing issue without
@@ -89,11 +98,8 @@ inside those tests. No upstream screenplay or converter binary is included.
 3. Reconcile the explicit rejection decisions with issue acceptance. Broader
    native profiles and reverse writers need independent evidence or a revised
    provider, not silent widening or guessed native envelope defaults.
-4. Merge/rebase #442 before landing this stacked draft. #441 is an independent
-   #429 doctor draft that also introduces discovery-only `tool.scripttool`.
-   Reconcile that registry entry during merge: keep a single stable tool ID,
-   the three bounded capability declarations, and the doctor profile. Do not
-   discard either feature or duplicate the ID.
+4. Preserve the reconciled single `tool.scripttool` identity, its three bounded
+   capability declarations, and the doctor profile in future registry updates.
 5. Existing #425 owns screenplay PDF output, #426 lossy PDF recovery, #429
-   toolchain qualification, and #430 integration proof. This draft does not
+   toolchain qualification, and #430 integration proof. This implementation does not
    close or qualify any of those issues and does not publish a release.

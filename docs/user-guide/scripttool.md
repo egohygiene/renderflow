@@ -1,6 +1,6 @@
 # Restricted screenplay imports with scripttool
 
-The #424 adapter is an **authored, unqualified draft**. No tests, build, schema
+The #424 adapter is **merged and unqualified**. No tests, build, schema
 validation, native conversion, or CI have run for this checkpoint. The examples
 below describe the interface; they are unrun. See the
 [provider evaluation](../work/424/PROVIDER_EVALUATION.md) for upstream source,

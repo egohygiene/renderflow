@@ -172,6 +172,11 @@ pub enum ToolDiscovery {
     RuntimeService {
         service: String,
     },
+    /// A catalog candidate without a reviewed non-mutating discovery protocol.
+    /// Reporting it never launches a process or assumes installation state.
+    Unprobed {
+        reason: String,
+    },
     Virtual,
 }
 
@@ -465,6 +470,7 @@ impl ToolProbe for ProcessToolProbe {
 #[serde(rename_all = "snake_case")]
 pub enum ToolAvailabilityStatus {
     Available,
+    NotProbed,
     MissingExecutable,
     UnsupportedVersion,
     MissingRuntimeService,
@@ -479,6 +485,7 @@ impl ToolAvailabilityStatus {
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Available => "available",
+            Self::NotProbed => "not_probed",
             Self::MissingExecutable => "missing_executable",
             Self::UnsupportedVersion => "unsupported_version",
             Self::MissingRuntimeService => "missing_runtime_service",
@@ -1041,6 +1048,9 @@ fn evaluate_descriptor(
     }
 
     match &descriptor.discovery {
+        ToolDiscovery::Unprobed { reason } => {
+            unavailable(ToolAvailabilityStatus::NotProbed, reason.clone())
+        }
         ToolDiscovery::Virtual => ToolAvailability {
             id: descriptor.id.clone(),
             name: descriptor.name.clone(),

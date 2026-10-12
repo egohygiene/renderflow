@@ -210,6 +210,28 @@ artifacts without importing Renderflow source.
 broader universal-format promise into an executable, cycle-safe creative
 artifact forest:
 
+On 2026-10-12, the maintainer approved landing the implementation sprint and
+deferring the deep test pass. #442, #443, and #444 merged into `main` in that
+order. #441 supplies the doctor integration, reconciled against those adapters
+with one registry entry per tool and explicit configured-only Node/afterwriting
+availability. Merging does not turn authored coverage into passing evidence.
+
+| Existing issue | Implementation status | Remaining lane |
+| --- | --- | --- |
+| #423 | Canonical screenplay model merged in #442 | Deferred acceptance/fixture qualification |
+| #424 | Three bounded native imports merged in #443 | Deferred direction/platform qualification |
+| #425 | Fountain PDF, analysis, and policy fix merged in #444 | Deferred runtime, two-run, and visual qualification |
+| #429 | Doctor checkpoint and adapter reconciliation in #441 | Recovery integration and later toolchain qualification |
+| #422 | Existing reachable/profile planner needs forest-policy completion | Next: target identity, cycle invariants, selection evidence |
+| #426 | PDF/text screenplay recovery not implemented | Next screenplay adapter; explicitly lossy/review-required |
+| #430 | Cross-family/Flow proof outstanding | Follow #422, #426, and remaining #429 wiring |
+
+Recommended implementation order is #422 → #426 → remaining #429 → #430;
+#406 is the subsequent layered/localized page-composition lane. Keep #412/#413
+fixture expansion and #419 verified release work aligned with the later deep
+testing session. Existing open qualification issues retain the evidence gaps;
+no new audit issues are created before that session.
+
 ```text
 #422 derivative-forest planner policy
   │
@@ -253,8 +275,8 @@ body-only profile before a standalone bundle or graph artifact is published.
 Reverse native writers are rejected based on upstream source findings;
 provider JSON is a separate rejected derivative candidate, never canonical
 screenplay JSON. Version, binary/source/output digests, argv identity, validation,
-and losses accompany accepted results. This remains an authored, unqualified
-draft stacked on #423; no tests, builds, native conversions, or CI have run.
+and losses accompany accepted results. The implementation is merged in #443
+and remains unqualified; no tests, builds, native conversions, or CI have run.
 Keep #424 open for the deferred qualification pass. See
 [the #424 handoff](docs/work/424/HANDOFF.md) and
 [provider evaluation](docs/work/424/PROVIDER_EVALUATION.md).
@@ -265,7 +287,7 @@ A4/US Letter profiles use Courier base14 and an ASCII body-only source subset.
 Independent source reports count screenplay elements and cues; independent PDF
 inspection records pages, geometry, fonts, and variable metadata. No afterwriting
 analytics CLI, native FDX input, visual-fidelity guarantee, or reproducible-byte
-claim is invented. It remains stacked on #424/#423 with all executable checks
+claim is invented. It merged in #444 after #424/#423 with all executable checks
 deferred; #425 stays open for native and two-run qualification. See
 [the #425 handoff](docs/work/425/HANDOFF.md).
 
@@ -315,6 +337,22 @@ recognition artifacts and timeline assessment remain unchanged. Compilation,
 runtime qualification, and measured synchronization evidence remain deferred.
 Resume from
 [the #428 handoff](docs/work/428/HANDOFF.md).
+
+On 2026-10-12, PR #438 and PR #439 merged in dependency order with explicit
+maintainer authorization. The implementation is on `main`; #427, #428, and
+#440 remain open for their deferred qualification work. Merge does not establish
+acceptance or release readiness.
+
+The #429 checkpoint supplies the optional `creative-publishing` doctor profile,
+independent tool observations, separate route/configuration status, and a JSON
+observation fingerprint. Its registry is reconciled with #424/#425 capabilities;
+Poppler remains discovery-only. Node and afterwriting remain unprobed by generic
+discovery: their PDF route requires explicit pinned configuration and its own
+preflight. Doctor reports the implemented screenplay routes as authored and
+unqualified. Recovery integration, real fixture/release versions, platform
+qualification, and execution checks remain outstanding; #429 is not complete. Resume
+from [the #429 handoff](docs/work/429/HANDOFF.md) and
+[profile guide](docs/user-guide/creative-toolchain.md).
 
 The exhaustive planner must materialize each eligible target identity at most
 once, suppress source-format regeneration unless explicitly requested, avoid

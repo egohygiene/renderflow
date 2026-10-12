@@ -1,6 +1,15 @@
 # Renderflow #423 — canonical screenplay checkpoint 1
 
-## Authority and base
+## Current integration status — 2026-10-12
+
+With explicit maintainer approval, #442 merged at
+`fb2657590e2df919528e47514511a72b1144398f`. The dependent #443 and #444 are also
+merged. #441 reconciles the separate doctor surface. Tests, builds, linting,
+native qualification and CI remain deferred to the deep test session. Keep
+#423 open for its recorded acceptance evidence; no new audit issues are needed
+before that session. The original checkpoint record follows.
+
+## Original authority and base
 
 - Existing issue: https://github.com/egohygiene/renderflow/issues/423 under #421.
 - The user approved advancing this issue after the #429 doctor checkpoint.
@@ -65,12 +74,10 @@ not a claimed result of converting the native fixtures.
 - Keep #423 open until authored coverage and acceptance boundaries are executed
   and reconciled. Native fixture import/export proof belongs with actual
   parsers/providers; this checkpoint does not create those adapters.
-- Advance existing #424 for supported screenplay interchange, using this
-  model and carrying directional loss/unknown extension evidence per result.
-  Then #425 supplies screenplay PDF output and #426 supplies lossy recovery.
+- #424 and #425 implementations are merged; #426 remains the lossy recovery
+  implementation, using this model with explicit directional loss evidence.
 - When checks are authorized, compile and run focused model, CLI, intake,
   artifact-validation, and format regressions; validate both JSON Schemas and
   verify native fixtures in the exact qualified provider/application versions.
-- Reconcile #441's independent #429 changes during merge, preserving both the
-  creative doctor profile and screenplay model. Do not close #429 or claim
-  #430 integration proof merely because the model or doctor has merged.
+- The #441 integration preserves both the doctor profile and screenplay model.
+  Do not close #429 or claim #430 integration proof from merge status alone.

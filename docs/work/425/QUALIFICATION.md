@@ -7,7 +7,7 @@ document does not change that instruction.
 
 ## Preserve the candidate and inputs
 
-Use the exact candidate from PR #444 or its eventual rebased/merged successor.
+Use the exact merged candidate from PR #444 or a recorded successor on `main`.
 Record its commit and tree, platform/architecture, Rust version, Node executable
 path/hash/version, package-tree fingerprint, provider version, selected profile,
 and source/config hashes alongside results. Never describe a later checkout as
@@ -148,6 +148,6 @@ does not establish it.
 For each #425 acceptance criterion, retain the command, candidate/input pins,
 artifact paths/hashes, observed result, and reviewer/date. Mark a criterion
 complete only for the scope supported by that evidence. Record any remaining
-platform/profile limits. Merge order is #442, #443, then #444; reconcile #441's
-separate doctor registry entries before combining them. This runbook neither
-merges the stack nor authorizes a release.
+platform/profile limits. #442, #443, and #444 merged in that order; #441's doctor
+integration preserves the configured provider boundary. Merge status is not
+qualification evidence. This runbook does not authorize a release.

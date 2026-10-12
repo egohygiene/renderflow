@@ -72,6 +72,7 @@ nav:
       - Print-interior PDF: user-guide/print-interior-pdf.md
       - Supported Formats: user-guide/supported-formats.md
       - Tool Registry: user-guide/tool-registry.md
+      - Creative Toolchain: user-guide/creative-toolchain.md
       - Adapter Ecosystem: user-guide/adapter-ecosystem.md
       - EPUB and KEPUB Derivatives: user-guide/ebook-derivatives.md
       - Fixed-layout EPUB: user-guide/fixed-layout-epub.md
