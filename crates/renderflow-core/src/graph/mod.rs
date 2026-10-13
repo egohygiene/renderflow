@@ -2,6 +2,7 @@ pub mod capability;
 mod dag_executor;
 mod definition;
 mod definition_registry;
+mod derivative_path;
 pub mod execution_plan;
 mod format;
 mod input_kind;
@@ -13,13 +14,17 @@ mod transform_edge;
 pub use dag_executor::{DagExecutionReport, DagExecutor};
 pub use definition::TransformDefinition;
 pub use definition_registry::TransformDefinitionRegistry;
+pub use derivative_path::{
+    DerivativePathConstraints, DerivativePathError, DerivativePathEvidence,
+    DerivativePathPolicy, SelectedDerivativePath,
+};
 pub use execution_plan::{
-    ArtifactForest, DiagnosticLevel, ExecutionPlan, ForestBranch, ForestBranchState,
+    ArtifactForest, DiagnosticLevel, ExecutionPlan, ForestBranch, ForestBranchState, ForestRouteEvidence,
     PlanCollectionMember, PlanSourceArtifact, PlanSourceCollection,
 };
 pub use format::Format;
 pub use input_kind::InputKind;
-pub use multi_target::MultiTargetDag;
+pub use multi_target::{DagValidationError, MultiTargetDag};
 pub use pathfinding::TransformPath;
 pub use renderers::PlanRenderer;
 pub use transform_edge::TransformEdge;

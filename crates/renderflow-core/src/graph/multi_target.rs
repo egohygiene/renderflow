@@ -1,4 +1,5 @@
-use super::{Format, TransformEdge};
+use super::{Format, TransformEdge, TransformPath};
+use super::derivative_path::derivative_edge_identity;
 
 use petgraph::graph::{DiGraph, NodeIndex};
 use petgraph::visit::EdgeRef;
@@ -35,10 +36,41 @@ use std::collections::HashMap;
 /// let order = dag.execution_order();
 /// assert_eq!(order.len(), 3);
 /// ```
+#[derive(Debug, Clone)]
 pub struct MultiTargetDag {
     pub(super) graph: DiGraph<Format, TransformEdge>,
     pub(super) nodes: HashMap<Format, NodeIndex>,
 }
+
+/// A malformed selected forest must fail before any executor runs a step.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum DagValidationError {
+    Cycle { format: Format },
+    MissingSource { source: Format },
+    SourceHasProducer { source: Format },
+    MultipleProducers { format: Format },
+    Disconnected { format: Format },
+    DisconnectedPath { expected: Format, actual: Format },
+    RepeatedFormat { format: Format },
+    ConflictingEdge { from: Format, to: Format },
+}
+
+impl std::fmt::Display for DagValidationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Cycle { format } => write!(f, "selected DAG contains a cycle at {format}"),
+            Self::MissingSource { source } => write!(f, "selected DAG does not contain source {source}"),
+            Self::SourceHasProducer { source } => write!(f, "selected DAG regenerates source {source}"),
+            Self::MultipleProducers { format } => write!(f, "selected DAG has multiple producers for {format}"),
+            Self::Disconnected { format } => write!(f, "selected DAG format {format} is disconnected from its source"),
+            Self::DisconnectedPath { expected, actual } => write!(f, "selected path expected input {expected} but found {actual}"),
+            Self::RepeatedFormat { format } => write!(f, "selected path repeats format {format}"),
+            Self::ConflictingEdge { from, to } => write!(f, "selected paths disagree on the transform from {from} to {to}; execute these targets in separate DAGs"),
+        }
+    }
+}
+
+impl std::error::Error for DagValidationError {}
 
 impl MultiTargetDag {
     pub(super) fn new() -> Self {
@@ -46,6 +78,96 @@ impl MultiTargetDag {
             graph: DiGraph::new(),
             nodes: HashMap::new(),
         }
+    }
+
+    /// Construct a branch DAG preserving every selected edge identity.
+    pub fn from_selected_path(
+        source: Format,
+        path: &TransformPath,
+    ) -> Result<Self, DagValidationError> {
+        Self::from_selected_paths(source, std::slice::from_ref(path))
+    }
+
+    /// Merge only identical shared prefixes. Unlike the legacy cheapest-edge
+    /// merge, this never substitutes a different provider or variant into an
+    /// already selected route. Routes requiring different producers must use
+    /// independent branch DAGs so artifacts cannot overwrite one another.
+    pub fn from_selected_paths(
+        source: Format,
+        paths: &[TransformPath],
+    ) -> Result<Self, DagValidationError> {
+        let mut dag = Self::new();
+        dag.get_or_insert_node(source);
+        for path in paths {
+            let mut current = source;
+            let mut visited = std::collections::HashSet::from([source]);
+            for edge in &path.steps {
+                if edge.from != current {
+                    return Err(DagValidationError::DisconnectedPath {
+                        expected: current,
+                        actual: edge.from,
+                    });
+                }
+                if !visited.insert(edge.to) {
+                    return Err(DagValidationError::RepeatedFormat { format: edge.to });
+                }
+                let from_idx = dag.get_or_insert_node(edge.from);
+                let to_idx = dag.get_or_insert_node(edge.to);
+                if let Some(existing_id) = dag.graph.find_edge(from_idx, to_idx) {
+                    if derivative_edge_identity(&dag.graph[existing_id]) != derivative_edge_identity(edge) {
+                        return Err(DagValidationError::ConflictingEdge { from: edge.from, to: edge.to });
+                    }
+                } else {
+                    dag.graph.add_edge(from_idx, to_idx, edge.clone());
+                }
+                current = edge.to;
+            }
+        }
+        dag.validate(source)?;
+        Ok(dag)
+    }
+
+    /// Validate cycles, source connectivity, and single-producer artifact keys.
+    /// An empty legacy DAG is a valid no-op; an explicit zero-hop source branch
+    /// created by `from_selected_path` contains the source node and no edges.
+    pub fn validate(&self, source: Format) -> Result<(), DagValidationError> {
+        use petgraph::algo::toposort;
+        use petgraph::visit::Bfs;
+        use petgraph::Direction::Incoming;
+
+        toposort(&self.graph, None).map_err(|cycle| DagValidationError::Cycle {
+            format: self.graph[cycle.node_id()],
+        })?;
+        if self.graph.node_count() == 0 {
+            return Ok(());
+        }
+        let source_idx = *self.nodes.get(&source).ok_or(DagValidationError::MissingSource { source })?;
+        if self.graph.edges_directed(source_idx, Incoming).next().is_some() {
+            return Err(DagValidationError::SourceHasProducer { source });
+        }
+        for node in self.graph.node_indices() {
+            if self.graph.edges_directed(node, Incoming).count() > 1 {
+                return Err(DagValidationError::MultipleProducers { format: self.graph[node] });
+            }
+        }
+        let mut reachable = std::collections::HashSet::new();
+        let mut bfs = Bfs::new(&self.graph, source_idx);
+        while let Some(node) = bfs.next(&self.graph) {
+            reachable.insert(node);
+        }
+        for node in self.graph.node_indices() {
+            if !reachable.contains(&node) {
+                return Err(DagValidationError::Disconnected { format: self.graph[node] });
+            }
+        }
+        Ok(())
+    }
+
+    /// Typed execution ordering for callers that must reject malformed DAGs.
+    /// The compatibility `execution_order` API remains unchanged.
+    pub fn try_execution_order(&self, source: Format) -> Result<Vec<&TransformEdge>, DagValidationError> {
+        self.validate(source)?;
+        Ok(self.execution_order())
     }
 
     /// Return the [`NodeIndex`] for `format`, inserting a node when one does
@@ -768,5 +890,73 @@ mod tests {
         let dot = dag.to_dot(Format::Markdown);
         assert!(dot.contains("cost="), "cost label missing: {dot}");
         assert!(dot.contains("quality="), "quality label missing: {dot}");
+    }
+}
+
+#[cfg(test)]
+mod selected_path_tests {
+    use super::*;
+
+    fn edge(from: Format, to: Format) -> TransformEdge {
+        TransformEdge::new(from, to, 1.0, 1.0)
+    }
+
+    #[test]
+    fn identical_prefixes_are_shared_without_changing_edge_identity() {
+        let shared = edge(Format::Markdown, Format::Html).with_provider("renderer", "html");
+        let pdf = TransformPath::from_steps(vec![shared.clone(), edge(Format::Html, Format::Pdf)]);
+        let epub = TransformPath::from_steps(vec![shared, edge(Format::Html, Format::Epub)]);
+        let dag = MultiTargetDag::from_selected_paths(Format::Markdown, &[pdf, epub]).unwrap();
+        assert_eq!(dag.edge_count(), 3);
+        assert_eq!(dag.try_execution_order(Format::Markdown).unwrap().len(), 3);
+    }
+
+    #[test]
+    fn parallel_provider_substitution_is_rejected_even_if_cheaper() {
+        let a = TransformPath::from_steps(vec![edge(Format::Markdown, Format::Pdf).with_provider("a", "pdf")]);
+        let b = TransformPath::from_steps(vec![TransformEdge::new(Format::Markdown, Format::Pdf, 0.1, 1.0).with_provider("b", "pdf")]);
+        assert!(matches!(MultiTargetDag::from_selected_paths(Format::Markdown, &[a, b]), Err(DagValidationError::ConflictingEdge { .. })));
+    }
+
+    #[test]
+    fn independent_routes_cannot_overwrite_the_same_format() {
+        let direct = TransformPath::from_steps(vec![edge(Format::Markdown, Format::Pdf)]);
+        let indirect = TransformPath::from_steps(vec![edge(Format::Markdown, Format::Html), edge(Format::Html, Format::Pdf)]);
+        assert!(matches!(MultiTargetDag::from_selected_paths(Format::Markdown, &[direct, indirect]), Err(DagValidationError::MultipleProducers { format: Format::Pdf })));
+    }
+
+    #[test]
+    fn repeating_source_or_intermediate_is_rejected() {
+        let cycle = TransformPath::from_steps(vec![edge(Format::Markdown, Format::Html), edge(Format::Html, Format::Markdown)]);
+        assert!(matches!(MultiTargetDag::from_selected_path(Format::Markdown, &cycle), Err(DagValidationError::RepeatedFormat { format: Format::Markdown })));
+    }
+
+    #[test]
+    fn disjoint_selected_steps_are_rejected() {
+        let path = TransformPath::from_steps(vec![edge(Format::Markdown, Format::Html), edge(Format::Rst, Format::Pdf)]);
+        assert!(matches!(MultiTargetDag::from_selected_path(Format::Markdown, &path), Err(DagValidationError::DisconnectedPath { .. })));
+    }
+
+    #[test]
+    fn legacy_cycles_have_a_typed_validation_error() {
+        let mut dag = MultiTargetDag::new();
+        dag.merge_edge(edge(Format::Markdown, Format::Html));
+        dag.merge_edge(edge(Format::Html, Format::Markdown));
+        assert!(matches!(dag.try_execution_order(Format::Markdown), Err(DagValidationError::Cycle { .. })));
+    }
+
+    #[test]
+    fn disconnected_legacy_nodes_are_rejected() {
+        let mut dag = MultiTargetDag::new();
+        dag.merge_edge(edge(Format::Markdown, Format::Html));
+        dag.merge_edge(edge(Format::Rst, Format::Pdf));
+        assert!(matches!(dag.validate(Format::Markdown), Err(DagValidationError::Disconnected { .. })));
+    }
+
+    #[test]
+    fn explicit_source_branch_is_a_valid_zero_hop_dag() {
+        let dag = MultiTargetDag::from_selected_path(Format::Markdown, &TransformPath::from_steps(Vec::new())).unwrap();
+        assert_eq!(dag.node_count(), 1);
+        assert!(dag.try_execution_order(Format::Markdown).unwrap().is_empty());
     }
 }

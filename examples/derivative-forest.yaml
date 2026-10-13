@@ -1,0 +1,54 @@
+# Authored, unqualified planning example. Set path to an existing local WAV file.
+# Inspect with:
+# renderflow graph plan --config examples/derivative-forest.yaml --format json
+schema: renderflow/v2
+
+sources:
+  - id: source.master
+    role: audio_master
+    path: master.wav
+    format: wav
+    detect: true
+
+profiles:
+  audio.delivery:
+    schema: renderflow.profile/v1
+    description: Two distinct MP3 renditions from the original audio master
+    targets:
+      - id: target.streaming
+        role: streaming
+        format: mp3
+        preset: streaming_128k
+        provider: tool.ffmpeg
+        requirement: optional
+      - id: target.high_quality
+        role: high_quality
+        format: mp3
+        preset: hq_320k
+        provider: tool.ffmpeg
+        requirement: optional
+
+targets:
+  profiles: [audio.delivery]
+  all_reachable: true
+  include:
+    families: [audio]
+  intermediates: cache_only
+
+execution:
+  optimization: balanced
+  derivative_planning:
+    schema: renderflow/derivative-policy-v1
+    max_hops: 8
+    max_candidates: 10000
+    max_loss: 0.25
+  requirements:
+    local_only: true
+    offline: true
+  network: deny
+  ai: deny
+
+output:
+  bundle_root: dist/derivative-forest
+  naming_template: "{source.id}/{target.id}.{ext}"
+  collision: error

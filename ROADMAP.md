@@ -26,6 +26,22 @@ supersedes: []
 
 # Renderflow Roadmap
 
+## 2026-10-12 derivative-forest implementation checkpoint
+
+[#422](https://github.com/egohygiene/renderflow/issues/422) now has authored
+cycle-safe route selection, stable target identities, constrained provider/transform
+selection, distinct rendition execution groups, and versioned CLI/SDK forest evidence.
+Ordinary exact requests retain optimization-first ranking; exhaustive/profile requests
+prefer cumulative fidelity and fewer conversions. Unsupported and unavailable targets
+remain diagnostics rather than promised output paths. Native screenplay, speech, and
+collection policies retain their bounded route restrictions.
+
+The implementation is a draft checkpoint, not a qualified release. Tests, compilation,
+linting, native probes/conversions, schema validation, and CI were explicitly deferred.
+The [forest contract](docs/architecture/derivative-forest.md) and
+[checkpoint handoff](docs/work/422/HANDOFF.md) record the policy and remaining evidence.
+#422 stays open for review and the later deep test session. #426 is the next adapter lane.
+
 ## 2026-09-28 integration-candidate release review handoff
 
 [#418](https://github.com/egohygiene/renderflow/issues/418) merged in
@@ -222,11 +238,11 @@ availability. Merging does not turn authored coverage into passing evidence.
 | #424 | Three bounded native imports merged in #443 | Deferred direction/platform qualification |
 | #425 | Fountain PDF, analysis, and policy fix merged in #444 | Deferred runtime, two-run, and visual qualification |
 | #429 | Doctor checkpoint and adapter reconciliation in #441 | Recovery integration and later toolchain qualification |
-| #422 | Existing reachable/profile planner needs forest-policy completion | Next: target identity, cycle invariants, selection evidence |
+| #422 | Cycle-safe identities, route groups, and versioned forest evidence authored | Draft review; tests/build/native qualification deferred |
 | #426 | PDF/text screenplay recovery not implemented | Next screenplay adapter; explicitly lossy/review-required |
 | #430 | Cross-family/Flow proof outstanding | Follow #422, #426, and remaining #429 wiring |
 
-Recommended implementation order is #422 → #426 → remaining #429 → #430;
+After the #422 draft review, the next implementation order is #426 → remaining #429 → #430;
 #406 is the subsequent layered/localized page-composition lane. Keep #412/#413
 fixture expansion and #419 verified release work aligned with the later deep
 testing session. Existing open qualification issues retain the evidence gaps;

@@ -1,0 +1,283 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-artifact-forest-v1.schema.json",
+  "title": "Renderflow derivative artifact forest v1",
+  "description": "Source-rooted target identities and exact selected simple routes. Format-only plan graphs are projections; branch routes preserve selected provider, capability, variant, and transform identities.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "identity",
+    "policy",
+    "profiles",
+    "intermediates",
+    "branches"
+  ],
+  "properties": {
+    "schema": {
+      "const": "renderflow/artifact-forest-v1"
+    },
+    "identity": {
+      "type": "string",
+      "minLength": 1
+    },
+    "policy": {
+      "type": "object"
+    },
+    "profiles": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "intermediates": {
+      "enum": [
+        "cache_only",
+        "retain"
+      ]
+    },
+    "branches": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "target_id",
+          "format",
+          "requirement",
+          "state",
+          "reason_code",
+          "reason"
+        ],
+        "properties": {
+          "target_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "format": {
+            "type": "string",
+            "minLength": 1
+          },
+          "preset": {
+            "type": "string",
+            "minLength": 1
+          },
+          "template": {
+            "type": "string",
+            "minLength": 1
+          },
+          "variant": {
+            "type": "string",
+            "minLength": 1
+          },
+          "role": {
+            "type": "string",
+            "minLength": 1
+          },
+          "requirement": {
+            "enum": [
+              "required",
+              "optional"
+            ]
+          },
+          "options": {
+            "type": "object"
+          },
+          "state": {
+            "enum": [
+              "selected",
+              "excluded",
+              "unavailable",
+              "unsupported",
+              "budget_pruned"
+            ]
+          },
+          "reason_code": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          },
+          "route": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "steps",
+              "source_identity",
+              "cumulative_quality",
+              "cumulative_loss",
+              "hop_count",
+              "weighted_cost",
+              "ranking",
+              "explored_candidates"
+            ],
+            "properties": {
+              "steps": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "from",
+                    "to",
+                    "cost",
+                    "quality",
+                    "input_kind",
+                    "edge_type"
+                  ],
+                  "properties": {
+                    "from": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "to": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "cost": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "quality": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1
+                    },
+                    "input_kind": {
+                      "enum": [
+                        "single",
+                        "collection"
+                      ]
+                    },
+                    "edge_type": {
+                      "enum": [
+                        "lossless",
+                        "lossy",
+                        "aggregation"
+                      ]
+                    },
+                    "provider_id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "capability_id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "required_provider_ids": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "uniqueItems": true
+                    },
+                    "variant_id": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "evidence": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              },
+              "source_identity": {
+                "type": "boolean"
+              },
+              "cumulative_quality": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "cumulative_loss": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "hop_count": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "weighted_cost": {
+                "type": "number",
+                "minimum": 0
+              },
+              "ranking": {
+                "type": "string",
+                "minLength": 1
+              },
+              "explored_candidates": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "source_identity": {
+                      "const": true
+                    }
+                  },
+                  "required": [
+                    "source_identity"
+                  ]
+                },
+                "then": {
+                  "properties": {
+                    "steps": {
+                      "maxItems": 0
+                    },
+                    "hop_count": {
+                      "const": 0
+                    },
+                    "cumulative_quality": {
+                      "const": 1
+                    },
+                    "cumulative_loss": {
+                      "const": 0
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "state": {
+                  "const": "selected"
+                }
+              },
+              "required": [
+                "state"
+              ]
+            },
+            "then": {
+              "required": [
+                "route"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "produced_artifacts": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    }
+  }
+}

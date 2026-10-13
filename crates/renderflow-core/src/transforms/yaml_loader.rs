@@ -567,8 +567,8 @@ pub fn load_aggregation_transforms_from_yaml(path: &str) -> Result<AggregationRe
 ///
 /// * Registered as a directed edge in the [`TransformGraph`] for path-finding.
 /// * Registered in the [`DagExecutor`] so that it can be executed at runtime
-///   (single-input entries via [`DagExecutor::register_single`]; collection
-///   entries via [`DagExecutor::register_aggregation`]).
+///   (single-input entries via [`DagExecutor::register_single_for_edge`]; collection
+///   entries via [`DagExecutor::register_aggregation_for_edge`]).
 ///
 /// This function is the primary integration point between the YAML transform
 /// configuration and the graph-based CLI execution modes (`--target`, `--all`).
@@ -649,9 +649,15 @@ pub fn build_graph_executor_and_tools_from_str(
     let tool_registry = parse_tool_registry_from_str(yaml)?;
     let mut graph = TransformGraph::new();
     let mut executor = DagExecutor::new();
+    let mut transform_ids = std::collections::HashSet::new();
 
     for def in &config.transforms {
         def.validate()?;
+        anyhow::ensure!(
+            transform_ids.insert(def.name.clone()),
+            "duplicate transform identity '{}' in graph registry",
+            def.name
+        );
         let from: Format = def
             .from
             .parse()
@@ -668,16 +674,15 @@ pub fn build_graph_executor_and_tools_from_str(
         let provider = def.provider_id(&tool_registry)?;
         let capability = transform_capability_id(from, to);
 
-        graph.add_transform(
-            TransformEdge::with_input_kind(from, to, def.cost, def.quality, input_kind)
-                .with_provider(provider.to_string(), capability.to_string())
-                .with_evidence("transform_id", def.name.clone())
-                .with_evidence("registry_sha256", registry_digest.clone()),
-        );
+        let edge = TransformEdge::with_input_kind(from, to, def.cost, def.quality, input_kind)
+            .with_provider(provider.to_string(), capability.to_string())
+            .with_evidence("transform_id", def.name.clone())
+            .with_evidence("registry_sha256", registry_digest.clone());
+        graph.add_transform(edge.clone());
 
         if def.is_collection() {
             let agg = Arc::new(def.to_aggregation_transform()?);
-            executor.register_aggregation(from, to, agg);
+            executor.register_aggregation_for_edge(&edge, agg);
         } else if def.plugin.is_some() {
             anyhow::bail!(
                 "transform '{}': graph execution requires plugin registration through an embedding registry",
@@ -689,7 +694,7 @@ pub fn build_graph_executor_and_tools_from_str(
             } else {
                 Arc::new(def.to_command_transform()?)
             };
-            executor.register_single(from, to, transform);
+            executor.register_single_for_edge(&edge, transform);
         }
     }
 
@@ -1798,6 +1803,27 @@ transforms:
             result.is_err(),
             "invalid 'from' format should return an error"
         );
+    }
+
+    #[test]
+    fn graph_registry_rejects_duplicate_transform_identity() {
+        let yaml = r#"
+transforms:
+  - name: same-renderer
+    program: first-placeholder
+    from: markdown
+    to: html
+    cost: 1.0
+    quality: 1.0
+  - name: same-renderer
+    program: second-placeholder
+    from: markdown
+    to: html
+    cost: 1.0
+    quality: 1.0
+"#;
+        let error = build_graph_and_executor_from_str(yaml).err().unwrap();
+        assert!(error.to_string().contains("duplicate transform identity 'same-renderer'"));
     }
 
     #[test]

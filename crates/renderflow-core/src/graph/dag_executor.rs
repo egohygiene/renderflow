@@ -8,7 +8,7 @@ use anyhow::{Context, Result};
 use rayon::prelude::*;
 use tracing::{debug, warn};
 
-use super::{Format, MultiTargetDag, TransformEdge};
+use super::{Format, InputKind, MultiTargetDag, TransformEdge};
 use crate::artifact::{
     compute_artifact_node_hash, load_artifact_cache, save_artifact_cache, Artifact, ArtifactCache,
     ArtifactCollection, ArtifactCollectionTransform, ArtifactDescriptor, ArtifactStorageClass,
@@ -35,6 +35,7 @@ use crate::validation::ValidationRegistry;
 /// The artifact-native executor is the canonical substrate. The legacy
 /// [`execute`](Self::execute) method remains as a UTF-8 compatibility wrapper
 /// for existing callers and transforms.
+#[derive(Clone)]
 pub struct DagExecutor {
     /// Single-input artifact transforms keyed by `(from, to)` format pair.
     single_transforms: HashMap<(Format, Format), Arc<dyn ArtifactTransform>>,
@@ -42,6 +43,8 @@ pub struct DagExecutor {
     aggregation_transforms: HashMap<(Format, Format), Arc<dyn AggregationTransform>>,
     /// Artifact-native ordered-collection transforms.
     collection_transforms: HashMap<(Format, Format), Arc<dyn ArtifactCollectionTransform>>,
+    /// Exact selected-edge registrations; parallel routes must not overwrite one another.
+    edge_transforms: HashMap<EdgeRegistrationKey, RegisteredEdgeTransform>,
     /// Optional artifact-native DAG cache path.
     cache_path: Option<PathBuf>,
     /// Selected-provider fingerprint used to reject incompatible cache entries.
@@ -52,6 +55,38 @@ pub struct DagExecutor {
     checkpoint_context: Option<CheckpointContext>,
     resume_checkpoints: bool,
     cancellation: Option<Arc<AtomicBool>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+struct EdgeRegistrationKey {
+    from: Format,
+    to: Format,
+    input_kind: InputKind,
+    transform_id: Option<String>,
+    provider_id: Option<String>,
+    capability_id: Option<String>,
+    variant_id: Option<String>,
+}
+
+impl From<&TransformEdge> for EdgeRegistrationKey {
+    fn from(edge: &TransformEdge) -> Self {
+        Self {
+            from: edge.from,
+            to: edge.to,
+            input_kind: edge.input_kind,
+            transform_id: edge.evidence.get("transform_id").cloned(),
+            provider_id: edge.provider_id.clone(),
+            capability_id: edge.capability_id.clone(),
+            variant_id: edge.variant_id.clone(),
+        }
+    }
+}
+
+#[derive(Clone)]
+enum RegisteredEdgeTransform {
+    Single(Arc<dyn ArtifactTransform>),
+    Collection(Arc<dyn ArtifactCollectionTransform>),
+    Aggregation(Arc<dyn AggregationTransform>),
 }
 
 /// Artifact outputs and step evidence from one DAG execution.
@@ -128,11 +163,14 @@ fn edge_identity(edge: &TransformEdge) -> String {
 
 fn edge_configuration_digest(edge: &TransformEdge) -> crate::evidence::DigestEvidence {
     sha256_text(&format!(
-        "{}\0{}\0{}\0{}\0{:?}",
+        "{}\0{}\0{}\0{}\0{}\0{}\0{:?}\0{:?}",
         edge.from,
         edge.to,
+        edge.input_kind,
         edge.provider_id.as_deref().unwrap_or(""),
+        edge.capability_id.as_deref().unwrap_or(""),
         edge.variant_id.as_deref().unwrap_or(""),
+        edge.required_provider_ids,
         edge.evidence
     ))
 }
@@ -278,6 +316,7 @@ impl DagExecutor {
             single_transforms: HashMap::new(),
             aggregation_transforms: HashMap::new(),
             collection_transforms: HashMap::new(),
+            edge_transforms: HashMap::new(),
             cache_path: None,
             toolchain_fingerprint: None,
             max_parallel: None,
@@ -372,6 +411,115 @@ impl DagExecutor {
         self
     }
 
+    /// Bind a text transform to the selected edge identity instead of a format pair.
+    ///
+    /// Parallel transforms with different IDs, providers, capabilities, or variants
+    /// remain independently executable regardless of registration order.
+    pub fn register_single_for_edge(
+        &mut self,
+        edge: &TransformEdge,
+        transform: Arc<dyn Transform + Send + Sync>,
+    ) -> &mut Self {
+        self.register_artifact_for_edge(edge, Arc::new(TextTransformAdapter::new(transform)))
+    }
+
+    /// Bind an artifact transform to an exact selected edge identity.
+    ///
+    /// Once a format pair has exact registrations, a missing identity is an
+    /// execution error; it must not silently invoke a legacy pair registration.
+    pub fn register_artifact_for_edge(
+        &mut self,
+        edge: &TransformEdge,
+        transform: Arc<dyn ArtifactTransform>,
+    ) -> &mut Self {
+        self.edge_transforms.insert(
+            EdgeRegistrationKey::from(edge),
+            RegisteredEdgeTransform::Single(transform),
+        );
+        self
+    }
+
+    /// Bind a collection transform to an exact selected edge identity.
+    pub fn register_collection_artifact_for_edge(
+        &mut self,
+        edge: &TransformEdge,
+        transform: Arc<dyn ArtifactCollectionTransform>,
+    ) -> &mut Self {
+        self.edge_transforms.insert(
+            EdgeRegistrationKey::from(edge),
+            RegisteredEdgeTransform::Collection(transform),
+        );
+        self
+    }
+
+    /// Bind a legacy aggregation transform to an exact selected edge identity.
+    pub fn register_aggregation_for_edge(
+        &mut self,
+        edge: &TransformEdge,
+        transform: Arc<dyn AggregationTransform>,
+    ) -> &mut Self {
+        self.edge_transforms.insert(
+            EdgeRegistrationKey::from(edge),
+            RegisteredEdgeTransform::Aggregation(transform),
+        );
+        self
+    }
+
+    fn has_specific_registration(&self, edge: &TransformEdge) -> bool {
+        self.edge_transforms.keys().any(|key| {
+            key.from == edge.from && key.to == edge.to && key.input_kind == edge.input_kind
+        })
+    }
+
+    fn single_transform(&self, edge: &TransformEdge) -> Option<&Arc<dyn ArtifactTransform>> {
+        if edge.input_kind.is_collection() {
+            return None;
+        }
+        match self.edge_transforms.get(&EdgeRegistrationKey::from(edge)) {
+            Some(RegisteredEdgeTransform::Single(transform)) => Some(transform),
+            Some(_) => None,
+            None if self.has_specific_registration(edge) => None,
+            None => self.single_transforms.get(&(edge.from, edge.to)),
+        }
+    }
+
+    fn collection_transform(
+        &self,
+        edge: &TransformEdge,
+    ) -> Option<&Arc<dyn ArtifactCollectionTransform>> {
+        if edge.input_kind.is_single() {
+            return None;
+        }
+        match self.edge_transforms.get(&EdgeRegistrationKey::from(edge)) {
+            Some(RegisteredEdgeTransform::Collection(transform)) => Some(transform),
+            Some(_) => None,
+            None if self.has_specific_registration(edge) => None,
+            None => self.collection_transforms.get(&(edge.from, edge.to)),
+        }
+    }
+
+    fn aggregation_transform(&self, edge: &TransformEdge) -> Option<&Arc<dyn AggregationTransform>> {
+        if edge.input_kind.is_single() {
+            return None;
+        }
+        match self.edge_transforms.get(&EdgeRegistrationKey::from(edge)) {
+            Some(RegisteredEdgeTransform::Aggregation(transform)) => Some(transform),
+            Some(_) => None,
+            None if self.has_specific_registration(edge) => None,
+            None => self.aggregation_transforms.get(&(edge.from, edge.to)),
+        }
+    }
+
+    fn configuration_identity(&self, edge: &TransformEdge, mut identity: String) -> String {
+        identity.push_str("\0edge=");
+        identity.push_str(&edge_configuration_digest(edge).value);
+        if let Some(fingerprint) = &self.toolchain_fingerprint {
+            identity.push_str("\0toolchain=");
+            identity.push_str(fingerprint);
+        }
+        identity
+    }
+
     /// Register a versioned artifact-native plugin on a canonical graph edge.
     pub fn register_plugin_v2(
         &mut self,
@@ -383,6 +531,7 @@ impl DagExecutor {
         if self.single_transforms.contains_key(&(from, to))
             || self.collection_transforms.contains_key(&(from, to))
             || self.aggregation_transforms.contains_key(&(from, to))
+            || self.edge_transforms.keys().any(|key| key.from == from && key.to == to)
         {
             anyhow::bail!(
                 "a transform is already registered for '{}' to '{}'; use replace_plugin_v2 for an explicit replacement",
@@ -404,12 +553,14 @@ impl DagExecutor {
         match transform.descriptor().input_kind {
             PluginInputKind::Single => {
                 let adapter = PluginV2ArtifactAdapter::new(transform, options)?;
+                self.edge_transforms.retain(|key, _| key.from != from || key.to != to);
                 self.collection_transforms.remove(&(from, to));
                 self.aggregation_transforms.remove(&(from, to));
                 self.single_transforms.insert((from, to), Arc::new(adapter));
             }
             PluginInputKind::OrderedCollection => {
                 let adapter = PluginV2CollectionAdapter::new(transform, options)?;
+                self.edge_transforms.retain(|key, _| key.from != from || key.to != to);
                 self.single_transforms.remove(&(from, to));
                 self.aggregation_transforms.remove(&(from, to));
                 self.collection_transforms
@@ -612,6 +763,9 @@ impl DagExecutor {
         if initial_artifacts.is_empty() {
             anyhow::bail!("Artifact DAG execution requires at least one source artifact");
         }
+        // A format-keyed executor must reject cycles and competing producers
+        // before opening stores or executing any transform.
+        dag.validate(source_format)?;
 
         let cache: Option<Mutex<ArtifactCache>> = self
             .cache_path
@@ -926,19 +1080,19 @@ impl DagExecutor {
         inputs: &ArtifactCollection,
     ) -> Result<CheckpointRequirement> {
         let (transform, transform_version, configuration_identity) =
-            if let Some(transform) = self.single_transforms.get(&(edge.from, edge.to)) {
+            if let Some(transform) = self.single_transform(edge) {
                 (
                     transform.name().to_string(),
                     transform.version().to_string(),
                     transform.cache_identity(),
                 )
-            } else if let Some(transform) = self.collection_transforms.get(&(edge.from, edge.to)) {
+            } else if let Some(transform) = self.collection_transform(edge) {
                 (
                     transform.name().to_string(),
                     transform.version().to_string(),
                     transform.cache_identity(),
                 )
-            } else if let Some(transform) = self.aggregation_transforms.get(&(edge.from, edge.to)) {
+            } else if let Some(transform) = self.aggregation_transform(edge) {
                 (
                     transform.name().to_string(),
                     "unstable-v1".to_string(),
@@ -951,11 +1105,7 @@ impl DagExecutor {
                     edge.to
                 );
             };
-        let mut configuration_identity = configuration_identity;
-        if let Some(fingerprint) = &self.toolchain_fingerprint {
-            configuration_identity.push_str("\0toolchain=");
-            configuration_identity.push_str(fingerprint);
-        }
+        let configuration_identity = self.configuration_identity(edge, configuration_identity);
         let configuration_digest = sha256_text(&configuration_identity);
         let input_artifacts = inputs
             .iter()
@@ -984,12 +1134,9 @@ impl DagExecutor {
     }
 
     fn edge_checkpointable(&self, edge: &TransformEdge) -> bool {
-        self.single_transforms
-            .get(&(edge.from, edge.to))
+        self.single_transform(edge)
             .is_some_and(|transform| transform.cacheable())
-            || self
-                .collection_transforms
-                .get(&(edge.from, edge.to))
+            || self.collection_transform(edge)
                 .is_some_and(|transform| transform.cacheable())
     }
 
@@ -1001,8 +1148,7 @@ impl DagExecutor {
         cache: Option<&Mutex<ArtifactCache>>,
     ) -> Result<SingleEdgeOutcome> {
         let transform = self
-            .single_transforms
-            .get(&(edge.from, edge.to))
+            .single_transform(edge)
             .ok_or_else(|| {
                 anyhow::anyhow!(
                     "No artifact transform registered for {:?} → {:?}",
@@ -1010,11 +1156,7 @@ impl DagExecutor {
                     edge.to
                 )
             })?;
-        let mut cache_identity = transform.cache_identity();
-        if let Some(fingerprint) = &self.toolchain_fingerprint {
-            cache_identity.push_str("\0toolchain=");
-            cache_identity.push_str(fingerprint);
-        }
+        let cache_identity = self.configuration_identity(edge, transform.cache_identity());
         let cache_key = compute_artifact_node_hash(input, edge.from, edge.to, &cache_identity);
 
         if transform.cacheable() {
@@ -1093,7 +1235,7 @@ impl DagExecutor {
         crate::evidence::DigestEvidence,
         Option<FidelityDeclaration>,
     )> {
-        if let Some(transform) = self.collection_transforms.get(&(edge.from, edge.to)) {
+        if let Some(transform) = self.collection_transform(edge) {
             let output = transform.apply(inputs, edge.to, store).with_context(|| {
                 format!(
                     "Collection plugin {:?} → {:?} ({}) failed",
@@ -1103,11 +1245,7 @@ impl DagExecutor {
                 )
             })?;
             self.validate_output_format(edge, &output)?;
-            let mut identity = transform.cache_identity();
-            if let Some(fingerprint) = &self.toolchain_fingerprint {
-                identity.push_str("\0toolchain=");
-                identity.push_str(fingerprint);
-            }
+            let identity = self.configuration_identity(edge, transform.cache_identity());
             return Ok((
                 output,
                 transform.name().to_string(),
@@ -1118,8 +1256,7 @@ impl DagExecutor {
         }
 
         let transform = self
-            .aggregation_transforms
-            .get(&(edge.from, edge.to))
+            .aggregation_transform(edge)
             .ok_or_else(|| {
                 anyhow::anyhow!(
                     "No collection transform registered for {:?} → {:?}",
@@ -1423,6 +1560,86 @@ mod tests {
             .execute(&dag, Format::Markdown, "hello".to_string())
             .unwrap();
         assert_eq!(results[&Format::Html], "hello!");
+    }
+
+    #[test]
+    fn parallel_edge_registration_dispatches_selected_identity_and_separates_cache() {
+        let directory = tempfile::tempdir().unwrap();
+        let store = ArtifactStore::new(directory.path().join("store")).unwrap();
+        let source = store.put_bytes(
+            b"hello",
+            ArtifactDescriptor::for_format(Format::Markdown, ArtifactStorageClass::Source),
+        ).unwrap();
+        let first = TransformEdge::new(Format::Markdown, Format::Html, 1.0, 1.0)
+            .with_provider("tool.first", "document.render")
+            .with_evidence("transform_id", "render")
+            .with_variant("first");
+        let second = TransformEdge::new(Format::Markdown, Format::Html, 1.0, 1.0)
+            .with_provider("tool.second", "document.render")
+            .with_evidence("transform_id", "render")
+            .with_variant("second");
+        let mut executor = DagExecutor::new().with_cache(directory.path().join("cache.json"));
+        executor.register_single_for_edge(&first, Arc::new(AppendTransform(" first")));
+        executor.register_single_for_edge(&second, Arc::new(AppendTransform(" second")));
+
+        for (edge, expected) in [(&first, "hello first"), (&second, "hello second"), (&first, "hello first")] {
+            let mut graph = TransformGraph::new();
+            graph.add_transform(edge.clone());
+            let dag = graph.build_multi_target_dag(Format::Markdown, &[Format::Html]).unwrap();
+            let outputs = executor.clone()
+                .execute_artifact(&dag, Format::Markdown, source.clone(), &store)
+                .unwrap();
+            assert_eq!(store.read_text(&outputs[&Format::Html]).unwrap(), expected);
+        }
+    }
+
+    #[test]
+    fn missing_selected_identity_never_falls_back_to_another_pair_transform() {
+        let registered = TransformEdge::new(Format::Markdown, Format::Html, 1.0, 1.0)
+            .with_evidence("transform_id", "registered");
+        let selected = TransformEdge::new(Format::Markdown, Format::Html, 1.0, 1.0)
+            .with_evidence("transform_id", "missing");
+        let mut executor = DagExecutor::new();
+        executor.register_single(Format::Markdown, Format::Html, Arc::new(AppendTransform(" fallback")));
+        executor.register_single_for_edge(&registered, Arc::new(AppendTransform(" registered")));
+        let mut graph = TransformGraph::new();
+        graph.add_transform(selected);
+        let dag = graph.build_multi_target_dag(Format::Markdown, &[Format::Html]).unwrap();
+        assert!(executor.execute(&dag, Format::Markdown, "hello".to_string()).is_err());
+    }
+
+    #[test]
+    fn yaml_parallel_edges_keep_their_registered_transform_names() {
+        let yaml = r#"
+transforms:
+  - name: first-renderer
+    program: placeholder-first
+    from: markdown
+    to: html
+    cost: 1.0
+    quality: 1.0
+  - name: second-renderer
+    program: placeholder-second
+    from: markdown
+    to: html
+    cost: 1.0
+    quality: 1.0
+"#;
+        let (graph, executor) = crate::transforms::yaml_loader::build_graph_and_executor_from_str(yaml).unwrap();
+        let edges = graph.all_edges();
+        assert_eq!(edges.len(), 2);
+        for edge in edges {
+            assert_eq!(executor.single_transform(edge).unwrap().name(), edge.evidence["transform_id"]);
+        }
+    }
+
+    #[test]
+    fn executor_rejects_cycles_with_a_typed_error_before_transform_execution() {
+        let mut dag = MultiTargetDag::new();
+        dag.merge_edge(TransformEdge::new(Format::Markdown, Format::Html, 1.0, 1.0));
+        dag.merge_edge(TransformEdge::new(Format::Html, Format::Markdown, 1.0, 1.0));
+        let error = DagExecutor::new().execute(&dag, Format::Markdown, "hello".to_string()).unwrap_err();
+        assert!(matches!(error.downcast_ref::<crate::graph::DagValidationError>(), Some(crate::graph::DagValidationError::Cycle { .. })));
     }
 
     #[test]

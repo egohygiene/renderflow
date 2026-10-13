@@ -14,7 +14,7 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::graph::{Format, MultiTargetDag, TransformGraph};
+use crate::graph::{Format, MultiTargetDag, TransformEdge, TransformGraph};
 use crate::process::{ProcessExecutor, ToolProbeEvidence, ToolProbeStatus as ProcessProbeStatus};
 
 pub const TOOL_REGISTRY_SCHEMA: &str = "renderflow.tool-registry/v1";
@@ -886,8 +886,19 @@ impl ToolRegistry {
         dag: &MultiTargetDag,
         context: &ToolRuntimeContext,
     ) -> Result<ToolchainSnapshot> {
+        self.fingerprint_for_edges(inventory, &dag.all_edges(), context)
+    }
+
+    /// Fingerprint the provider and variant union of independently selected routes.
+    /// Unlike a format-only DAG projection, this retains parallel target variants.
+    pub fn fingerprint_for_edges(
+        &self,
+        inventory: &ToolInventory,
+        edges: &[&TransformEdge],
+        context: &ToolRuntimeContext,
+    ) -> Result<ToolchainSnapshot> {
         let mut variants: BTreeMap<String, Vec<SelectedToolVariantEvidence>> = BTreeMap::new();
-        for edge in dag.all_edges() {
+        for edge in edges {
             if let (Some(provider_id), Some(variant_id)) =
                 (edge.provider_id.as_deref(), edge.variant_id.as_deref())
             {
@@ -901,7 +912,7 @@ impl ToolRegistry {
         }
         self.fingerprint_selected_with_variants(
             inventory,
-            dag.all_edges().iter().flat_map(|edge| {
+            edges.iter().flat_map(|edge| {
                 edge.provider_id
                     .iter()
                     .map(String::as_str)
@@ -1524,6 +1535,32 @@ mod tests {
             .fingerprint_selected_with_variants(&inventory, ["tool.a"], &second_variants, &context)
             .unwrap();
         assert_ne!(first.fingerprint, second.fingerprint);
+    }
+
+    #[test]
+    fn route_union_fingerprint_preserves_parallel_variants_and_required_providers() {
+        let mut registry = ToolRegistry::new();
+        registry.register(test_descriptor("tool.a", "a")).unwrap();
+        registry.register(test_descriptor("tool.b", "b")).unwrap();
+        let probe = FakeProbe::default()
+            .with("a", ProcessProbeStatus::Available, Some("a 1.2.3"))
+            .with("b", ProcessProbeStatus::Available, Some("b 4.5.6"));
+        let context = ToolRuntimeContext::for_platform("linux", "x86_64");
+        let inventory = registry.assess_all_with(&probe, &context);
+        let first = TransformEdge::new(Format::Markdown, Format::Pdf, 1.0, 1.0)
+            .with_provider("tool.a", "render.pdf")
+            .with_variant("variant.print")
+            .with_required_provider("tool.b");
+        let second = TransformEdge::new(Format::Markdown, Format::Pdf, 1.0, 1.0)
+            .with_provider("tool.a", "render.pdf")
+            .with_variant("variant.screen");
+        let union = registry.fingerprint_for_edges(&inventory, &[&first, &second], &context).unwrap();
+        let reordered = registry.fingerprint_for_edges(&inventory, &[&second, &first, &first], &context).unwrap();
+        let incomplete = registry.fingerprint_for_edges(&inventory, &[&first], &context).unwrap();
+        assert_eq!(union.fingerprint, reordered.fingerprint);
+        assert_ne!(union.fingerprint, incomplete.fingerprint);
+        assert_eq!(union.selected_tools.len(), 2);
+        assert_eq!(union.selected_tools[0].variants.len(), 2);
     }
 
     #[test]

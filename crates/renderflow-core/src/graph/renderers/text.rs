@@ -22,6 +22,48 @@ impl PlanRenderer for TextRenderer {
             let _ = writeln!(out, "Toolchain:    {}", toolchain.fingerprint);
         }
 
+        if let Some(forest) = &plan.artifact_forest {
+            let _ = writeln!(out);
+            let _ = writeln!(out, "Artifact Forest ({})", forest.schema);
+            let _ = writeln!(out, "Identity: {}", forest.identity);
+            let _ = writeln!(out, "Policy: {}", forest.policy);
+            let _ = writeln!(out, "Branch routes below are authoritative; the format graph is a projection.");
+            for branch in &forest.branches {
+                let _ = writeln!(out, "  {}  {}  [{}]", branch.target_id, branch.format, branch.state.as_str());
+                let _ = writeln!(out, "    {}: {}", branch.reason_code, branch.reason);
+                if let Some(preset) = &branch.preset {
+                    let _ = writeln!(out, "    preset: {preset}");
+                }
+                if let Some(template) = &branch.template {
+                    let _ = writeln!(out, "    template: {template}");
+                }
+                if let Some(variant) = &branch.variant {
+                    let _ = writeln!(out, "    variant: {variant}");
+                }
+                if !branch.options.is_empty() {
+                    let _ = writeln!(out, "    options: {}", serde_json::json!(branch.options));
+                }
+                if let Some(route) = &branch.route {
+                    let _ = writeln!(out,
+                        "    quality: {:.6}; loss: {:.6}; hops: {}; weighted cost: {:.6}; candidates: {}",
+                        route.cumulative_quality, route.cumulative_loss, route.hop_count,
+                        route.weighted_cost, route.explored_candidates);
+                    let _ = writeln!(out, "    ranking: {}", route.ranking);
+                    if route.source_identity {
+                        let _ = writeln!(out, "    route: original source identity (no transformation)");
+                    }
+                    for step in &route.steps {
+                        let _ = writeln!(out, "    {} → {} [provider: {}; capability: {}; variant: {}; transform: {}]",
+                            step.from, step.to,
+                            step.provider_id.as_deref().unwrap_or("builtin"),
+                            step.capability_id.as_deref().unwrap_or("unspecified"),
+                            step.variant_id.as_deref().unwrap_or("default"),
+                            step.evidence.get("transform_id").map(String::as_str).unwrap_or("unspecified"));
+                    }
+                }
+            }
+        }
+
         // ── nodes ──────────────────────────────────────────────────────────
         let _ = writeln!(out);
         let _ = writeln!(out, "Nodes ({}):", plan.metadata.total_nodes);
@@ -96,6 +138,14 @@ impl PlanRenderer for TextRenderer {
             "  reused intermediates: {}",
             plan.metadata.reused_intermediates
         );
+
+        if !plan.diagnostics.is_empty() {
+            let _ = writeln!(out);
+            let _ = writeln!(out, "Diagnostics:");
+            for diagnostic in &plan.diagnostics {
+                let _ = writeln!(out, "  {:?}: {}", diagnostic.level, diagnostic.message);
+            }
+        }
 
         out
     }

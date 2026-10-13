@@ -120,6 +120,9 @@ pub struct TargetSpec {
     pub capability: Option<String>,
     #[serde(default)]
     pub transform: Option<String>,
+    /// Restrict the selected terminal transform to this provider identity.
+    #[serde(default)]
+    pub provider: Option<String>,
     #[serde(default)]
     pub variant: Option<String>,
     #[serde(default)]
@@ -129,7 +132,8 @@ pub struct TargetSpec {
     /// Whether failure to resolve this branch fails the complete request.
     #[serde(default)]
     pub requirement: TargetRequirement,
-    /// Provider-neutral options passed to the selected target adapter.
+    /// Reserved provider-neutral options. Canonical planning records an unsupported
+    /// branch until the selected adapter has an explicit interpretation contract.
     #[serde(default)]
     pub options: BTreeMap<String, Value>,
 }
@@ -461,6 +465,48 @@ pub struct ValidationPolicy {
     pub allow_unavailable: bool,
 }
 
+/// Versioned bounds for selecting one simple derivative route per target identity.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DerivativePlanningPolicy {
+    #[serde(default = "default_derivative_planning_schema")]
+    pub schema: String,
+    /// Maximum number of transform edges in any selected source-to-target path.
+    #[serde(default = "default_derivative_max_hops")]
+    pub max_hops: usize,
+    /// Maximum outgoing edge candidates inspected before reporting a search limit.
+    #[serde(default = "default_derivative_max_candidates")]
+    pub max_candidates: usize,
+    /// Maximum cumulative declared loss, calculated as one minus path quality.
+    #[serde(default)]
+    pub max_loss: Option<f64>,
+}
+
+pub const DERIVATIVE_PLANNING_POLICY_SCHEMA_V1: &str = "renderflow/derivative-policy-v1";
+
+fn default_derivative_planning_schema() -> String {
+    DERIVATIVE_PLANNING_POLICY_SCHEMA_V1.to_string()
+}
+
+fn default_derivative_max_hops() -> usize {
+    8
+}
+
+fn default_derivative_max_candidates() -> usize {
+    10_000
+}
+
+impl Default for DerivativePlanningPolicy {
+    fn default() -> Self {
+        Self {
+            schema: default_derivative_planning_schema(),
+            max_hops: default_derivative_max_hops(),
+            max_candidates: default_derivative_max_candidates(),
+            max_loss: None,
+        }
+    }
+}
+
 impl Default for ValidationPolicy {
     fn default() -> Self {
         Self {
@@ -477,6 +523,8 @@ impl Default for ValidationPolicy {
 pub struct ExecutionPolicy {
     #[serde(default)]
     pub optimization: OptimizationMode,
+    #[serde(default)]
+    pub derivative_planning: DerivativePlanningPolicy,
     #[serde(default = "default_max_parallel")]
     pub max_parallel: usize,
     #[serde(default)]
@@ -655,6 +703,7 @@ impl Default for ExecutionPolicy {
     fn default() -> Self {
         Self {
             optimization: OptimizationMode::default(),
+            derivative_planning: DerivativePlanningPolicy::default(),
             max_parallel: default_max_parallel(),
             budgets: ResourceBudgets::default(),
             tools: AllowDenyPolicy::default(),
@@ -1251,6 +1300,36 @@ impl SpecV2 {
             &mut diagnostics,
         );
 
+        let planning = &self.execution.derivative_planning;
+        if planning.schema != DERIVATIVE_PLANNING_POLICY_SCHEMA_V1 {
+            diagnostics.push(SpecDiagnostic::new(
+                "$.execution.derivative_planning.schema",
+                "derivative_planning.schema.unsupported",
+                format!("supported derivative planning schema is {DERIVATIVE_PLANNING_POLICY_SCHEMA_V1}"),
+            ));
+        }
+        if !(1..=64).contains(&planning.max_hops) {
+            diagnostics.push(SpecDiagnostic::new(
+                "$.execution.derivative_planning.max_hops",
+                "derivative_planning.max_hops.invalid",
+                "max_hops must be between 1 and 64 inclusive",
+            ));
+        }
+        if !(1..=1_000_000).contains(&planning.max_candidates) {
+            diagnostics.push(SpecDiagnostic::new(
+                "$.execution.derivative_planning.max_candidates",
+                "derivative_planning.max_candidates.invalid",
+                "max_candidates must be between 1 and 1000000 inclusive",
+            ));
+        }
+        if planning.max_loss.is_some_and(|loss| !loss.is_finite() || !(0.0..=1.0).contains(&loss)) {
+            diagnostics.push(SpecDiagnostic::new(
+                "$.execution.derivative_planning.max_loss",
+                "derivative_planning.max_loss.invalid",
+                "max_loss must be finite and between 0.0 and 1.0 inclusive",
+            ));
+        }
+
         if let Some(fidelity) = self.execution.minimum_fidelity {
             if !(0.0..=1.0).contains(&fidelity) {
                 diagnostics.push(SpecDiagnostic::new(
@@ -1297,6 +1376,15 @@ fn validate_targets(targets: &[TargetSpec], base: &str, diagnostics: &mut Vec<Sp
                     format!("{path}.variant"),
                     "target.variant.invalid",
                     "variant id must use only ASCII letters, digits, '.', '_', or '-'",
+                ));
+            }
+        }
+        if let Some(provider) = &target.provider {
+            if !is_stable_id(provider) {
+                diagnostics.push(SpecDiagnostic::new(
+                    format!("{path}.provider"),
+                    "target.provider.invalid",
+                    "provider id must use only ASCII letters, digits, '.', '_', or '-'",
                 ));
             }
         }
@@ -1587,6 +1675,7 @@ pub(crate) fn migrate_v1_config(config: &Config) -> SpecV2 {
             family: None,
             capability: None,
             transform: None,
+            provider: None,
             variant: None,
             preset: output.profile.clone(),
             template: output.template.clone(),
@@ -1811,6 +1900,7 @@ pub fn json_schema() -> Value {
                     "family": {"type": ["string", "null"]},
                     "capability": {"type": ["string", "null"]},
                     "transform": {"type": ["string", "null"]},
+                    "provider": {"anyOf": [{"$ref": "#/$defs/stableId"}, {"type": "null"}]},
                     "variant": {"anyOf": [{"$ref": "#/$defs/stableId"}, {"type": "null"}]},
                     "preset": {"type": ["string", "null"]},
                     "template": {"type": ["string", "null"]},
@@ -1986,11 +2076,22 @@ pub fn json_schema() -> Value {
                     "max_output_bytes": {"type": "integer", "minimum": 1, "maximum": 536870912}
                 }
             },
+            "derivativePlanningPolicy": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "schema": {"const": "renderflow/derivative-policy-v1", "default": "renderflow/derivative-policy-v1"},
+                    "max_hops": {"type": "integer", "minimum": 1, "maximum": 64, "default": 8},
+                    "max_candidates": {"type": "integer", "minimum": 1, "maximum": 1000000, "default": 10000},
+                    "max_loss": {"type": ["number", "null"], "minimum": 0.0, "maximum": 1.0}
+                }
+            },
             "executionPolicy": {
                 "type": "object",
                 "additionalProperties": false,
                 "properties": {
                     "optimization": {"enum": ["speed", "quality", "balanced", "pareto"], "default": "balanced"},
+                    "derivative_planning": {"$ref": "#/$defs/derivativePlanningPolicy"},
                     "max_parallel": {"type": "integer", "minimum": 1, "default": 1},
                     "budgets": {"$ref": "#/$defs/budgets"},
                     "tools": {"$ref": "#/$defs/allowDeny"},
@@ -2288,6 +2389,80 @@ targets:
         let loaded = load_spec_str(yaml).expect("minimal v2 spec should load");
         assert_eq!(loaded.spec.execution.network, NetworkPolicy::Deny);
         assert_eq!(loaded.spec.execution.ai, AiPolicy::Deny);
+    }
+
+    #[test]
+    fn derivative_planning_defaults_are_versioned_and_bounded() {
+        let loaded = load_spec_str(VALID_EXACT).unwrap();
+        let policy = &loaded.spec.execution.derivative_planning;
+        assert_eq!(policy.schema, DERIVATIVE_PLANNING_POLICY_SCHEMA_V1);
+        assert_eq!(policy.max_hops, 8);
+        assert_eq!(policy.max_candidates, 10_000);
+        assert_eq!(policy.max_loss, None);
+        let explicit_empty: ExecutionPolicy =
+            serde_json::from_value(json!({"derivative_planning": {}})).unwrap();
+        assert_eq!(&explicit_empty.derivative_planning, policy);
+        assert!(serde_json::to_value(&loaded.spec.execution).unwrap()
+            .get("derivative_planning").is_some());
+    }
+
+    #[test]
+    fn derivative_planning_validation_rejects_unknown_versions_and_out_of_bounds_search() {
+        let mut spec = load_spec_str(VALID_EXACT).unwrap().spec;
+        spec.execution.derivative_planning.schema = "renderflow/derivative-policy-v2".to_owned();
+        spec.execution.derivative_planning.max_hops = 0;
+        spec.execution.derivative_planning.max_candidates = 1_000_001;
+        let diagnostics = spec.validate();
+        for field in ["schema", "max_hops", "max_candidates"] {
+            let path = format!("$.execution.derivative_planning.{field}");
+            assert!(diagnostics.iter().any(|diagnostic| diagnostic.path == path));
+        }
+        spec.execution.derivative_planning = DerivativePlanningPolicy::default();
+        spec.execution.derivative_planning.max_hops = 65;
+        spec.execution.derivative_planning.max_candidates = 0;
+        let diagnostics = spec.validate();
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic.code == "derivative_planning.max_hops.invalid"));
+        assert!(diagnostics.iter().any(|diagnostic| diagnostic.code == "derivative_planning.max_candidates.invalid"));
+    }
+
+    #[test]
+    fn derivative_planning_loss_budget_accepts_endpoints_and_rejects_nonfinite_values() {
+        let mut spec = load_spec_str(VALID_EXACT).unwrap().spec;
+        for loss in [0.0, 1.0] {
+            spec.execution.derivative_planning.max_loss = Some(loss);
+            assert!(!spec.validate().iter().any(|diagnostic| diagnostic.code == "derivative_planning.max_loss.invalid"));
+        }
+        for loss in [-0.01, 1.01, f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            spec.execution.derivative_planning.max_loss = Some(loss);
+            assert!(spec.validate().iter().any(|diagnostic| diagnostic.path == "$.execution.derivative_planning.max_loss"));
+        }
+    }
+
+    #[test]
+    fn target_provider_constraint_is_a_stable_identity() {
+        let mut spec = load_spec_str(VALID_EXACT).unwrap().spec;
+        spec.targets.exact[0].provider = Some("tool.pandoc".to_owned());
+        assert!(!spec.validate().iter().any(|diagnostic| diagnostic.code == "target.provider.invalid"));
+        let serialized = serde_json::to_value(&spec.targets.exact[0]).unwrap();
+        assert_eq!(serialized["provider"], "tool.pandoc");
+        for provider in ["", "tool provider", "../provider"] {
+            spec.targets.exact[0].provider = Some(provider.to_owned());
+            assert!(spec.validate().iter().any(|diagnostic| diagnostic.path == "$.targets.exact[0].provider"));
+        }
+    }
+
+    #[test]
+    fn derivative_planning_schema_matches_the_published_contract() {
+        let runtime = json_schema();
+        let published: Value = serde_json::from_str(include_str!("../../../schemas/renderflow-v2.schema.json")).unwrap();
+        assert_eq!(runtime["$defs"]["derivativePlanningPolicy"], published["$defs"]["derivativePlanningPolicy"]);
+        assert_eq!(runtime["$defs"]["executionPolicy"]["properties"]["derivative_planning"],
+            published["$defs"]["executionPolicy"]["properties"]["derivative_planning"]);
+        assert_eq!(runtime["$defs"]["target"]["properties"]["provider"],
+            published["$defs"]["target"]["properties"]["provider"]);
+        assert!(serde_json::from_value::<ExecutionPolicy>(json!({
+            "derivative_planning": {"unbounded": true}
+        })).is_err());
     }
 
     #[test]
