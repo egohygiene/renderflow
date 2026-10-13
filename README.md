@@ -46,11 +46,14 @@ directions. The fixture and integration contract remain unqualified.
 The [localized page composition guide](docs/user-guide/page-composition.md)
 introduces a separate authored path for shared artwork, editable text layers,
 and explicitly declared languages. `composition inspect`, `plan`, and `render`
-use one planner for SVG/HTML and accessible transcripts. The v2 preview profile
+use one planner for PNG/SVG/HTML and accessible transcripts. The v3 profile
 authors measured glyph paths from pinned static fonts for bounded Latin LTR
 text; canonical inputs retain editable text. A
 [real-font fixture](examples/page-composition/measured-typography/README.md)
-records its license and provenance. Native PNG/PDF and design-file interchange
+records its license and provenance. The opt-in PNG route uses pinned resvg and
+explicit DPI/background settings; a
+[mixed-asset fixture](examples/page-composition/raster-composition/README.md)
+adds PNG/JPEG/vector plates. Composed print PDF and design-file interchange
 remain unsupported, and visual/runtime qualification is still pending.
 
 ---
@@ -75,7 +78,7 @@ At its core, Renderflow models every transformation as a **directed acyclic grap
 - 🤖 **AI transforms** — Ollama and OpenAI-compatible LLM integration with local caching
 - 🧬 **Artifact DNA** — Optional, local-first visual/layout characteristics with strict provenance, hygiene, and similarity guidance
 - 🔤 **Local font registries** — Pinned font bytes, semantic typography roles, licensing metadata, and observable deterministic fallbacks
-- 🗨️ **Localized page composition** — Shared artwork, per-locale text, measured glyph-path previews and transcript evidence; bounded typography and runtime/visual qualification pending
+- 🗨️ **Localized page composition** — Shared artwork, per-locale text, measured glyph paths, opt-in composed PNG and transcript evidence; bounded typography and runtime/visual qualification pending
 - 🖼️ **Image conversion** — FFmpeg-backed format conversion across 80+ image formats (JPEG, PNG, WebP, AVIF, HEIC, EXR, and more)
 - 🎵 **Audio conversion** — FFmpeg-backed format conversion across 40+ audio formats (WAV, FLAC, MP3, AAC, Opus, and more)
 - 🎬 **Whole-file video delivery** — Typed HandBrake presets with bounded execution, provenance, and explicit Aniflow temporal boundaries

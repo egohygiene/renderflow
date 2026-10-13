@@ -8,7 +8,7 @@ use anyhow::{bail, Context, Result};
 use serde::Serialize;
 
 use crate::cli::{CompositionRenderArguments, CompositionSelectionArguments};
-use crate::composition::{self, CompositionOutput, CompositionRequest, LocaleSelector};
+use crate::composition::{self, CompositionOutput, CompositionRequest, LocaleSelector, RasterSettings};
 use crate::process::ProcessCancellationToken;
 
 /// Inspection is a read-only plan for every declared locale and the default targets.
@@ -19,7 +19,7 @@ pub fn run_inspect(input: &str) -> Result<()> {
 }
 
 pub fn run_plan(arguments: CompositionSelectionArguments) -> Result<()> {
-    let request = selection_request(&arguments.locales, &arguments.targets)?;
+    let request = request_from_arguments(&arguments)?;
     let loaded = composition::load::load_composition(Path::new(&arguments.input))?;
     let plan = composition::plan(&loaded, &request)?;
     // An unavailable branch is a useful plan result, not a failed serialization.
@@ -28,7 +28,7 @@ pub fn run_plan(arguments: CompositionSelectionArguments) -> Result<()> {
 }
 
 pub fn run_render(arguments: CompositionRenderArguments) -> Result<()> {
-    let request = selection_request(&arguments.selection.locales, &arguments.selection.targets)?;
+    let request = request_from_arguments(&arguments.selection)?;
     let loaded = composition::load::load_composition(Path::new(&arguments.selection.input))?;
     let cancellation = ProcessCancellationToken::new();
     let signal = cancellation.clone();
@@ -47,6 +47,15 @@ pub fn run_render(arguments: CompositionRenderArguments) -> Result<()> {
         bail!("page composition did not publish every selected branch; inspect the JSON receipt");
     }
     Ok(())
+}
+
+fn request_from_arguments(arguments: &CompositionSelectionArguments) -> Result<CompositionRequest> {
+    let mut request = selection_request(&arguments.locales, &arguments.targets)?;
+    request.raster = RasterSettings {
+        dpi: arguments.raster_dpi,
+        background: arguments.raster_background.clone(),
+    };
+    Ok(request)
 }
 
 fn selection_request(locales: &str, targets: &str) -> Result<CompositionRequest> {
@@ -76,7 +85,7 @@ fn selection_request(locales: &str, targets: &str) -> Result<CompositionRequest>
             _ => bail!("unknown page-composition target {target}; expected svg, html, transcript_json, transcript_text, png, pdf, ora, psd, or idml"),
         }
     }).collect::<Result<Vec<_>>>()?;
-    Ok(CompositionRequest { locales, targets })
+    Ok(CompositionRequest { locales, targets, raster: RasterSettings::default() })
 }
 
 fn comma_values(value: &str, argument: &str) -> Result<Vec<String>> {
@@ -134,5 +143,25 @@ mod tests {
         }
         assert!(matches!(selection_request("en", "svg").unwrap().locales, LocaleSelector::Exact { locale } if locale == "en"));
         assert!(matches!(selection_request("all_declared", "svg").unwrap().locales, LocaleSelector::AllDeclared));
+    }
+
+    #[test]
+    fn png_options_reach_the_shared_request_without_changing_selected_targets() {
+        let cli = Cli::try_parse_from([
+            "renderflow", "composition", "plan", "--input", "page.composition.json",
+            "--locales", "en", "--targets", "png,transcript_json",
+            "--raster-dpi", "300", "--raster-background", "#FfCc00",
+        ]).unwrap();
+        let Some(Commands::Composition {
+            subcommand: CompositionCommands::Plan(arguments),
+        }) = cli.command else { panic!("expected composition plan"); };
+        let request = request_from_arguments(&arguments).unwrap();
+        assert_eq!(request.raster.dpi, 300);
+        assert_eq!(request.raster.background, "#FfCc00");
+        assert_eq!(request.targets, [CompositionOutput::Png, CompositionOutput::TranscriptJson]);
+        let legacy: CompositionRequest = serde_json::from_str(
+            r#"{"locales":{"mode":"exact","locale":"en"},"targets":["png"]}"#,
+        ).unwrap();
+        assert_eq!(legacy.raster, RasterSettings::default());
     }
 }

@@ -59,7 +59,7 @@ fn file_snapshot(root: &Path) -> BTreeMap<PathBuf, Vec<u8>> {
 }
 
 fn request(locales: LocaleSelector, targets: Vec<CompositionOutput>) -> CompositionRequest {
-    CompositionRequest { locales, targets }
+    CompositionRequest { locales, targets, raster: raster::RasterSettings::default() }
 }
 
 fn exact(locale: &str, targets: Vec<CompositionOutput>) -> CompositionRequest {
@@ -105,14 +105,16 @@ fn exact_subset_and_all_declared_keep_the_same_branch_identities() {
 fn visual_branches_share_one_measured_report_and_commit_its_identity() {
     let mut loaded = LoadedComposition::load(example_root().join("page.composition.json")).unwrap();
     let request = exact("en", vec![CompositionOutput::Svg, CompositionOutput::Html,
-        CompositionOutput::TranscriptJson, CompositionOutput::Pdf]);
+        CompositionOutput::Png, CompositionOutput::TranscriptJson, CompositionOutput::Pdf]);
     let before = plan(&loaded, &request).unwrap();
-    assert_eq!(before.schema, "renderflow.composition-plan/v2");
-    assert_eq!(before.profile, "renderflow.layered-svg/v2");
+    assert_eq!(before.schema, "renderflow.composition-plan/v3");
+    assert_eq!(before.profile, "renderflow.layered-composition/v3");
     let svg = before.branches.iter().find(|branch| branch.output == CompositionOutput::Svg).unwrap();
     let html = before.branches.iter().find(|branch| branch.output == CompositionOutput::Html).unwrap();
+    let png = before.branches.iter().find(|branch| branch.output == CompositionOutput::Png).unwrap();
     let report = serde_json::to_value(svg.typography.as_ref().unwrap()).unwrap();
     assert_eq!(report, serde_json::to_value(html.typography.as_ref().unwrap()).unwrap());
+    assert_eq!(report, serde_json::to_value(png.typography.as_ref().unwrap()).unwrap());
     assert_eq!(hash_json(svg.typography.as_ref().unwrap()).unwrap(),
         hash_json(html.typography.as_ref().unwrap()).unwrap());
     assert_ne!(svg.target_id, html.target_id);
@@ -169,6 +171,139 @@ fn aggregate_visual_text_budget_counts_whitespace_and_refuses_before_publication
 }
 
 #[test]
+fn raster_settings_change_only_the_png_branch_and_invalid_settings_stay_scoped() {
+    let loaded = LoadedComposition::load(example_root().join("page.composition.json")).unwrap();
+    let mut request = exact("en", vec![CompositionOutput::Svg, CompositionOutput::Html,
+        CompositionOutput::Png, CompositionOutput::TranscriptJson]);
+    let initial = plan(&loaded, &request).unwrap();
+    request.raster = raster::RasterSettings { dpi: 72, background: "#A1B2C3".into() };
+    let changed = plan(&loaded, &request).unwrap();
+    for before in &initial.branches {
+        let after = changed.branches.iter().find(|branch| branch.target_id == before.target_id).unwrap();
+        assert_eq!(before.state, CompositionBranchState::Planned);
+        assert_eq!(after.state, CompositionBranchState::Planned);
+        if before.output == CompositionOutput::Png {
+            assert_ne!(before.cache_key, after.cache_key);
+            let raster = after.raster.as_ref().unwrap();
+            assert_eq!((raster.width_px, raster.height_px), (596, 420));
+            assert_eq!(raster.settings.dpi, 72);
+            assert_eq!(raster.settings.background, "#a1b2c3");
+            assert_eq!(serde_json::to_value(&before.typography).unwrap(), serde_json::to_value(&after.typography).unwrap());
+        } else {
+            assert_eq!(before.cache_key, after.cache_key);
+            assert!(before.raster.is_none() && after.raster.is_none());
+        }
+    }
+    request.raster.background = "#a1b2c3".into();
+    let lowercase = plan(&loaded, &request).unwrap();
+    assert_eq!(identities(&changed), identities(&lowercase));
+    for invalid in [
+        raster::RasterSettings { dpi: 35, background: "transparent".into() },
+        raster::RasterSettings { dpi: 601, background: "transparent".into() },
+        raster::RasterSettings { dpi: 144, background: "#ff00ff80".into() },
+    ] {
+        request.raster = invalid;
+        let blocked = plan(&loaded, &request).unwrap();
+        for branch in &blocked.branches {
+            if branch.output == CompositionOutput::Png {
+                assert_eq!(branch.state, CompositionBranchState::Blocked);
+                assert!(branch.raster.is_none());
+                assert!(branch.diagnostics.iter().any(|item| item.severity == DiagnosticSeverity::Error));
+            } else {
+                assert_eq!(branch.state, CompositionBranchState::Planned);
+            }
+        }
+    }
+}
+
+#[test]
+fn png_receipts_commit_raster_settings_and_reuse_other_outputs_without_changing_sources() {
+    let directory = tempfile::tempdir().unwrap();
+    let root = directory.path().canonicalize().unwrap();
+    let input = root.join("input");
+    copy_tree(&example_root().parent().unwrap().join("raster-composition"), &input);
+    let before = file_snapshot(&input);
+    let loaded = LoadedComposition::load(input.join("page.composition.json")).unwrap();
+    let mut request = exact("en", vec![CompositionOutput::Svg, CompositionOutput::Png,
+        CompositionOutput::TranscriptJson]);
+    request.raster = raster::RasterSettings { dpi: 72, background: "#204060".into() };
+    let cache = root.join("cache");
+    let cancellation = ProcessCancellationToken::new();
+    let first = execute(&loaded, &request, &root.join("first"), Some(&cache), &cancellation).unwrap();
+    assert_eq!(first.state, CompositionRunState::Complete);
+    request.raster.dpi = 144;
+    let second = execute(&loaded, &request, &root.join("second"), Some(&cache), &cancellation).unwrap();
+    assert_eq!(second.state, CompositionRunState::Complete);
+    assert_eq!(file_snapshot(&input), before);
+    for run in [&first, &second] {
+        for branch in &run.branches {
+            let planned = run.plan.branches.iter().find(|plan| plan.target_id == branch.target_id).unwrap();
+            let artifact = &run.artifact_manifest.artifacts[branch.artifact_evidence_index.unwrap()];
+            let metadata = &artifact.metadata["renderflow.composition"];
+            if planned.output == CompositionOutput::Png {
+                assert_eq!(metadata["raster"], serde_json::to_value(planned.raster.as_ref().unwrap()).unwrap());
+                assert_eq!(metadata["typography"]["report_sha256"], hash_json(planned.typography.as_ref().unwrap()).unwrap());
+                assert_eq!(branch.cache, CacheDisposition::Miss);
+            } else {
+                assert!(metadata["raster"].is_null());
+            }
+        }
+    }
+    for branch in &second.branches {
+        let planned = second.plan.branches.iter().find(|plan| plan.target_id == branch.target_id).unwrap();
+        if planned.output != CompositionOutput::Png { assert_eq!(branch.cache, CacheDisposition::Hit); }
+    }
+    let png_branch = |run: &CompositionRun| run.branches.iter().find(|branch|
+        run.plan.branches.iter().any(|plan| plan.target_id == branch.target_id && plan.output == CompositionOutput::Png))
+        .unwrap().artifact_id.clone();
+    assert_ne!(png_branch(&first), png_branch(&second));
+    let receipt: CompositionRun = serde_json::from_slice(&fs::read(root.join("second/composition-run.json")).unwrap()).unwrap();
+    assert_eq!(receipt.plan_sha256, hash_bytes(&fs::read(root.join("second/composition-plan.json")).unwrap()));
+    assert_eq!(receipt.artifact_manifest, second.artifact_manifest);
+    assert!(!receipt.runtime_qualified && !receipt.visual_determinism_qualified && receipt.review_required);
+}
+
+#[test]
+fn malformed_captured_png_cannot_publish_an_incomplete_picture_but_transcripts_survive() {
+    let directory = tempfile::tempdir().unwrap();
+    let root = directory.path().canonicalize().unwrap();
+    let input = root.join("input");
+    copy_tree(&example_root().parent().unwrap().join("raster-composition"), &input);
+    let manifest_path = input.join("page.composition.json");
+    let mut manifest: Value = serde_json::from_slice(&fs::read(&manifest_path).unwrap()).unwrap();
+    let asset = manifest["assets"].as_array_mut().unwrap().iter_mut()
+        .find(|asset| asset["id"] == "raster.png-alpha").unwrap();
+    let relative_path = asset["file"]["path"].as_str().unwrap().to_string();
+    let asset_path = input.join(&relative_path);
+    let mut bytes = fs::read(&asset_path).unwrap();
+    // A pinned signature and IHDR are valid source-header evidence; they do not
+    // supply a decodable image. Retain the header and remove all image data.
+    bytes.truncate(33);
+    fs::write(&asset_path, &bytes).unwrap();
+    asset["file"]["sha256"] = Value::String(hash_bytes(&bytes));
+    for original in manifest["provenance"]["originals"].as_array_mut().unwrap() {
+        if original["path"] == relative_path {
+            original["sha256"] = Value::String(hash_bytes(&bytes));
+        }
+    }
+    fs::write(&manifest_path, serde_json::to_vec_pretty(&manifest).unwrap()).unwrap();
+    let before = file_snapshot(&input);
+    let loaded = LoadedComposition::load(&manifest_path).unwrap();
+    let output = root.join("partial");
+    let run = execute(&loaded, &exact("en", vec![CompositionOutput::Png, CompositionOutput::TranscriptJson]),
+        &output, None, &ProcessCancellationToken::new()).unwrap();
+    assert_eq!(run.state, CompositionRunState::Partial);
+    let png = run.branches.iter().find(|branch| run.plan.branches.iter().any(|plan|
+        plan.target_id == branch.target_id && plan.output == CompositionOutput::Png)).unwrap();
+    assert!(matches!(png.outcome, CompositionBranchOutcome::Blocked | CompositionBranchOutcome::Failed));
+    assert!(png.artifact_id.is_none() && png.artifact_evidence_index.is_none() && png.locator.is_none());
+    assert_eq!(run.artifact_manifest.outputs, vec!["outputs/en/page.transcript.json".to_string()]);
+    assert!(!output.join("outputs/en/page.png").exists());
+    assert!(output.join("composition-run.json").is_file());
+    assert_eq!(file_snapshot(&input), before);
+}
+
+#[test]
 fn shared_cache_verifies_records_and_refuses_corrupted_payloads() {
     let directory = tempfile::tempdir().unwrap();
     let manifest = input_fixture(&directory);
@@ -187,10 +322,10 @@ fn shared_cache_verifies_records_and_refuses_corrupted_payloads() {
     assert_eq!(fs::read(root.join("first/outputs/en/page.svg")).unwrap(), fs::read(root.join("second/outputs/en/page.svg")).unwrap());
     let report_digest = hash_json(first.plan.branches[0].typography.as_ref().unwrap()).unwrap();
     for run in [&first, &second] {
-        assert_eq!(run.schema, "renderflow.composition-run/v2");
+        assert_eq!(run.schema, "renderflow.composition-run/v3");
         let artifact = &run.artifact_manifest.artifacts[run.branches[0].artifact_evidence_index.unwrap()];
         assert_eq!(artifact.metadata["renderflow.composition"]["typography"]["report_sha256"], report_digest);
-        assert_eq!(artifact.metadata["renderflow.composition"]["renderer"]["version"], 2);
+        assert_eq!(artifact.metadata["renderflow.composition"]["renderer"]["version"], render::COMPOSITION_RENDERER_VERSION);
         assert_eq!(artifact.metadata["renderflow.composition"]["typography"]["runtime_qualified"], false);
     }
 

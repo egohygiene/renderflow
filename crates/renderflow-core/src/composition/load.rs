@@ -396,7 +396,7 @@ fn bounded_raster_dimensions(width: u32, height: u32) -> Result<()> {
 
 /// A small inert graphical subset. No CSS, URLs, text, scripts, resource
 /// references, foreign content, entity declarations, or executable attributes.
-fn validate_svg(bytes: &[u8]) -> Result<()> {
+pub(crate) fn validate_svg(bytes: &[u8]) -> Result<()> {
     ensure!(bytes.len() <= 4 * 1024 * 1024, "SVG asset exceeds the 4 MiB limit");
     let text = std::str::from_utf8(bytes).context("SVG asset must be UTF-8")?;
     ensure!(!text.contains("<!DOCTYPE") && !text.contains("<!ENTITY"), "SVG DTD/entity declarations are not supported");

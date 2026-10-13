@@ -18,10 +18,11 @@ use super::model::{
     PageContent, ShapeKind, TextDirection, WritingMode,
 };
 use super::typography::{self, TypographyReport};
+use super::raster::{self, RasterPlan, RasterSettings};
 use super::{CompositionOutput, LoadedComposition};
 
 pub const COMPOSITION_RENDERER_ID: &str = "renderflow.layered-svg";
-pub const COMPOSITION_RENDERER_VERSION: u32 = 2;
+pub const COMPOSITION_RENDERER_VERSION: u32 = 3;
 pub const PAGE_TRANSCRIPT_SCHEMA_V1: &str = "renderflow.page-transcript/v1";
 const MAX_OUTPUT_BYTES: usize = 64 * 1024 * 1024;
 const POINTS_PER_MM: f64 = 72.0 / 25.4;
@@ -67,7 +68,7 @@ pub(crate) fn layout_diagnostics(snapshot: &LoadedComposition, locale: &str) -> 
     for layer in &snapshot.manifest.layers {
         if matches!(&layer.content, LayerContent::Raster { .. }) {
             result.push(diagnostic(DiagnosticSeverity::Warning, "composition.raster.flattened_unverified",
-                "raster bytes remain a flattened plate; no editable internal layers are recovered, and image decoding and source color behavior are unverified", locale, Some(&layer.id)));
+                "raster bytes remain a flattened plate; no editable internal layers are recovered, and source color appearance and print fidelity require review", locale, Some(&layer.id)));
         }
         let LayerContent::Text { content_id, typography } = &layer.content else { continue };
         let (bounds, font_size) = effective_geometry(snapshot, locale, layer, typography.font_size_pt);
@@ -102,13 +103,29 @@ pub(crate) fn layout_diagnostics(snapshot: &LoadedComposition, locale: &str) -> 
 
 /// Serialize a single locale without opening files, probing tools or networking.
 pub fn render(snapshot: &LoadedComposition, locale: &str, format: CompositionOutput) -> Result<RenderedComposition> {
+    render_with_settings(snapshot, locale, format, &RasterSettings::default())
+}
+
+/// Render a candidate with explicit PNG settings. Other output kinds do not
+/// consume raster settings, so an unrelated pixel preference cannot change
+/// their output or turn a transcript into a visual rendering operation.
+pub fn render_with_settings(snapshot: &LoadedComposition, locale: &str, format: CompositionOutput, settings: &RasterSettings) -> Result<RenderedComposition> {
     let typography = format.visual().then(|| typography::measure(snapshot, locale));
-    render_with_typography(snapshot, locale, format, typography.as_ref())
+    let raster = if format == CompositionOutput::Png { Some(raster::plan(snapshot, settings)?) } else { None };
+    render_with_plan(snapshot, locale, format, typography.as_ref(), raster.as_ref())
 }
 
 /// Only in-process plans may supply measured geometry. Public callers render
 /// from captured inputs; a deserialized evidence report is not a drawing plan.
+#[cfg(test)]
 pub(crate) fn render_with_typography(snapshot: &LoadedComposition, locale: &str, format: CompositionOutput, typography: Option<&TypographyReport>) -> Result<RenderedComposition> {
+    let raster = if format == CompositionOutput::Png { Some(raster::plan(snapshot, &RasterSettings::default())?) } else { None };
+    render_with_plan(snapshot, locale, format, typography, raster.as_ref())
+}
+
+/// Execution uses the exact in-process typography and raster plans whose
+/// evidence is committed by its cache key and receipt.
+pub(crate) fn render_with_plan(snapshot: &LoadedComposition, locale: &str, format: CompositionOutput, typography: Option<&TypographyReport>, raster: Option<&RasterPlan>) -> Result<RenderedComposition> {
     let mut diagnostics = snapshot.diagnostics.iter().filter(|item|
         item.locale.as_deref().is_none_or(|value| value == locale)).cloned().collect::<Vec<_>>();
     if format.visual() {
@@ -117,6 +134,10 @@ pub(crate) fn render_with_typography(snapshot: &LoadedComposition, locale: &str,
         diagnostics.extend(layout_diagnostics(snapshot, locale));
         diagnostics.extend(report.diagnostics.iter().cloned());
     }
+    if format == CompositionOutput::Png {
+        anyhow::ensure!(raster.is_some(), "composition.raster.plan_missing: PNG output requires an effective raster plan");
+        diagnostics.extend(raster_diagnostics(locale));
+    }
     if let Some(error) = diagnostics.iter().find(|item| item.severity == DiagnosticSeverity::Error) {
         bail!("{}: {}", error.code, error.message);
     }
@@ -124,18 +145,31 @@ pub(crate) fn render_with_typography(snapshot: &LoadedComposition, locale: &str,
     let (bytes, media_type, extension) = match format {
         CompositionOutput::Svg => (render_svg(snapshot, locale, &transcript, typography.context("missing typography report")?)?.into_bytes(), "image/svg+xml", "svg"),
         CompositionOutput::Html => (render_html(snapshot, locale, &transcript, typography.context("missing typography report")?)?.into_bytes(), "text/html", "html"),
+        CompositionOutput::Png => {
+            let svg = render_svg(snapshot, locale, &transcript, typography.context("missing typography report")?)?;
+            let bytes = raster::render_png(snapshot, svg.as_bytes(), raster.context("missing raster plan")?)?;
+            (bytes, "image/png", "png")
+        }
         CompositionOutput::TranscriptJson => {
             let mut bytes = serde_json::to_vec_pretty(&transcript)?;
             bytes.push(b'\n');
             (bytes, "application/json", "transcript.json")
         }
         CompositionOutput::TranscriptText => (render_transcript_text(&transcript).into_bytes(), "text/plain", "transcript.txt"),
-        _ => bail!("composition.output.unsupported: this renderer only provides SVG, HTML, transcript JSON, and transcript text"),
+        _ => bail!("composition.output.unsupported: this renderer provides SVG, HTML, PNG, transcript JSON, and transcript text"),
     };
     if bytes.len() > MAX_OUTPUT_BYTES {
         bail!("composition.output.bounds: serialized output exceeds 64 MiB");
     }
     Ok(RenderedComposition { bytes, media_type, extension, diagnostics })
+}
+
+/// Warnings shared by the planner and direct renderer. A successful preview
+/// encode never establishes print, color-managed, or cross-platform fidelity.
+pub(crate) fn raster_diagnostics(locale: &str) -> Vec<CompositionDiagnostic> {
+    vec![diagnostic(DiagnosticSeverity::Warning, "composition.raster.preview_profile",
+        "PNG flattens the page to pixels under an assumed-sRGB preview policy; retain the canonical package and transcript for editability and accessibility; color-managed print and cross-platform pixel fidelity remain unqualified",
+        locale, None)]
 }
 
 fn diagnostic(severity: DiagnosticSeverity, code: &str, message: impl Into<String>, locale: &str, layer_id: Option<&str>) -> CompositionDiagnostic {

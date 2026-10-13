@@ -55,8 +55,10 @@ renderflow composition render \
 
 The output directory must not already exist. Inspect branch diagnostics and
 the run receipt before interpreting any output as successful. Check the SVG
-and HTML with the intended viewer before visual approval. This package does
-not enable unsupported raster, print or layered-interchange targets.
+and HTML with the intended viewer before visual approval. The v3 profile also
+allows an explicit `png` target with bounded DPI/background settings; see the
+[mixed-asset fixture](../raster-composition/README.md) for raster-specific
+examples. Composed print PDF and layered-interchange targets remain unavailable.
 
 These commands were not executed while authoring the fixture. No font parser,
 font inspection tool, renderer, native probe, schema validator, test or build

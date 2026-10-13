@@ -1,0 +1,177 @@
+{
+  "fixture": "fixture.raster-composition",
+  "authored_on": "2026-10-13",
+  "source_base_commit": "3fcff775e43e4126a422391a65b31df0096675c8",
+  "assets": [
+    {
+      "file": "assets/alpha-tile.png",
+      "sha256": "3e5cc2fc163d3e2a09ffa5e100a0a999f2280e492025a17bbbd18e146f94a2cc",
+      "creation": "Original 4x4 RGBA pixels; PNG signature/IHDR/IDAT/IEND authoring with Python stdlib struct/zlib. No decoder or image conversion tool invoked.",
+      "authored_pixels_rgba": [
+        [
+          [
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            128,
+            192,
+            64
+          ],
+          [
+            0,
+            128,
+            192,
+            128
+          ],
+          [
+            0,
+            128,
+            192,
+            255
+          ]
+        ],
+        [
+          [
+            0,
+            128,
+            192,
+            64
+          ],
+          [
+            0,
+            128,
+            192,
+            128
+          ],
+          [
+            0,
+            128,
+            192,
+            255
+          ],
+          [
+            32,
+            192,
+            160,
+            255
+          ]
+        ],
+        [
+          [
+            0,
+            128,
+            192,
+            128
+          ],
+          [
+            0,
+            128,
+            192,
+            255
+          ],
+          [
+            32,
+            192,
+            160,
+            255
+          ],
+          [
+            32,
+            192,
+            160,
+            128
+          ]
+        ],
+        [
+          [
+            0,
+            128,
+            192,
+            255
+          ],
+          [
+            32,
+            192,
+            160,
+            255
+          ],
+          [
+            32,
+            192,
+            160,
+            128
+          ],
+          [
+            0,
+            0,
+            0,
+            0
+          ]
+        ]
+      ],
+      "license": "MIT"
+    },
+    {
+      "file": "assets/red-tile.jpg",
+      "sha256": "3b3febaff00904644f3d40757e5ce44caef2d933d2ae3d08d847a138bbc3152f",
+      "copied_from": "crates/renderflow-core/tests/fixtures/print-pdf/page-001.jpg",
+      "source_documentation": "crates/renderflow-core/tests/fixtures/print-pdf/README.md",
+      "source_description": "Synthetic 100x100 RGB baseline JFIF without EXIF, authored test data. Description read from source README; no image decode performed here.",
+      "modified": false,
+      "license": "MIT"
+    },
+    {
+      "file": "assets/two-panels.svg",
+      "sha256": "4ab4f73dd5756e43e4e811d869cfa37164597341e1e43379128a8dbdc9afcbef",
+      "copied_from": "examples/page-composition/measured-typography/assets/two-panels.svg",
+      "modified": false,
+      "license": "MIT"
+    }
+  ],
+  "font": {
+    "file": "fonts/DejaVuSans.ttf",
+    "sha256": "ae7b7855e115a5966d8b1b3f80f254ccc117ec86f9965e202ee2940453837280",
+    "size_bytes": 759720,
+    "source_path_at_capture": "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+    "source_package": "fonts-dejavu-core",
+    "source_package_version": "2.37-8",
+    "package_version_evidence": "/var/lib/dpkg/status",
+    "upstream_project_url": "https://dejavu-fonts.github.io/",
+    "modified": false
+  },
+  "font_license": {
+    "file": "fonts/DEJAVU-LICENSE.txt",
+    "sha256": "63d3ba759d12804c5b31a9d5940d855c1820d1f5999e6b0872eb1c7ff045fbc9",
+    "source_path_at_capture": "/usr/share/doc/fonts-dejavu-core/copyright",
+    "copied_verbatim": true,
+    "font_license_identifier": "Bitstream-Vera",
+    "dejavu_changes": "public domain per retained notice"
+  },
+  "font_copy_source": "examples/page-composition/measured-typography/fonts/",
+  "geometry_expectation": {
+    "width_mm": 50.8,
+    "height_mm": 50.8,
+    "dpi": 144,
+    "width_px": 288,
+    "height_px": 288,
+    "basis": "Authored unit arithmetic only; no renderer output observed."
+  },
+  "qualification": {
+    "asset_decoder_executed": false,
+    "renderer_executed": false,
+    "schema_validator_executed": false,
+    "tests_executed": false,
+    "runtime_qualified": false,
+    "visual_approval": false
+  },
+  "asset_license": {
+    "file": "LICENSE",
+    "source": "Repository LICENSE",
+    "copied_verbatim": true,
+    "sha256": "1deb55b00af813e1c8f086e851d0e1ed2084ea942a54996f069df05cd0561372"
+  }
+}
