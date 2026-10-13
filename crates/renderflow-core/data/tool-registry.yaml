@@ -197,7 +197,7 @@ tools:
     fidelity: path_dependent
     support_tier: optional
     license_notes: "FFmpeg licensing is build-dependent; consult the exact distributed build."
-    distribution_notes: "Used by Renderflow audio, image, and video adapters. Plain subtitle extraction is separately experimental and unqualified; its authored graph route requires explicit execution.subtitles stream selection. Standalone speech audio preparation additionally requires pinned FFprobe/FFmpeg binaries, a source digest, and an explicit global audio stream; it has no graph edge or qualified original-video timing."
+    distribution_notes: "Used by Renderflow audio, image, and video adapters. Plain subtitle extraction is separately experimental and unqualified; its authored graph route requires explicit execution.subtitles stream selection. Standalone and opt-in execution.speech.audio graph preparation require pinned FFprobe/FFmpeg binaries, a source digest, and an explicit global audio stream. Preparation does not automatically establish or qualify original-video synchronization; explicit retained time-map alignment is a separate operation."
 
   - id: tool.ffprobe
     name: FFprobe

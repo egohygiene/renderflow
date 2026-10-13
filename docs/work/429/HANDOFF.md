@@ -1,6 +1,61 @@
-# Renderflow #429 — creative doctor checkpoint 1
+# Renderflow #429 — creative toolchain reconciliation
 
-## Merge reconciliation — 2026-10-12
+## Current checkpoint — 2026-10-13
+
+The maintainer authorized merging pending work and advancing #429. #445
+(derivative forest / #422) is merged, and #446 (review-required screenplay
+recovery / #426) is merged at
+`8e0f5f4a6132364965cc31bbee9c3e72074dfd4b`. The current branch is
+`docs/renderflow-429-recovery-reconciliation`; obtain its eventual merge SHA
+from its PR. This section supersedes the implementation-status and resume
+instructions in the historical records below.
+
+- The creative profile has ten tools, thirteen route rows and five separate
+  configuration/asset requirements. Recovery extraction, rasterization and
+  native body export capabilities are represented; recovery stays lossy and
+  review-required.
+- The JSON schema's stale eight-tool limit is corrected to ten. The virtual
+  recovery provider joins the five external creative-only tools excluded from
+  plain doctor, preserving plain doctor's earlier scope. Two regression tests
+  are authored for report/schema contract drift and those exclusions; neither
+  was run.
+- The registry's FFmpeg note now reflects authored opt-in graph speech
+  preparation. The general tool-registry reference was regenerated from the
+  canonical YAML using the existing Python documentation generator. This was
+  documentation generation, not tool execution or qualification.
+- The [profile guide](../../user-guide/creative-toolchain.md),
+  [manual setup guide](../../user-guide/creative-toolchain-setup.md), and
+  [provider sources](PROVIDER_SOURCES.md) distinguish discovery, configured
+  pins, platform acquisition and actual qualification. Node/Afterwriting remain
+  unprobed by generic doctor. Pinned recovery execution does not use PATH
+  discovery to choose its tools.
+- The [qualification record](QUALIFICATION.md) lists exact declared contracts
+  and the deferred evidence. No fixture/release toolchain is invented, no
+  provider is installed, and no acceptance criterion is checked off.
+
+Only source review, documentation generation and Git identity checks were
+performed. Tests, compilation/builds, lint/formatting, schema validation, native
+probes/conversions, installation/downloads and CI remain deferred. Commits use
+disabled hooks and `[skip ci]`; do not dispatch or poll Actions. Merge is
+authorized for this checkpoint, but does not qualify the creative stack.
+
+### Resume from here
+
+1. Advance #430's multi-family artifact forest / Flow contract integration,
+   preserving the configured-provider and review-required evidence boundaries.
+2. Follow with #406's layered/localized composition lane. Keep #412/#413 fixture
+   expansion and #419 release work aligned with the later deep testing session.
+3. When execution checks are reauthorized, follow [QUALIFICATION.md](QUALIFICATION.md)
+   and the adapter handoffs, then reconcile #429's acceptance criteria with
+   observed evidence. Keep #429 open until then; create new audit issues only
+   from findings in that session.
+
+## Historical checkpoint records
+
+The sections below describe the earlier eight-tool checkpoint and its then-open
+dependencies. They are preserved as history, not current setup instructions.
+
+### Merge reconciliation — 2026-10-12
 
 The maintainer explicitly approved merging the current implementation and
 deferring the deep test session. #442, #443, and #444 are merged. This #441

@@ -3,7 +3,10 @@
 The optional `creative-publishing` profile reports local tools used by creative
 conversion work and explains which adapters still need implementation or
 qualification. It does not enable conversion routes or install dependencies.
-This interface is authored for issue #429; the examples below remain unrun.
+The profile is reconciled with the authored #423–#426 screenplay routes.
+Examples remain unrun, and provider/route qualification is deferred. For a
+practical installation and pinning sequence, start with
+[Creative toolchain setup](creative-toolchain-setup.md).
 
 ```bash
 renderflow doctor --profile "creative-publishing"
@@ -13,9 +16,13 @@ renderflow doctor --profile "creative-publishing" --format "json" --strict
 
 Text is the default. `--format` requires an explicit profile. Plain
 `renderflow doctor` retains its previous provider scope and required-tool
-strict behavior. Scripttool, Node, Afterwriting, and pdftotext are included only
+strict behavior. Scripttool, Node, Afterwriting, pdftotext, and pdftoppm are included only
 in the explicit creative profile or complete inventories such as
-`renderflow tools check-all`; they remain outside plain doctor's scope.
+`renderflow tools check-all`; these five remain outside plain doctor's scope.
+The in-process `tool.renderflow-screenplay-recovery` is also excluded, making
+six excluded IDs while preserving the prior plain-doctor inventory. The creative
+profile contains ten tool records. Its in-process recovery provider needs no
+executable probe; its availability does not qualify recovery.
 
 ## Reading the report
 
@@ -36,19 +43,38 @@ The report separates three questions:
 | `tool.scripttool` | `scripttool -version` | Authored strict body-only imports to Fountain require a separately pinned 0.0.10 executable; discovery does not select it. |
 | `tool.node` | `not_probed` | Only configured PDF preflight may observe the pinned executable with a cleared environment; doctor never launches Node from PATH. |
 | `tool.afterwriting` | `not_probed` | Authored Fountain PDF adapter reads pinned package identity statically; the CLI has no version-only query. |
-| `tool.pdftotext` | `pdftotext -v` | PDF text candidate; recovery adapter pending #426. |
+| `tool.pdftotext` | `pdftotext -v` | Authored bounded PDF text extraction; execution requires a separately pinned absolute path and exact version. |
+| `tool.pdftoppm` | `pdftoppm -v` | Authored per-page grayscale rasterization for explicit OCR fallback; discovery does not select the recovery executable. |
+| `tool.renderflow-screenplay-recovery` | In-process; no probe | Authored deterministic structure recovery and body exports; always lossy and review-required. |
 | `tool.ffmpeg` | Existing registry version probe | Authored subtitle extraction and audio preparation require additional input policies. |
 | `tool.ffprobe` | Existing registry version probe | Authored stream inspection and extraction support. |
-| `tool.tesseract` | Existing registry version probe | OCR candidate; language-data and confidence integration remain pending. |
+| `tool.tesseract` | `tesseract --version` | Authored recovery fallback requires pinned Tesseract 5 and one pinned language model; doctor does not inspect that data. |
 | `tool.whisper_cpp` | Existing registry version probe | Authored local recognition still requires explicit executable/model pins. |
 
 The registry preserves the authored scripttool and Afterwriting capabilities;
 doctor does not add graph edges or select execution providers. The
 [scripttool](scripttool.md) and [screenplay PDF](screenplay-pdf.md) routes require
 their explicit execution policies, exact tool/package pins, bounded input
-profiles, and `allow_unqualified` opt-ins. pdftotext remains a discovery-only
-candidate without conversion capabilities. Supported-platform and version
-declarations remain candidate scope, not a tested package matrix.
+profiles, and `allow_unqualified` opt-ins. The
+[recovery route](../screenplay-recovery.md) similarly requires
+`execution.screenplay_recovery`, including `allow_unqualified: true` even for
+plain-text input. Supported-platform and version declarations remain candidate
+scope, not a tested package matrix.
+
+Recovery first extracts each PDF page through the pinned pdftotext executable.
+Optional OCR uses pinned pdftoppm, pinned Tesseract 5, and one explicitly hashed
+`.traineddata` file only on pages without usable embedded text. The routing
+heuristic requires alphabetic text; it does not measure extraction accuracy.
+Canonical JSON and Fountain/FDX/Fade In/OSF body derivatives retain recovery
+lineage, confidence bands, ambiguities, losses, and mandatory review. Neither a
+doctor result nor a global AI allowance approves a recovered screenplay.
+
+Thirteen route rows report authored, unqualified behavior. The recovery rows
+are `pdf.extract.text`, `ocr.extract.text`, `screenplay.recover.structure`, and
+`screenplay.recovery.export`. Their provider status remains separate from
+configuration and review requirements. PDF OCR discovery accounts for all
+three native tools; plain-text reconstruction and native body writing use the
+in-process provider.
 
 Node and Afterwriting are intentionally `not_probed`: doctor neither launches
 them nor claims either installation is present or missing. Their PDF route
@@ -56,7 +82,11 @@ reports providers as `unobserved` on a declared platform. Unsupported platforms
 remain `unavailable`. Only an explicitly configured screenplay PDF operation
 checks the pinned Node executable, package tree/manifest, font assets, and
 selected formatting profile. Those observations never come from doctor or
-generic runtime-service declarations.
+generic runtime-service declarations. Recovery planning likewise leaves its
+configured toolchain unobserved and never launches a version probe. An explicit
+doctor invocation may discover PATH-selected Poppler or Tesseract; that
+observation does not attest the different absolute paths selected in recovery
+configuration. Only execution checks those executable/data pins.
 
 Built-in plain timed-text conversion and the standalone saved-result alignment
 exporter appear without external providers. Missing FFmpeg therefore does not
@@ -109,8 +139,14 @@ added to the default devcontainer. Executable licenses, speech model licenses,
 OCR language-data licenses, and font embedding/redistribution terms require
 separate exact-asset review.
 
-Issue #429 remains open for the remaining recovery adapter dependency,
-fixture/release version records, supported-platform qualification, and execution
-of authored coverage. Screenplay #423–#425 and doctor implementation have been
-reconciled at source level. No tests, builds, schema validators, formatting,
-linting, native probes/inference, or CI were run for this reconciliation.
+Issue #429 remains open for fixture/release version records, supported-platform
+qualification, and execution of authored coverage. Screenplay #423–#426 and
+doctor declarations are reconciled at source level. The five separate
+requirements cover OCR language data, recovery review, screenplay fonts, speech
+model configuration, and speech model licensing. None is satisfied merely by
+finding an executable. No tests, builds, schema validators, formatting,
+linting, native probes/inference, installations, or CI were run for this
+reconciliation.
+
+The [qualification record](../work/429/QUALIFICATION.md) separates accepted
+policy versions from actual installation, fixture, and platform observations.
