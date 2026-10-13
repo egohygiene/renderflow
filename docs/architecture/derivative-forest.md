@@ -129,3 +129,23 @@ The forest schema is published at
 [`schemas/renderflow-artifact-forest-v1.schema.json`](../../schemas/renderflow-artifact-forest-v1.schema.json)
 and embedded in the run manifest contract. These describe evidence shape; they do not
 verify source bytes, execute transforms, or establish that outputs were produced.
+
+## Observed publication evidence
+
+Run manifests add an optional `execution` object using
+`renderflow/forest-execution-v1`. Every planned target receives an explicit
+`not_selected`, `planned`, `published`, or `not_published` outcome. A published
+row references the same run's exact artifact inventory index, ID and bundle
+locator; its full record retains hashes, producer, lineage, validation and
+loss/review evidence. Planning states and the frozen forest identity remain
+unchanged. No publication reference is attached to dry-run intent.
+
+`produced_artifacts` now means unique published terminal derivative IDs; it
+excludes source inventory, intermediates and unpublished candidates. Explicit
+unchanged source exports retain a published row with `source_identity: true`
+without being counted as new derivatives. Consumers must retain the full
+manifest for supporting evidence and distinct same-content destinations.
+
+The [multi-family fixture](../user-guide/creative-forest.md) authors isolated
+source-family runs, and the [Flow handoff](flow-artifact-forest.md) explains how
+to combine their evidence without assuming a single mixed-policy native DAG.

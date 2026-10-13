@@ -1,0 +1,35 @@
+{
+  "schema": "renderflow/v2",
+  "sources": [
+    {
+      "id": "source.fixture",
+      "path": "REPLACED_BY_RUNNER",
+      "format": "srt"
+    }
+  ],
+  "targets": {
+    "exact": [
+      {
+        "id": "target.timed_transcript_json",
+        "role": "timed_transcript_json",
+        "format": "timed_transcript_json"
+      },
+      {
+        "id": "target.vtt",
+        "role": "vtt",
+        "format": "vtt"
+      }
+    ]
+  },
+  "execution": {
+    "network": "deny",
+    "ai": "deny",
+    "max_parallel": 1,
+    "subtitles": {}
+  },
+  "output": {
+    "bundle_root": "REPLACED_BY_RUNNER",
+    "naming_template": "{source.id}/{target.id}.{ext}",
+    "collision": "error"
+  }
+}

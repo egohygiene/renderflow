@@ -1,0 +1,29 @@
+{
+  "schema": "renderflow/v2",
+  "sources": [
+    {
+      "id": "source.fixture",
+      "path": "REPLACED_BY_RUNNER",
+      "format": "wav"
+    }
+  ],
+  "targets": {
+    "exact": [
+      {
+        "id": "target.timed_transcript_json",
+        "role": "timed_transcript_json",
+        "format": "timed_transcript_json"
+      }
+    ]
+  },
+  "execution": {
+    "network": "deny",
+    "ai": "local_only",
+    "max_parallel": 1
+  },
+  "output": {
+    "bundle_root": "REPLACED_BY_RUNNER",
+    "naming_template": "{source.id}/{target.id}.{ext}",
+    "collision": "error"
+  }
+}

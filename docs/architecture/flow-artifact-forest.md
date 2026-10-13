@@ -1,0 +1,128 @@
+# Artifact forest handoff to Flow
+
+This is the authored #430 integration contract. It is not a released or
+runtime-qualified creative stack. Flow owns project orchestration, scheduling,
+checkpoint policy and approval; Renderflow owns each bounded conversion and
+its native artifact evidence. Aniflow retains temporal segmentation and
+reconstruction ownership.
+
+Consume a pinned, verified Renderflow release and serialized contracts. Do not
+import sibling repository source or infer release support from a merged PR.
+[Release qualification](../release-candidate.md) remains owned by #419. The
+creative fixture uses public CLI commands; its Python launcher is repository
+qualification tooling, not an additional runtime dependency for Flow.
+
+## Contract layers
+
+| Layer | Contract | Consumer meaning |
+| --- | --- | --- |
+| Request | `renderflow/v2` | One original artifact or one explicitly ordered collection, exact targets and route-specific policy. Separate source families use separate requests. |
+| Plan | `renderflow/artifact-forest-v1` within the canonical execution plan | Stable target identities, selected simple paths, declared providers/loss and unavailable/unsupported/excluded targets. No produced files are implied. |
+| Run | `renderflow.run/v1` | Actual run state, plan/spec digests, executed steps, diagnostics and selected toolchain evidence. |
+| Publications | `renderflow/forest-execution-v1` in `artifact_forest.execution` | One outcome per planned target, with references to the exact artifact records actually published. |
+| Artifact inventory | `renderflow.artifact-manifest/v1` | Sources, intermediates and terminal records, byte digests, locators, producers, validation, lineage and native metadata. Inventory membership alone is not publication. |
+| Interchange | `flow.artifact/v1` | Minimal compatibility projection. Pair it with the native run and retained evidence. It does not carry the complete publication/review contract. |
+| Fixture suite | `renderflow.creative-fixture/v1` / `renderflow.creative-fixture-result/v1` | Repository fixture requests and observations linking independent CLI jobs. It does not replace a Renderflow run manifest or supply a Flow execution engine. |
+
+The forest execution field is additive and optional for older records. If it
+is missing, a consumer requiring this contract must report unsupported evidence
+rather than infer success from the planned branches. The forest identity binds
+the frozen plan; adding observed outcomes does not recompute that identity or
+turn it into a digest of the final output tree.
+
+## Select actual deliverables
+
+Read a target's planning branch and execution record together. The original
+planning state remains unchanged after execution:
+
+| Execution outcome | Meaning |
+| --- | --- |
+| `not_selected` | No route was selected. Read the planning reason for excluded, unsupported, unavailable or budget-pruned intent. |
+| `planned` | Dry-run evidence only; no publication reference is permitted. |
+| `published` | The exact terminal record has a published bundle locator. It can still carry losses, skipped validation or mandatory review. |
+| `not_published` | A selected target has no published terminal record. Consult run/step diagnostics; no specific failure cause is inferred. |
+
+For `published`, use `artifact_evidence_index` in that same run's
+`artifact_manifest.artifacts`. Require agreement with the row's `artifact_id`
+and `locator`, and retain `producing_step_id` when present. The indexed record
+provides its digest, size, producer, sources, fidelity, validator evidence and
+native metadata. This exact reference matters when two target identities
+publish equal bytes to different destinations. An artifact ID alone does not
+uniquely identify a publication record.
+
+`artifact_forest.produced_artifacts` lists unique published derivative IDs. It
+omits sources, unpublished candidates and intermediates. An explicitly requested
+unchanged source can have a `published` row with `source_identity: true`, but it
+does not count as a newly produced derivative. Recover the complete output tree
+from the artifact manifest and required sidecars, not this abbreviated ID list.
+
+For each selected deliverable, resolve `bundle:` within the corresponding run's
+bundle root. Refuse traversal, links escaping the bundle or a missing payload;
+verify the recorded byte size and digest before copying or handing it to another
+provider. Preserve the native manifest and the evidence files it references.
+Do not treat `artifact-store:` locators as files already published into the
+portable output bundle.
+
+## Preserve losses and review state
+
+| Family | Evidence that Flow must retain |
+| --- | --- |
+| Screenplay recovery | `metadata["renderflow.screenplay_recovery"]`, the canonical candidate, extraction evidence and native export evidence. `lossy: true` and `review_required: true` survive every derivative. Ordinal heuristic confidence is not measured accuracy or approval. |
+| Timed text | `metadata["renderflow.subtitle"]`, canonical transcript references, prior/export losses, overlap and language policy. SRT/VTT bytes omit some metadata held in the canonical record. |
+| Local speech | `metadata["renderflow.speech"]`, raw provider result, transcription, any preparation evidence and the retained saved-result bundle. `human_reviewed: false` cannot become true through successful export. |
+| Screenplay PDF | Configured Node/package identity, fixed formatting profile, provider evidence and independent PDF inspection. A complete PDF is not visual or native-application qualification. |
+| Publication hygiene | Embedded hygiene decisions and findings. A `review_required` artifact needs explicit downstream approval; publication alone does not provide it. |
+
+Prepared-audio timestamps do not establish original-video synchronization.
+The explicit saved-result time-map exporter supplies a separate assertion and
+evidence bundle; Flow must preserve that distinction. Neither source-format
+suppression nor a successful native reparse establishes lossless round trips.
+
+## Failure, retry and toolchain identity
+
+Retain a child manifest even when its process exits unsuccessfully. `partial`,
+`failed` and `cancelled` are distinct from `complete`; a published target in a
+partial run does not make every requested target successful. Early planning or
+configuration failures can occur before a run manifest exists. Record the
+failed invocation and diagnostics without fabricating an empty successful run.
+
+Each family's explicit policies remain authoritative. A missing or incompatible
+provider must remain visible in that family's plan or failed invocation; it
+must not cause the orchestrator to mislabel another family's successful run.
+The fixture launcher isolates these jobs and retains configured-child failures.
+Skipped optional fixture jobs are unattempted, not passing conversions.
+
+The doctor fingerprint (`provider-discovery-observations/v1`) is separate from
+the selected plan toolchain snapshot and from observed adapter execution pins.
+Preserve their respective scopes. Configured recovery/speech tools can remain
+unobserved in planning; Node/Afterwriting are intentionally unprobed by generic
+doctor. Hashes of selected executables do not attest all shared libraries,
+fonts, language data or model licensing.
+
+Do not infer generic cache/checkpoint reuse for screenplay imports, PDF,
+recovery or speech. Their adapter handoffs define the actual restrictions.
+Speech's explicit verified historical-result recovery is a separate mechanism;
+a saved result is not an observation of a newly installed native toolchain.
+
+## Current capability boundary
+
+The [generated matrix](../user-guide/creative-capabilities.md) and
+[fixture guide](../user-guide/creative-forest.md) separate current behavior from
+the broader #430 outcome. Fountain PDF/analysis, native-to-Fountain imports,
+review-required PDF/text recovery, timed text and speech use separate bounded
+interfaces. General Fountain-to-FDX/Fade In/OSF/canonical export and graph plain
+transcript text export remain unsupported. Do not reinterpret a Fountain file
+as unstructured text to imply those missing conversions exist.
+
+`RunManifest::flow_artifacts_v1()` continues to project all native inventory
+records, including sources and intermediates. It intentionally omits locators,
+native provider identifiers, validation, loss/review metadata and toolchain
+evidence. Its compatibility fixture pins the earlier Flow contract at
+`a7d28ee812f9d6ccd93b6786be924e24c455accd`; that is not a claim about a current
+released Flow integration. Use native publication rows to select deliverables
+before projecting, and retain the native evidence alongside the projection.
+
+Actual CLI/SDK parity, complete native fixture runs, missing-provider isolation,
+repeated-run behavior, platform support and downloaded-release consumption
+remain to be demonstrated. #430 and #421 stay open until their evidence and
+explicit remaining capability decisions are reconciled.

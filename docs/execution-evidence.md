@@ -1,6 +1,6 @@
 # Execution evidence
 
-Every non-dry canonical build writes a versioned `renderflow-run.json` manifest in the configured output directory. The manifest is authoritative for what the executor actually produced, reused, skipped, validated, or failed to produce; it is not reconstructed from requested targets.
+Canonical executions that reach run finalization write a versioned `renderflow-run.json` manifest in the configured output directory. The manifest is authoritative for what the executor actually produced, reused, skipped, validated, or failed to produce; it is not reconstructed from requested targets. An early planning/configuration or persistence failure can prevent a manifest from being written and must not be interpreted as a successful empty run.
 
 Dry runs return the same evidence type with `state: planned`, but remain side-effect free and do not persist a manifest.
 
@@ -35,6 +35,29 @@ The machine-readable contract is [`schemas/renderflow-run-v1.schema.json`](https
 `RunManifest::flow_artifacts_v1()` explicitly projects native artifact evidence into Flow's provisional `flow.artifact/v1` interchange shape. Renderflow keeps its richer native evidence independent from Flow and pins a compatibility fixture to the contract present in `egohygiene/flow` commit `a7d28ee812f9d6ccd93b6786be924e24c455accd`.
 
 Native IDs such as `artifact:sha256:<digest>` are mapped deterministically to Flow-compatible IDs such as `artifact:sha256-<digest>`. Producer fields are projected as `owner`, `capability_id`, and `provider_version`.
+
+The projection includes every native inventory record, including sources and
+intermediates. It omits locators, full provider identity, validation, loss/review
+metadata and toolchain evidence. Use the native
+`artifact_forest.execution.targets` publication records to select actual
+deliverables and retain the native manifest alongside projected records. See
+the [artifact forest handoff](architecture/flow-artifact-forest.md).
+
+## Forest publication outcomes
+
+The planned `renderflow/artifact-forest-v1` branches remain planning evidence.
+Canonical run manifests add `artifact_forest.execution` using
+`renderflow/forest-execution-v1`, with one target outcome: `not_selected`,
+`planned`, `published`, or `not_published`. Published rows reference the exact
+artifact record by index, ID and locator; this preserves distinct destinations
+even if their bytes and artifact IDs agree. Run state and diagnostics remain
+authoritative for why a selected target was not published.
+
+`produced_artifacts` contains only unique IDs of published terminal derivatives.
+It excludes source records, retained intermediates and rejected/unpublished
+outputs. An explicit unchanged source export is separately marked
+`source_identity: true`. A published derivative can still require human review;
+publication is not creative approval or runtime qualification.
 
 ## Sensitive data boundary
 

@@ -5,7 +5,7 @@
 //! deliberately separate: an installed candidate does not create a graph edge.
 
 use anyhow::{Context, Result};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use crate::toolchain::{
@@ -38,7 +38,7 @@ pub struct CreativeToolReport {
     pub descriptor: Option<ToolDescriptor>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CreativeRouteImplementation {
     NotImplemented,
@@ -141,13 +141,14 @@ pub fn assess_with(
     probe: &dyn ToolProbe,
     context: &ToolRuntimeContext,
 ) -> Result<CreativeDoctorReport> {
+    let declarations = route_definitions()?;
     let inventory = registry.assess_ids_with(CREATIVE_TOOL_IDS, probe, context);
     let tools = inventory.tools.into_iter().map(|availability| {
         let descriptor = registry.get(availability.id.as_str()).cloned();
         CreativeToolReport { availability, descriptor }
     }).collect::<Vec<_>>();
-    let mut routes = route_definitions().into_iter().map(|route| {
-        let mut providers = route.providers.iter().map(|id| (*id).to_owned()).collect::<Vec<_>>();
+    let mut routes = declarations.into_iter().map(|route| {
+        let mut providers = route.providers;
         providers.sort();
         let blocked_providers = providers.iter().filter(|id| {
             !tools.iter().any(|tool| tool.availability.id.as_str() == id.as_str()
@@ -158,7 +159,7 @@ pub fn assess_with(
                 && tool.availability.status == ToolAvailabilityStatus::NotProbed)
         });
         CreativeRouteReport {
-            id: route.id.to_owned(),
+            id: route.id,
             implementation: route.implementation,
             provider_status: if blocked_providers.is_empty() {
                 CreativeProviderStatus::Available
@@ -169,8 +170,8 @@ pub fn assess_with(
             },
             providers,
             blocked_providers,
-            required_configuration: route.required_configuration.iter().map(|value| (*value).to_owned()).collect(),
-            detail: route.detail.to_owned(),
+            required_configuration: route.required_configuration,
+            detail: route.detail,
         }
     }).collect::<Vec<_>>();
     routes.sort_by(|left, right| left.id.cmp(&right.id));
@@ -209,103 +210,37 @@ fn requirement(id: &str, status: &str, detail: &str) -> CreativeRequirementRepor
     CreativeRequirementReport { id: id.to_owned(), status: status.to_owned(), detail: detail.to_owned() }
 }
 
-struct RouteDefinition {
-    id: &'static str,
-    implementation: CreativeRouteImplementation,
-    providers: &'static [&'static str],
-    required_configuration: &'static [&'static str],
-    detail: &'static str,
+/// Shared source for the doctor and generated creative capability matrix.
+/// Documentation metadata remains outside `routes` so publishing links does not
+/// change the doctor's route wire shape or its discovery fingerprint.
+const CREATIVE_ROUTE_CATALOG: &str = include_str!("../data/creative-routes.json");
+const CREATIVE_ROUTE_CATALOG_SCHEMA: &str = "renderflow.creative-route-catalog/v1";
+
+#[derive(Debug, Deserialize)]
+struct RouteCatalog {
+    schema_version: String,
+    profile: String,
+    routes: Vec<RouteDefinition>,
 }
 
-fn route_definitions() -> Vec<RouteDefinition> {
-    use CreativeRouteImplementation::AuthoredUnqualified;
-    vec![
-        RouteDefinition {
-            id: "subtitle.convert.plain", implementation: AuthoredUnqualified,
-            providers: &[], required_configuration: &["execution.subtitles", "supported_plain_timed_text"],
-            detail: "Built-in bounded SRT/WebVTT and canonical timed-transcript conversion needs no external executable. The opt-in graph/SDK route is authored; runtime qualification remains deferred.",
-        },
-        RouteDefinition {
-            id: "speech.align", implementation: AuthoredUnqualified,
-            providers: &[], required_configuration: &["pinned_saved_result_receipt", "pinned_explicit_time_map"],
-            detail: "The standalone offline alignment exporter needs no external executable. It verifies saved evidence and applies an explicit operator map; it does not infer or attest original-video synchronization.",
-        },
-        RouteDefinition {
-            id: "screenplay.scripttool", implementation: AuthoredUnqualified,
-            providers: &["tool.scripttool"], required_configuration: &[
-                "execution.screenplay", "execution.screenplay.executable",
-                "execution.screenplay.executable_sha256", "execution.screenplay.allow_unqualified",
-                "supported_body_only_native_import",
-            ],
-            detail: "Bounded body-only FDX/OSF/Fade In imports to Fountain are authored. Execution requires an explicitly pinned scripttool 0.0.10, opt-in policy, and independent semantic comparison. Doctor's PATH observation does not select that executable or add graph edges; reverse exports and runtime qualification remain unavailable.",
-        },
-        RouteDefinition {
-            id: "screenplay.pdf.afterwriting", implementation: AuthoredUnqualified,
-            providers: &["tool.node", "tool.afterwriting"], required_configuration: &[
-                "execution.screenplay_pdf", "execution.screenplay_pdf.node_executable",
-                "execution.screenplay_pdf.node_sha256", "execution.screenplay_pdf.expected_node_version",
-                "execution.screenplay_pdf.package_root", "execution.screenplay_pdf.package_tree_sha256",
-                "execution.screenplay_pdf.expected_provider_version", "execution.screenplay_pdf.profile",
-                "execution.screenplay_pdf.allow_unqualified", "strict_ascii_fountain_body", "screenplay.fonts",
-            ],
-            detail: "Direct original strict ASCII Fountain to PDF is authored with fixed A4/US Letter profiles and independent analysis/PDF inspection. Node and Afterwriting remain unobserved by doctor: explicit pinned clear-environment preflight reads package identity without a fabricated provider version command. Chained native imports, runtime/visual fidelity, and reproducibility remain unqualified.",
-        },
-        RouteDefinition {
-            id: "pdf.extract.text", implementation: AuthoredUnqualified,
-            providers: &["tool.pdftotext"], required_configuration: &[
-                "execution.screenplay_recovery", "execution.screenplay_recovery.pdftotext",
-                "execution.screenplay_recovery.allow_unqualified", "bounded_local_pdf",
-            ],
-            detail: "Bounded text-bearing PDF extraction for screenplay recovery is authored. Execution uses an explicit pinned provider and preserves page boundaries and extraction evidence; PATH discovery does not select that provider or qualify recovery.",
-        },
-        RouteDefinition {
-            id: "ocr.extract.text", implementation: AuthoredUnqualified,
-            providers: &["tool.pdftotext", "tool.pdftoppm", "tool.tesseract"], required_configuration: &[
-                "execution.screenplay_recovery.ocr", "ocr.language_data",
-            ],
-            detail: "Explicitly configured, bounded per-page PDF OCR fallback is authored for pages without usable embedded text. Pinned rasterizer, recognizer, and language data are required; discovery does not qualify OCR, and recovered structure still requires review.",
-        },
-        RouteDefinition {
-            id: "screenplay.recover.structure", implementation: AuthoredUnqualified,
-            providers: &["tool.renderflow-screenplay-recovery"], required_configuration: &[
-                "execution.screenplay_recovery", "execution.screenplay_recovery.allow_unqualified",
-                "screenplay.recovery.review",
-            ],
-            detail: "Deterministic heuristics recover a validated canonical screenplay from bounded PDF extraction or plain text. Per-element confidence and ambiguities record heuristic evidence rather than calibrated probabilities. Recovery is always lossy and review-required; AI reconstruction is unsupported and no execution setting approves the result.",
-        },
-        RouteDefinition {
-            id: "screenplay.recovery.export", implementation: AuthoredUnqualified,
-            providers: &["tool.renderflow-screenplay-recovery"], required_configuration: &[
-                "validated_recovery_candidate", "screenplay.recovery.review",
-            ],
-            detail: "Bounded canonical recovery candidates can produce supported body-only Fountain, FDX, Fade In, and OSF derivatives with recovery lineage and mandatory review retained. These authored writers do not claim original-document reconstruction or native runtime qualification.",
-        },
-        RouteDefinition {
-            id: "subtitle.streams.inspect", implementation: AuthoredUnqualified,
-            providers: &["tool.ffprobe"], required_configuration: &["supported_local_container"],
-            detail: "Bounded subtitle inventory is authored; finding FFprobe does not qualify a particular container or codec.",
-        },
-        RouteDefinition {
-            id: "subtitle.extract.plain", implementation: AuthoredUnqualified,
-            providers: &["tool.ffprobe", "tool.ffmpeg"], required_configuration: &["execution.subtitles", "explicit_subtitle_stream", "supported_plain_subtitle_codec"],
-            detail: "The opt-in plain-subtitle graph route is authored and requires explicit stream selection; runtime qualification remains deferred.",
-        },
-        RouteDefinition {
-            id: "speech.audio.inspect", implementation: AuthoredUnqualified,
-            providers: &["tool.ffprobe"], required_configuration: &["pinned_ffprobe", "source_sha256"],
-            detail: "The standalone audio inventory is authored and uses explicitly pinned tools; PATH discovery does not select those tools.",
-        },
-        RouteDefinition {
-            id: "speech.audio.prepare", implementation: AuthoredUnqualified,
-            providers: &["tool.ffprobe", "tool.ffmpeg"], required_configuration: &["pinned_ffprobe", "pinned_ffmpeg", "source_sha256", "explicit_audio_stream"],
-            detail: "Selected-stream preparation is authored with explicit pins and stream selection. Preparation alone does not establish original-video subtitle alignment.",
-        },
-        RouteDefinition {
-            id: "speech.transcribe", implementation: AuthoredUnqualified,
-            providers: &["tool.whisper_cpp"], required_configuration: &["pinned_speech_provider", "speech.model.configuration", "speech.model.license", "strict_pcm_wav"],
-            detail: "The local recognition adapter is authored but unqualified. A discovered executable is not a selected pinned provider/model or proof that inference can run.",
-        },
-    ]
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RouteDefinition {
+    id: String,
+    implementation: CreativeRouteImplementation,
+    providers: Vec<String>,
+    required_configuration: Vec<String>,
+    detail: String,
+}
+
+fn route_definitions() -> Result<Vec<RouteDefinition>> {
+    let catalog: RouteCatalog = serde_json::from_str(CREATIVE_ROUTE_CATALOG)
+        .context("failed to decode embedded creative route declarations")?;
+    anyhow::ensure!(catalog.schema_version == CREATIVE_ROUTE_CATALOG_SCHEMA,
+        "unsupported embedded creative route catalog schema");
+    anyhow::ensure!(catalog.profile == CREATIVE_DOCTOR_PROFILE,
+        "embedded creative route catalog profile does not match creative doctor");
+    Ok(catalog.routes)
 }
 
 #[cfg(test)]
@@ -352,6 +287,73 @@ mod tests {
 
     fn route<'a>(report: &'a CreativeDoctorReport, id: &str) -> &'a CreativeRouteReport {
         report.routes.iter().find(|route| route.id == id).unwrap()
+    }
+
+    #[test]
+    fn shared_route_catalog_retains_the_declared_creative_surface() {
+        let declarations = route_definitions().unwrap();
+        let mut ids = declarations.iter().map(|route| route.id.as_str()).collect::<Vec<_>>();
+        ids.sort();
+        assert_eq!(ids, vec![
+            "ocr.extract.text", "pdf.extract.text", "screenplay.pdf.afterwriting",
+            "screenplay.recover.structure", "screenplay.recovery.export", "screenplay.scripttool",
+            "speech.align", "speech.audio.inspect", "speech.audio.prepare", "speech.transcribe",
+            "subtitle.convert.plain", "subtitle.extract.plain", "subtitle.streams.inspect",
+        ]);
+        let registry = ToolRegistry::builtins();
+        for declaration in declarations {
+            assert_eq!(declaration.implementation, CreativeRouteImplementation::AuthoredUnqualified);
+            assert!(!declaration.required_configuration.is_empty());
+            for provider in declaration.providers {
+                assert!(CREATIVE_TOOL_IDS.contains(&provider.as_str()));
+                assert!(registry.get(&provider).is_some());
+            }
+        }
+    }
+
+    #[test]
+    fn doctor_rows_use_the_shared_catalog_without_reinterpreting_declarations() {
+        let (registry, probe, context) = fixture();
+        let report = assess_with(&registry, &probe, &context).unwrap();
+        let declarations = route_definitions().unwrap();
+        assert_eq!(report.routes.len(), declarations.len());
+        for mut declaration in declarations {
+            declaration.providers.sort();
+            let observed = route(&report, &declaration.id);
+            assert_eq!(observed.implementation, declaration.implementation);
+            assert_eq!(observed.providers, declaration.providers);
+            assert_eq!(observed.required_configuration, declaration.required_configuration);
+            assert_eq!(observed.detail, declaration.detail);
+        }
+    }
+
+    #[test]
+    fn generated_capability_json_tracks_the_shared_declaration_snapshot() {
+        let catalog: serde_json::Value = serde_json::from_str(CREATIVE_ROUTE_CATALOG).unwrap();
+        let generated: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../docs/user-guide/creative-capabilities.json"
+        )).unwrap();
+        assert_eq!(generated["schema_version"], "renderflow.creative-capabilities/v1");
+        assert_eq!(generated["catalog"]["schema_version"], catalog["schema_version"]);
+        assert_eq!(generated["catalog"]["profile"], catalog["profile"]);
+        assert_eq!(generated["catalog"]["sha256"],
+            format!("{:x}", Sha256::digest(CREATIVE_ROUTE_CATALOG.as_bytes())));
+        assert_eq!(generated["runtime_qualified"], catalog["runtime_qualified"]);
+        assert_eq!(generated["scope"], catalog["scope"]);
+        assert_eq!(generated["unsupported_directions"], catalog["unsupported_directions"]);
+        let declarations = catalog["routes"].as_array().unwrap();
+        let rows = generated["routes"].as_array().unwrap();
+        let documentation = catalog["documentation"].as_object().unwrap();
+        assert_eq!(rows.len(), declarations.len());
+        assert_eq!(documentation.len(), declarations.len());
+        for declaration in declarations {
+            let id = declaration["id"].as_str().unwrap();
+            let row = rows.iter().find(|row| row["id"] == id).unwrap();
+            for (key, value) in declaration.as_object().unwrap() {
+                assert_eq!(&row[key.as_str()], value, "generated route {id} has stale {key}");
+            }
+            assert_eq!(row["documentation"], documentation[id]);
+        }
     }
 
     #[test]

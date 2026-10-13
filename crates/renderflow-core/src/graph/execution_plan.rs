@@ -273,6 +273,50 @@ pub struct ForestBranch {
     pub route: Option<ForestRouteEvidence>,
 }
 
+/// Versioned publication-evidence contract nested in a run's artifact forest.
+pub const FOREST_EXECUTION_SCHEMA_V1: &str = "renderflow/forest-execution-v1";
+
+/// Publication outcome, deliberately separate from route selection and run state.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ForestTargetOutcome {
+    NotSelected,
+    Planned,
+    Published,
+    NotPublished,
+}
+
+/// One target's execution evidence. References point into this same run manifest.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ForestTargetExecution {
+    pub target_id: String,
+    pub outcome: ForestTargetOutcome,
+    /// With an observed artifact, true only when its record ID and digest match
+    /// source evidence. Without one, this describes zero-edge planning intent.
+    /// A hygiene-derived publication is not an original-source identity export.
+    pub source_identity: bool,
+    /// Index into artifact_manifest.artifacts, not an index keyed by content ID.
+    /// That record retains digest, provider, lineage, validation and native metadata.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub artifact_evidence_index: Option<usize>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub artifact_id: Option<String>,
+    /// Present only for a successfully published target; never a predicted path.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub locator: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub producing_step_id: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ForestExecutionEvidence {
+    pub schema: String,
+    /// One row per planning branch in the same deterministic order.
+    pub targets: Vec<ForestTargetExecution>,
+}
+
 /// Requested and resolved artifact forest attached to plans and run manifests.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ArtifactForest {
@@ -288,9 +332,13 @@ pub struct ArtifactForest {
     pub intermediates: String,
     #[serde(default)]
     pub branches: Vec<ForestBranch>,
-    /// Artifact ids actually produced; empty in a pre-execution plan.
+    /// Published terminal derivative ids only; excludes retained intermediates,
+    /// unpublished candidates, and explicit source identity exports.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub produced_artifacts: Vec<String>,
+    /// Absent from plans and legacy manifests. Planning states remain unchanged.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub execution: Option<ForestExecutionEvidence>,
 }
 
 fn artifact_forest_schema() -> String {
@@ -307,6 +355,7 @@ impl Default for ArtifactForest {
             intermediates: String::new(),
             branches: Vec::new(),
             produced_artifacts: Vec::new(),
+            execution: None,
         }
     }
 }
@@ -1004,6 +1053,7 @@ mod tests {
         assert!(forest.identity.is_empty());
         assert!(forest.branches[0].target_id.is_empty());
         assert!(forest.branches[0].route.is_none());
+        assert!(forest.execution.is_none());
         assert_eq!(ArtifactForest::default().schema, forest.schema);
     }
 
