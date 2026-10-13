@@ -86,6 +86,7 @@ nav:
       - Screenplay Artifacts: user-guide/screenplay.md
       - Scripttool Imports: user-guide/scripttool.md
       - Screenplay PDF and Analysis: user-guide/screenplay-pdf.md
+      - Screenplay Recovery: screenplay-recovery.md
       - Super Resolution: user-guide/super-resolution.md
       - Upscayl Models: user-guide/upscayl-models.md
       - Pipelines: user-guide/pipelines.md

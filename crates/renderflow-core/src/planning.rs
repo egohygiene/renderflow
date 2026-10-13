@@ -6,6 +6,9 @@
 
 mod forest;
 use forest::{plan_forest_routes, group_forest_routes, finalize_forest_identity};
+mod screenplay_recovery;
+use screenplay_recovery::{recovery_provider_ids, register_recovery_edges,
+    register_recovery_executors, validate_recovery_source, validate_recovery_targets};
 
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::fs;
@@ -123,6 +126,7 @@ const TIMED_TEXT_PROVIDER: &str = "tool.renderflow-timed-text";
 const SCREENPLAY_PROVIDER: &str = "tool.scripttool";
 const SCREENPLAY_ADAPTER_EVIDENCE: &str = "builtin.screenplay.scripttool";
 const SCREENPLAY_PDF_ADAPTER_EVIDENCE: &str = "builtin.screenplay.afterwriting";
+const SCREENPLAY_RECOVERY_ADAPTER_EVIDENCE: &str = "builtin.screenplay.recovery";
 
 #[derive(Debug, Clone)]
 pub struct PlanningRequest {
@@ -543,6 +547,12 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
             anyhow::bail!("screenplay_pdf.source.format_conflict: original Fountain source has conflicting format signals");
         }
     }
+    if let Some(policy) = &spec.execution.screenplay_recovery {
+        validate_recovery_source(source_format, collection, policy, &spec)?;
+        if !source_intake.profile.conflicts.is_empty() {
+            anyhow::bail!("screenplay_recovery.source.format_conflict: original source has conflicting format signals");
+        }
+    }
     if let Some(policy) = &spec.execution.screenplay {
         validate_screenplay_policy(source_format, collection, policy)?;
         validate_screenplay_hygiene(&spec)?;
@@ -590,6 +600,11 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
         };
 
     register_builtin_strategy_edges(&mut graph, &mut tool_registry)?;
+    if let Some(policy) = &spec.execution.screenplay_recovery {
+        register_recovery_edges(&mut graph, &mut tool_registry, source_format, policy)?;
+        graph = graph.filtered_by(|edge| edge.evidence.get("adapter").map(String::as_str)
+            == Some(SCREENPLAY_RECOVERY_ADAPTER_EVIDENCE));
+    }
     if let Some(policy) = &spec.execution.screenplay_pdf {
         register_screenplay_pdf_edge(&mut graph, &mut tool_registry, source_format, policy)?;
         graph = graph.filtered_by(|edge| edge.evidence.get("adapter").map(String::as_str)
@@ -640,6 +655,9 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
         policy_graph
     };
     let requested_targets = resolve_target_intent(&spec, &graph, source_format)?;
+    if spec.execution.screenplay_recovery.is_some() {
+        validate_recovery_targets(&requested_targets)?;
+    }
     if spec.execution.speech.is_some() && requested_targets.iter().any(|target| {
         !matches!(target.format, Format::TimedTranscriptJson | Format::Srt | Format::WebVtt)
     }) {
@@ -675,9 +693,11 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
     // Speech paths/hashes are declarations until their bounded native adapter
     // verifies them at execution. Planning never launches their version probes.
     let deferred_speech_ids = speech_provider_ids(spec.execution.speech.as_ref());
+    let deferred_recovery_ids = recovery_provider_ids(source_format, spec.execution.screenplay_recovery.as_ref());
     let mut provider_inventory = tool_registry.assess_ids_current(
         policy_graph.provider_ids().into_iter().filter(|id|
-            !deferred_speech_ids.contains(id) && !is_screenplay_pdf_provider(id, spec.execution.screenplay_pdf.as_ref())),
+            !deferred_speech_ids.contains(id) && !deferred_recovery_ids.contains(id)
+                && !is_screenplay_pdf_provider(id, spec.execution.screenplay_pdf.as_ref())),
     );
     apply_screenplay_version_requirement(&mut provider_inventory, spec.execution.screenplay.as_ref());
     assess_screenplay_pdf_availability(
@@ -688,6 +708,7 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
     );
     let mut planning_provider_ids = provider_inventory.available_ids();
     planning_provider_ids.extend(deferred_speech_ids.iter().cloned());
+    planning_provider_ids.extend(deferred_recovery_ids.iter().cloned());
     let available_graph = policy_graph.filtered_by_available_providers(&planning_provider_ids);
     let planned_forest = plan_forest_routes(
         &spec, &graph, &policy_graph, &available_graph, source_format, requested_targets,
@@ -697,6 +718,7 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
     let grouped_routes = group_forest_routes(source_format, &planned_forest.routes)?;
     if grouped_routes.len() > 1 && (collection || spec.execution.speech.is_some()
         || spec.execution.screenplay.is_some() || spec.execution.screenplay_pdf.is_some()
+        || spec.execution.screenplay_recovery.is_some()
         || spec.execution.subtitles.is_some() || print_pages.is_some() || fixed_epub_pages.is_some()) {
         anyhow::bail!("forest.native_group_conflict: this bounded native/collection policy requires one compatible execution group; use separate requests for distinct render settings");
     }
@@ -789,12 +811,16 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
     let selected_ids = selected_edges.iter().flat_map(|edge| edge_provider_ids(edge).into_iter().map(str::to_owned)).collect::<BTreeSet<_>>();
     let mut selected_inventory = tool_registry.assess_ids_current(
         selected_ids.iter().filter(|id|
-            !deferred_speech_ids.contains(*id) && !is_screenplay_pdf_provider(id, spec.execution.screenplay_pdf.as_ref())),
+            !deferred_speech_ids.contains(*id) && !deferred_recovery_ids.contains(*id)
+                && !is_screenplay_pdf_provider(id, spec.execution.screenplay_pdf.as_ref())),
     );
     apply_screenplay_version_requirement(&mut selected_inventory, spec.execution.screenplay.as_ref());
     selected_inventory.tools.extend(provider_inventory.tools.iter().filter(|tool|
         is_screenplay_pdf_provider(tool.id.as_str(), spec.execution.screenplay_pdf.as_ref())
             && selected_ids.contains(tool.id.as_str())).cloned());
+    if spec.execution.screenplay_recovery.is_some() {
+        plan.add_tool_diagnostic("screenplay_recovery.provider.unobserved: recovery and its exporters are authored and unqualified. Native paths, versions, and digests are declarations checked only at execution; planning launches no probes. Every result remains lossy and review-required. No AI fallback, source PDF regeneration, cache, checkpoint, or observed-toolchain claim is supplied.");
+    }
     if spec.execution.screenplay_pdf.is_some() {
         plan.add_tool_diagnostic("screenplay_pdf.provider.unqualified: bounded preflight verifies configured Node/package pins, required package assets, and exact Node/package versions. This is availability evidence only; no PDF rendering or visual qualification occurs during planning. Execution independently inspects the emitted PDF; cache and checkpoint reuse remain disabled.");
     }
@@ -824,7 +850,7 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
         ));
     }
     if spec.execution.speech.is_none() && spec.execution.screenplay.is_none()
-        && spec.execution.screenplay_pdf.is_none() && selected_inventory
+        && spec.execution.screenplay_pdf.is_none() && spec.execution.screenplay_recovery.is_none() && selected_inventory
         .tools
         .iter()
         .all(|tool| tool.is_available())
@@ -1052,6 +1078,10 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
         &mut executor, &resolved.dag, resolved.spec.execution.screenplay.as_ref(),
         resolved.cancellation.clone(),
     )?;
+    register_recovery_executors(
+        &mut executor, &resolved.dag, resolved.spec.execution.screenplay_recovery.as_ref(),
+        resolved.cancellation.clone(),
+    )?;
     if let Some(pages) = &resolved.print_pages {
         let policy = resolved
             .spec
@@ -1119,7 +1149,7 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
     };
     let multiple_groups = resolved.execution_groups.len() > 1;
     let executor = if multiple_groups || resolved.spec.execution.speech.is_some() || resolved.spec.execution.screenplay.is_some()
-        || resolved.spec.execution.screenplay_pdf.is_some() {
+        || resolved.spec.execution.screenplay_pdf.is_some() || resolved.spec.execution.screenplay_recovery.is_some() {
         // Unqualified native routes and isolated rendition groups never read
         // or amend a shared cache/checkpoint file.
         executor
@@ -1356,7 +1386,8 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
             continue;
         };
 
-        let mut outcome = if resolved.print_pages.is_some() || resolved.spec.execution.screenplay_pdf.is_some() {
+        let mut outcome = if resolved.print_pages.is_some() || resolved.spec.execution.screenplay_pdf.is_some()
+            || resolved.spec.execution.screenplay_recovery.is_some() {
             if resolved.spec.execution.validation.validators.is_empty() {
                 ArtifactValidationOutcome {
                     state: ValidationState::Valid,
@@ -1426,6 +1457,21 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
                 validator_version: env!("CARGO_PKG_VERSION").to_owned(),
                 provider: "renderflow.core".to_owned(), state,
                 diagnostics: validation_diagnostics,
+            });
+            if state == ValidationState::Invalid { outcome.state = state; }
+        }
+        if let Some(policy) = &resolved.spec.execution.screenplay_recovery {
+            let check = crate::screenplay::recovery::graph::validate_published_artifact(
+                artifact, &source_artifact, &store, policy,
+            );
+            let state = if check.is_ok() { ValidationState::Valid } else { ValidationState::Invalid };
+            outcome.validators.push(ValidatorEvidence {
+                validator_id: "validator.screenplay_recovery.evidence".to_owned(),
+                validator_version: env!("CARGO_PKG_VERSION").to_owned(),
+                provider: "renderflow.core".to_owned(), state,
+                diagnostics: check.err().map(|error| vec![ValidationDiagnostic {
+                    code: "screenplay_recovery.validation.evidence".to_owned(), message: error.to_string(),
+                }]).unwrap_or_default(),
             });
             if state == ValidationState::Invalid { outcome.state = state; }
         }
@@ -3662,6 +3708,11 @@ fn apply_execution_policy(
 }
 
 fn edge_allowed(edge: &TransformEdge, tools: &ToolRegistry, spec: &SpecV2) -> bool {
+    if edge.evidence.get("adapter").map(String::as_str) == Some(SCREENPLAY_RECOVERY_ADAPTER_EVIDENCE)
+        && spec.execution.screenplay_recovery.is_none()
+    {
+        return false;
+    }
     if edge.evidence.get("adapter").map(String::as_str) == Some(SCREENPLAY_PDF_ADAPTER_EVIDENCE)
         && spec.execution.screenplay_pdf.is_none()
     {
@@ -4019,9 +4070,11 @@ fn preflight_selected_providers(resolved: &ResolvedExecution) -> Result<()> {
     }
     let ids = resolved.execution_groups.iter().flat_map(|group| selected_provider_ids(&group.dag)).collect::<BTreeSet<_>>();
     let deferred_speech_ids = speech_provider_ids(resolved.spec.execution.speech.as_ref());
+    let deferred_recovery_ids = recovery_provider_ids(resolved.source_format, resolved.spec.execution.screenplay_recovery.as_ref());
     let mut inventory = resolved.tool_registry.assess_ids_current(
         ids.iter().filter(|id|
             !deferred_speech_ids.contains(*id)
+                && !deferred_recovery_ids.contains(*id)
                 && !is_screenplay_pdf_provider(id, resolved.spec.execution.screenplay_pdf.as_ref())),
     );
     apply_screenplay_version_requirement(&mut inventory, resolved.spec.execution.screenplay.as_ref());
@@ -4215,6 +4268,7 @@ fn render_output_paths(resolved: &ResolvedExecution) -> Result<Vec<PathBuf>> {
 
 fn artifact_extension(format: Format) -> String {
     match format {
+        Format::Text => "txt".to_string(),
         Format::Kepub => "kepub.epub".to_string(),
         Format::ScreenplayJson => "screenplay.json".to_string(),
         Format::TimedTranscriptJson => "timed-transcript.json".to_string(),

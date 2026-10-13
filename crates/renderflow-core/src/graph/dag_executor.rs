@@ -209,6 +209,15 @@ fn failed_step(
     let speech_failure = error.chain().find_map(|cause| {
         cause.downcast_ref::<crate::speech::SpeechError>()
     });
+    let recovery_extraction_failure = error.chain().find_map(|cause| {
+        cause.downcast_ref::<crate::screenplay::recovery::provider::ExtractionError>()
+    });
+    let recovery_model_failure = error.chain().find_map(|cause| {
+        cause.downcast_ref::<crate::screenplay::recovery::model::RecoveryError>()
+    });
+    let recovery_export_failure = error.chain().find_map(|cause| {
+        cause.downcast_ref::<crate::screenplay::recovery::export::RecoveryExportError>()
+    });
     let cancelled = provider_failure.is_some_and(|failure| failure.cancelled)
         || fixed_epub_failure.is_some_and(|failure| failure.cancelled)
         || subtitle_failure.is_some_and(|failure| {
@@ -216,6 +225,9 @@ fn failed_step(
         })
         || speech_failure.is_some_and(|failure| {
             matches!(failure, crate::speech::SpeechError::Cancelled)
+        })
+        || recovery_extraction_failure.is_some_and(|failure| {
+            matches!(failure, crate::screenplay::recovery::provider::ExtractionError::Cancelled)
         });
     StepEvidence {
         step_id: step_id.clone(),
@@ -264,6 +276,9 @@ fn failed_step(
                 .map(str::to_string)
                 .or_else(|| subtitle_failure.map(|failure| format!("subtitle.{}", failure.code())))
                 .or_else(|| speech_failure.map(|failure| format!("speech.{}", failure.code())))
+                .or_else(|| recovery_extraction_failure.map(|failure| failure.code().to_owned()))
+                .or_else(|| recovery_model_failure.map(|failure| failure.code.to_owned()))
+                .or_else(|| recovery_export_failure.map(|failure| failure.code.to_owned()))
                 .unwrap_or_else(|| "execution.transform_failed".to_string()),
             message,
             step_id: Some(step_id),
@@ -1367,6 +1382,38 @@ mod tests {
 
     use super::*;
     use crate::graph::{InputKind, TransformGraph};
+
+    #[test]
+    fn recovery_cancellation_and_refusals_keep_typed_execution_evidence() {
+        use crate::screenplay::recovery::provider::ExtractionError;
+        let edge = TransformEdge::new(Format::Pdf, Format::ScreenplayJson, 1.0, 0.0)
+            .with_provider("tool.renderflow-screenplay-recovery", "screenplay.recover.structure");
+        for (failure, code, state) in [
+            (ExtractionError::Cancelled, "screenplay_recovery.cancelled", StepState::Cancelled),
+            (ExtractionError::EncryptedPdf, "screenplay_recovery.encrypted_pdf", StepState::Failed),
+            (ExtractionError::MalformedPdf("synthetic malformed input".to_owned()), "screenplay_recovery.malformed_pdf", StepState::Failed),
+            (ExtractionError::ProviderUnavailable("synthetic missing OCR".to_owned()), "screenplay_recovery.provider_unavailable", StepState::Failed),
+        ] {
+            let error = anyhow::Error::new(failure).context("Recovery transform failed");
+            let step = failed_step(&edge, None, &error, 0, 1);
+            assert_eq!(step.state, state);
+            assert_eq!(step.diagnostics[0].code, code);
+            assert_eq!(step.fidelity, FidelityDeclaration::Lossy);
+            assert!(step.output_artifacts.is_empty());
+            if state == StepState::Cancelled {
+                assert_eq!(step.validation, ValidationState::Skipped);
+                assert_eq!(step.diagnostics[0].severity, DiagnosticSeverity::Cancelled);
+            }
+        }
+        let error = anyhow::Error::new(crate::screenplay::recovery::model::RecoveryError {
+            code: "screenplay.recovery.bounds", message: "synthetic line limit".to_owned(),
+        }).context("Recovery model failed");
+        assert_eq!(failed_step(&edge, None, &error, 0, 1).diagnostics[0].code, "screenplay.recovery.bounds");
+        let error = anyhow::Error::new(crate::screenplay::recovery::export::RecoveryExportError {
+            code: "screenplay_recovery.export.unsupported", message: "synthetic native refusal".to_owned(),
+        }).context("Recovery export failed");
+        assert_eq!(failed_step(&edge, None, &error, 0, 1).diagnostics[0].code, "screenplay_recovery.export.unsupported");
+    }
 
     #[test]
     fn speech_cancellation_and_refusal_keep_typed_execution_evidence() {

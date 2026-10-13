@@ -363,6 +363,7 @@ pub fn run_cli(cli: Cli) -> Result<()> {
                 commands::screenplay::run_inspect(&input, &format)?
             }
             ScreenplayCommands::Convert(arguments) => commands::screenplay::run_convert(arguments)?,
+            ScreenplayCommands::Recover(arguments) => commands::screenplay_recovery::run_recover(arguments)?,
             ScreenplayCommands::Analyze { input } => commands::screenplay_pdf::run_analyze(&input)?,
             ScreenplayCommands::Pdf(arguments) => commands::screenplay_pdf::run_pdf(arguments)?,
             ScreenplayCommands::PackageFingerprint { package_root } => {

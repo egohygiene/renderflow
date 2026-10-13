@@ -334,7 +334,7 @@ pub enum Commands {
         subcommand: SpeechCommands,
     },
 
-    /// Inspect, analyze, convert, or render explicitly configured screenplay profiles.
+    /// Inspect, analyze, recover, convert, or render explicitly configured screenplay profiles.
     #[command(subcommand_required = true, arg_required_else_help = true)]
     Screenplay {
         #[command(subcommand)]
@@ -457,6 +457,12 @@ pub enum ScreenplayCommands {
         Reverse native conversions and scripttool JSON are rejected. Unsupported\n\
         structure or changed semantic content causes failure; no silent fallback.")]
     Convert(ScreenplayConvertArguments),
+    /// Recover a review-required screenplay candidate from PDF or unstructured text.
+    #[command(after_help = "Authored, unqualified deterministic recovery only; every result is lossy and requires review.\n\
+        PDF extraction uses explicitly pinned local tools, with bounded OCR only when needed.\n\
+        The new bundle always includes canonical JSON, source-page text, and recovery evidence.\n\
+        Optional native derivatives retain the recovery lineage; no AI or installation is implicit.")]
+    Recover(ScreenplayRecoverArguments),
     /// Analyze the strict ASCII Fountain body profile without launching a provider.
     #[command(after_help = "Counts are independently derived by Renderflow, not afterwriting statistics.\n\
         The authored profile rejects title pages, styling, multiline paragraphs,\n\
@@ -481,6 +487,28 @@ pub enum ScreenplayCommands {
         #[arg(long, value_name = "DIRECTORY")]
         package_root: String,
     },
+}
+
+#[derive(clap::Args)]
+pub struct ScreenplayRecoverArguments {
+    /// Local PDF or UTF-8 text source; the original is read only.
+    #[arg(long, value_name = "FILE")]
+    pub input: String,
+    /// Explicit source format; filename extensions do not select a recovery method.
+    #[arg(long, value_parser = ["pdf", "text"], value_name = "FORMAT")]
+    pub source_format: String,
+    /// RecoveryExtractionConfig JSON with explicit bounds and allow_unqualified=true.
+    #[arg(long, value_name = "FILE")]
+    pub config: String,
+    /// New bundle directory; its parent must exist. Existing paths are refused.
+    #[arg(long, value_name = "DIRECTORY")]
+    pub output: String,
+    /// Optional native derivative; repeat for multiple formats. Canonical JSON is always kept.
+    #[arg(long = "target", value_parser = ["fountain", "fdx", "fadein", "osf"], value_name = "FORMAT")]
+    pub targets: Vec<String>,
+    /// Optional expected lowercase SHA-256 of the original source bytes.
+    #[arg(long, value_name = "SHA256")]
+    pub source_sha256: Option<String>,
 }
 
 #[derive(clap::Args)]
@@ -1454,6 +1482,27 @@ mod screenplay_cli_tests {
         assert!(Cli::try_parse_from(&argv[..7]).is_err());
         assert!(Cli::try_parse_from(["renderflow", "screenplay", "pdf", "--input", "scene.fountain",
             "--output-dir", "new-bundle"]).is_err());
+    }
+
+    #[test]
+    fn screenplay_recovery_requires_source_format_and_config_and_accepts_repeated_targets() {
+        let argv = ["renderflow", "screenplay", "recover", "--input", "scene.pdf",
+            "--source-format", "pdf", "--config", "recovery.json", "--output", "new-recovery",
+            "--target", "fountain", "--target", "fdx"];
+        let cli = Cli::try_parse_from(argv).unwrap();
+        assert!(matches!(cli.command, Some(Commands::Screenplay {
+            subcommand: ScreenplayCommands::Recover(arguments),
+        }) if arguments.input == "scene.pdf" && arguments.source_format == "pdf"
+            && arguments.config == "recovery.json" && arguments.output == "new-recovery"
+            && arguments.targets == vec!["fountain", "fdx"] && arguments.source_sha256.is_none()));
+        for arguments in [
+            vec!["renderflow", "screenplay", "recover", "--input", "scene.pdf", "--output", "new-recovery"],
+            vec!["renderflow", "screenplay", "recover", "--input", "scene.pdf", "--source-format", "pdf", "--output", "new-recovery"],
+            vec!["renderflow", "screenplay", "recover", "--input", "scene.pdf", "--source-format", "pdf", "--config", "recovery.json", "--output", "new-recovery", "--target", "pdf"],
+            vec!["renderflow", "screenplay", "recover", "--input", "scene.fdx", "--source-format", "fdx", "--config", "recovery.json", "--output", "new-recovery"],
+        ] {
+            assert!(Cli::try_parse_from(arguments).is_err());
+        }
     }
 
     #[test]

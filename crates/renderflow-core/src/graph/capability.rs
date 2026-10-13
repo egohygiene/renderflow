@@ -352,6 +352,21 @@ impl FormatCapabilityRegistry {
         // ── Document formats ──────────────────────────────────────────────────
 
         self.register(
+            Format::Text,
+            FormatDescriptor {
+                id: "text",
+                name: "Unstructured UTF-8 Text",
+                extensions: &["txt", "text"],
+                media_types: &["text/plain"],
+                families: &[Document],
+                capabilities: vec![Detect, Validate],
+                magic_signatures: vec![],
+                loss_profile: PathDependent,
+                external_requirements: vec![],
+            },
+        );
+
+        self.register(
             Format::Markdown,
             FormatDescriptor {
                 id: "markdown",
