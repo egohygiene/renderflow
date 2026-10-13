@@ -1,0 +1,206 @@
+{
+  "schema": "renderflow.page-composition/v1",
+  "composition_id": "fixture.two-panels.measured-typography",
+  "revision": "layout-measured-1",
+  "page": {
+    "width_mm": 210,
+    "height_mm": 148,
+    "trim": {
+      "x": 0.02,
+      "y": 0.02,
+      "width": 0.96,
+      "height": 0.96
+    },
+    "bleed": {
+      "x": 0,
+      "y": 0,
+      "width": 1,
+      "height": 1
+    },
+    "safe": {
+      "x": 0.04,
+      "y": 0.04,
+      "width": 0.92,
+      "height": 0.92
+    },
+    "gutter_mm": 0
+  },
+  "source_locale": "en",
+  "default_locale": "en",
+  "locales": {
+    "en": {
+      "path": "content/en.json",
+      "sha256": "dcc780284ee7459d574143bfec0a3174ff0ae23dc9ca772e03ff4984fce93d3e"
+    },
+    "de": {
+      "path": "content/de.json",
+      "sha256": "fbeb41ce8eadadce7c3df890674007ef45540b88bc65325f040131a2f2f8382d"
+    },
+    "ar": {
+      "path": "content/ar.json",
+      "sha256": "931b0e915c69f485eea7790ea77932745aea04881c8f4acd4c706defa26a8dcd"
+    },
+    "ja": {
+      "path": "content/ja.json",
+      "sha256": "5e1a245efe3dda897c26489409a0ed3c7f2e4746727e07e2c41e8acf82455fe6"
+    }
+  },
+  "font_registry": {
+    "path": "fonts/registry.json",
+    "sha256": "9e1d2fc8a88be625ace123a74802ead2d8489ec7a9ac83419b29a876ad091e55"
+  },
+  "assets": [
+    {
+      "id": "plate.two-panels",
+      "file": {
+        "path": "assets/two-panels.svg",
+        "sha256": "4ab4f73dd5756e43e4e811d869cfa37164597341e1e43379128a8dbdc9afcbef"
+      },
+      "format": "svg",
+      "alt": "Two textless geometric landscapes with moons, hills and small plants; captions are separate layers."
+    }
+  ],
+  "layers": [
+    {
+      "id": "plate",
+      "bounds": {
+        "x": 0,
+        "y": 0,
+        "width": 1,
+        "height": 1
+      },
+      "opacity": 1,
+      "blend": "normal",
+      "content": {
+        "kind": "vector",
+        "asset_id": "plate.two-panels"
+      }
+    },
+    {
+      "id": "caption.box.one",
+      "bounds": {
+        "x": 0.06,
+        "y": 0.075,
+        "width": 0.4,
+        "height": 0.255
+      },
+      "opacity": 1,
+      "blend": "normal",
+      "content": {
+        "kind": "shape",
+        "shape": "rect",
+        "fill": "#fff7e8",
+        "stroke": "#263d49",
+        "stroke_width_pt": 0.75
+      }
+    },
+    {
+      "id": "caption.text.one",
+      "bounds": {
+        "x": 0.06,
+        "y": 0.09,
+        "width": 0.4,
+        "height": 0.2
+      },
+      "opacity": 1,
+      "blend": "normal",
+      "content": {
+        "kind": "text",
+        "content_id": "panel.one.caption",
+        "typography": {
+          "role": "caption",
+          "font_size_pt": 14,
+          "min_font_size_pt": 12,
+          "line_height": 1.3,
+          "padding_pt": 5,
+          "alignment": "center",
+          "color": "#263d49"
+        }
+      }
+    },
+    {
+      "id": "caption.box.two",
+      "bounds": {
+        "x": 0.54,
+        "y": 0.075,
+        "width": 0.4,
+        "height": 0.255
+      },
+      "opacity": 1,
+      "blend": "normal",
+      "content": {
+        "kind": "shape",
+        "shape": "rect",
+        "fill": "#fff7e8",
+        "stroke": "#263d49",
+        "stroke_width_pt": 0.75
+      }
+    },
+    {
+      "id": "caption.text.two",
+      "bounds": {
+        "x": 0.54,
+        "y": 0.09,
+        "width": 0.4,
+        "height": 0.2
+      },
+      "opacity": 1,
+      "blend": "normal",
+      "content": {
+        "kind": "text",
+        "content_id": "panel.two.caption",
+        "typography": {
+          "role": "caption",
+          "font_size_pt": 14,
+          "min_font_size_pt": 12,
+          "line_height": 1.3,
+          "padding_pt": 5,
+          "alignment": "center",
+          "color": "#263d49"
+        }
+      }
+    }
+  ],
+  "reading_order": [
+    "caption.text.one",
+    "caption.text.two"
+  ],
+  "provenance": {
+    "kind": "textless_original",
+    "originals": [
+      {
+        "path": "assets/two-panels.svg",
+        "sha256": "4ab4f73dd5756e43e4e811d869cfa37164597341e1e43379128a8dbdc9afcbef"
+      }
+    ],
+    "separation_reviewed": true,
+    "requires_human_review": true,
+    "notes": "Original MIT-licensed synthetic plate, copy and layout. Unmodified DejaVu Sans TTF from locally installed fonts-dejavu-core 2.37-8; full packaged license retained. Reviewed content flags are synthetic fixture declarations, not consumer approvals. No renderer, font parser, native probe, schema validator, or test was run while authoring this fixture. Input pins are not rendering or publication evidence."
+  },
+  "locale_overrides": {
+    "de": [
+      {
+        "layer_id": "caption.text.one",
+        "reason": "Expanded fixture copy uses a third authored line; retain font size and add vertical room.",
+        "author": "renderflow.synthetic-fixture",
+        "bounds": {
+          "x": 0.06,
+          "y": 0.085,
+          "width": 0.4,
+          "height": 0.235
+        }
+      },
+      {
+        "layer_id": "caption.text.two",
+        "reason": "Expanded fixture copy uses a third authored line; retain font size and add vertical room.",
+        "author": "renderflow.synthetic-fixture",
+        "bounds": {
+          "x": 0.54,
+          "y": 0.085,
+          "width": 0.4,
+          "height": 0.235
+        }
+      }
+    ]
+  }
+}

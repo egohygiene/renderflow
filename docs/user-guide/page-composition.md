@@ -5,10 +5,12 @@ per-locale SVG, HTML, and accessible transcript files. Art, shapes, text content
 and typography remain separate inputs. The source language, default language,
 and every translation use the same planner and renderer.
 
-This is the **authored, unqualified #406 implementation checkpoint**. Tests,
-builds, visual review, native execution, and CI were deferred during the sprint.
-A serialized output is not proof of correct glyph shaping, readable print size,
-font licensing, or acceptance by a design application.
+This is the **second authored, unqualified #406 implementation checkpoint**.
+Its measured-typography path uses pinned HarfRust 0.14.0 and Skrifa 0.48.0 to
+shape supported text and derive glyph outlines from captured font bytes.
+Tests, builds, visual review, native execution, and CI were deferred during the
+sprint. Source implementation and serialized evidence do not establish print
+readability, font rights, or acceptance by a design application.
 
 ## Start with an authored composition
 
@@ -47,25 +49,35 @@ opacity, and normal blending. Text layers select semantic font roles and
 explicit font-size, minimum-size, line-height, padding, alignment, and color
 settings. An explicit reading order is independent of visual paint order.
 
+The canonical composition and content schemas remain v1. Measured preview
+output uses `renderflow.layered-svg/v2`; plans and runs use
+`renderflow.composition-plan/v2` and `renderflow.composition-run/v2`. The new
+profile separates its geometry and cache evidence from older v1 browser-text
+previews.
+
 ## Inspect and plan without output writes
 
 ```bash
 renderflow composition inspect \
-  --input "examples/page-composition/page.composition.json"
+  --input "examples/page-composition/measured-typography/page.composition.json"
 
 renderflow composition plan \
-  --input "examples/page-composition/page.composition.json" \
+  --input "examples/page-composition/measured-typography/page.composition.json" \
   --locales "en,de" \
   --targets "svg,html,transcript_json"
 ```
 
-The included [example](../../examples/page-composition/README.md) is a structural
-fixture with `en`, `de`, `ar`, and `ja` locales. Its synthetic font is not a
-usable typeface: replace it with a real, licensed, pinned local font before
-assessing the page visually. No fixture run or visual result is claimed by
-the checked-in example. Arabic RTL and Japanese
-vertical content are intentional unsupported visual cases; selecting
-`all_declared` retains those blocked branches.
+The [measured-typography example](../../examples/page-composition/measured-typography/README.md)
+includes a real, unmodified DejaVu Sans TTF, its retained license and exact
+capture provenance. English and German are the authored horizontal LTR cases;
+Arabic RTL and Japanese vertical content are deliberate unsupported visual
+cases and remain unreviewed. Selecting `all_declared` retains those blocked
+branches. No fixture run or visual result is claimed.
+
+The original [structural fixture](../../examples/page-composition/README.md)
+is retained unchanged. Its 45-byte WOFF2 stub is not a usable font and cannot
+satisfy the measured visual provider. Its reviewed English/German content can
+still produce transcripts. Use the real-font fixture for later visual work.
 
 Both commands print JSON to standard output and leave the source, output, and
 cache directories unchanged. They read the manifest and referenced local
@@ -88,7 +100,7 @@ files cause an error instead of a fabricated plan.
 mkdir -p "dist"
 
 renderflow composition render \
-  --input "examples/page-composition/page.composition.json" \
+  --input "examples/page-composition/measured-typography/page.composition.json" \
   --locales "en,de" \
   --targets "svg,html,transcript_json,transcript_text" \
   --output-dir "dist/page-first-run" \
@@ -113,6 +125,16 @@ own `.artifact-store`.
 
 Using an external cache does not remove the retained inputs and published
 outputs from the bundle. Preserve the receipt and plan with them.
+Visual branches carry their measured report in `branches[].typography`; the
+run retains that same plan. Terminal artifact metadata links the report's
+digest and provider identity, so the published candidate can be traced to its
+planned font and geometry decisions. Transcript branches do not require a
+visual typography report.
+For the actual rendered font, read
+`branches[].typography.layers[].selected_font`, together with that layer's
+rejected candidates and selected fallback index. Top-level `font_resolution`
+is the generic registry report retained for context; its candidate can differ
+from the font selected after checking the whole layer's actual text.
 The hashed input copies retain evidence; keep the original package for editing
 and reloading its relative paths. Cache keys conservatively include the entire
 captured package, so changing one locale can invalidate other output keys while
@@ -125,8 +147,8 @@ error before a run receipt can be created is not evidence of publication.
 
 | Target | Checkpoint behavior |
 | --- | --- |
-| `svg` | Deterministic serialized page markup with selectable text and embedded image/font bytes |
-| `html` | HTML page presentation retaining accessible reading order |
+| `svg` | Measured glyph paths and embedded artwork; editable text remains in the canonical package |
+| `html` | The same path-based page preview plus a separate readable transcript |
 | `transcript_json` | Structured localized text in declared reading order |
 | `transcript_text` | Plain localized text in declared reading order |
 | `png`, `pdf` | Explicit unsupported branches; no implicit browser or image renderer |
@@ -138,18 +160,67 @@ interpret an output filename alone as proof that every requested branch ran.
 
 ## Layout and review boundaries
 
-The visual profile supports left-to-right, horizontal text. RTL and vertical
-layout remain explicitly unsupported visual branches. Text keeps its authored
-line breaks and size; the renderer does not wrap, shrink, translate, or fit it
-automatically. Padding and line height determine vertical line boxes, and
-known vertical overflow blocks publication.
+The visual profile is bounded to supported Latin-script, left-to-right,
+horizontal text in static TTF/OTF fonts. Webfont containers (WOFF/WOFF2),
+variable fonts, collections, color/bitmap fonts, right-to-left layout, vertical
+writing and other unsupported font/script surfaces do not become supported
+through a changed filename or registry declaration. The character allowlist
+covers selected Latin letters, combining marks and common punctuation; it does
+not include emoji, joining controls, bidi controls or variation selectors. A
+line cannot start with a combining mark. Use a supported captured font and
+inspect diagnostics. There is no installed-font or browser-font fallback.
+
+Each text layer tries the role's declared primary font and fallbacks in order.
+A usable candidate must serve the entire layer; the provider does not quietly
+mix fonts within a line. The typography evidence records the selected font,
+fallback decisions, shaped glyph geometry and layout diagnostics. Its stable
+digest is part of branch/cache identity. Registry Unicode declarations are
+metadata, not proof of coverage for the actual text.
+
+Text keeps its authored line breaks and size; the renderer does not wrap,
+shrink, translate, or fit it automatically. It checks shaped line advances and
+conservative outline bounds against authored bounds, padding and alignment,
+alongside vertical line boxes. Outline bounds include the Bézier control-point
+hull, which can overestimate the actual curve extent. They are not tight curve
+bounds or measured raster ink, and can conservatively reject a near-edge glyph.
+Known overflow blocks the visual branch rather than publishing clipped text as
+if it fit. These checks describe the implemented provider path; execution and
+visual qualification are still pending.
 Text containers outside the declared safe area or excluded by their clip also
 block the visual branch. A nonzero gutter reports an unresolved binding-side
 warning; the renderer does not guess which side needs the gutter.
 
 Transcript outputs preserve text and declared reading order without applying
 those visual layout restrictions. This retains readable content for review
-even when its requested visual branch is unsupported.
+even when its requested visual branch is unsupported. Content review,
+completeness and source-revision gates still apply to transcripts.
+
+SVG/HTML previews use the measured glyph paths, without browser-shaped text or
+font-face CSS for the page lettering. This makes the authored path geometry
+the geometry that is checked. Visual text in the SVG is not selectable or
+editable as a native text object; retain the canonical content and manifest
+for editing. HTML provides a separate text transcript, and both transcript
+targets retain reading order and localized strings.
+
+The measured profile also bounds work before publication:
+
+| Scope | Limit |
+| --- | --- |
+| One locale, across referenced text layers | 4,096 text code points, 4,096 shaped glyphs, and 256 authored lines |
+| One locale, retained geometry/evidence | 4 MiB private outline-path bytes and 2 MiB compact typography-report JSON |
+| One locale, font work | 128 whole-layer candidate attempts and 128 MiB cumulative font bytes processed by policy/shaping |
+| One request selecting a visual target | 16,384 referenced text code points across distinct selected known locales |
+| One visual request, retained geometry/evidence | 16 MiB private outline-path bytes and 16 MiB compact report JSON across distinct selected known locales |
+
+Spaces and newline delimiters count toward text-code-point limits. Repeated
+glyph outlines count per occurrence in the path budget, and retrying the same
+font on a different layer counts as another candidate attempt. Font work counts
+repeated policy/shaping use of the bytes, not just unique font file sizes.
+Each locale counts once toward request limits when both SVG and HTML are
+selected; the full serialized plan can repeat that locale's report in both
+branches. The private paths are shared in memory. Request-budget failures use
+`composition.typography.plan_budget` and advise selecting fewer locales before
+any output writes. Transcript-only requests bypass visual typography budgets.
 
 Layer bounds and clip rectangles use the full page canvas as their reference.
 Art plates stretch to their authored bounds; preserve the original aspect
@@ -160,11 +231,14 @@ that this profile cannot satisfy. Locale-specific overrides must identify a
 layer and record their author and reason. They are explicit reviewed inputs,
 not silent automatic repositioning or generated text edits.
 
-Font and layout decisions are local. Pinning a font establishes which bytes
-were selected; it does not prove glyph coverage, complex-script shaping,
-bidirectional behavior, or final ink bounds. SVG/HTML viewers can differ even
-when Renderflow serializes the same bytes. Review the rendered page in the
-intended viewer and at its intended size before publication.
+Font and layout decisions are local. A supported provider's coverage and
+geometry results refer to the selected captured font and requested text;
+they do not assert support for every script or glyph in that font. The
+checkpoint does not qualify complex-script shaping, bidirectional behavior,
+automatic line breaking or raster fidelity. SVG/HTML viewers can still differ
+in antialiasing and image rendering. Review the page in the intended viewer
+and at its intended size before publication, and retain the font license
+notices when distributing font-derived assets as their terms require.
 
 Trim, bleed, safe area, and gutter values describe page geometry. They do not
 establish PDF/X, a printer profile, or commercial print acceptance. Native

@@ -11,8 +11,10 @@ the implementation sprint authorization.
 Use a **versioned Renderflow manifest with referenced immutable assets** as the
 canonical page composition. Keep reviewed locale text outside the artwork,
 addressed by stable semantic content IDs. Treat a deliberately limited SVG
-document as a useful editable derivative, and raster/print output as separately
-qualified derivatives. Preserve every imported original.
+document as a useful derivative, and raster/print output as separately qualified
+derivatives. Preserve every imported original. The second implementation
+checkpoint uses measured glyph paths in SVG/HTML previews; native editable
+text remains in the canonical package, with companion transcripts for reading.
 
 This is an engineering recommendation inferred from the evidence below. None of
 the evaluated interchange formats supplies Renderflow's complete content
@@ -27,6 +29,13 @@ model still depends on fonts and shaping. Supporting SVG as a format does not
 establish equal typography in every viewer. OpenRaster is useful for raster
 layer exchange. PSD/PSB and IDML are optional compatibility directions that need
 feature-specific evidence before advertisement. [S1–S8]
+
+SVG's format-level text capabilities do not promise native editable text in the
+current export. The v2 preview intentionally uses outlines to keep measured
+geometry and published geometry aligned. The
+[typography provider decision](TYPOGRAPHY_PROVIDER.md) scopes this loss and
+the pinned HarfRust/Skrifa implementation; broader SVG text interchange remains
+a separate future adapter concern.
 
 ## Operation matrix
 
@@ -65,7 +74,7 @@ equate a signature or declared Unicode range with actual glyph coverage,
 shaping, readable line breaking, or measured ink bounds. No general layered
 interchange round-trip was established by this review.
 
-### Scope selected for the first #406 checkpoint
+### Scope selected for the first #406 checkpoint (historical)
 
 The implementation lane selected from this evaluation is a separate composition
 SDK/CLI surface: a native manifest, bounded immutable asset/content/font
@@ -75,6 +84,27 @@ PSD/PSB and IDML composition outputs remain unavailable. Typography evidence
 explicitly leaves actual glyph, shaping and ink-bound checks unverified.
 Authored capabilities still require the deferred runtime and interoperability
 qualification before they become proven capabilities.
+
+### Second checkpoint: measured typography
+
+The canonical composition/content schemas remain v1, while the visual profile
+and plan/run envelopes advance to v2. The authored provider shapes bounded
+Latin LTR horizontal text from captured static TTF/OTF bytes, records explicit
+whole-layer font fallback, and checks line advances and conservative outline
+bounds against the authored geometry. These bounds include the Bézier
+control-point hull and can overestimate the actual curve; they are not tight
+curve bounds or measured raster ink. It does not wrap or shrink text automatically. SVG/HTML
+preview lettering becomes paths; canonical text and transcript reading order
+are preserved, but native text-object editability is lost in that preview.
+
+This is still source implementation, not executed qualification. Unsupported
+font/script/writing surfaces remain diagnostics; composited PNG/PDF, native
+interchange and general artifact-planner integration remain unavailable.
+See [TYPOGRAPHY_PROVIDER.md](TYPOGRAPHY_PROVIDER.md) for exact dependency pins,
+the provider boundary and qualification gaps, and the
+[real-font fixture](../../../examples/page-composition/measured-typography/README.md)
+for retained font bytes, notices and capture provenance. The feasibility and
+candidate matrices below retain their original research scope.
 
 ## Features and known loss
 
@@ -103,7 +133,10 @@ OpenType `OS/2.fsType` distinguishes embedding permissions and includes
 restrictions on subsetting and outline embedding. Store applicable license
 records with the font asset and honor the output's embedding mode; a format
 supporting embedded fonts does not itself authorize embedding. [S15] This
-evaluation does not acquire or redistribute any fonts.
+research evaluation did not acquire or redistribute fonts. The subsequent
+implementation checkpoint separately retains an unmodified local DejaVu font
+and its complete packaged notice in the real-font fixture; its provenance does
+not assert visual or runtime qualification.
 
 Missing glyphs require actual font/engine inspection. Overflow requires shaped
 advances and ink bounds, not character counts or average width. RTL, mixed

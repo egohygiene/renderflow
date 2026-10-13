@@ -35,6 +35,8 @@ serde_yaml_ng = "0.9"
 
 sha2 = "0.10"
 base64 = "=0.22.1"
+harfrust = { version = "=0.14.0", default-features = false, features = ["std"] }
+skrifa = { version = "=0.48.0", default-features = false, features = ["std"] }
 lopdf = { version = "=0.45.0", default-features = false }
 flate2 = "1"
 crc32fast = "1"

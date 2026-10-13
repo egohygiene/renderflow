@@ -3,7 +3,7 @@ schema: aether.architecture-document/v1
 id: renderflow-roadmap
 title: Renderflow Roadmap
 kind: architecture-document
-version: 0.1.9
+version: 0.1.10
 status: draft
 owners:
   - egohygiene
@@ -26,7 +26,39 @@ supersedes: []
 
 # Renderflow Roadmap
 
-## 2026-10-13 layered and localized composition checkpoint
+## 2026-10-13 measured composition typography checkpoint
+
+The first [#406](https://github.com/egohygiene/renderflow/issues/406) checkpoint
+merged in [PR #449](https://github.com/egohygiene/renderflow/pull/449) at
+`8f60d6f4398232f6956091012f533eb2908dfd35`. The next checkpoint, on
+`feat/renderflow-406-measured-typography`, authors measured previews using
+pinned HarfRust 0.14.0 and Skrifa 0.48.0, captured static fonts, explicit
+whole-layer fallback, and shaped line/conservative-outline diagnostics.
+
+The native composition/content contracts remain v1. The v2 visual profile
+serializes measured glyph paths; editable text and reading order remain in the
+canonical package and transcripts. Plan/run evidence and cache identity carry
+the typography result. The bounded visual scope is Latin LTR horizontal text,
+static TTF/OTF and authored line breaks; unsupported scripts, font surfaces,
+writing modes and known overflow remain explicit. No automatic wrapping or
+shrinking is introduced.
+
+A [real-font fixture](examples/page-composition/measured-typography/README.md)
+retains unmodified DejaVu Sans, its license and byte provenance; the original
+structural stub remains a negative visual case. All code, fixtures and evidence
+contracts remain source-reviewed and unqualified. Tests, builds, lint, schema
+validation, font/native/visual execution and CI remain deferred. The checkpoint
+does not close any #406 acceptance checkbox.
+
+Next implementation work is composed PNG/print PDF, color and gutter intent,
+locale/output integration with the general artifact planner, and justified
+native interchange. Broader typography and actual visual/platform/release
+qualification remain open. See the [provider decision](docs/work/406/TYPOGRAPHY_PROVIDER.md),
+[composition guide](docs/user-guide/page-composition.md) and
+[handoff](docs/work/406/HANDOFF.md). #412/#413, #429 and #419 retain the later
+fixture/toolchain/release qualification work.
+
+## 2026-10-13 layered and localized composition checkpoint (historical)
 
 [#430](https://github.com/egohygiene/renderflow/issues/430) merged its authored
 integration checkpoint in [PR #448](https://github.com/egohygiene/renderflow/pull/448)
@@ -42,7 +74,7 @@ same path as other declared locales. Content revisions, human review, layout
 overrides and known geometry failures remain explicit. The
 [format evaluation](docs/work/406/FORMAT_EVALUATION.md) records the canonical choice.
 
-This first vertical slice is unqualified. Tests, builds, lint, schema validation,
+This first vertical slice was unqualified. Tests, builds, lint, schema validation,
 native/visual execution and CI remain deferred. The included font is a clearly
 marked structural stub, not a usable typeface. Actual glyph coverage, shaping,
 ink bounds, measured line breaking, raster/print output, native interchange and
@@ -321,9 +353,10 @@ availability. Merging does not turn authored coverage into passing evidence.
 | #426 | Review-required PDF/text recovery and bounded native body exports merged in #446 | Recovery, OCR, native-application, and platform qualification |
 | #430 | Per-target publication evidence, multi-family fixture and Flow handoff authored | Native integration proof, missing direction decisions, CLI/SDK and released-contract qualification |
 
-After the #430 implementation checkpoint, #406 now has an authored bounded
-composition SDK/CLI slice; its typography, raster/print and native interoperability
-work remains the next implementation lane. Keep #412/#413
+After the #430 implementation checkpoint, #406 has an authored bounded
+composition SDK/CLI slice and a measured-typography follow-up. Composed
+raster/print output, general planner integration, native interoperability and
+broader typography remain its implementation lane. Keep #412/#413
 fixture expansion and #419 verified release work aligned with the later deep
 testing session. Existing open qualification issues retain the evidence gaps;
 no new audit issues are created before that session.

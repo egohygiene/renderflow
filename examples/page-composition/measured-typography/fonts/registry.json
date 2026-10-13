@@ -1,0 +1,50 @@
+{
+  "schema": "renderflow.font-registry/v1",
+  "registry_id": "fixture.composition.measured-typography",
+  "version": "1.0.0",
+  "assets": [
+    {
+      "id": "font.dejavu-sans.regular",
+      "family": "DejaVu Sans",
+      "style": "normal",
+      "weight": 400,
+      "stretch": "normal",
+      "path": "DejaVuSans.ttf",
+      "format": "ttf",
+      "digest": {
+        "algorithm": "sha256",
+        "value": "ae7b7855e115a5966d8b1b3f80f254ccc117ec86f9965e202ee2940453837280"
+      },
+      "provenance": {
+        "source_url": "https://dejavu-fonts.github.io/",
+        "source_version": "fonts-dejavu-core-2.37-8-local-package",
+        "project_url": "https://dejavu-fonts.github.io/"
+      },
+      "license": {
+        "spdx_id": "Bitstream-Vera",
+        "license_file": "DEJAVU-LICENSE.txt",
+        "redistribution": "allowed",
+        "embedding": "allowed"
+      },
+      "unicode_ranges": [],
+      "intended_roles": [
+        "body",
+        "caption"
+      ]
+    }
+  ],
+  "roles": {
+    "body": {
+      "primary": "font.dejavu-sans.regular",
+      "fallbacks": [],
+      "style": "normal",
+      "weight": 400
+    },
+    "caption": {
+      "primary": "font.dejavu-sans.regular",
+      "fallbacks": [],
+      "style": "normal",
+      "weight": 400
+    }
+  }
+}

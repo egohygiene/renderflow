@@ -1,10 +1,11 @@
 //! Deterministic byte serialization for the bounded composition preview profile.
 //!
-//! This is not a shaping engine. Explicit author-supplied line breaks and sizes
-//! are preserved; neither glyph coverage nor horizontal ink bounds are measured.
+//! Explicit author-supplied line breaks and sizes are preserved. Visual text is
+//! drawn from the exact positioned outlines measured by the pinned typography
+//! provider; browsers do not select a font or shape the visual text again.
 //! All resources are drawn from the immutable, validated input snapshot.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 use std::fmt::Write;
 
 use anyhow::{bail, Context, Result};
@@ -12,16 +13,15 @@ use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
 use serde::Serialize;
 
-use crate::font::{FontFormat, FontResolutionReport, FontRole, FontTarget, ResolvedFont};
-
 use super::model::{
     CompositionDiagnostic, DiagnosticSeverity, Layer, LayerContent, NormalizedRect,
-    PageContent, ShapeKind, TextAlignment, TextDirection, WritingMode,
+    PageContent, ShapeKind, TextDirection, WritingMode,
 };
+use super::typography::{self, TypographyReport};
 use super::{CompositionOutput, LoadedComposition};
 
 pub const COMPOSITION_RENDERER_ID: &str = "renderflow.layered-svg";
-pub const COMPOSITION_RENDERER_VERSION: u32 = 1;
+pub const COMPOSITION_RENDERER_VERSION: u32 = 2;
 pub const PAGE_TRANSCRIPT_SCHEMA_V1: &str = "renderflow.page-transcript/v1";
 const MAX_OUTPUT_BYTES: usize = 64 * 1024 * 1024;
 const POINTS_PER_MM: f64 = 72.0 / 25.4;
@@ -40,6 +40,14 @@ pub struct RenderedComposition {
 /// repeats them against the same immutable snapshot to refuse direct SDK calls
 /// that would otherwise bypass a known unsupported layout or line-box overflow.
 pub fn diagnostics(snapshot: &LoadedComposition, locale: &str) -> Vec<CompositionDiagnostic> {
+    let mut result = layout_diagnostics(snapshot, locale);
+    result.extend(typography::measure(snapshot, locale).diagnostics);
+    result
+}
+
+/// Geometry checks shared with planning, which measures typography once per
+/// locale and attaches that same report to each supported visual branch.
+pub(crate) fn layout_diagnostics(snapshot: &LoadedComposition, locale: &str) -> Vec<CompositionDiagnostic> {
     let mut result = Vec::new();
     let Some(content) = snapshot.contents.get(locale).map(|item| &item.document) else {
         result.push(diagnostic(DiagnosticSeverity::Error, "composition.locale.missing",
@@ -50,14 +58,6 @@ pub fn diagnostics(snapshot: &LoadedComposition, locale: &str) -> Vec<Compositio
         result.push(diagnostic(DiagnosticSeverity::Error, "composition.layout.unsupported",
             "this preview profile supports only left-to-right horizontal text; no bidi or vertical shaping is implemented", locale, None));
     }
-    let fonts = match snapshot.fonts.resolve(FontTarget::Html) {
-        Ok(fonts) => Some(fonts),
-        Err(error) => {
-            result.push(diagnostic(DiagnosticSeverity::Error, "composition.font.resolve",
-                format!("captured font registry cannot resolve an embeddable HTML font set: {error}"), locale, None));
-            None
-        }
-    };
     let page_width = snapshot.manifest.page.width_mm * POINTS_PER_MM;
     let page_height = snapshot.manifest.page.height_mm * POINTS_PER_MM;
     if snapshot.manifest.page.gutter_mm > 0.0 {
@@ -79,21 +79,6 @@ pub fn diagnostics(snapshot: &LoadedComposition, locale: &str) -> Vec<Compositio
             result.push(diagnostic(DiagnosticSeverity::Error, "composition.text.clip_excludes_bounds",
                 "the declared clip rectangle excludes part of the effective text container; expand or remove the clip, or explicitly move or resize the container before rendering", locale, Some(&layer.id)));
         }
-        if let Some(fonts) = &fonts {
-            match fonts.resolved.get(&typography.role) {
-                Some(font) if !matches!(font.style.as_str(), "normal" | "italic" | "oblique") => {
-                    result.push(diagnostic(DiagnosticSeverity::Error, "composition.font.style_unsupported",
-                        "font styles must be exactly normal, italic, or oblique in this preview profile", locale, Some(&layer.id)));
-                }
-                Some(font) if snapshot.fonts.captured_asset_bytes(&font.asset_id).is_none() => {
-                    result.push(diagnostic(DiagnosticSeverity::Error, "composition.font.snapshot_missing",
-                        "the resolved font has no captured bytes", locale, Some(&layer.id)));
-                }
-                None => result.push(diagnostic(DiagnosticSeverity::Error, "composition.font.role_missing",
-                    format!("no captured font resolves the {} role", typography.role), locale, Some(&layer.id))),
-                _ => {}
-            }
-        }
         let Some(text) = content.content.get(content_id) else {
             result.push(diagnostic(DiagnosticSeverity::Error, "composition.content.missing",
                 format!("content ID {content_id} is absent from the selected locale"), locale, Some(&layer.id)));
@@ -111,26 +96,34 @@ pub fn diagnostics(snapshot: &LoadedComposition, locale: &str) -> Vec<Compositio
             result.push(diagnostic(DiagnosticSeverity::Error, "composition.text.vertical_capacity",
                 format!("{line_count} explicit line boxes require {} pt; the padded container allows {} pt; no automatic shrinking or line removal is performed", number(requested_height), number(available_height)), locale, Some(&layer.id)));
         }
-        result.push(diagnostic(DiagnosticSeverity::Warning, "composition.text.layout_unverified",
-            "explicit line breaks and font size are retained; horizontal overflow, actual glyph ink bounds, shaping and browser font loading have not been measured", locale, Some(&layer.id)));
-        result.push(diagnostic(DiagnosticSeverity::Warning, "composition.font.glyph_coverage_unverified",
-            "font bytes and license declarations are pinned; supported glyphs and actual fallback behavior are not verified by this renderer", locale, Some(&layer.id)));
     }
     result
 }
 
 /// Serialize a single locale without opening files, probing tools or networking.
 pub fn render(snapshot: &LoadedComposition, locale: &str, format: CompositionOutput) -> Result<RenderedComposition> {
+    let typography = format.visual().then(|| typography::measure(snapshot, locale));
+    render_with_typography(snapshot, locale, format, typography.as_ref())
+}
+
+/// Only in-process plans may supply measured geometry. Public callers render
+/// from captured inputs; a deserialized evidence report is not a drawing plan.
+pub(crate) fn render_with_typography(snapshot: &LoadedComposition, locale: &str, format: CompositionOutput, typography: Option<&TypographyReport>) -> Result<RenderedComposition> {
     let mut diagnostics = snapshot.diagnostics.iter().filter(|item|
         item.locale.as_deref().is_none_or(|value| value == locale)).cloned().collect::<Vec<_>>();
-    if format.visual() { diagnostics.extend(self::diagnostics(snapshot, locale)); }
+    if format.visual() {
+        let report = typography.context("composition.typography.missing: visual output requires measured typography")?;
+        anyhow::ensure!(report.locale == locale, "composition.typography.locale_mismatch: report belongs to a different locale");
+        diagnostics.extend(layout_diagnostics(snapshot, locale));
+        diagnostics.extend(report.diagnostics.iter().cloned());
+    }
     if let Some(error) = diagnostics.iter().find(|item| item.severity == DiagnosticSeverity::Error) {
         bail!("{}: {}", error.code, error.message);
     }
     let transcript = transcript(snapshot, locale)?;
     let (bytes, media_type, extension) = match format {
-        CompositionOutput::Svg => (render_svg(snapshot, locale, &transcript)?.into_bytes(), "image/svg+xml", "svg"),
-        CompositionOutput::Html => (render_html(snapshot, locale, &transcript)?.into_bytes(), "text/html", "html"),
+        CompositionOutput::Svg => (render_svg(snapshot, locale, &transcript, typography.context("missing typography report")?)?.into_bytes(), "image/svg+xml", "svg"),
+        CompositionOutput::Html => (render_html(snapshot, locale, &transcript, typography.context("missing typography report")?)?.into_bytes(), "text/html", "html"),
         CompositionOutput::TranscriptJson => {
             let mut bytes = serde_json::to_vec_pretty(&transcript)?;
             bytes.push(b'\n');
@@ -149,7 +142,7 @@ fn diagnostic(severity: DiagnosticSeverity, code: &str, message: impl Into<Strin
     CompositionDiagnostic::new(severity, code, message, Some(locale), layer_id)
 }
 
-fn effective_geometry(snapshot: &LoadedComposition, locale: &str, layer: &Layer, font_size: f64) -> (NormalizedRect, f64) {
+pub(crate) fn effective_geometry(snapshot: &LoadedComposition, locale: &str, layer: &Layer, font_size: f64) -> (NormalizedRect, f64) {
     let mut bounds = layer.bounds;
     let mut font_size = font_size;
     if let Some(overrides) = snapshot.manifest.locale_overrides.get(locale) {
@@ -245,8 +238,7 @@ fn transcript(snapshot: &LoadedComposition, locale: &str) -> Result<PageTranscri
     })
 }
 
-fn render_svg(snapshot: &LoadedComposition, locale: &str, transcript: &PageTranscript) -> Result<String> {
-    let fonts = snapshot.fonts.resolve(FontTarget::Html)?;
+fn render_svg(snapshot: &LoadedComposition, locale: &str, transcript: &PageTranscript, measured: &TypographyReport) -> Result<String> {
     let page = &snapshot.manifest.page;
     let width = page.width_mm * POINTS_PER_MM;
     let height = page.height_mm * POINTS_PER_MM;
@@ -255,10 +247,8 @@ fn render_svg(snapshot: &LoadedComposition, locale: &str, transcript: &PageTrans
         number(page.width_mm), number(page.height_mm), number(width), number(height), escape_xml(locale))?;
     writeln!(output, "<title id=\"rf-title\">{}</title>", escape_xml(&snapshot.manifest.composition_id))?;
     writeln!(output, "<desc id=\"rf-description\">{}</desc>", escape_xml(&accessible_description(transcript)))?;
-    writeln!(output, "<metadata>Renderer: {COMPOSITION_RENDERER_ID}/{COMPOSITION_RENDERER_VERSION}; qualification: unqualified; human review required; explicit lines, no glyph or ink-bounds verification.</metadata>")?;
-    output.push_str("<defs>\n<style>\n");
-    write_font_faces(&mut output, snapshot, &fonts)?;
-    output.push_str("</style>\n");
+    writeln!(output, "<metadata>Renderer: {COMPOSITION_RENDERER_ID}/{COMPOSITION_RENDERER_VERSION}; typography report sha256: {}; qualification: unqualified; human review required; measured positioned outlines, authored line breaks; visual text is outlined, editable copy remains in the canonical package and transcripts.</metadata>", super::hash_json(measured)?)?;
+    output.push_str("<defs>\n");
     for (index, layer) in snapshot.manifest.layers.iter().enumerate() {
         if let Some(clip) = layer.clip {
             writeln!(output, "<clipPath id=\"rf-clip-{index}\" clipPathUnits=\"userSpaceOnUse\"><rect x=\"{}\" y=\"{}\" width=\"{}\" height=\"{}\"/></clipPath>",
@@ -268,7 +258,7 @@ fn render_svg(snapshot: &LoadedComposition, locale: &str, transcript: &PageTrans
     output.push_str("</defs>\n<g aria-hidden=\"true\">\n");
     for (index, layer) in snapshot.manifest.layers.iter().enumerate() {
         let font_size = match &layer.content { LayerContent::Text { typography, .. } => typography.font_size_pt, _ => 0.0 };
-        let (bounds, font_size) = effective_geometry(snapshot, locale, layer, font_size);
+        let (bounds, _) = effective_geometry(snapshot, locale, layer, font_size);
         let (x, y, layer_width, layer_height) = (bounds.x * width, bounds.y * height, bounds.width * width, bounds.height * height);
         write!(output, "<g data-layer-id=\"{}\" opacity=\"{}\"", escape_xml(&layer.id), number(layer.opacity))?;
         if layer.clip.is_some() { write!(output, " clip-path=\"url(#rf-clip-{index})\"")?; }
@@ -291,21 +281,16 @@ fn render_svg(snapshot: &LoadedComposition, locale: &str, transcript: &PageTrans
                 writeln!(output, " fill=\"{}\" stroke=\"{}\" stroke-width=\"{}\"/>", escape_xml(fill), escape_xml(stroke.as_deref().unwrap_or("none")), number(*stroke_width_pt))?;
             }
             LayerContent::Text { content_id, typography } => {
-                let font = fonts.resolved.get(&typography.role).context("composition.font.role_missing: unresolved text role")?;
-                let content = selected_content(snapshot, locale)?;
-                let text = content.content.get(content_id).context("composition.content.missing: text absent from snapshot")?;
-                let (text_x, anchor) = match typography.alignment {
-                    TextAlignment::Start => (x + typography.padding_pt, "start"),
-                    TextAlignment::Center => (x + layer_width / 2.0, "middle"),
-                    TextAlignment::End => (x + layer_width - typography.padding_pt, "end"),
-                };
-                write!(output, "<text data-content-id=\"{}\" font-family=\"{}\" font-size=\"{}\" font-style=\"{}\" font-weight=\"{}\" font-kerning=\"none\" text-anchor=\"{}\" fill=\"{}\" xml:space=\"preserve\" direction=\"ltr\">",
-                    escape_xml(content_id), font_family(font), number(font_size), escape_xml(&font.style), font.weight, anchor, escape_xml(&typography.color))?;
-                for (line_index, line) in text.split('\n').enumerate() {
-                    let baseline = y + typography.padding_pt + font_size + line_index as f64 * font_size * typography.line_height;
-                    write!(output, "<tspan x=\"{}\" y=\"{}\">{}</tspan>", number(text_x), number(baseline), escape_xml(line))?;
+                let outlines = measured.outlines(&layer.id)
+                    .context("composition.typography.geometry_missing: captured outline geometry is required; serialized evidence cannot be used as a drawing plan")?;
+                writeln!(output, "<g data-content-id=\"{}\" fill=\"{}\" data-text-representation=\"glyph-outlines\">", escape_xml(content_id), escape_xml(&typography.color))?;
+                for glyph in outlines {
+                    if glyph.path.is_empty() { continue; }
+                    writeln!(output, "<path data-glyph-id=\"{}\" transform=\"translate({} {}) scale({} {})\" d=\"{}\"/>",
+                        glyph.glyph_id, number(glyph.x_pt), number(glyph.y_pt), number(glyph.scale), number(-glyph.scale), escape_xml(&glyph.path))?;
+                    check_output_bound(output.len())?;
                 }
-                output.push_str("</text>\n");
+                output.push_str("</g>\n");
             }
         }
         output.push_str("</g>\n");
@@ -314,33 +299,6 @@ fn render_svg(snapshot: &LoadedComposition, locale: &str, transcript: &PageTrans
     output.push_str("</g>\n</svg>\n");
     check_output_bound(output.len())?;
     Ok(output)
-}
-
-fn write_font_faces(output: &mut String, snapshot: &LoadedComposition, fonts: &FontResolutionReport) -> Result<()> {
-    let used_roles = snapshot.manifest.layers.iter().filter_map(|layer| match &layer.content {
-        LayerContent::Text { typography, .. } => Some(typography.role),
-        _ => None,
-    }).collect::<BTreeSet<FontRole>>();
-    let mut written = BTreeSet::new();
-    for role in used_roles {
-        let font = fonts.resolved.get(&role).context("composition.font.role_missing: unresolved text role")?;
-        if !written.insert((font.digest.value.clone(), font.weight, font.style.clone())) { continue; }
-        let bytes = snapshot.fonts.captured_asset_bytes(&font.asset_id)
-            .context("composition.font.snapshot_missing: resolved font bytes not captured")?;
-        write!(output, "@font-face{{font-family:\"{}\";src:url(\"data:{};base64,", font_family(font), font.format.media_type())?;
-        append_base64(output, bytes)?;
-        writeln!(output, "\") format(\"{}\");font-style:{};font-weight:{};font-display:block;}}", font_format_label(font.format), font.style, font.weight)?;
-    }
-    Ok(())
-}
-
-fn font_family(font: &ResolvedFont) -> String {
-    // The loader verifies this SHA-256 digest; no declared family name becomes CSS.
-    format!("rf_font_{}", font.digest.value)
-}
-
-fn font_format_label(format: FontFormat) -> &'static str {
-    match format { FontFormat::Ttf => "truetype", FontFormat::Otf => "opentype", FontFormat::Woff => "woff", FontFormat::Woff2 => "woff2" }
 }
 
 fn append_base64(output: &mut String, bytes: &[u8]) -> Result<()> {
@@ -372,15 +330,15 @@ fn accessible_description(transcript: &PageTranscript) -> String {
     description
 }
 
-fn render_html(snapshot: &LoadedComposition, locale: &str, transcript: &PageTranscript) -> Result<String> {
-    let svg = render_svg(snapshot, locale, transcript)?;
+fn render_html(snapshot: &LoadedComposition, locale: &str, transcript: &PageTranscript, measured: &TypographyReport) -> Result<String> {
+    let svg = render_svg(snapshot, locale, transcript, measured)?;
     let mut output = String::new();
     writeln!(output, "<!doctype html>\n<html lang=\"{}\" dir=\"ltr\">\n<head>\n<meta charset=\"utf-8\">", escape_xml(locale))?;
     output.push_str("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; img-src data:; font-src data:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'\">\n");
     writeln!(output, "<title>{}</title>", escape_xml(&transcript.composition_id))?;
     output.push_str("<style>body{margin:0;padding:2rem;background:#eee;color:#111;font-family:system-ui,sans-serif}main{max-width:72rem;margin:auto}figure{margin:0}figure>svg{display:block;max-width:100%;height:auto;background:white}li{margin-block:1rem}.composition-text{white-space:pre-wrap;overflow-wrap:anywhere}.qualification{border:1px solid #666;padding:1rem}</style>\n</head>\n<body><main>\n");
     writeln!(output, "<h1>{}</h1>", escape_xml(&transcript.composition_id))?;
-    output.push_str("<p class=\"qualification\">Preview requires human review. Font loading, glyph coverage, horizontal overflow and actual ink bounds are unverified. No automatic line wrapping or shrinking was applied to the artwork.</p>\n<figure aria-hidden=\"true\">\n");
+    output.push_str("<p class=\"qualification\">Preview requires human review. Visual text uses measured glyph outlines with the authored line breaks and sizes. Edit text in the canonical composition package; selectable copy is available below. Raster appearance and publication fidelity still require review.</p>\n<figure aria-hidden=\"true\">\n");
     output.push_str(&svg);
     output.push_str("</figure>\n<section aria-labelledby=\"artwork-heading\"><h2 id=\"artwork-heading\">Artwork descriptions</h2><ol>\n");
     for artwork in &transcript.artwork {
