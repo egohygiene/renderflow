@@ -5,6 +5,8 @@
 pub mod load;
 pub mod model;
 pub mod render;
+pub mod typography;
+mod typography_provider;
 mod execution;
 
 use std::collections::BTreeSet;
@@ -18,9 +20,16 @@ pub use load::LoadedComposition;
 pub use model::{CompositionDiagnostic, DiagnosticSeverity};
 use crate::font::FontTarget;
 
+/// Historical receipt identifier; new plans use [`COMPOSITION_PLAN_SCHEMA_V2`].
 pub const COMPOSITION_PLAN_SCHEMA_V1: &str = "renderflow.composition-plan/v1";
+/// Historical receipt identifier; new runs use [`COMPOSITION_RUN_SCHEMA_V2`].
 pub const COMPOSITION_RUN_SCHEMA_V1: &str = "renderflow.composition-run/v1";
-pub const COMPOSITION_PROFILE: &str = "renderflow.layered-svg/v1";
+pub const COMPOSITION_PLAN_SCHEMA_V2: &str = "renderflow.composition-plan/v2";
+pub const COMPOSITION_RUN_SCHEMA_V2: &str = "renderflow.composition-run/v2";
+pub const COMPOSITION_PROFILE: &str = "renderflow.layered-svg/v2";
+const MAX_PLAN_TEXT_CODE_POINTS: usize = 16_384;
+const MAX_PLAN_TYPOGRAPHY_BYTES: usize = 16 * 1024 * 1024;
+const MAX_PLAN_OUTLINE_BYTES: usize = 16 * 1024 * 1024;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "mode", rename_all = "snake_case", deny_unknown_fields)]
@@ -94,6 +103,10 @@ pub struct CompositionBranchPlan {
     pub content_revision: Option<String>,
     pub content_sha256: Option<String>,
     pub cache_key: String,
+    /// Measured visual layout from the exact captured font/content bytes. SVG
+    /// paths stay private in memory; their digests are retained in this report.
+    /// Transcripts and unavailable output kinds do not require visual shaping.
+    pub typography: Option<typography::TypographyReport>,
     pub diagnostics: Vec<CompositionDiagnostic>,
 }
 
@@ -110,6 +123,8 @@ pub struct CompositionPlan {
     pub request: CompositionRequest,
     /// Digested snapshot inputs; sharing does not imply an observed cache hit.
     pub inputs: Vec<load::CompositionInputEvidence>,
+    /// Registry-wide declared defaults, retained for context. A visual branch's
+    /// typography report records its actual whole-layer candidate selection.
     pub font_resolution: Option<serde_json::Value>,
     pub branches: Vec<CompositionBranchPlan>,
     pub diagnostics: Vec<CompositionDiagnostic>,
@@ -132,10 +147,32 @@ pub fn plan(snapshot: &LoadedComposition, request: &CompositionRequest) -> Resul
         bail!("composition.locales.bounds: request must select 1 to 64 locales");
     }
     let outputs = request.targets.iter().copied().collect::<BTreeSet<_>>();
+    let needs_typography = outputs.iter().any(|output| output.visual());
+    if needs_typography { check_typography_text_budget(snapshot, &locales)?; }
     let font_resolution = snapshot.fonts.resolve(FontTarget::Html);
     let font_evidence = font_resolution.as_ref().ok().map(|report| report.evidence());
     let mut branches = Vec::new();
+    let mut typography_bytes = 0usize;
+    let mut outline_bytes = 0usize;
     for locale in locales {
+        let typography = if needs_typography && snapshot.contents.contains_key(&locale) {
+            Some(typography::measure(snapshot, &locale))
+        } else { None };
+        let typography_sha256 = if let Some(report) = &typography {
+            let bytes = serde_json::to_vec(report)?;
+            typography_bytes = typography_bytes.saturating_add(bytes.len());
+            // The immutable private paths are shared by SVG/HTML branch clones.
+            // Count each measured locale once, before retaining its branches.
+            for layer in &report.layers {
+                if let Some(paths) = report.outlines(&layer.layer_id) {
+                    for outline in paths { outline_bytes = outline_bytes.saturating_add(outline.path.len()); }
+                }
+            }
+            if typography_bytes > MAX_PLAN_TYPOGRAPHY_BYTES || outline_bytes > MAX_PLAN_OUTLINE_BYTES {
+                bail!("composition.typography.plan_budget: selected locales exceed the 16 MiB aggregate typography report or 16 MiB outline path budget; select fewer locales per request");
+            }
+            Some(hash_bytes(&bytes))
+        } else { None };
         for output in &outputs {
             let mut diagnostics = snapshot.diagnostics.iter().filter(|item|
                 item.locale.as_deref().is_none_or(|value| value == locale)).cloned().collect::<Vec<_>>();
@@ -151,15 +188,8 @@ pub fn plan(snapshot: &LoadedComposition, request: &CompositionRequest) -> Resul
                     Some(&locale), None));
             }
             if output.visual() && content.is_some() {
-                diagnostics.extend(render::diagnostics(snapshot, &locale));
-                match &font_resolution {
-                    Err(error) => diagnostics.push(CompositionDiagnostic::new(DiagnosticSeverity::Error,
-                        "composition.font.unavailable", error.to_string(), Some(&locale), None)),
-                    Ok(report) => for item in &report.diagnostics {
-                        diagnostics.push(CompositionDiagnostic::new(DiagnosticSeverity::Warning,
-                            &item.code, &item.message, Some(&locale), None));
-                    },
-                }
+                diagnostics.extend(render::layout_diagnostics(snapshot, &locale));
+                if let Some(report) = &typography { diagnostics.extend(report.diagnostics.clone()); }
             }
             if !output.supported() {
                 diagnostics.push(CompositionDiagnostic::new(DiagnosticSeverity::Error,
@@ -174,20 +204,23 @@ pub fn plan(snapshot: &LoadedComposition, request: &CompositionRequest) -> Resul
                 "locale": locale, "output": output,
             }))?);
             let cache_key = hash_json(&serde_json::json!({
-                "schema": "renderflow.composition-cache-key/v1", "profile": COMPOSITION_PROFILE,
+                "schema": "renderflow.composition-cache-key/v2", "profile": COMPOSITION_PROFILE,
                 "version": env!("CARGO_PKG_VERSION"), "target_id": target_id,
                 "composition_sha256": snapshot.manifest_sha256, "inputs": snapshot.inputs,
                 "fonts": font_evidence,
+                "renderer": { "id": render::COMPOSITION_RENDERER_ID, "version": render::COMPOSITION_RENDERER_VERSION },
+                "typography_sha256": if output.visual() { typography_sha256.as_deref() } else { None },
             }))?;
             branches.push(CompositionBranchPlan {
                 target_id, locale: locale.clone(), output: *output, state,
                 content_revision: content.map(|value| value.document.revision.clone()),
-                content_sha256: content.map(|value| value.sha256.clone()), cache_key, diagnostics,
+                content_sha256: content.map(|value| value.sha256.clone()), cache_key,
+                typography: if output.visual() { typography.clone() } else { None }, diagnostics,
             });
         }
     }
     Ok(CompositionPlan {
-        schema: COMPOSITION_PLAN_SCHEMA_V1.into(), profile: COMPOSITION_PROFILE.into(),
+        schema: COMPOSITION_PLAN_SCHEMA_V2.into(), profile: COMPOSITION_PROFILE.into(),
         renderflow_version: env!("CARGO_PKG_VERSION").into(),
         composition_id: snapshot.manifest.composition_id.clone(), composition_sha256: snapshot.manifest_sha256.clone(),
         source_locale: snapshot.manifest.source_locale.clone(), default_locale: snapshot.manifest.default_locale.clone(),
@@ -195,6 +228,26 @@ pub fn plan(snapshot: &LoadedComposition, request: &CompositionRequest) -> Resul
         branches, diagnostics: snapshot.diagnostics.clone(), runtime_qualified: false, review_required: true,
         deterministic_serialization: true, visual_determinism_qualified: false,
     })
+}
+
+/// Bound selected text before invoking any shaping provider. Count authored
+/// scalars, including whitespace and line breaks, rather than assuming every
+/// character will produce a visible glyph. Repeated output formats do not charge
+/// the same locale twice; transcript-only requests do not enter this path.
+fn check_typography_text_budget(snapshot: &LoadedComposition, locales: &BTreeSet<String>) -> Result<()> {
+    let mut total = 0usize;
+    for locale in locales {
+        let Some(content) = snapshot.contents.get(locale) else { continue };
+        for layer in &snapshot.manifest.layers {
+            let model::LayerContent::Text { content_id, .. } = &layer.content else { continue };
+            let Some(text) = content.document.content.get(content_id) else { continue };
+            total = total.saturating_add(text.chars().count());
+            if total > MAX_PLAN_TEXT_CODE_POINTS {
+                bail!("composition.typography.plan_budget: selected locales exceed 16384 referenced text code points; select fewer locales per request");
+            }
+        }
+    }
+    Ok(())
 }
 
 pub(crate) fn hash_bytes(bytes: &[u8]) -> String { format!("{:x}", Sha256::digest(bytes)) }

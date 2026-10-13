@@ -1,0 +1,14 @@
+{
+  "schema": "renderflow.page-content/v1",
+  "composition_id": "fixture.two-panels.measured-typography",
+  "locale": "de",
+  "revision": "de-1",
+  "source_revision": "en-1",
+  "reviewed": true,
+  "direction": "ltr",
+  "writing_mode": "horizontal_tb",
+  "content": {
+    "panel.one.caption": "Ein stiller Augenblick.\nDie Hügel warten.\nWir können ruhen.",
+    "panel.two.caption": "Ein kleiner Schritt.\nEs bleibt genug Raum,\num langsam zu wachsen."
+  }
+}

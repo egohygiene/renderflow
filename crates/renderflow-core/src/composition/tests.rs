@@ -1,8 +1,8 @@
 //! Authored integration regressions for the scoped composition boundary.
 //!
-//! The example's font is intentionally a container-signature stub. These tests
-//! concern contracts, immutable bytes and receipts; they cannot qualify fonts,
-//! glyphs, browser output, native rendering or publication readiness.
+//! The measured example carries a licensed real TTF. These authored, unrun
+//! regressions concern contracts, immutable bytes and receipts; they do not
+//! establish native visual fidelity or publication readiness.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
@@ -18,7 +18,7 @@ use crate::process::ProcessCancellationToken;
 
 fn example_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../examples/page-composition")
+        .join("../../examples/page-composition/measured-typography")
         .canonicalize()
         .unwrap()
 }
@@ -102,6 +102,73 @@ fn exact_subset_and_all_declared_keep_the_same_branch_identities() {
 }
 
 #[test]
+fn visual_branches_share_one_measured_report_and_commit_its_identity() {
+    let mut loaded = LoadedComposition::load(example_root().join("page.composition.json")).unwrap();
+    let request = exact("en", vec![CompositionOutput::Svg, CompositionOutput::Html,
+        CompositionOutput::TranscriptJson, CompositionOutput::Pdf]);
+    let before = plan(&loaded, &request).unwrap();
+    assert_eq!(before.schema, "renderflow.composition-plan/v2");
+    assert_eq!(before.profile, "renderflow.layered-svg/v2");
+    let svg = before.branches.iter().find(|branch| branch.output == CompositionOutput::Svg).unwrap();
+    let html = before.branches.iter().find(|branch| branch.output == CompositionOutput::Html).unwrap();
+    let report = serde_json::to_value(svg.typography.as_ref().unwrap()).unwrap();
+    assert_eq!(report, serde_json::to_value(html.typography.as_ref().unwrap()).unwrap());
+    assert_eq!(hash_json(svg.typography.as_ref().unwrap()).unwrap(),
+        hash_json(html.typography.as_ref().unwrap()).unwrap());
+    assert_ne!(svg.target_id, html.target_id);
+    assert_ne!(svg.cache_key, html.cache_key);
+    assert!(before.branches.iter().filter(|branch| !branch.output.visual())
+        .all(|branch| branch.typography.is_none()));
+
+    // Unit-only mutation isolates the measured-report contribution from the
+    // captured-input digests. Public SDK snapshots remain immutable.
+    let layer = loaded.manifest.layers.iter_mut().find(|layer| layer.id == "caption.text.one").unwrap();
+    let model::LayerContent::Text { typography, .. } = &mut layer.content else { panic!("text fixture required") };
+    typography.font_size_pt = 13.0;
+    let after = plan(&loaded, &request).unwrap();
+    for previous in &before.branches {
+        let current = after.branches.iter().find(|branch| branch.target_id == previous.target_id).unwrap();
+        if previous.output.visual() {
+            assert_ne!(hash_json(previous.typography.as_ref().unwrap()).unwrap(),
+                hash_json(current.typography.as_ref().unwrap()).unwrap());
+            assert_ne!(previous.cache_key, current.cache_key);
+        } else {
+            assert_eq!(previous.cache_key, current.cache_key);
+        }
+    }
+}
+
+#[test]
+fn aggregate_visual_text_budget_counts_whitespace_and_refuses_before_publication() {
+    let mut loaded = LoadedComposition::load(example_root().join("page.composition.json")).unwrap();
+    let reference = loaded.manifest.locales["en"].clone();
+    let template = loaded.contents["en"].clone();
+    let locales = vec!["en", "de", "fr", "es", "it"];
+    for locale in &locales {
+        // Private fixture mutation creates several otherwise small locales to
+        // isolate the aggregate budget; production snapshots must be reloaded.
+        let mut content = template.clone();
+        content.document.locale = (*locale).to_string();
+        content.document.content.insert("panel.one.caption".into(), " ".repeat(3500));
+        content.document.content.insert("panel.two.caption".into(), String::new());
+        loaded.contents.insert((*locale).to_string(), content);
+        loaded.manifest.locales.insert((*locale).to_string(), reference.clone());
+    }
+    let selector = LocaleSelector::Subset { locales: locales.into_iter().map(String::from).collect() };
+    let visual = request(selector.clone(), vec![CompositionOutput::Svg]);
+    let error = plan(&loaded, &visual).unwrap_err();
+    assert!(error.to_string().contains("composition.typography.plan_budget"));
+    let directory = tempfile::tempdir().unwrap();
+    let output = directory.path().join("not-created");
+    let cache = directory.path().join("cache-not-created");
+    assert!(execute(&loaded, &visual, &output, Some(&cache), &ProcessCancellationToken::new()).is_err());
+    assert!(!output.exists() && !cache.exists());
+    let transcript = plan(&loaded, &request(selector, vec![CompositionOutput::TranscriptJson])).unwrap();
+    assert!(transcript.branches.iter().all(|branch|
+        branch.state == CompositionBranchState::Planned && branch.typography.is_none()));
+}
+
+#[test]
 fn shared_cache_verifies_records_and_refuses_corrupted_payloads() {
     let directory = tempfile::tempdir().unwrap();
     let manifest = input_fixture(&directory);
@@ -118,6 +185,14 @@ fn shared_cache_verifies_records_and_refuses_corrupted_payloads() {
     assert_eq!(second.branches[0].cache, CacheDisposition::Hit);
     assert_eq!(first.branches[0].artifact_id, second.branches[0].artifact_id);
     assert_eq!(fs::read(root.join("first/outputs/en/page.svg")).unwrap(), fs::read(root.join("second/outputs/en/page.svg")).unwrap());
+    let report_digest = hash_json(first.plan.branches[0].typography.as_ref().unwrap()).unwrap();
+    for run in [&first, &second] {
+        assert_eq!(run.schema, "renderflow.composition-run/v2");
+        let artifact = &run.artifact_manifest.artifacts[run.branches[0].artifact_evidence_index.unwrap()];
+        assert_eq!(artifact.metadata["renderflow.composition"]["typography"]["report_sha256"], report_digest);
+        assert_eq!(artifact.metadata["renderflow.composition"]["renderer"]["version"], 2);
+        assert_eq!(artifact.metadata["renderflow.composition"]["typography"]["runtime_qualified"], false);
+    }
 
     // Hashing payload bytes alone cannot validate a tampered artifact identity.
     let entry_path = cache.join("entries").join(format!("{}.json", first.plan.branches[0].cache_key));
@@ -129,6 +204,17 @@ fn shared_cache_verifies_records_and_refuses_corrupted_payloads() {
     assert_eq!(repaired.branches[0].cache, CacheDisposition::Miss);
     assert_eq!(repaired.branches[0].artifact_id, first.branches[0].artifact_id);
     assert!(repaired.branches[0].diagnostics.iter().any(|item| item.code == "composition.cache.rejected"));
+
+    // Valid output bytes cannot validate a forged measured-layout receipt.
+    let mut entry: Value = serde_json::from_slice(&fs::read(&entry_path).unwrap()).unwrap();
+    entry["artifact"]["metadata"]["renderflow.composition"]["typography"]["report_sha256"] =
+        Value::String("0".repeat(64));
+    fs::write(&entry_path, serde_json::to_vec(&entry).unwrap()).unwrap();
+    let report_repaired = execute(&loaded, &request, &root.join("report-repaired"), Some(&cache), &cancellation).unwrap();
+    assert_eq!(report_repaired.state, CompositionRunState::Complete);
+    assert_eq!(report_repaired.branches[0].cache, CacheDisposition::Miss);
+    assert_eq!(report_repaired.branches[0].artifact_id, first.branches[0].artifact_id);
+    assert!(report_repaired.branches[0].diagnostics.iter().any(|item| item.code == "composition.cache.rejected"));
 
     // A corrupted existing immutable object is refused, not silently overwritten
     // or published under its old digest when regeneration finds that object.
@@ -214,6 +300,10 @@ fn partial_receipt_names_only_published_outputs_and_preserves_source_files() {
     assert_eq!(receipt.state, CompositionRunState::Partial);
     assert_eq!(receipt.run_id, run.run_id);
     assert_eq!(receipt.artifact_manifest, run.artifact_manifest);
+    assert_eq!(receipt.plan_sha256, hash_bytes(&fs::read(output.join("composition-plan.json")).unwrap()));
+    let published_plan = receipt.plan.branches.iter().find(|branch| branch.target_id == published.target_id).unwrap();
+    assert_eq!(artifact.metadata["renderflow.composition"]["typography"]["report_sha256"],
+        hash_json(published_plan.typography.as_ref().unwrap()).unwrap());
     assert!(!receipt.runtime_qualified && !receipt.visual_determinism_qualified && receipt.review_required);
 }
 

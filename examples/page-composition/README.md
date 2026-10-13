@@ -1,5 +1,18 @@
 # Layered page-composition fixtures
 
+There are two independent packages:
+
+| Package | Purpose |
+| --- | --- |
+| `page.composition.json` with `structural-only/` | Original contract fixture with an intentionally unusable font stub; visual branches are blocked by the measured provider |
+| [`measured-typography/page.composition.json`](measured-typography/README.md) | Real, retained DejaVu Sans TTF and license for the bounded static-font Latin LTR path; no executed or approved visual result |
+
+Both retain editable canonical text and authored reading order. The v2 visual
+profile serializes measured glyph paths, while transcript targets preserve
+localized strings. The real-font package is the starting point for later
+typography and visual qualification; neither package includes successful
+execution receipts.
+
 `page.composition.json` is an original two-panel contract fixture. Its
 textless SVG plate is shared by separate English (`en`) and expanded German
 (`de`) copy documents. Arabic (`ar`) and Japanese (`ja`) documents exercise
@@ -18,26 +31,29 @@ and German examples; it does not grant consumer approval.
 **This package is structural-only, not a visually qualified page.** Its retained
 `fonts/Fixture-Regular.woff2` is the repository's existing 45-byte CC0 synthetic
 font-container stub. It is not a usable font. The accompanying CC0 notice says
-so explicitly. The registry allows exercising pinned bytes, role resolution,
-fallback evidence and stylesheet generation, but cannot establish glyph
-coverage, text shaping or rendering. A viewer may substitute another font or
-reject the generated SVG; neither result qualifies typography.
+so explicitly. The registry exercises pinned bytes and role declarations, but
+cannot establish glyph coverage, text shaping or rendering. The v2 measured
+provider refuses this unsupported WOFF2 stub for visual output instead of
+delegating lettering to browser fallback. English/German transcripts remain
+available when their semantic content gates are satisfied.
 
 Before using this composition for an actual visual review:
 
-1. Copy the package to a working directory and replace the stub with a real,
-   reviewed local font whose license permits web embedding and redistribution.
+1. Start from the standalone [real-font package](measured-typography/README.md),
+   or copy this package and replace the stub with a real static TTF/OTF whose
+   license permits the intended redistribution and use.
 2. Retain its license alongside the font. Update the registry's path, format,
    family, provenance, license metadata, Unicode coverage claims and SHA-256.
 3. Update the manifest's `font_registry.sha256` to match the revised registry
    bytes. Keep all referenced files inside the copied package.
-4. Render only the supported locales and inspect every output with the intended
-   viewer. Actual glyph coverage, line breaking and final typography still need
-   validation; registry coverage declarations alone are not proof.
+4. Request only supported locales and inspect typography diagnostics before
+   rendering. Inspect every resulting output with the intended viewer. The
+   provider's glyph/geometry results still need qualification; registry
+   coverage declarations alone are not proof.
 
-No native renderer, fixture command, schema validator or test was run while
-authoring this checkpoint. JSON digests were computed directly from authored
-fixture bytes. They are input pins, not execution receipts.
+No font inspection tool, native renderer, fixture command, schema validator or
+test was run while authoring either checkpoint. Digests were computed directly
+from authored or copied bytes. They are input pins, not execution receipts.
 
 ## Source package
 
@@ -53,9 +69,11 @@ fixture bytes. They are input pins, not execution receipts.
 | `negative-cases.json` | Authored mutations and expected diagnostic categories for later testing |
 
 The source/default locale is an ordinary branch. Selecting all declared locales
-therefore includes the intentional unsupported branches; use the exact English
-or English/German subset for a supported-geometry example. An unsupported branch
-must remain observable and must not receive another locale's output.
+therefore includes the intentional unsupported branches. With this structural
+package, use English/German transcript targets for content-only work; its stub
+blocks visual output. With the real-font package, the English/German subset is
+the authored measured-typography case, subject to diagnostics. An unsupported
+branch must remain observable and must not receive another locale's output.
 
 See the [page-composition user guide](../../docs/user-guide/page-composition.md)
 for the current CLI and supported output contract. Raster, print and layered
@@ -71,5 +89,6 @@ the pin unchanged specifically when testing stale or tampered bytes. An
 `all_declared` selection can produce several diagnostics on the RTL/vertical
 cases; support refusal must never be suppressed by typography warnings.
 
-The fixture does not promise arbitrary SVG, PSD, OpenRaster or native-publishing
-round trips. SVG retains only the explicitly supported composition surface.
+The fixtures do not promise arbitrary SVG, PSD, OpenRaster or native-publishing
+round trips. SVG previews carry outlined lettering, not native editable text
+objects; keep the canonical package for editing.

@@ -1,0 +1,36 @@
+{
+  "fixture": "fixture.two-panels.measured-typography",
+  "authored_on": "2026-10-13",
+  "font": {
+    "file": "fonts/DejaVuSans.ttf",
+    "sha256": "ae7b7855e115a5966d8b1b3f80f254ccc117ec86f9965e202ee2940453837280",
+    "size_bytes": 759720,
+    "source_path_at_capture": "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+    "source_package": "fonts-dejavu-core",
+    "source_package_version": "2.37-8",
+    "package_version_evidence": "/var/lib/dpkg/status",
+    "upstream_project_url": "https://dejavu-fonts.github.io/",
+    "modified": false
+  },
+  "license": {
+    "file": "fonts/DEJAVU-LICENSE.txt",
+    "sha256": "63d3ba759d12804c5b31a9d5940d855c1820d1f5999e6b0872eb1c7ff045fbc9",
+    "source_path_at_capture": "/usr/share/doc/fonts-dejavu-core/copyright",
+    "copied_verbatim": true,
+    "font_license_identifier": "Bitstream-Vera",
+    "dejavu_changes": "public domain per retained notice"
+  },
+  "authorship": {
+    "plate": "Original repository synthetic SVG, reused byte-for-byte from the structural-only fixture.",
+    "copy_and_layout": "Synthetic repository examples under the repository MIT license; no consumer publication material.",
+    "reviewed_flags": "Synthetic declarations for English and German; not consumer or translation approval."
+  },
+  "qualification": {
+    "font_tool_executed": false,
+    "renderer_executed": false,
+    "schema_validator_executed": false,
+    "tests_executed": false,
+    "runtime_qualified": false,
+    "visual_approval": false
+  }
+}

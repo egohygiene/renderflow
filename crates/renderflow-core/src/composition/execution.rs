@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{hash_bytes, hash_json, plan, render, CompositionBranchState, CompositionDiagnostic,
     CompositionPlan, CompositionRequest, DiagnosticSeverity, LoadedComposition,
-    COMPOSITION_PROFILE, COMPOSITION_RUN_SCHEMA_V1};
+    COMPOSITION_PROFILE, COMPOSITION_RUN_SCHEMA_V2};
 use crate::artifact::{Artifact, ArtifactDescriptor, ArtifactId, ArtifactStorageClass, ArtifactStore,
     CanonicalFormat, MediaType};
 use crate::evidence::{ArtifactEvidence, ArtifactManifest, ArtifactRole, CacheDisposition,
@@ -21,7 +21,7 @@ use crate::process::ProcessCancellationToken;
 
 const MAX_OUTPUT_BYTES: usize = 64 * 1024 * 1024;
 const MAX_BUNDLE_OUTPUT_BYTES: usize = 512 * 1024 * 1024;
-const CACHE_SCHEMA: &str = "renderflow.composition-cache-entry/v1";
+const CACHE_SCHEMA: &str = "renderflow.composition-cache-entry/v2";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -80,6 +80,7 @@ pub fn execute(
     cache_directory: Option<&Path>,
     cancellation: &ProcessCancellationToken,
 ) -> Result<CompositionRun> {
+    if cancellation.is_cancelled() { bail!("composition.cancelled: cancelled before planning"); }
     let plan = plan(snapshot, request)?;
     let plan_bytes = json_bytes(&plan)?;
     let plan_sha256 = hash_bytes(&plan_bytes);
@@ -152,16 +153,27 @@ pub fn execute(
         else {
             let publish = (|| -> Result<()> {
                 let cache_path = cache_root.join("entries").join(format!("{}.json", branch.cache_key));
+                // Keep the full measured report in the embedded plan. Cache
+                // records and terminal evidence retain its exact digest and
+                // provider identity, not a second copy of every glyph.
+                let typography = branch.typography.as_ref().map(|report| -> Result<_> {
+                    Ok(serde_json::json!({
+                        "schema": report.schema, "provider_profile": report.provider_profile,
+                        "report_sha256": hash_json(report)?, "runtime_qualified": false,
+                    }))
+                }).transpose()?;
                 let expected_metadata = serde_json::json!({
-                    "schema": "renderflow.composition-artifact/v1", "profile": COMPOSITION_PROFILE,
+                    "schema": "renderflow.composition-artifact/v2", "profile": COMPOSITION_PROFILE,
                     "version": env!("CARGO_PKG_VERSION"), "target_id": branch.target_id,
+                    "renderer": { "id": render::COMPOSITION_RENDERER_ID, "version": render::COMPOSITION_RENDERER_VERSION },
                     "locale": branch.locale, "content_revision": branch.content_revision,
                     "content_sha256": branch.content_sha256, "composition_sha256": snapshot.manifest_sha256,
                     "cache_key": branch.cache_key, "review_required": true, "runtime_qualified": false,
                     "font_resolution": plan.font_resolution, "provenance": snapshot.manifest.provenance,
+                    "typography": typography,
                     "locale_overrides": snapshot.manifest.locale_overrides.get(&branch.locale),
                     "deterministic_serialization": true, "visual_determinism_qualified": false,
-                    "losses": if branch.output.visual() { vec!["no_native_layered_round_trip", "typography_and_color_unqualified"] }
+                    "losses": if branch.output.visual() { vec!["no_native_layered_round_trip", "visual_text_serialized_as_outlines", "raster_color_and_visual_appearance_unqualified"] }
                         else { vec!["visual_artwork_and_layout_omitted"] },
                 });
                 let cached = read_cache(&cache_path, &store, &branch.cache_key, branch.output.name(),
@@ -173,7 +185,8 @@ pub fn execute(
                             result.diagnostics.push(CompositionDiagnostic::new(DiagnosticSeverity::Warning,
                                 "composition.cache.rejected", error.to_string(), Some(&branch.locale), None));
                         }
-                        let rendered = render::render(snapshot, &branch.locale, branch.output)?;
+                        let rendered = render::render_with_typography(snapshot, &branch.locale, branch.output,
+                            branch.typography.as_ref())?;
                         if rendered.bytes.len() > MAX_OUTPUT_BYTES { bail!("composition.output.byte_limit: output exceeds 64 MiB"); }
                         if rendered.media_type != branch.output.media_type() || rendered.extension != branch.output.extension() {
                             bail!("composition.output.contract: renderer output disagrees with selected target");
@@ -233,7 +246,7 @@ pub fn execute(
         else if published == branches.len() { CompositionRunState::Complete }
         else if published > 0 { CompositionRunState::Partial } else { CompositionRunState::Failed };
     let run = CompositionRun {
-        schema: COMPOSITION_RUN_SCHEMA_V1.into(), run_id: run_id.clone(), state, plan_sha256, plan,
+        schema: COMPOSITION_RUN_SCHEMA_V2.into(), run_id: run_id.clone(), state, plan_sha256, plan,
         artifact_manifest: ArtifactManifest { schema_version: ARTIFACT_MANIFEST_SCHEMA_V1.into(),
             run_id, output_dir: ".".into(), outputs, artifacts: records }, branches,
         runtime_qualified: false, review_required: true, visual_determinism_qualified: false,
