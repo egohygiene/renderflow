@@ -1,0 +1,541 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/egohygiene/renderflow/main/schemas/renderflow-page-composition-v1.schema.json",
+  "title": "Renderflow page composition v1",
+  "description": "Candidate bounded page-composition model. JSON structure does not qualify rendering, asset decoding, typography, permissions or print output. Runtime additionally enforces byte limits, geometry containment, immutable input pins, passive assets, exact references and content revision relationships.",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": "renderflow.page-composition/v1"
+    },
+    "composition_id": {
+      "$ref": "#/$defs/stableId"
+    },
+    "revision": {
+      "$ref": "#/$defs/stableId"
+    },
+    "page": {
+      "$ref": "#/$defs/pageGeometry"
+    },
+    "source_locale": {
+      "$ref": "#/$defs/locale"
+    },
+    "default_locale": {
+      "$ref": "#/$defs/locale"
+    },
+    "locales": {
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 32,
+      "propertyNames": {
+        "$ref": "#/$defs/locale"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/fileReference"
+      },
+      "description": "Every declared locale, including source/default, references a separate pinned content document; the runtime verifies key/document identity and source revision."
+    },
+    "font_registry": {
+      "$ref": "#/$defs/fileReference"
+    },
+    "assets": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "$ref": "#/$defs/compositionAsset"
+      }
+    },
+    "layers": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 256,
+      "items": {
+        "$ref": "#/$defs/layer"
+      },
+      "description": "Back-to-front paint order; layer IDs and text content IDs must be unique."
+    },
+    "reading_order": {
+      "type": "array",
+      "maxItems": 256,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/stableId"
+      },
+      "description": "Runtime requires each text layer ID exactly once, independent of paint order."
+    },
+    "provenance": {
+      "$ref": "#/$defs/provenance"
+    },
+    "locale_overrides": {
+      "type": "object",
+      "propertyNames": {
+        "$ref": "#/$defs/locale"
+      },
+      "additionalProperties": {
+        "type": "array",
+        "maxItems": 256,
+        "items": {
+          "$ref": "#/$defs/localeOverride"
+        }
+      },
+      "default": {},
+      "description": "Overrides may name declared locales only; a layer may be overridden at most once per locale."
+    }
+  },
+  "required": [
+    "schema",
+    "composition_id",
+    "revision",
+    "page",
+    "source_locale",
+    "default_locale",
+    "locales",
+    "font_registry",
+    "assets",
+    "layers",
+    "reading_order",
+    "provenance"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "stableId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9._-]+$"
+    },
+    "locale": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 35,
+      "pattern": "^[A-Za-z0-9]{1,8}(-[A-Za-z0-9]{1,8})*$"
+    },
+    "fileReference": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024,
+          "pattern": "^(?!/)(?!.*(?:^|/)\\.{1,2}(?:/|$))[^\\\\:\\u0000]+$",
+          "description": "Local relative path confined by the runtime; absolute paths, traversal, symlink traversal, backslashes, colons and NUL are refused."
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[A-Fa-f0-9]{64}$"
+        }
+      },
+      "required": [
+        "path",
+        "sha256"
+      ],
+      "additionalProperties": false
+    },
+    "normalizedRect": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "y": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "width": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1
+        },
+        "height": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "width",
+        "height"
+      ],
+      "additionalProperties": false,
+      "description": "Normalized full-canvas coordinates. Runtime additionally requires x+width and y+height to lie within the canvas."
+    },
+    "pageGeometry": {
+      "type": "object",
+      "properties": {
+        "width_mm": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 5000
+        },
+        "height_mm": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 5000
+        },
+        "trim": {
+          "$ref": "#/$defs/normalizedRect"
+        },
+        "bleed": {
+          "$ref": "#/$defs/normalizedRect"
+        },
+        "safe": {
+          "$ref": "#/$defs/normalizedRect"
+        },
+        "gutter_mm": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 2500
+        }
+      },
+      "required": [
+        "width_mm",
+        "height_mm",
+        "trim",
+        "bleed",
+        "safe",
+        "gutter_mm"
+      ],
+      "additionalProperties": false,
+      "description": "Runtime enforces bleed contains trim contains safe and gutter no wider than half the trim. These are layout intentions, not a PDF or color-profile conformance claim."
+    },
+    "compositionAsset": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/stableId"
+        },
+        "file": {
+          "$ref": "#/$defs/fileReference"
+        },
+        "format": {
+          "enum": [
+            "png",
+            "jpeg",
+            "svg"
+          ]
+        },
+        "alt": {
+          "type": "string",
+          "maxLength": 4096
+        }
+      },
+      "required": [
+        "id",
+        "file",
+        "format",
+        "alt"
+      ],
+      "additionalProperties": false,
+      "description": "Immutable artwork. Runtime rejects control characters in alt text and external/executable features in SVG; source-image recognition does not establish editable layers."
+    },
+    "typography": {
+      "type": "object",
+      "properties": {
+        "role": {
+          "enum": [
+            "body",
+            "heading",
+            "display",
+            "monospace",
+            "caption",
+            "math"
+          ]
+        },
+        "font_size_pt": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 512
+        },
+        "min_font_size_pt": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 512
+        },
+        "line_height": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 5
+        },
+        "padding_pt": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 512
+        },
+        "alignment": {
+          "enum": [
+            "start",
+            "center",
+            "end"
+          ]
+        },
+        "color": {
+          "type": "string",
+          "pattern": "^#[A-Fa-f0-9]{6}([A-Fa-f0-9]{2})?$"
+        }
+      },
+      "required": [
+        "role",
+        "font_size_pt",
+        "min_font_size_pt",
+        "line_height",
+        "padding_pt",
+        "alignment",
+        "color"
+      ],
+      "additionalProperties": false,
+      "description": "Runtime requires minimum size no greater than requested size. Explicit line breaks are retained; metrics, shaping and actual glyph coverage are not established by this structure."
+    },
+    "layerContent": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "raster"
+            },
+            "asset_id": {
+              "$ref": "#/$defs/stableId"
+            }
+          },
+          "required": [
+            "kind",
+            "asset_id"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "vector"
+            },
+            "asset_id": {
+              "$ref": "#/$defs/stableId"
+            }
+          },
+          "required": [
+            "kind",
+            "asset_id"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "shape"
+            },
+            "shape": {
+              "enum": [
+                "rect",
+                "ellipse"
+              ]
+            },
+            "fill": {
+              "type": "string",
+              "pattern": "^(none|#[A-Fa-f0-9]{6}([A-Fa-f0-9]{2})?)$"
+            },
+            "stroke": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^(none|#[A-Fa-f0-9]{6}([A-Fa-f0-9]{2})?)$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "stroke_width_pt": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 72,
+              "default": 0
+            }
+          },
+          "required": [
+            "kind",
+            "shape",
+            "fill"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "text"
+            },
+            "content_id": {
+              "$ref": "#/$defs/stableId"
+            },
+            "typography": {
+              "$ref": "#/$defs/typography"
+            }
+          },
+          "required": [
+            "kind",
+            "content_id",
+            "typography"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "layer": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/stableId"
+        },
+        "bounds": {
+          "$ref": "#/$defs/normalizedRect"
+        },
+        "clip": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/normalizedRect"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 1
+        },
+        "blend": {
+          "const": "normal",
+          "default": "normal"
+        },
+        "content": {
+          "$ref": "#/$defs/layerContent"
+        }
+      },
+      "required": [
+        "id",
+        "bounds",
+        "content"
+      ],
+      "additionalProperties": false
+    },
+    "localeOverride": {
+      "type": "object",
+      "properties": {
+        "layer_id": {
+          "$ref": "#/$defs/stableId"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "author": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "bounds": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/normalizedRect"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "font_size_pt": {
+          "anyOf": [
+            {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 512
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "layer_id",
+        "reason",
+        "author"
+      ],
+      "additionalProperties": false,
+      "description": "Runtime requires a nonempty trimmed reason/author, a declared layer/locale, and an actual bounds or size change; text cannot shrink below its declared minimum.",
+      "anyOf": [
+        {
+          "required": [
+            "bounds"
+          ],
+          "properties": {
+            "bounds": {
+              "$ref": "#/$defs/normalizedRect"
+            }
+          }
+        },
+        {
+          "required": [
+            "font_size_pt"
+          ],
+          "properties": {
+            "font_size_pt": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 512
+            }
+          }
+        }
+      ]
+    },
+    "provenance": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "enum": [
+            "textless_original",
+            "flattened_original",
+            "reconstructed"
+          ]
+        },
+        "originals": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": {
+            "$ref": "#/$defs/fileReference"
+          }
+        },
+        "separation_reviewed": {
+          "type": "boolean"
+        },
+        "requires_human_review": {
+          "type": "boolean"
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 8192
+        }
+      },
+      "required": [
+        "kind",
+        "originals",
+        "separation_reviewed",
+        "requires_human_review",
+        "notes"
+      ],
+      "additionalProperties": false,
+      "description": "Human declarations; generated output cannot inherit approval. Runtime requires human review for unreviewed reconstruction and refuses localization of an undecomposed flattened original."
+    }
+  }
+}

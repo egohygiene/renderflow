@@ -1,0 +1,14 @@
+{
+  "schema": "renderflow.page-content/v1",
+  "composition_id": "fixture.two-panels",
+  "locale": "ar",
+  "revision": "ar-1",
+  "source_revision": "en-1",
+  "reviewed": false,
+  "direction": "rtl",
+  "writing_mode": "horizontal_tb",
+  "content": {
+    "panel.one.caption": "لحظة هادئة.",
+    "panel.two.caption": "خطوة صغيرة."
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "schema": "renderflow.page-content/v1",
+  "composition_id": "fixture.two-panels",
+  "locale": "ja",
+  "revision": "ja-1",
+  "source_revision": "en-1",
+  "reviewed": false,
+  "direction": "ltr",
+  "writing_mode": "vertical_rl",
+  "content": {
+    "panel.one.caption": "静かなひととき。",
+    "panel.two.caption": "小さな一歩。"
+  }
+}

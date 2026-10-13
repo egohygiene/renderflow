@@ -1,0 +1,67 @@
+{
+  "fixture": "page.composition.json",
+  "qualification": "authored_unrun",
+  "note": "Mutation descriptions for later tests, not executable fixture receipts. Recompute content pins after semantic mutations; preserve pins for integrity mismatch cases.",
+  "cases": [
+    {
+      "id": "rtl-unavailable",
+      "mutation": "Select exact locale ar.",
+      "expected": "Unsupported RTL branch remains observable; no other locale substituted."
+    },
+    {
+      "id": "vertical-unavailable",
+      "mutation": "Select exact locale ja.",
+      "expected": "Unsupported vertical-writing branch remains observable."
+    },
+    {
+      "id": "missing-content",
+      "mutation": "Remove panel.two.caption from content/en.json and update its manifest SHA-256 pin.",
+      "expected": "Missing stable content ID diagnostic, no successful visual branch."
+    },
+    {
+      "id": "stale-translation",
+      "mutation": "Set content/de.json source_revision to en-0 and update its manifest SHA-256 pin.",
+      "expected": "Stale locale content diagnostic against the pinned source locale revision."
+    },
+    {
+      "id": "tampered-content",
+      "mutation": "Change content/en.json without updating its manifest SHA-256 pin.",
+      "expected": "Integrity mismatch before rendering."
+    },
+    {
+      "id": "missing-glyph-claim",
+      "mutation": "Use a Cyrillic character in content/en.json and update its pin while keeping ASCII-only registry claims.",
+      "expected": "The current profile reports glyph coverage as unverified; it does not inspect cmap or turn registry Unicode claims into a proven missing-glyph diagnostic. A real missing-glyph test remains deferred."
+    },
+    {
+      "id": "vertical-overflow",
+      "mutation": "Give caption.text.one bounds height 0.01 while retaining its font size and lines.",
+      "expected": "Insufficient text container height or padding diagnostic; no silent shrinkage."
+    },
+    {
+      "id": "unsafe-geometry",
+      "mutation": "Move caption.text.one bounds.x to 0.99 with width unchanged.",
+      "expected": "Out-of-canvas or safe-area diagnostic."
+    },
+    {
+      "id": "flattened-source",
+      "mutation": "Set provenance.kind to flattened_original and separation_reviewed to false.",
+      "expected": "Editable layer recovery must not be asserted; human-authored separation required."
+    },
+    {
+      "id": "unapproved-reconstruction",
+      "mutation": "Set provenance.kind to reconstructed, separation_reviewed to false and requires_human_review to false.",
+      "expected": "Reconstruction approval inheritance refused or review requirement retained."
+    },
+    {
+      "id": "unsupported-output",
+      "mutation": "Request a PNG, PDF or PSD output without an implemented qualified provider.",
+      "expected": "Observable unavailable output; no file advertised as produced."
+    },
+    {
+      "id": "shared-plate-identity",
+      "mutation": "Select English and German, then change only German text and update that content pin.",
+      "expected": "Shared plate digest remains equal; German content identity changes; this must be demonstrated in a later executed test."
+    }
+  ]
+}

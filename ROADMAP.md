@@ -3,7 +3,7 @@ schema: aether.architecture-document/v1
 id: renderflow-roadmap
 title: Renderflow Roadmap
 kind: architecture-document
-version: 0.1.8
+version: 0.1.9
 status: draft
 owners:
   - egohygiene
@@ -26,7 +26,31 @@ supersedes: []
 
 # Renderflow Roadmap
 
-## 2026-10-13 multi-family forest and Flow handoff checkpoint
+## 2026-10-13 layered and localized composition checkpoint
+
+[#430](https://github.com/egohygiene/renderflow/issues/430) merged its authored
+integration checkpoint in [PR #448](https://github.com/egohygiene/renderflow/pull/448)
+at `5afae5cc6023dac8bd64881bc9ed29a01be1df2e`. The current
+[#406](https://github.com/egohygiene/renderflow/issues/406) checkpoint introduces
+a bounded native page-composition contract, immutable artwork/content/font
+snapshots, and a shared SDK/CLI locale-and-output planner.
+
+The [composition guide](docs/user-guide/page-composition.md) covers authored SVG,
+HTML preview and transcript branches, exact publication evidence, shared source
+storage and verified derivative cache reuse. Source/default languages follow the
+same path as other declared locales. Content revisions, human review, layout
+overrides and known geometry failures remain explicit. The
+[format evaluation](docs/work/406/FORMAT_EVALUATION.md) records the canonical choice.
+
+This first vertical slice is unqualified. Tests, builds, lint, schema validation,
+native/visual execution and CI remain deferred. The included font is a clearly
+marked structural stub, not a usable typeface. Actual glyph coverage, shaping,
+ink bounds, measured line breaking, raster/print output, native interchange and
+general artifact-DAG integration remain open within #406. No acceptance checkbox
+is closed by the merge. The [handoff](docs/work/406/HANDOFF.md) orders those next
+pieces; #412/#413, #429 and #419 retain the later fixture/toolchain/release work.
+
+## 2026-10-13 multi-family forest and Flow handoff checkpoint (historical)
 
 [#429](https://github.com/egohygiene/renderflow/issues/429) reconciliation
 merged in [PR #447](https://github.com/egohygiene/renderflow/pull/447) at
@@ -297,8 +321,9 @@ availability. Merging does not turn authored coverage into passing evidence.
 | #426 | Review-required PDF/text recovery and bounded native body exports merged in #446 | Recovery, OCR, native-application, and platform qualification |
 | #430 | Per-target publication evidence, multi-family fixture and Flow handoff authored | Native integration proof, missing direction decisions, CLI/SDK and released-contract qualification |
 
-After the #430 implementation checkpoint, the next planned implementation lane
-is #406 (layered/localized page composition). Keep #412/#413
+After the #430 implementation checkpoint, #406 now has an authored bounded
+composition SDK/CLI slice; its typography, raster/print and native interoperability
+work remains the next implementation lane. Keep #412/#413
 fixture expansion and #419 verified release work aligned with the later deep
 testing session. Existing open qualification issues retain the evidence gaps;
 no new audit issues are created before that session.

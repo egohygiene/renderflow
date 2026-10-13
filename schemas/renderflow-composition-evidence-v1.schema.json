@@ -1,0 +1,521 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-composition-evidence-v1.schema.json",
+  "title": "Renderflow scoped composition plan and run evidence v1",
+  "description": "Candidate evidence envelopes for the layered SVG composition profile. Cross-record identity, publication membership and input/output digest validation remain consumer/runtime responsibilities. Tests and visual execution qualification remain separate from the serialized contract.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/plan"
+    },
+    {
+      "$ref": "#/$defs/run"
+    }
+  ],
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "runId": {
+      "type": "string",
+      "pattern": "^run:sha256:[a-f0-9]{64}$"
+    },
+    "targetId": {
+      "type": "string",
+      "pattern": "^target-[a-f0-9]{64}$"
+    },
+    "artifactId": {
+      "type": "string",
+      "pattern": "^artifact:sha256:[a-f0-9]{64}$"
+    },
+    "output": {
+      "enum": [
+        "svg",
+        "html",
+        "transcript_json",
+        "transcript_text",
+        "png",
+        "pdf",
+        "ora",
+        "psd",
+        "idml"
+      ]
+    },
+    "localeSelector": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "const": "exact"
+            },
+            "locale": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "mode",
+            "locale"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "const": "subset"
+            },
+            "locales": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "mode",
+            "locales"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "const": "all_declared"
+            }
+          },
+          "required": [
+            "mode"
+          ],
+          "additionalProperties": false
+        }
+      ],
+      "description": "The SDK deduplicates selected locale values. Unknown locale values remain explicit blocked branches, including malformed or empty exact values; no fallback is inferred. Successful planning requires 1 to 64 distinct selected locales."
+    },
+    "request": {
+      "type": "object",
+      "properties": {
+        "locales": {
+          "$ref": "#/$defs/localeSelector"
+        },
+        "targets": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/output"
+          },
+          "description": "The scoped planner deduplicates output values; output availability is recorded per branch."
+        }
+      },
+      "required": [
+        "locales",
+        "targets"
+      ],
+      "additionalProperties": false
+    },
+    "diagnostic": {
+      "type": "object",
+      "properties": {
+        "severity": {
+          "enum": [
+            "info",
+            "warning",
+            "error"
+          ]
+        },
+        "code": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "locale": {
+          "type": "string"
+        },
+        "layer_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "severity",
+        "code",
+        "message"
+      ],
+      "additionalProperties": false
+    },
+    "inputEvidence": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "enum": [
+            "manifest",
+            "asset",
+            "content",
+            "original",
+            "font_registry",
+            "font",
+            "font_license_observed"
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "kind",
+        "id",
+        "sha256",
+        "size_bytes"
+      ],
+      "additionalProperties": false,
+      "description": "Identity of captured immutable input bytes. Font-license hashes are observed because font-registry v1 has no declared license-file digest. Sharing input digests does not by itself establish an executed cache hit."
+    },
+    "branchPlan": {
+      "type": "object",
+      "properties": {
+        "target_id": {
+          "$ref": "#/$defs/targetId"
+        },
+        "locale": {
+          "type": "string"
+        },
+        "output": {
+          "$ref": "#/$defs/output"
+        },
+        "state": {
+          "enum": [
+            "planned",
+            "blocked",
+            "unavailable"
+          ]
+        },
+        "content_revision": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "content_sha256": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/sha256"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "cache_key": {
+          "$ref": "#/$defs/sha256"
+        },
+        "diagnostics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/diagnostic"
+          }
+        }
+      },
+      "required": [
+        "target_id",
+        "locale",
+        "output",
+        "state",
+        "content_revision",
+        "content_sha256",
+        "cache_key",
+        "diagnostics"
+      ],
+      "additionalProperties": false,
+      "description": "A selected locale/output branch. Nullable content references are serialized explicitly when the requested locale lacks captured content; no file is established by a planned branch."
+    },
+    "plan": {
+      "type": "object",
+      "properties": {
+        "schema": {
+          "const": "renderflow.composition-plan/v1"
+        },
+        "profile": {
+          "const": "renderflow.layered-svg/v1"
+        },
+        "renderflow_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "composition_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "composition_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "source_locale": {
+          "type": "string",
+          "minLength": 1
+        },
+        "default_locale": {
+          "type": "string",
+          "minLength": 1
+        },
+        "request": {
+          "$ref": "#/$defs/request"
+        },
+        "inputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/inputEvidence"
+          }
+        },
+        "font_resolution": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "Path-independent FontResolutionReport::evidence projection, or null when resolution fails. Records declared font selection and licenses; no glyph/shaping/visual qualification is implied."
+        },
+        "branches": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 576,
+          "items": {
+            "$ref": "#/$defs/branchPlan"
+          }
+        },
+        "diagnostics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/diagnostic"
+          }
+        },
+        "runtime_qualified": {
+          "const": false
+        },
+        "review_required": {
+          "const": true
+        },
+        "deterministic_serialization": {
+          "const": true
+        },
+        "visual_determinism_qualified": {
+          "const": false
+        }
+      },
+      "required": [
+        "schema",
+        "profile",
+        "renderflow_version",
+        "composition_id",
+        "composition_sha256",
+        "source_locale",
+        "default_locale",
+        "request",
+        "inputs",
+        "font_resolution",
+        "branches",
+        "diagnostics",
+        "runtime_qualified",
+        "review_required",
+        "deterministic_serialization",
+        "visual_determinism_qualified"
+      ],
+      "additionalProperties": false,
+      "description": "Scoped composition plan from captured inputs. The plan does not mutate the general format-keyed artifact forest and contains no publication assertion."
+    },
+    "branchRun": {
+      "type": "object",
+      "properties": {
+        "target_id": {
+          "$ref": "#/$defs/targetId"
+        },
+        "outcome": {
+          "enum": [
+            "published",
+            "blocked",
+            "unavailable",
+            "failed",
+            "cancelled"
+          ]
+        },
+        "cache": {
+          "enum": [
+            "source",
+            "miss",
+            "hit",
+            "not_applicable"
+          ]
+        },
+        "artifact_evidence_index": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "artifact_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/artifactId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "locator": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^bundle:outputs/"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "diagnostics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/diagnostic"
+          }
+        }
+      },
+      "required": [
+        "target_id",
+        "outcome",
+        "cache",
+        "artifact_evidence_index",
+        "artifact_id",
+        "locator",
+        "diagnostics"
+      ],
+      "additionalProperties": false,
+      "description": "Exact publication result for a planned target. All three artifact references are explicit null unless publication succeeds. The index addresses this run's artifact_manifest.artifacts; consumers must verify index/ID/locator/hash correspondence and output membership.",
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "outcome": {
+                "const": "published"
+              }
+            },
+            "required": [
+              "outcome"
+            ]
+          },
+          "then": {
+            "properties": {
+              "cache": {
+                "enum": [
+                  "miss",
+                  "hit"
+                ]
+              },
+              "artifact_evidence_index": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "artifact_id": {
+                "$ref": "#/$defs/artifactId"
+              },
+              "locator": {
+                "type": "string",
+                "pattern": "^bundle:outputs/"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "cache": {
+                "const": "not_applicable"
+              },
+              "artifact_evidence_index": {
+                "type": "null"
+              },
+              "artifact_id": {
+                "type": "null"
+              },
+              "locator": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "run": {
+      "type": "object",
+      "properties": {
+        "schema": {
+          "const": "renderflow.composition-run/v1"
+        },
+        "run_id": {
+          "$ref": "#/$defs/runId"
+        },
+        "state": {
+          "enum": [
+            "complete",
+            "partial",
+            "failed",
+            "cancelled"
+          ]
+        },
+        "plan_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "plan": {
+          "$ref": "#/$defs/plan"
+        },
+        "artifact_manifest": {
+          "$ref": "renderflow-run-v1.schema.json#/$defs/artifact_manifest"
+        },
+        "branches": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 576,
+          "items": {
+            "$ref": "#/$defs/branchRun"
+          }
+        },
+        "runtime_qualified": {
+          "const": false
+        },
+        "review_required": {
+          "const": true
+        },
+        "visual_determinism_qualified": {
+          "const": false
+        }
+      },
+      "required": [
+        "schema",
+        "run_id",
+        "state",
+        "plan_sha256",
+        "plan",
+        "artifact_manifest",
+        "branches",
+        "runtime_qualified",
+        "review_required",
+        "visual_determinism_qualified"
+      ],
+      "additionalProperties": false,
+      "description": "Receipt written after scoped composition publication. Complete means every selected output was published, not visually qualified or creatively approved. Run and embedded artifact-manifest IDs must match; plan_sha256 commits the retained pretty-serialized composition-plan.json bytes including trailing newline. Early I/O failure can leave no receipt."
+    }
+  }
+}

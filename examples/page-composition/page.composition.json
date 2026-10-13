@@ -1,0 +1,206 @@
+{
+  "schema": "renderflow.page-composition/v1",
+  "composition_id": "fixture.two-panels",
+  "revision": "layout-1",
+  "page": {
+    "width_mm": 210,
+    "height_mm": 148,
+    "trim": {
+      "x": 0.02,
+      "y": 0.02,
+      "width": 0.96,
+      "height": 0.96
+    },
+    "bleed": {
+      "x": 0,
+      "y": 0,
+      "width": 1,
+      "height": 1
+    },
+    "safe": {
+      "x": 0.04,
+      "y": 0.04,
+      "width": 0.92,
+      "height": 0.92
+    },
+    "gutter_mm": 2
+  },
+  "source_locale": "en",
+  "default_locale": "en",
+  "locales": {
+    "en": {
+      "path": "structural-only/content/en.json",
+      "sha256": "93597fbe7d3432b5fd6ad20db70334dd992b59b71c58f6dc29c18ba0c8a5908e"
+    },
+    "de": {
+      "path": "structural-only/content/de.json",
+      "sha256": "14b7e600f7260aa3a77f7edf6ea1e58bb33dba8e3c8c51f91d81461e80760b31"
+    },
+    "ar": {
+      "path": "structural-only/content/ar.json",
+      "sha256": "92d251aeeddaaf469ca28532a6da745eb41aeeb16e8b89be9c9576011868e85d"
+    },
+    "ja": {
+      "path": "structural-only/content/ja.json",
+      "sha256": "ad89ed224281b6b12495d5bd9a5422f267d170f25cc4444656909879e65195ba"
+    }
+  },
+  "font_registry": {
+    "path": "structural-only/fonts/registry.json",
+    "sha256": "4d446b63324760870c6bd368fd74d31c1d1de5f29753a85f6a163dfa44648d8a"
+  },
+  "assets": [
+    {
+      "id": "plate.two-panels",
+      "file": {
+        "path": "structural-only/assets/two-panels.svg",
+        "sha256": "4ab4f73dd5756e43e4e811d869cfa37164597341e1e43379128a8dbdc9afcbef"
+      },
+      "format": "svg",
+      "alt": "Two textless geometric landscapes with moons, hills and small plants; captions are separate layers."
+    }
+  ],
+  "layers": [
+    {
+      "id": "plate",
+      "bounds": {
+        "x": 0,
+        "y": 0,
+        "width": 1,
+        "height": 1
+      },
+      "opacity": 1,
+      "blend": "normal",
+      "content": {
+        "kind": "vector",
+        "asset_id": "plate.two-panels"
+      }
+    },
+    {
+      "id": "caption.box.one",
+      "bounds": {
+        "x": 0.06,
+        "y": 0.075,
+        "width": 0.4,
+        "height": 0.255
+      },
+      "opacity": 1,
+      "blend": "normal",
+      "content": {
+        "kind": "shape",
+        "shape": "rect",
+        "fill": "#fff7e8",
+        "stroke": "#263d49",
+        "stroke_width_pt": 0.75
+      }
+    },
+    {
+      "id": "caption.text.one",
+      "bounds": {
+        "x": 0.06,
+        "y": 0.09,
+        "width": 0.4,
+        "height": 0.2
+      },
+      "opacity": 1,
+      "blend": "normal",
+      "content": {
+        "kind": "text",
+        "content_id": "panel.one.caption",
+        "typography": {
+          "role": "caption",
+          "font_size_pt": 14,
+          "min_font_size_pt": 12,
+          "line_height": 1.3,
+          "padding_pt": 5,
+          "alignment": "center",
+          "color": "#263d49"
+        }
+      }
+    },
+    {
+      "id": "caption.box.two",
+      "bounds": {
+        "x": 0.54,
+        "y": 0.075,
+        "width": 0.4,
+        "height": 0.255
+      },
+      "opacity": 1,
+      "blend": "normal",
+      "content": {
+        "kind": "shape",
+        "shape": "rect",
+        "fill": "#fff7e8",
+        "stroke": "#263d49",
+        "stroke_width_pt": 0.75
+      }
+    },
+    {
+      "id": "caption.text.two",
+      "bounds": {
+        "x": 0.54,
+        "y": 0.09,
+        "width": 0.4,
+        "height": 0.2
+      },
+      "opacity": 1,
+      "blend": "normal",
+      "content": {
+        "kind": "text",
+        "content_id": "panel.two.caption",
+        "typography": {
+          "role": "caption",
+          "font_size_pt": 14,
+          "min_font_size_pt": 12,
+          "line_height": 1.3,
+          "padding_pt": 5,
+          "alignment": "center",
+          "color": "#263d49"
+        }
+      }
+    }
+  ],
+  "reading_order": [
+    "caption.text.one",
+    "caption.text.two"
+  ],
+  "provenance": {
+    "kind": "textless_original",
+    "originals": [
+      {
+        "path": "structural-only/assets/two-panels.svg",
+        "sha256": "4ab4f73dd5756e43e4e811d869cfa37164597341e1e43379128a8dbdc9afcbef"
+      }
+    ],
+    "separation_reviewed": true,
+    "requires_human_review": true,
+    "notes": "Original MIT-licensed synthetic plate, copy and layout. Structural-only font stub is CC0 and not a usable font. No native rendering, glyph coverage, shaping, or publication approval is asserted."
+  },
+  "locale_overrides": {
+    "de": [
+      {
+        "layer_id": "caption.text.one",
+        "reason": "Expanded fixture copy uses a third authored line; retain font size and add vertical room.",
+        "author": "renderflow.synthetic-fixture",
+        "bounds": {
+          "x": 0.06,
+          "y": 0.085,
+          "width": 0.4,
+          "height": 0.235
+        }
+      },
+      {
+        "layer_id": "caption.text.two",
+        "reason": "Expanded fixture copy uses a third authored line; retain font size and add vertical room.",
+        "author": "renderflow.synthetic-fixture",
+        "bounds": {
+          "x": 0.54,
+          "y": 0.085,
+          "width": 0.4,
+          "height": 0.235
+        }
+      }
+    ]
+  }
+}

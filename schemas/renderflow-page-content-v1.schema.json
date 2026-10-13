@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/egohygiene/renderflow/main/schemas/renderflow-page-content-v1.schema.json",
+  "title": "Renderflow page content v1",
+  "description": "Reviewed locale content is separate from immutable page artwork/layout. Structurally accepted RTL/vertical declarations currently produce unsupported writing-capability diagnostics. The source/default locale passes through the same planner as every locale.",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": "renderflow.page-content/v1"
+    },
+    "composition_id": {
+      "$ref": "#/$defs/stableId"
+    },
+    "locale": {
+      "$ref": "#/$defs/locale"
+    },
+    "revision": {
+      "$ref": "#/$defs/stableId"
+    },
+    "source_revision": {
+      "$ref": "#/$defs/stableId"
+    },
+    "reviewed": {
+      "type": "boolean",
+      "description": "Consumer declaration; unreviewed text produces a diagnostic and cannot qualify a visual branch."
+    },
+    "direction": {
+      "enum": [
+        "ltr",
+        "rtl"
+      ]
+    },
+    "writing_mode": {
+      "enum": [
+        "horizontal_tb",
+        "vertical_rl",
+        "vertical_lr"
+      ]
+    },
+    "content": {
+      "type": "object",
+      "maxProperties": 256,
+      "propertyNames": {
+        "$ref": "#/$defs/stableId"
+      },
+      "additionalProperties": {
+        "type": "string",
+        "maxLength": 65536
+      },
+      "description": "Stable semantic content IDs. Runtime additionally caps UTF-8 bytes per value, restricts XML/control characters, and requires exact correspondence with the composition's text layers. Newline is the supported explicit line break."
+    }
+  },
+  "required": [
+    "schema",
+    "composition_id",
+    "locale",
+    "revision",
+    "source_revision",
+    "reviewed",
+    "direction",
+    "writing_mode",
+    "content"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "stableId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9._-]+$"
+    },
+    "locale": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 35,
+      "pattern": "^[A-Za-z0-9]{1,8}(-[A-Za-z0-9]{1,8})*$"
+    }
+  }
+}
