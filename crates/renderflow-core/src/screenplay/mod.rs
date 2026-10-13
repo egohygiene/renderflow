@@ -14,6 +14,7 @@ mod installation;
 pub mod native;
 pub mod pdf;
 pub mod provider;
+pub mod recovery;
 #[cfg(test)]
 mod tests;
 

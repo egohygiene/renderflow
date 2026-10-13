@@ -288,6 +288,12 @@
             }
           ]
         },
+        "screenplay_recovery": {
+          "anyOf": [
+            { "$ref": "#/$defs/screenplayRecoveryPolicy" },
+            { "type": "null" }
+          ]
+        },
         "screenplay_pdf": {
           "anyOf": [
             { "$ref": "#/$defs/screenplayPdfPolicy" },
@@ -302,6 +308,54 @@
         }
       },
       "type": "object"
+    },
+    "screenplayRecoveryPolicy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["allow_unqualified"],
+      "description": "Lossy, review-required deterministic recovery only. AI reconstruction and automatic review approval are unsupported. Executable and language-data bytes are observed only at execution; declaration validation does not read files or launch providers.",
+      "properties": {
+        "pdftotext": {"anyOf": [{"$ref": "#/$defs/screenplayRecoveryTool"}, {"type": "null"}]},
+        "ocr": {"anyOf": [{"$ref": "#/$defs/screenplayRecoveryOcr"}, {"type": "null"}]},
+        "limits": {"$ref": "#/$defs/screenplayRecoveryLimits"},
+        "allow_unqualified": {"const": true}
+      },
+      "allOf": [
+        {"if": {"properties": {"ocr": {"type": "object"}}, "required": ["ocr"]},
+         "then": {"required": ["pdftotext"], "properties": {"pdftotext": {"$ref": "#/$defs/screenplayRecoveryTool"}}}}
+      ]
+    },
+    "screenplayRecoveryTool": {
+      "type": "object", "additionalProperties": false,
+      "required": ["executable", "executable_sha256", "expected_version"],
+      "properties": {
+        "executable": {"type": "string", "minLength": 1, "description": "Explicit absolute local executable path; no PATH selection."},
+        "executable_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "expected_version": {"type": "string", "pattern": "^[0-9]{1,4}\\.[0-9]{1,4}\\.[0-9]{1,4}$"}
+      }
+    },
+    "screenplayRecoveryOcr": {
+      "type": "object", "additionalProperties": false,
+      "required": ["pdftoppm", "tesseract", "language", "traineddata", "traineddata_sha256"],
+      "properties": {
+        "pdftoppm": {"$ref": "#/$defs/screenplayRecoveryTool"},
+        "tesseract": {"allOf": [{"$ref": "#/$defs/screenplayRecoveryTool"}, {"properties": {"expected_version": {"pattern": "^5\\."}}}]},
+        "language": {"type": "string", "pattern": "^[A-Za-z0-9_]{1,32}$"},
+        "traineddata": {"type": "string", "minLength": 1, "description": "Explicit absolute path to one pinned local Tesseract language model."},
+        "traineddata_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "screenplayRecoveryLimits": {
+      "type": "object", "additionalProperties": false,
+      "description": "Omit this object to use bounded defaults; supply every field when overriding. Runtime declaration validation also requires max_page_text_bytes <= max_total_text_bytes.",
+      "required": ["max_input_bytes", "max_pages", "max_page_text_bytes", "max_total_text_bytes", "max_raster_side", "timeout_seconds"],
+      "properties": {
+        "max_input_bytes": {"type": "integer", "minimum": 1, "maximum": 67108864, "default": 67108864},
+        "max_pages": {"type": "integer", "minimum": 1, "maximum": 1000, "default": 1000},
+        "max_page_text_bytes": {"type": "integer", "minimum": 1, "maximum": 1048576, "default": 1048576},
+        "max_total_text_bytes": {"type": "integer", "minimum": 1, "maximum": 16777216, "default": 16777216},
+        "max_raster_side": {"type": "integer", "minimum": 64, "maximum": 4096, "default": 3000},
+        "timeout_seconds": {"type": "integer", "minimum": 1, "maximum": 1800, "default": 300}
+      }
     },
     "screenplayPdfPolicy": {
       "type": "object",

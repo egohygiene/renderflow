@@ -19,13 +19,14 @@ pub const CREATIVE_FINGERPRINT_SCOPE: &str = "provider-discovery-observations/v1
 
 /// Optional creative tools excluded from plain `doctor`. Explicit profile and
 /// complete inventories may report them without selecting execution providers.
-pub const CREATIVE_OPTIONAL_TOOL_IDS: [&str; 4] = [
-    "tool.scripttool", "tool.node", "tool.afterwriting", "tool.pdftotext",
+pub const CREATIVE_OPTIONAL_TOOL_IDS: [&str; 5] = [
+    "tool.scripttool", "tool.node", "tool.afterwriting", "tool.pdftotext", "tool.pdftoppm",
 ];
 
-pub const CREATIVE_TOOL_IDS: [&str; 8] = [
+pub const CREATIVE_TOOL_IDS: [&str; 10] = [
     "tool.afterwriting", "tool.ffmpeg", "tool.ffprobe", "tool.node",
-    "tool.pdftotext", "tool.scripttool", "tool.tesseract", "tool.whisper_cpp",
+    "tool.pdftoppm", "tool.pdftotext", "tool.renderflow-screenplay-recovery",
+    "tool.scripttool", "tool.tesseract", "tool.whisper_cpp",
 ];
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -173,7 +174,8 @@ pub fn assess_with(
     }).collect::<Vec<_>>();
     routes.sort_by(|left, right| left.id.cmp(&right.id));
     let requirements = vec![
-        requirement("ocr.language_data", "unobserved", "Tesseract language data, its exact identity, and its separate license are not inspected by doctor; OCR graph integration remains pending."),
+        requirement("ocr.language_data", "unobserved", "Tesseract language data, its exact identity, and its separate license are not inspected by doctor. Screenplay OCR fallback requires explicitly pinned language data and remains unqualified."),
+        requirement("screenplay.recovery.review", "operator_review_required", "PDF/plain-text recovery and its exports are lossy candidates. Extraction evidence, per-element confidence, ambiguities, and review-required status remain attached; discovery and global AI allowance cannot approve a candidate."),
         requirement("screenplay.fonts", "unobserved", "The fixed A4/US Letter screenplay PDF profiles require pinned Courier and Helvetica font metrics in the selected package. Base14 Courier remains unembedded; viewer substitution, visual fidelity, and exact asset licensing are unqualified. Doctor does not inspect package or font bytes."),
         requirement("speech.model.configuration", "configuration_required", "Local speech execution requires an explicit model path, model ID, expected model SHA-256, and a pinned provider path/SHA-256. Doctor does not inspect model files or infer those settings from PATH."),
         requirement("speech.model.license", "operator_review_required", "Review the exact speech model's license separately from the executable and linked-library licenses before use or redistribution."),
@@ -215,7 +217,7 @@ struct RouteDefinition {
 }
 
 fn route_definitions() -> Vec<RouteDefinition> {
-    use CreativeRouteImplementation::{AuthoredUnqualified, NotImplemented};
+    use CreativeRouteImplementation::AuthoredUnqualified;
     vec![
         RouteDefinition {
             id: "subtitle.convert.plain", implementation: AuthoredUnqualified,
@@ -248,14 +250,34 @@ fn route_definitions() -> Vec<RouteDefinition> {
             detail: "Direct original strict ASCII Fountain to PDF is authored with fixed A4/US Letter profiles and independent analysis/PDF inspection. Node and Afterwriting remain unobserved by doctor: explicit pinned clear-environment preflight reads package identity without a fabricated provider version command. Chained native imports, runtime/visual fidelity, and reproducibility remain unqualified.",
         },
         RouteDefinition {
-            id: "pdf.extract.text", implementation: NotImplemented,
-            providers: &["tool.pdftotext"], required_configuration: &[],
-            detail: "Candidate discovery only; the PDF text-extraction adapter is not implemented.",
+            id: "pdf.extract.text", implementation: AuthoredUnqualified,
+            providers: &["tool.pdftotext"], required_configuration: &[
+                "execution.screenplay_recovery", "execution.screenplay_recovery.pdftotext",
+                "execution.screenplay_recovery.allow_unqualified", "bounded_local_pdf",
+            ],
+            detail: "Bounded text-bearing PDF extraction for screenplay recovery is authored. Execution uses an explicit pinned provider and preserves page boundaries and extraction evidence; PATH discovery does not select that provider or qualify recovery.",
         },
         RouteDefinition {
-            id: "ocr.extract.text", implementation: NotImplemented,
-            providers: &["tool.tesseract"], required_configuration: &["ocr.language_data"],
-            detail: "Experimental provider discovery only; language-data identity and confidence evidence remain necessary for OCR graph integration.",
+            id: "ocr.extract.text", implementation: AuthoredUnqualified,
+            providers: &["tool.pdftotext", "tool.pdftoppm", "tool.tesseract"], required_configuration: &[
+                "execution.screenplay_recovery.ocr", "ocr.language_data",
+            ],
+            detail: "Explicitly configured, bounded per-page PDF OCR fallback is authored for pages without usable embedded text. Pinned rasterizer, recognizer, and language data are required; discovery does not qualify OCR, and recovered structure still requires review.",
+        },
+        RouteDefinition {
+            id: "screenplay.recover.structure", implementation: AuthoredUnqualified,
+            providers: &["tool.renderflow-screenplay-recovery"], required_configuration: &[
+                "execution.screenplay_recovery", "execution.screenplay_recovery.allow_unqualified",
+                "screenplay.recovery.review",
+            ],
+            detail: "Deterministic heuristics recover a validated canonical screenplay from bounded PDF extraction or plain text. Per-element confidence and ambiguities record heuristic evidence rather than calibrated probabilities. Recovery is always lossy and review-required; AI reconstruction is unsupported and no execution setting approves the result.",
+        },
+        RouteDefinition {
+            id: "screenplay.recovery.export", implementation: AuthoredUnqualified,
+            providers: &["tool.renderflow-screenplay-recovery"], required_configuration: &[
+                "validated_recovery_candidate", "screenplay.recovery.review",
+            ],
+            detail: "Bounded canonical recovery candidates can produce supported body-only Fountain, FDX, Fade In, and OSF derivatives with recovery lineage and mandatory review retained. These authored writers do not claim original-document reconstruction or native runtime qualification.",
         },
         RouteDefinition {
             id: "subtitle.streams.inspect", implementation: AuthoredUnqualified,
@@ -360,7 +382,9 @@ mod tests {
         assert!(report.strict_success());
         assert_eq!(route(&report, "screenplay.scripttool").implementation, CreativeRouteImplementation::AuthoredUnqualified);
         assert_eq!(route(&report, "screenplay.pdf.afterwriting").implementation, CreativeRouteImplementation::AuthoredUnqualified);
-        assert_eq!(route(&report, "pdf.extract.text").implementation, CreativeRouteImplementation::NotImplemented);
+        assert_eq!(route(&report, "pdf.extract.text").implementation, CreativeRouteImplementation::AuthoredUnqualified);
+        assert_eq!(route(&report, "screenplay.recover.structure").implementation, CreativeRouteImplementation::AuthoredUnqualified);
+        assert_eq!(route(&report, "screenplay.recovery.export").implementation, CreativeRouteImplementation::AuthoredUnqualified);
         assert_eq!(route(&report, "speech.transcribe").implementation, CreativeRouteImplementation::AuthoredUnqualified);
         assert_eq!(report.requirements.iter().find(|requirement| requirement.id == "speech.model.configuration").unwrap().status, "configuration_required");
     }

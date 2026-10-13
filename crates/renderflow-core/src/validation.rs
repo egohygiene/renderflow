@@ -252,7 +252,8 @@ impl ValidationRegistry {
             Format::Epub | Format::Kepub => Some("validator.core.epub"),
             Format::Zip | Format::Docx | Format::Cbz => Some("validator.core.zip"),
             Format::Wav | Format::Bwf => Some("validator.core.riff_wave"),
-            Format::Markdown
+            Format::Text
+            | Format::Markdown
             | Format::Rst
             | Format::Latex
             | Format::Toml => Some("validator.core.utf8"),
@@ -348,6 +349,7 @@ impl ArtifactValidator for NonEmptyValidator {
 }
 
 const UTF8_FORMATS: &[Format] = &[
+    Format::Text,
     Format::Markdown,
     Format::Html,
     Format::Rst,

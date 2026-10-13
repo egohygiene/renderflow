@@ -13,6 +13,7 @@ use crate::publication::{PageGeometry, PublicationContract};
 use crate::speech::policy::SpeechPolicy;
 use crate::screenplay::provider::ScripttoolConfig;
 use crate::screenplay::afterwriting::AfterwritingConfig;
+use crate::screenplay::recovery::provider::RecoveryExtractionConfig;
 
 pub const SPEC_V2_ID: &str = "renderflow/v2";
 pub const SPEC_V2_SCHEMA_PATH: &str = "schemas/renderflow-v2.schema.json";
@@ -574,6 +575,9 @@ pub struct ExecutionPolicy {
     /// Explicit pinned, unqualified original Fountain to screenplay PDF route.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub screenplay_pdf: Option<AfterwritingConfig>,
+    /// Explicit lossy PDF/plain-text recovery; candidates always require review.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub screenplay_recovery: Option<RecoveryExtractionConfig>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
@@ -725,6 +729,7 @@ impl Default for ExecutionPolicy {
             speech: None,
             screenplay: None,
             screenplay_pdf: None,
+            screenplay_recovery: None,
         }
     }
 }
@@ -874,6 +879,7 @@ impl SpecV2 {
             }
             if self.execution.speech.is_some() || self.execution.subtitles.is_some()
                 || self.execution.screenplay_pdf.is_some()
+                || self.execution.screenplay_recovery.is_some()
                 || self.execution.print_pdf_interior.is_some() || self.execution.fixed_layout_epub.is_some()
                 || self.transforms.is_some() || self.execution.hygiene_policy.is_some()
             {
@@ -891,6 +897,7 @@ impl SpecV2 {
                 ));
             }
             if self.execution.screenplay.is_some() || self.execution.speech.is_some()
+                || self.execution.screenplay_recovery.is_some()
                 || self.execution.subtitles.is_some() || self.execution.print_pdf_interior.is_some()
                 || self.execution.fixed_layout_epub.is_some() || self.transforms.is_some()
                 || self.execution.hygiene_policy.is_some()
@@ -898,6 +905,26 @@ impl SpecV2 {
                 diagnostics.push(SpecDiagnostic::new(
                     "$.execution.screenplay_pdf", "screenplay_pdf.policy.ambiguous",
                     "screenplay PDF rendering requires its own spec without other native policies, custom transforms, or post-render hygiene",
+                ));
+            }
+        }
+
+        if let Some(recovery) = &self.execution.screenplay_recovery {
+            // Declaration-only validation: selected executables, language data,
+            // and their identity are observed only when recovery executes.
+            if let Err(error) = recovery.validate() {
+                diagnostics.push(SpecDiagnostic::new(
+                    "$.execution.screenplay_recovery", "screenplay_recovery.policy.invalid", error.to_string(),
+                ));
+            }
+            if self.execution.screenplay.is_some() || self.execution.screenplay_pdf.is_some()
+                || self.execution.speech.is_some() || self.execution.subtitles.is_some()
+                || self.execution.print_pdf_interior.is_some() || self.execution.fixed_layout_epub.is_some()
+                || self.transforms.is_some() || self.execution.hygiene_policy.is_some()
+            {
+                diagnostics.push(SpecDiagnostic::new(
+                    "$.execution.screenplay_recovery", "screenplay_recovery.policy.ambiguous",
+                    "screenplay recovery requires its own spec without other native policies, custom transforms, or post-recovery hygiene",
                 ));
             }
         }
@@ -2118,8 +2145,57 @@ pub fn json_schema() -> Value {
                     ,"speech": {"anyOf": [{"$ref": "#/$defs/speechPolicy"}, {"type": "null"}]}
                     ,"screenplay": {"anyOf": [{"$ref": "#/$defs/screenplayPolicy"}, {"type": "null"}]}
                     ,"screenplay_pdf": {"anyOf": [{"$ref": "#/$defs/screenplayPdfPolicy"}, {"type": "null"}]}
+                    ,"screenplay_recovery": {"anyOf": [{"$ref": "#/$defs/screenplayRecoveryPolicy"}, {"type": "null"}]}
                 }
             },
+                "screenplayRecoveryPolicy": {
+                    "type": "object", "additionalProperties": false,
+                    "required": ["allow_unqualified"],
+                    "description": "Lossy, review-required deterministic recovery only. AI reconstruction and automatic review approval are unsupported. Executable and language-data bytes are observed only at execution; declaration validation does not read files or launch providers.",
+                    "properties": {
+                        "pdftotext": {"anyOf": [{"$ref": "#/$defs/screenplayRecoveryTool"}, {"type": "null"}]},
+                        "ocr": {"anyOf": [{"$ref": "#/$defs/screenplayRecoveryOcr"}, {"type": "null"}]},
+                        "limits": {"$ref": "#/$defs/screenplayRecoveryLimits"},
+                        "allow_unqualified": {"const": true}
+                    },
+                    "allOf": [
+                        {"if": {"properties": {"ocr": {"type": "object"}}, "required": ["ocr"]},
+                         "then": {"required": ["pdftotext"], "properties": {"pdftotext": {"$ref": "#/$defs/screenplayRecoveryTool"}}}}
+                    ]
+                },
+                "screenplayRecoveryTool": {
+                    "type": "object", "additionalProperties": false,
+                    "required": ["executable", "executable_sha256", "expected_version"],
+                    "properties": {
+                        "executable": {"type": "string", "minLength": 1, "description": "Explicit absolute local executable path; no PATH selection."},
+                        "executable_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+                        "expected_version": {"type": "string", "pattern": "^[0-9]{1,4}\\.[0-9]{1,4}\\.[0-9]{1,4}$"}
+                    }
+                },
+                "screenplayRecoveryOcr": {
+                    "type": "object", "additionalProperties": false,
+                    "required": ["pdftoppm", "tesseract", "language", "traineddata", "traineddata_sha256"],
+                    "properties": {
+                        "pdftoppm": {"$ref": "#/$defs/screenplayRecoveryTool"},
+                        "tesseract": {"allOf": [{"$ref": "#/$defs/screenplayRecoveryTool"}, {"properties": {"expected_version": {"pattern": "^5\\."}}}]},
+                        "language": {"type": "string", "pattern": "^[A-Za-z0-9_]{1,32}$"},
+                        "traineddata": {"type": "string", "minLength": 1, "description": "Explicit absolute path to one pinned local Tesseract language model."},
+                        "traineddata_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+                    }
+                },
+                "screenplayRecoveryLimits": {
+                    "type": "object", "additionalProperties": false,
+                    "description": "Omit this object to use bounded defaults; supply every field when overriding. Runtime declaration validation also requires max_page_text_bytes <= max_total_text_bytes.",
+                    "required": ["max_input_bytes", "max_pages", "max_page_text_bytes", "max_total_text_bytes", "max_raster_side", "timeout_seconds"],
+                    "properties": {
+                        "max_input_bytes": {"type": "integer", "minimum": 1, "maximum": 67108864, "default": 67108864},
+                        "max_pages": {"type": "integer", "minimum": 1, "maximum": 1000, "default": 1000},
+                        "max_page_text_bytes": {"type": "integer", "minimum": 1, "maximum": 1048576, "default": 1048576},
+                        "max_total_text_bytes": {"type": "integer", "minimum": 1, "maximum": 16777216, "default": 16777216},
+                        "max_raster_side": {"type": "integer", "minimum": 64, "maximum": 4096, "default": 3000},
+                        "timeout_seconds": {"type": "integer", "minimum": 1, "maximum": 1800, "default": 300}
+                    }
+                },
                 "screenplayPdfPolicy": {
                     "type": "object",
                     "additionalProperties": false,
@@ -2669,6 +2745,59 @@ variables:
         assert_eq!(runtime["$defs"]["screenplayPdfPolicy"]["properties"]["profile"]["enum"],
             json!(["screenplay-a4-v1", "screenplay-usletter-v1"]));
         assert_eq!(runtime["$defs"]["screenplayPdfPolicy"]["properties"]["allow_unqualified"]["const"], true);
+    }
+
+    #[test]
+    fn recovery_policy_is_explicit_and_cannot_request_ai_or_approve_a_candidate() {
+        let defaults: ExecutionPolicy = serde_json::from_value(json!({})).unwrap();
+        assert!(defaults.screenplay_recovery.is_none());
+        assert!(serde_json::to_value(defaults).unwrap().get("screenplay_recovery").is_none());
+        let mut spec = load_spec_str(VALID_EXACT).unwrap().spec;
+        spec.execution.screenplay_recovery = Some(serde_json::from_value(json!({})).unwrap());
+        assert!(spec.validate().iter().any(|item| item.code == "screenplay_recovery.policy.invalid"));
+        spec.execution.screenplay_recovery.as_mut().unwrap().allow_unqualified = true;
+        // This grants no AI recovery route or approval; those config fields do
+        // not exist even if the broader run permits unrelated AI work.
+        spec.execution.ai = AiPolicy::Allow;
+        assert!(!spec.validate().iter().any(|item| item.code.starts_with("screenplay_recovery.")));
+        for forbidden in ["ai", "reviewed", "approved", "provider"] {
+            let mut value = json!({"allow_unqualified": true});
+            value[forbidden] = json!(true);
+            assert!(serde_json::from_value::<RecoveryExtractionConfig>(value).is_err());
+        }
+    }
+
+    #[test]
+    fn recovery_policy_refuses_other_native_routes_custom_transforms_and_hygiene() {
+        let mut spec = load_spec_str(VALID_EXACT).unwrap().spec;
+        spec.execution.screenplay_recovery = Some(serde_json::from_value(json!({"allow_unqualified": true})).unwrap());
+        spec.execution.screenplay = Some(serde_json::from_value(screenplay_policy_value()).unwrap());
+        assert!(spec.validate().iter().any(|item| item.code == "screenplay_recovery.policy.ambiguous"));
+        assert!(spec.validate().iter().any(|item| item.code == "screenplay.policy.ambiguous"));
+        spec.execution.screenplay = None;
+        spec.execution.screenplay_pdf = Some(serde_json::from_value(screenplay_pdf_policy_value()).unwrap());
+        assert!(spec.validate().iter().any(|item| item.code == "screenplay_recovery.policy.ambiguous"));
+        assert!(spec.validate().iter().any(|item| item.code == "screenplay_pdf.policy.ambiguous"));
+        spec.execution.screenplay_pdf = None;
+        spec.transforms = Some("custom.yaml".to_owned());
+        assert!(spec.validate().iter().any(|item| item.code == "screenplay_recovery.policy.ambiguous"));
+        spec.transforms = None;
+        spec.execution.hygiene_policy = Some("publication".to_owned());
+        assert!(spec.validate().iter().any(|item| item.code == "screenplay_recovery.policy.ambiguous"));
+    }
+
+    #[test]
+    fn recovery_policy_schema_keeps_required_pins_and_bounded_limits() {
+        let runtime = json_schema();
+        let published: serde_json::Value = serde_json::from_str(include_str!("../../../schemas/renderflow-v2.schema.json")).unwrap();
+        for definition in ["screenplayRecoveryPolicy", "screenplayRecoveryTool", "screenplayRecoveryOcr", "screenplayRecoveryLimits"] {
+            assert_eq!(runtime["$defs"][definition], published["$defs"][definition]);
+        }
+        assert_eq!(runtime["$defs"]["executionPolicy"]["properties"]["screenplay_recovery"],
+            published["$defs"]["executionPolicy"]["properties"]["screenplay_recovery"]);
+        assert_eq!(runtime["$defs"]["screenplayRecoveryPolicy"]["properties"]["allow_unqualified"]["const"], true);
+        assert_eq!(runtime["$defs"]["screenplayRecoveryLimits"]["properties"]["max_input_bytes"]["maximum"], 67108864);
+        assert_eq!(runtime["$defs"]["screenplayRecoveryOcr"]["additionalProperties"], false);
     }
 
     #[test]

@@ -156,6 +156,7 @@ impl MediaType {
     /// Return Renderflow's default media type for a graph [`Format`].
     pub fn for_format(format: Format) -> Self {
         let value = match format {
+            Format::Text => "text/plain",
             Format::Markdown => "text/markdown",
             Format::Html => "text/html",
             Format::Pdf => "application/pdf",

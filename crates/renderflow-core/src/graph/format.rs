@@ -16,6 +16,8 @@ use anyhow::Result;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Format {
     // ── Document formats ───────────────────────────────────────────────────────
+    /// Unstructured UTF-8 text; no Markdown or screenplay structure is implied.
+    Text,
     Markdown,
     Html,
     Pdf,
@@ -168,6 +170,7 @@ pub enum Format {
 impl fmt::Display for Format {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let s = match self {
+            Format::Text => "text",
             Format::Markdown => "markdown",
             Format::Html => "html",
             Format::Pdf => "pdf",
@@ -263,6 +266,7 @@ impl FromStr for Format {
     fn from_str(s: &str) -> Result<Self> {
         match s.to_lowercase().as_str() {
             // Documents
+            "text" | "txt" => Ok(Format::Text),
             "markdown" | "md" => Ok(Format::Markdown),
             "html" => Ok(Format::Html),
             "pdf" => Ok(Format::Pdf),

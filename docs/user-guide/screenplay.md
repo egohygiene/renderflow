@@ -91,7 +91,9 @@ necessary. Unsupported numeric values are rejected rather than silently rounded.
 The model is a conversion boundary. It does not establish that every native
 format represents each semantic feature identically. Directional assessments
 keep general canonical import/export policy separate from configured native
-body converters. No general canonical-to-native writer is implemented. A missing
+body converters. No general canonical-to-native writer is implemented. The
+[recovery-only exporters](../screenplay-recovery.md) accept replayable recovery
+candidates and retain their separate lossy, review-required evidence. A missing
 writer must not become a lossless conversion claim.
 
 Canonical parse/serialize operations preserve the supported semantic model.
@@ -114,7 +116,8 @@ The #424 [scripttool checkpoint](scripttool.md) adds restricted, unqualified
 native imports and explicitly rejects reverse native writers. The #425
 [PDF and analysis checkpoint](screenplay-pdf.md) authors pinned afterwriting
 publication for a strict ASCII Fountain body and independent source reports.
-Existing #426 owns explicitly lossy PDF recovery. Full creative
+The #426 [recovery checkpoint](../screenplay-recovery.md) authors explicitly
+lossy PDF/text recovery and bounded native body exports. Full creative
 toolchain qualification (#429) and integration proof (#430) depend on those
 adapters and measured execution evidence. Resume from
 [the #423 handoff](../work/423/HANDOFF.md).

@@ -10,6 +10,7 @@ pub mod plugin;
 pub mod publication;
 pub mod screenplay;
 pub mod screenplay_pdf;
+pub mod screenplay_recovery;
 pub mod spec;
 pub mod subtitles;
 pub mod speech;

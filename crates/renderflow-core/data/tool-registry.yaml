@@ -1,24 +1,55 @@
 schema: renderflow.tool-registry/v1
 
 tools:
-  # Discovery-only QA candidate for the explicit creative doctor profile.
-  # Empty capabilities/media types deliberately register no conversion route.
+  # Discovery does not select the pinned executable used by recovery.
   - id: tool.pdftotext
-    name: Poppler pdftotext creative QA candidate
+    name: Poppler pdftotext recovery extractor
     discovery:
       kind: executable
       candidates: [pdftotext]
       version_args: [-v]
     operating_systems: [linux, macos, windows]
-    capabilities: []
-    input_media_types: []
-    output_media_types: []
+    capabilities: [screenplay.recovery.extract.text]
+    input_media_types: [application/pdf]
+    output_media_types: [text/plain]
     determinism: configuration_dependent
     locality: local
     fidelity: partial_loss
     support_tier: optional
     license_notes: "Poppler is GPL licensed; pdftotext source identifies Poppler changes as GPL-2.0-or-later. Distribution dependencies and notices require separate review. This candidate is not bundled or linked."
-    distribution_notes: "Optional PDF text QA candidate. The source-reviewed -v probe prints version information to stderr. A successful executable probe does not attest that a same-named binary is Poppler or establish PDF extraction fidelity. Install Poppler utilities separately through an appropriate distribution; no conversion route is registered."
+    distribution_notes: "Optional bounded PDF text recovery provider. The -v discovery probe does not select an executable or qualify recovery. Execution requires an explicit absolute path, byte digest, expected version, and screenplay recovery policy; no provider is installed or bundled. Extraction and reconstruction are lossy, review-required, and authored but unqualified."
+
+  - id: tool.pdftoppm
+    name: Poppler pdftoppm recovery page rasterizer
+    discovery:
+      kind: executable
+      candidates: [pdftoppm]
+      version_args: [-v]
+    operating_systems: [linux, macos, windows]
+    capabilities: [screenplay.recovery.rasterize]
+    input_media_types: [application/pdf]
+    output_media_types: [image/x-portable-graymap]
+    determinism: configuration_dependent
+    locality: local
+    fidelity: lossy
+    support_tier: optional
+    license_notes: "Poppler is GPL licensed. Review the exact executable build and linked-library distribution terms separately; this executable is not bundled or linked."
+    distribution_notes: "Optional bounded per-page rasterizer for explicitly configured screenplay OCR fallback. A discovery observation does not select the pinned executable, inspect language data, or qualify PDF/OCR recovery. Runtime qualification remains deferred."
+
+  - id: tool.renderflow-screenplay-recovery
+    name: Renderflow screenplay recovery and derivative writer
+    discovery:
+      kind: virtual
+    operating_systems: [linux, macos, windows]
+    capabilities: [screenplay.recover.structure, screenplay.recovery.export]
+    input_media_types: [application/pdf, text/plain, application/vnd.renderflow.screenplay+json]
+    output_media_types: [application/vnd.renderflow.screenplay+json, text/x-fountain, application/vnd.renderflow.fdx+xml, application/vnd.renderflow.fadein+zip, application/vnd.renderflow.osf+xml]
+    determinism: deterministic
+    locality: local
+    fidelity: lossy
+    support_tier: experimental
+    license_notes: "In-process Renderflow implementation; see the Renderflow repository license. Native extractor and OCR dependencies require separate license review."
+    distribution_notes: "Explicit recovery policy enables bounded deterministic PDF/plain-text screenplay reconstruction and derivative exports. Canonical candidates and every derivative preserve lossy, review-required recovery evidence. Virtual availability does not establish tested behavior or qualify any selected native provider. AI reconstruction and automatic review approval are unsupported."
 
   - id: tool.renderflow-epub
     name: Renderflow fixed-layout EPUB packager
@@ -436,7 +467,7 @@ tools:
     fidelity: lossy
     support_tier: experimental
     license_notes: "See the Tesseract upstream Apache-2.0 license and language-data licenses."
-    distribution_notes: "Experimental OCR provider; language-pack identity and confidence evidence are required before graph integration."
+    distribution_notes: "Authored, unqualified screenplay recovery fallback uses one explicitly pinned Tesseract 5 executable and one pinned language model after embedded PDF text extraction. Page extraction evidence and heuristic confidence are retained; no automatic approval, provider installation, language-data download, or default OCR execution occurs."
 
   - id: tool.kepubify
     name: Kepubify
