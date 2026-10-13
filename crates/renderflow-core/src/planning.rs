@@ -5,7 +5,8 @@
 //! performs implicit target/path re-planning.
 
 mod forest;
-use forest::{plan_forest_routes, group_forest_routes, finalize_forest_identity};
+use forest::{plan_forest_routes, group_forest_routes, finalize_forest_identity, attach_forest_execution,
+    hygiene_candidate_key, record_target_hygiene};
 mod screenplay_recovery;
 use screenplay_recovery::{recovery_provider_ids, register_recovery_edges,
     register_recovery_executors, validate_recovery_source, validate_recovery_targets};
@@ -43,7 +44,7 @@ use crate::graph::{
     ForestBranchState, Format, InputKind, MultiTargetDag, PlanCollectionMember, PlanSourceArtifact,
     PlanSourceCollection, TransformEdge, TransformGraph,
 };
-use crate::hygiene::{HygieneEngine, HygieneEvidence};
+use crate::hygiene::{HygieneEngine, HygieneEvidence, HygieneOutcome};
 use crate::intake::{IntakeEngine, IntakeReport, IntakeRequest, ResolvedArtifactProfile};
 use crate::optimization::OptimizationMode;
 use crate::print_pdf::{PrintInteriorPdfTransform, PRINT_PDF_CAPABILITY, PRINT_PDF_PROVIDER};
@@ -1262,13 +1263,16 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
         let engine = HygieneEngine::new();
         let mut target_identities = target_artifacts.keys().cloned().collect::<Vec<_>>();
         target_identities.sort();
-        let mut hygienic_artifacts = HashMap::<String, (Artifact, Option<String>)>::new();
+        let mut hygienic_artifacts = HashMap::<String, (HygieneOutcome, Option<String>)>::new();
         for identity in target_identities {
             let Some(candidate) = target_artifacts.get(&identity).cloned() else {
                 continue;
             };
-            if let Some((artifact, producer)) = hygienic_artifacts.get(candidate.id().as_str()) {
-                target_artifacts.insert(identity.clone(), artifact.clone());
+            let candidate_key = hygiene_candidate_key(&candidate)?;
+            if let Some((outcome, producer)) = hygienic_artifacts.get(&candidate_key) {
+                hygiene_failures |= record_target_hygiene(&identity, outcome,
+                    &mut hygiene_evidence, &mut hygiene_blocked);
+                target_artifacts.insert(identity.clone(), outcome.artifact.clone());
                 if let Some(producer) = producer {
                     target_steps.insert(identity, producer.clone());
                 }
@@ -1277,7 +1281,7 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
             let started = unix_time_ms();
             let outcome = engine.apply(&policy_id, &policy, &candidate, &store)?;
             let completed = unix_time_ms();
-            let step_id = format!("hygiene:{policy_id}:{}", candidate.id());
+            let step_id = format!("hygiene:{policy_id}:{candidate_key}");
             for finding in &outcome.evidence.findings {
                 diagnostics.push(ExecutionDiagnostic {
                     severity: if finding.blocking {
@@ -1290,10 +1294,8 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
                     step_id: Some(step_id.clone()),
                 });
             }
-            if !outcome.releasable() {
-                hygiene_failures = true;
-                hygiene_blocked.insert(outcome.artifact.id().to_string());
-            }
+            hygiene_failures |= record_target_hygiene(&identity, &outcome,
+                &mut hygiene_evidence, &mut hygiene_blocked);
             let changed = !outcome.evidence.changed_field_classes.is_empty();
             report.steps.push(StepEvidence {
                 step_id: step_id.clone(),
@@ -1318,25 +1320,23 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
                 skip_reason: None,
                 diagnostics: Vec::new(),
             });
-            hygiene_evidence.insert(outcome.artifact.id().to_string(), outcome.evidence.clone());
             let producer = (outcome.artifact.id() != candidate.id()).then_some(step_id);
             if let Some(producer) = &producer {
                 target_steps.insert(identity.clone(), producer.clone());
             }
             for representative in report.artifacts.values_mut() {
-                if representative.id() == candidate.id() {
+                if &*representative == &candidate {
                     *representative = outcome.artifact.clone();
                 }
             }
             all_artifacts.insert(outcome.artifact.id().to_string(), outcome.artifact.clone());
-            hygienic_artifacts.insert(candidate.id().to_string(), (outcome.artifact.clone(), producer));
+            hygienic_artifacts.insert(candidate_key, (outcome.clone(), producer));
             target_artifacts.insert(identity, outcome.artifact);
         }
     }
     let mut output_locators = HashMap::<String, String>::new();
     let mut validation_outcomes = HashMap::<String, ArtifactValidationOutcome>::new();
-    let blocked_artifacts = hygiene_blocked;
-    let mut blocked_targets = HashSet::<String>::new();
+    let mut blocked_targets = hygiene_blocked;
     let mut actual_outputs = Vec::new();
     let mut target_failures = hygiene_failures;
     let mut fatal_validation_failure = false;
@@ -1545,7 +1545,7 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
 
     let mut retained_locators = HashMap::<String, String>::new();
     if resolved.spec.execution.speech.is_some() {
-        speech_publication_failed |= fatal_validation_failure || !blocked_artifacts.is_empty() || !blocked_targets.is_empty()
+        speech_publication_failed |= fatal_validation_failure || !blocked_targets.is_empty()
             || diagnostics.iter().any(|diagnostic| diagnostic.code == "execution.post_budget_failed");
         if !speech_publication_failed {
             match publish_speech_artifacts(&resolved, &retained_speech, &store, &output_root, &predicted) {
@@ -1585,8 +1585,7 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
         let Some(artifact) = target_artifacts.get(&target.identity()) else {
             continue;
         };
-        if fatal_validation_failure || speech_publication_failed || blocked_targets.contains(&target.identity())
-            || blocked_artifacts.contains(artifact.id().as_str()) {
+        if fatal_validation_failure || speech_publication_failed || blocked_targets.contains(&target.identity()) {
             continue;
         }
         if target_failures
@@ -1905,12 +1904,8 @@ fn build_run_manifest(
     let run_id = run_id(&execution_plan_digest, started_at_unix_ms);
     let mut artifact_forest = resolved.plan.artifact_forest.clone();
     if let Some(forest) = &mut artifact_forest {
-        forest.produced_artifacts = artifacts
-            .iter()
-            .map(|artifact| artifact.artifact_id.clone())
-            .collect();
-        forest.produced_artifacts.sort();
-        forest.produced_artifacts.dedup();
+        attach_forest_execution(forest, state, &resolved.spec.output.bundle_root,
+            &outputs, &artifacts, &steps);
     }
     Ok(RunManifest {
         schema_version: RUN_MANIFEST_SCHEMA_V1.to_string(),
@@ -2048,6 +2043,11 @@ fn artifact_evidence(
             targets.into_iter().map(Some).collect()
         };
         for target in target_instances {
+            // Record IDs commit bytes, format and lineage, but not metadata.
+            // Equal-byte renditions must retain their own native evidence instead
+            // of borrowing the deduplicated storage representative's metadata.
+            let artifact = target.and_then(|target| target_artifacts.get(&target.identity()))
+                .unwrap_or(artifact);
             let producing_step = if let Some(target) = target {
                 target_steps.get(&target.identity()).and_then(|step_id|
                     report.steps.iter().find(|step| &step.step_id == step_id))
@@ -2088,7 +2088,7 @@ fn artifact_evidence(
             item.validation_evidence = outcome
                 .map(|outcome| outcome.validators.clone())
                 .unwrap_or_default();
-            item.hygiene = hygiene_evidence.get(artifact.id().as_str()).cloned();
+            item.hygiene = target.and_then(|target| hygiene_evidence.get(&target.identity())).cloned();
             if let Some(target) = target {
                 item.metadata.insert(
                     "renderflow.target.identity".to_string(),
@@ -2102,6 +2102,14 @@ fn artifact_evidence(
                     "renderflow.target.options".to_string(),
                     serde_json::json!(target.options),
                 );
+                // A retained canonical artifact can already have a bundle locator
+                // even when this target's separate destination was not published.
+                item.metadata.insert("renderflow.target.published".to_owned(),
+                    serde_json::json!(output_locators.contains_key(&target.identity())));
+                if let Some(step) = producing_step {
+                    item.metadata.insert("renderflow.target.producing_step_id".to_owned(),
+                        serde_json::json!(step.step_id));
+                }
             }
             if let Some(step) = producing_step {
                 item.warnings = diagnostics

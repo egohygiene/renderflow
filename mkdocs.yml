@@ -74,6 +74,8 @@ nav:
       - Tool Registry: user-guide/tool-registry.md
       - Creative Toolchain: user-guide/creative-toolchain.md
       - Creative Toolchain Setup: user-guide/creative-toolchain-setup.md
+      - Creative Capability Matrix: user-guide/creative-capabilities.md
+      - Creative Forest Fixture: user-guide/creative-forest.md
       - Adapter Ecosystem: user-guide/adapter-ecosystem.md
       - EPUB and KEPUB Derivatives: user-guide/ebook-derivatives.md
       - Fixed-layout EPUB: user-guide/fixed-layout-epub.md
@@ -133,6 +135,8 @@ nav:
           - Graph Engine: architecture/graph-engine.md
           - DAG Execution: architecture/dag-execution.md
           - Execution Evidence: execution-evidence.md
+          - Derivative Forest: architecture/derivative-forest.md
+          - Flow Artifact Forest Handoff: architecture/flow-artifact-forest.md
           - Resumable Provider Contract: provider-contract.md
           - Artifact Validation: user-guide/artifact-validation.md
           - Golden Conformance Corpus: conformance-corpus.md

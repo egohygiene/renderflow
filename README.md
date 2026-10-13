@@ -36,6 +36,13 @@ to select and pin only the providers you need. The
 [qualification record](docs/work/429/QUALIFICATION.md) separates configuration
 requirements from evidence still deferred to the later test session.
 
+The [multi-family forest fixture](docs/user-guide/creative-forest.md) provides
+one launcher for isolated screenplay, recovery and caption jobs, with optional
+explicit native policies. Its [generated capability matrix](docs/user-guide/creative-capabilities.md)
+and [Flow handoff](docs/architecture/flow-artifact-forest.md) distinguish planned
+targets, actual publications, review requirements and remaining unsupported
+directions. The fixture and integration contract remain unqualified.
+
 ---
 
 ## What is Renderflow?

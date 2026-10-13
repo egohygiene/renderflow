@@ -1,7 +1,8 @@
 //! Target identities and branch-local route selection for canonical planning.
 use super::*;
 use crate::graph::{DerivativePathConstraints, DerivativePathPolicy, SelectedDerivativePath, TransformPath};
-use crate::graph::execution_plan::{ForestRouteEvidence, PlanEdge};
+use crate::graph::execution_plan::{ForestExecutionEvidence, ForestRouteEvidence,
+    ForestTargetExecution, ForestTargetOutcome, PlanEdge, FOREST_EXECUTION_SCHEMA_V1};
 
 pub(super) struct PlannedForest {
     pub routes: Vec<(ResolvedTarget, SelectedDerivativePath)>,
@@ -178,7 +179,7 @@ pub(super) fn plan_forest_routes(
             profiles: spec.targets.profiles.iter().map(|name| format!("{}@{}", name,
                 spec.profiles.get(name).map(|profile| profile.schema.as_str()).unwrap_or("unknown"))).collect(),
             intermediates: match spec.targets.intermediates { IntermediatePolicy::CacheOnly => "cache_only", IntermediatePolicy::Retain => "retain" }.to_owned(),
-            branches, produced_artifacts: Vec::new(),
+            branches, produced_artifacts: Vec::new(), execution: None,
         },
     })
 }
@@ -217,4 +218,86 @@ pub(super) fn finalize_forest_identity(plan: &mut ExecutionPlan, spec: &SpecV2) 
     let digest = sha256_serialized(&serde_json::json!({ "schema": "renderflow/forest-identity-v1", "spec": spec, "plan": &*plan }))?;
     if let Some(forest) = plan.artifact_forest.as_mut() { forest.identity = format!("sha256:{}", digest.value); }
     Ok(())
+}
+
+/// Join planned target membership to observed manifest records. Publication is
+/// established by the successful materialization locator and output list; a
+/// selected route, cached candidate, or successful transform alone is insufficient.
+/// NotPublished makes no claim about why publication did not occur: run state,
+/// validation evidence and diagnostics retain their independent meanings.
+pub(super) fn attach_forest_execution(
+    forest: &mut ArtifactForest,
+    state: RunState,
+    output_root: &str,
+    outputs: &[String],
+    artifacts: &[ArtifactEvidence],
+    steps: &[StepEvidence],
+) {
+    let published_locators = outputs.iter().map(|output|
+        bundle_locator(Path::new(output_root), Path::new(output))).collect::<HashSet<_>>();
+    let mut produced = BTreeSet::new();
+    let targets = forest.branches.iter().map(|branch| {
+        let selected = branch.state == ForestBranchState::Selected;
+        let planned_source_identity = branch.route.as_ref()
+            .is_some_and(|route| route.source_identity && route.steps.is_empty());
+        let observed = (selected && state != RunState::Planned).then(|| artifacts.iter()
+            .enumerate().find(|(_, artifact)| artifact.lifecycle == ArtifactRole::Terminal
+                && artifact.metadata.get("renderflow.target.identity")
+                    .and_then(serde_json::Value::as_str) == Some(branch.target_id.as_str())))
+            .flatten();
+        // A zero-edge target can still become a derivative through publication
+        // hygiene. Observed record identity and digest, not route intent, decide
+        // whether a candidate remains the original source. Without a candidate,
+        // this flag describes planning intent only and implies no actual export.
+        let source_identity = observed.map(|(_, artifact)| artifacts.iter().any(|source|
+            source.lifecycle == ArtifactRole::Source && source.artifact_id == artifact.artifact_id
+                && source.digest == artifact.digest)).unwrap_or(planned_source_identity);
+        let published = observed.is_some_and(|(_, artifact)| artifact.metadata
+            .get("renderflow.target.published").and_then(serde_json::Value::as_bool) == Some(true)
+            && artifact.locator.starts_with("bundle:")
+            && published_locators.contains(&artifact.locator));
+        let outcome = if !selected { ForestTargetOutcome::NotSelected }
+            else if state == RunState::Planned { ForestTargetOutcome::Planned }
+            else if published { ForestTargetOutcome::Published }
+            else { ForestTargetOutcome::NotPublished };
+        if published && !source_identity {
+            if let Some((_, artifact)) = observed { produced.insert(artifact.artifact_id.clone()); }
+        }
+        let producing_step_id = observed.and_then(|(_, artifact)| artifact.metadata
+            .get("renderflow.target.producing_step_id").and_then(serde_json::Value::as_str)
+            .filter(|id| steps.iter().any(|step| step.step_id == *id
+                && step.output_artifacts.contains(&artifact.artifact_id))).map(str::to_owned));
+        ForestTargetExecution {
+            target_id: branch.target_id.clone(), outcome, source_identity,
+            artifact_evidence_index: observed.map(|(index, _)| index),
+            artifact_id: observed.map(|(_, artifact)| artifact.artifact_id.clone()),
+            locator: observed.filter(|_| published).map(|(_, artifact)| artifact.locator.clone()),
+            producing_step_id,
+        }
+    }).collect();
+    forest.produced_artifacts = produced.into_iter().collect();
+    forest.execution = Some(ForestExecutionEvidence {
+        schema: FOREST_EXECUTION_SCHEMA_V1.to_owned(), targets,
+    });
+}
+
+/// Hygiene observes record metadata and media type as well as payload bytes.
+/// ArtifactId alone does not commit to those fields, so reuse is scoped to the
+/// complete candidate record within this run's single effective hygiene policy.
+pub(super) fn hygiene_candidate_key(candidate: &Artifact) -> Result<String> {
+    Ok(sha256_serialized(candidate)?.value)
+}
+
+/// Metadata-sensitive hygiene decisions belong to a target, even when different
+/// decisions produce the same payload/format/lineage artifact ID.
+pub(super) fn record_target_hygiene(
+    identity: &str,
+    outcome: &HygieneOutcome,
+    evidence: &mut HashMap<String, HygieneEvidence>,
+    blocked: &mut HashSet<String>,
+) -> bool {
+    evidence.insert(identity.to_owned(), outcome.evidence.clone());
+    let failed = !outcome.releasable();
+    if failed { blocked.insert(identity.to_owned()); }
+    failed
 }

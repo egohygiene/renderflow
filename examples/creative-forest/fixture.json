@@ -1,0 +1,379 @@
+{
+  "schema": "renderflow.creative-fixture/v1",
+  "fixture_id": "creative-forest-430",
+  "qualification": "authored_unqualified",
+  "license": "MIT",
+  "identity_expectations": "Authored target-identity-v1 declaration hashes; not receipts from generated plans. Exact targets have explicit roles; generated all_reachable roles equal canonical formats; no selectors.",
+  "gaps": [
+    "Original Fountain to FDX/FadeIn/OSF/canonical screenplay JSON is not a supported graph conversion.",
+    "Original Fountain to PDF is a separate pinned job; recovery and native import outputs are not automatically chained into it.",
+    "Speech, embedded subtitles, and screenplay native policies are isolated jobs, not a single cross-family native DAG.",
+    "Plain transcript text and Fountain analysis use standalone commands; there is no public standalone dry-run plan.",
+    "Native tools, platform compatibility, OCR/ASR accuracy, and fixtures remain unqualified until manually exercised.",
+    "Speech and embedded-subtitle positive jobs require operator-supplied recordings/media; redistributed silence is a negative fixture only."
+  ],
+  "jobs": [
+    {
+      "id": "recovery-text",
+      "kind": "build",
+      "spec": "specs/recovery-text.json",
+      "expected_targets": [
+        {
+          "declared_id": "target.screenplay_json",
+          "format": "screenplay_json",
+          "target_id": "target-74cc6ebd2da0217637eda3fe774494e11d62673bf7a86ff8cf1cc2466413371d"
+        },
+        {
+          "declared_id": "target.fountain",
+          "format": "fountain",
+          "target_id": "target-27b99d4f38b8e4aef5fb0f59c27425b2996b55e4576a7418f7ddf819c277f963"
+        },
+        {
+          "declared_id": "target.fdx",
+          "format": "fdx",
+          "target_id": "target-38afd0269648bd876ab597f2aa0b480d6f59dcd2842e9b98daa9da795e7d4a93"
+        },
+        {
+          "declared_id": "target.fadein",
+          "format": "fadein",
+          "target_id": "target-a08f10642c72a9928bff3db9e81b4da646628083b67894308cd6a40d4510b8e1"
+        },
+        {
+          "declared_id": "target.osf",
+          "format": "osf",
+          "target_id": "target-1d7c7ea2e18b744907fb0717d3d08b5caebd28791f8522ac81df73a4ff1cf6a8"
+        }
+      ],
+      "source": "sources/unstructured-scene.txt",
+      "expected": "review_required"
+    },
+    {
+      "id": "timed-text",
+      "kind": "build",
+      "spec": "specs/timed-text.json",
+      "expected_targets": [
+        {
+          "declared_id": "target.timed_transcript_json",
+          "format": "timed_transcript_json",
+          "target_id": "target-856ce3ebb7874cf27b98f16c9704347ce0145e180b3c4b83b078509ac3c4232a"
+        },
+        {
+          "declared_id": "target.vtt",
+          "format": "vtt",
+          "target_id": "target-df9fb8e184b71853ab93adb1bf6507bb3563d68b614923be85ec688cd4485da6"
+        }
+      ],
+      "source": "sources/captions.srt"
+    },
+    {
+      "id": "fountain-analysis",
+      "kind": "analysis",
+      "source": "sources/original.fountain",
+      "expected": "success"
+    },
+    {
+      "id": "transcript-text",
+      "kind": "transcript_text",
+      "source": "sources/captions.srt",
+      "expected": "success"
+    },
+    {
+      "id": "screenplay-pdf",
+      "kind": "build",
+      "spec": "specs/screenplay-pdf.json",
+      "expected_targets": [
+        {
+          "declared_id": "target.pdf",
+          "format": "pdf",
+          "target_id": "target-d51d66d4ab2e38bcfb9635b6ff40f653af9ec02600a650e11813f56e166bf743"
+        }
+      ],
+      "source": "sources/original.fountain",
+      "native": true,
+      "policy_field": "screenplay_pdf"
+    },
+    {
+      "id": "native-import",
+      "kind": "build",
+      "spec": "specs/native-import.json",
+      "expected_targets": [
+        {
+          "declared_id": "target.fountain",
+          "format": "fountain",
+          "target_id": "target-27b99d4f38b8e4aef5fb0f59c27425b2996b55e4576a7418f7ddf819c277f963"
+        }
+      ],
+      "source": "sources/original.fdx",
+      "native": true,
+      "policy_field": "screenplay"
+    },
+    {
+      "id": "pdf-recovery",
+      "kind": "build",
+      "spec": "specs/pdf-recovery.json",
+      "expected_targets": [
+        {
+          "declared_id": "target.screenplay_json",
+          "format": "screenplay_json",
+          "target_id": "target-74cc6ebd2da0217637eda3fe774494e11d62673bf7a86ff8cf1cc2466413371d"
+        },
+        {
+          "declared_id": "target.fountain",
+          "format": "fountain",
+          "target_id": "target-27b99d4f38b8e4aef5fb0f59c27425b2996b55e4576a7418f7ddf819c277f963"
+        },
+        {
+          "declared_id": "target.fdx",
+          "format": "fdx",
+          "target_id": "target-38afd0269648bd876ab597f2aa0b480d6f59dcd2842e9b98daa9da795e7d4a93"
+        },
+        {
+          "declared_id": "target.fadein",
+          "format": "fadein",
+          "target_id": "target-a08f10642c72a9928bff3db9e81b4da646628083b67894308cd6a40d4510b8e1"
+        },
+        {
+          "declared_id": "target.osf",
+          "format": "osf",
+          "target_id": "target-1d7c7ea2e18b744907fb0717d3d08b5caebd28791f8522ac81df73a4ff1cf6a8"
+        }
+      ],
+      "source": "sources/text-bearing.pdf",
+      "native": true,
+      "policy_field": "screenplay_recovery",
+      "expected": "review_required"
+    },
+    {
+      "id": "pdf-ocr",
+      "kind": "build",
+      "spec": "specs/pdf-ocr.json",
+      "expected_targets": [
+        {
+          "declared_id": "target.screenplay_json",
+          "format": "screenplay_json",
+          "target_id": "target-74cc6ebd2da0217637eda3fe774494e11d62673bf7a86ff8cf1cc2466413371d"
+        },
+        {
+          "declared_id": "target.fountain",
+          "format": "fountain",
+          "target_id": "target-27b99d4f38b8e4aef5fb0f59c27425b2996b55e4576a7418f7ddf819c277f963"
+        },
+        {
+          "declared_id": "target.fdx",
+          "format": "fdx",
+          "target_id": "target-38afd0269648bd876ab597f2aa0b480d6f59dcd2842e9b98daa9da795e7d4a93"
+        },
+        {
+          "declared_id": "target.fadein",
+          "format": "fadein",
+          "target_id": "target-a08f10642c72a9928bff3db9e81b4da646628083b67894308cd6a40d4510b8e1"
+        },
+        {
+          "declared_id": "target.osf",
+          "format": "osf",
+          "target_id": "target-1d7c7ea2e18b744907fb0717d3d08b5caebd28791f8522ac81df73a4ff1cf6a8"
+        }
+      ],
+      "source": "sources/image-only.pdf",
+      "native": true,
+      "policy_field": "screenplay_recovery",
+      "expected": "review_required",
+      "requires_ocr": true
+    },
+    {
+      "id": "speech",
+      "kind": "build",
+      "spec": "specs/speech.json",
+      "expected_targets": [
+        {
+          "declared_id": "target.timed_transcript_json",
+          "format": "timed_transcript_json",
+          "target_id": "target-856ce3ebb7874cf27b98f16c9704347ce0145e180b3c4b83b078509ac3c4232a"
+        },
+        {
+          "declared_id": "target.srt",
+          "format": "srt",
+          "target_id": "target-21537cab2f613617b843ca81463b35b16fcc603196f7a1c690657c4e664c4228"
+        },
+        {
+          "declared_id": "target.vtt",
+          "format": "vtt",
+          "target_id": "target-df9fb8e184b71853ab93adb1bf6507bb3563d68b614923be85ec688cd4485da6"
+        }
+      ],
+      "native": true,
+      "policy_field": "speech"
+    },
+    {
+      "id": "embedded-subtitles",
+      "kind": "build",
+      "spec": "specs/embedded-subtitles.json",
+      "expected_targets": [
+        {
+          "declared_id": "target.timed_transcript_json",
+          "format": "timed_transcript_json",
+          "target_id": "target-856ce3ebb7874cf27b98f16c9704347ce0145e180b3c4b83b078509ac3c4232a"
+        },
+        {
+          "declared_id": "target.srt",
+          "format": "srt",
+          "target_id": "target-21537cab2f613617b843ca81463b35b16fcc603196f7a1c690657c4e664c4228"
+        },
+        {
+          "declared_id": "target.vtt",
+          "format": "vtt",
+          "target_id": "target-df9fb8e184b71853ab93adb1bf6507bb3563d68b614923be85ec688cd4485da6"
+        }
+      ],
+      "native": true,
+      "policy_field": "subtitles"
+    },
+    {
+      "id": "malformed-recovery",
+      "kind": "build",
+      "spec": "specs/malformed-recovery.json",
+      "expected_targets": [
+        {
+          "declared_id": "target.screenplay_json",
+          "format": "screenplay_json",
+          "target_id": "target-74cc6ebd2da0217637eda3fe774494e11d62673bf7a86ff8cf1cc2466413371d"
+        }
+      ],
+      "source": "negative/arbitrary-prose.txt",
+      "negative": true,
+      "expected": "refusal",
+      "failure_marker": "screenplay.recovery.not_screenplay"
+    },
+    {
+      "id": "ambiguous-recovery",
+      "required_ambiguity_reason": "ambiguous_uppercase_text_retained",
+      "kind": "build",
+      "spec": "specs/ambiguous-recovery.json",
+      "expected_targets": [
+        {
+          "declared_id": "target.screenplay_json",
+          "format": "screenplay_json",
+          "target_id": "target-74cc6ebd2da0217637eda3fe774494e11d62673bf7a86ff8cf1cc2466413371d"
+        },
+        {
+          "declared_id": "target.fountain",
+          "format": "fountain",
+          "target_id": "target-27b99d4f38b8e4aef5fb0f59c27425b2996b55e4576a7418f7ddf819c277f963"
+        },
+        {
+          "declared_id": "target.fdx",
+          "format": "fdx",
+          "target_id": "target-38afd0269648bd876ab597f2aa0b480d6f59dcd2842e9b98daa9da795e7d4a93"
+        },
+        {
+          "declared_id": "target.fadein",
+          "format": "fadein",
+          "target_id": "target-a08f10642c72a9928bff3db9e81b4da646628083b67894308cd6a40d4510b8e1"
+        },
+        {
+          "declared_id": "target.osf",
+          "format": "osf",
+          "target_id": "target-1d7c7ea2e18b744907fb0717d3d08b5caebd28791f8522ac81df73a4ff1cf6a8"
+        }
+      ],
+      "source": "negative/ambiguous-scene.txt",
+      "negative": true,
+      "expected": "review_required"
+    },
+    {
+      "id": "duplicate-targets",
+      "kind": "build",
+      "spec": "specs/duplicate-targets.json",
+      "expected_targets": [
+        {
+          "declared_id": "target.timed_transcript_json",
+          "format": "timed_transcript_json",
+          "target_id": "target-856ce3ebb7874cf27b98f16c9704347ce0145e180b3c4b83b078509ac3c4232a"
+        }
+      ],
+      "source": "sources/captions.srt",
+      "negative": true
+    },
+    {
+      "id": "cycle-suppression",
+      "kind": "build",
+      "spec": "specs/cycle-suppression.json",
+      "expected_targets": [
+        {
+          "declared_id": null,
+          "format": "timed_transcript_json",
+          "target_id": "target-9a54d54b488576cf6a04e6f3ca9e0d13db43ada78c13449a047b3aaaf1acdef2"
+        },
+        {
+          "declared_id": null,
+          "format": "vtt",
+          "target_id": "target-471012bdbd8216c7a1618723c9b53f39895cf03e16928e78a4560721e7a42cf7"
+        }
+      ],
+      "source": "sources/captions.srt",
+      "negative": true,
+      "forbid_source_identity": true
+    },
+    {
+      "id": "missing-provider",
+      "kind": "build",
+      "spec": "specs/missing-provider.json",
+      "expected_targets": [],
+      "source": "sources/captions.srt",
+      "negative": true,
+      "expected": "refusal",
+      "failure_marker": "forest.required_targets_blocked",
+      "refusal_modes": [
+        "execute"
+      ],
+      "expected_blocked_targets": [
+        {
+          "declared_id": "target.timed_transcript_json",
+          "format": "timed_transcript_json",
+          "target_id": "target-856ce3ebb7874cf27b98f16c9704347ce0145e180b3c4b83b078509ac3c4232a"
+        }
+      ]
+    },
+    {
+      "id": "pdf-malformed",
+      "kind": "build",
+      "spec": "specs/pdf-malformed.json",
+      "expected_targets": [
+        {
+          "declared_id": "target.screenplay_json",
+          "format": "screenplay_json",
+          "target_id": "target-74cc6ebd2da0217637eda3fe774494e11d62673bf7a86ff8cf1cc2466413371d"
+        }
+      ],
+      "source": "negative/malformed.pdf",
+      "native": true,
+      "policy_field": "screenplay_recovery",
+      "configuration": "pdf-recovery",
+      "negative": true,
+      "fixed_source": true,
+      "expected": "refusal",
+      "failure_marker": "screenplay_recovery.malformed_pdf"
+    },
+    {
+      "id": "transcription-unavailable",
+      "kind": "build",
+      "spec": "specs/transcription-unavailable.json",
+      "expected_targets": [
+        {
+          "declared_id": "target.timed_transcript_json",
+          "format": "timed_transcript_json",
+          "target_id": "target-856ce3ebb7874cf27b98f16c9704347ce0145e180b3c4b83b078509ac3c4232a"
+        }
+      ],
+      "source": "negative/silence.wav",
+      "native": true,
+      "policy_field": "speech",
+      "configuration": "speech",
+      "negative": true,
+      "fixed_source": true,
+      "missing_speech_provider": true,
+      "expected": "refusal",
+      "failure_marker": "cannot open provider as a local regular file"
+    }
+  ]
+}

@@ -271,8 +271,129 @@
         ]
       }
     },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Observed target publication in one run. Route selection remains separate. Artifact evidence indices reference this run's artifact_manifest.artifacts, retaining native digest, lineage, provider, fidelity, validation, and review metadata. Not-published outcomes do not infer failure reasons.",
+      "required": [
+        "schema",
+        "targets"
+      ],
+      "properties": {
+        "schema": {
+          "const": "renderflow/forest-execution-v1"
+        },
+        "targets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "target_id",
+              "outcome",
+              "source_identity"
+            ],
+            "properties": {
+              "target_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "outcome": {
+                "enum": [
+                  "not_selected",
+                  "planned",
+                  "published",
+                  "not_published"
+                ]
+              },
+              "source_identity": {
+                "type": "boolean",
+                "description": "With artifact evidence, true only when the observed record ID and digest match source evidence in the same run. Without a candidate, describes zero-edge planning intent only. Hygiene derivatives are not original-source exports."
+              },
+              "artifact_evidence_index": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "artifact_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "locator": {
+                "type": "string",
+                "pattern": "^bundle:.+"
+              },
+              "producing_step_id": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "dependentRequired": {
+              "artifact_evidence_index": [
+                "artifact_id"
+              ],
+              "artifact_id": [
+                "artifact_evidence_index"
+              ],
+              "producing_step_id": [
+                "artifact_evidence_index"
+              ]
+            },
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "outcome": {
+                      "const": "published"
+                    }
+                  },
+                  "required": [
+                    "outcome"
+                  ]
+                },
+                "then": {
+                  "required": [
+                    "artifact_evidence_index",
+                    "artifact_id",
+                    "locator"
+                  ]
+                },
+                "else": {
+                  "properties": {
+                    "locator": false
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "outcome": {
+                      "enum": [
+                        "not_selected",
+                        "planned"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "outcome"
+                  ]
+                },
+                "then": {
+                  "properties": {
+                    "artifact_evidence_index": false,
+                    "artifact_id": false,
+                    "locator": false,
+                    "producing_step_id": false
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
     "produced_artifacts": {
       "type": "array",
+      "description": "Unique published terminal derivative IDs only. Excludes source identity exports, retained intermediates and unpublished candidates. Execution target rows preserve separate destinations even when IDs are shared.",
       "items": {
         "type": "string",
         "minLength": 1

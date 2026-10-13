@@ -1,0 +1,49 @@
+{
+  "schema": "renderflow/v2",
+  "sources": [
+    {
+      "id": "source.fixture",
+      "path": "REPLACED_BY_RUNNER",
+      "format": "pdf"
+    }
+  ],
+  "targets": {
+    "exact": [
+      {
+        "id": "target.screenplay_json",
+        "role": "screenplay_json",
+        "format": "screenplay_json"
+      },
+      {
+        "id": "target.fountain",
+        "role": "fountain",
+        "format": "fountain"
+      },
+      {
+        "id": "target.fdx",
+        "role": "fdx",
+        "format": "fdx"
+      },
+      {
+        "id": "target.fadein",
+        "role": "fadein",
+        "format": "fadein"
+      },
+      {
+        "id": "target.osf",
+        "role": "osf",
+        "format": "osf"
+      }
+    ]
+  },
+  "execution": {
+    "network": "deny",
+    "ai": "deny",
+    "max_parallel": 1
+  },
+  "output": {
+    "bundle_root": "REPLACED_BY_RUNNER",
+    "naming_template": "{source.id}/{target.id}.{ext}",
+    "collision": "error"
+  }
+}

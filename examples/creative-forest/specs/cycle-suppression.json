@@ -1,0 +1,24 @@
+{
+  "schema": "renderflow/v2",
+  "sources": [
+    {
+      "id": "source.fixture",
+      "path": "REPLACED_BY_RUNNER",
+      "format": "srt"
+    }
+  ],
+  "targets": {
+    "all_reachable": true
+  },
+  "execution": {
+    "network": "deny",
+    "ai": "deny",
+    "max_parallel": 1,
+    "subtitles": {}
+  },
+  "output": {
+    "bundle_root": "REPLACED_BY_RUNNER",
+    "naming_template": "{source.id}/{target.id}.{ext}",
+    "collision": "error"
+  }
+}

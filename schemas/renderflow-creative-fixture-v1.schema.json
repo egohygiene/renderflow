@@ -1,0 +1,516 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-creative-fixture-v1.schema.json",
+  "title": "Renderflow creative fixture request and result v1",
+  "description": "Authored suite declarations and observed CLI evidence envelopes. This schema does not attest provider qualification or validate native manifests. File refs use suite-relative paths for retained evidence and absolute paths for external source/binary records.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/request"
+    },
+    {
+      "$ref": "#/$defs/result"
+    }
+  ],
+  "$defs": {
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "path",
+        "sha256",
+        "size_bytes"
+      ]
+    },
+    "job": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$"
+        },
+        "kind": {
+          "enum": [
+            "build",
+            "analysis",
+            "transcript_text"
+          ]
+        },
+        "source": {
+          "type": "string"
+        },
+        "spec": {
+          "type": "string"
+        },
+        "native": {
+          "type": "boolean"
+        },
+        "configuration": {
+          "type": "string"
+        },
+        "policy_field": {
+          "enum": [
+            "screenplay_pdf",
+            "screenplay",
+            "screenplay_recovery",
+            "speech",
+            "subtitles"
+          ]
+        },
+        "expected": {
+          "enum": [
+            "success",
+            "review_required",
+            "refusal"
+          ]
+        },
+        "expected_targets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "declared_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "format": {
+                "type": "string"
+              },
+              "target_id": {
+                "type": "string",
+                "pattern": "^target-[a-f0-9]{64}$"
+              }
+            },
+            "required": [
+              "declared_id",
+              "format",
+              "target_id"
+            ]
+          }
+        },
+        "negative": {
+          "type": "boolean"
+        },
+        "failure_marker": {
+          "type": "string"
+        },
+        "refusal_modes": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "plan",
+              "execute"
+            ]
+          }
+        },
+        "fixed_source": {
+          "type": "boolean"
+        },
+        "missing_speech_provider": {
+          "type": "boolean"
+        },
+        "forbid_source_identity": {
+          "type": "boolean"
+        },
+        "requires_ocr": {
+          "type": "boolean"
+        },
+        "required_ambiguity_reason": {
+          "type": "string"
+        },
+        "expected_blocked_targets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "declared_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "format": {
+                "type": "string"
+              },
+              "target_id": {
+                "type": "string",
+                "pattern": "^target-[a-f0-9]{64}$"
+              }
+            },
+            "required": [
+              "declared_id",
+              "format",
+              "target_id"
+            ]
+          }
+        }
+      },
+      "required": [
+        "id",
+        "kind"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "build"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "spec",
+              "expected_targets"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "expected": {
+                "const": "refusal"
+              }
+            },
+            "required": [
+              "expected"
+            ]
+          },
+          "then": {
+            "required": [
+              "failure_marker"
+            ]
+          }
+        }
+      ]
+    },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schema": {
+          "const": "renderflow.creative-fixture/v1"
+        },
+        "fixture_id": {
+          "type": "string"
+        },
+        "qualification": {
+          "const": "authored_unqualified"
+        },
+        "license": {
+          "const": "MIT"
+        },
+        "identity_expectations": {
+          "type": "string"
+        },
+        "gaps": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "jobs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/job"
+          }
+        }
+      },
+      "required": [
+        "schema",
+        "fixture_id",
+        "qualification",
+        "license",
+        "identity_expectations",
+        "gaps",
+        "jobs"
+      ]
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "request",
+            "stdout",
+            "stderr",
+            "run",
+            "plan",
+            "standalone_payload",
+            "standalone_report"
+          ]
+        },
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "kind",
+        "path",
+        "sha256",
+        "size_bytes"
+      ]
+    },
+    "published": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "target_id": {
+          "type": "string"
+        },
+        "artifact_id": {
+          "type": "string"
+        },
+        "artifact_evidence_index": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "source_identity": {
+          "type": "boolean"
+        },
+        "format": {
+          "type": "string"
+        },
+        "file": {
+          "$ref": "#/$defs/file"
+        }
+      },
+      "required": [
+        "target_id",
+        "artifact_id",
+        "artifact_evidence_index",
+        "source_identity",
+        "format",
+        "file"
+      ]
+    },
+    "process": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "argv": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "exit_code": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "termination": {
+          "enum": [
+            "spawn_failed",
+            "exited",
+            "capture_limit",
+            "timeout",
+            "capture_incomplete"
+          ]
+        },
+        "diagnostic": {
+          "type": "string"
+        },
+        "capture_errors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "captures_closed": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "argv",
+        "exit_code",
+        "termination",
+        "captures_closed"
+      ]
+    },
+    "jobResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "failed",
+            "skipped_unconfigured",
+            "not_run",
+            "expected_refusal",
+            "planned",
+            "completed"
+          ]
+        },
+        "expected": {
+          "enum": [
+            "success",
+            "review_required",
+            "refusal"
+          ]
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidence"
+          }
+        },
+        "published_artifacts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/published"
+          }
+        },
+        "reason": {
+          "type": "string"
+        },
+        "diagnostic": {
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/file"
+        },
+        "source_unchanged": {
+          "type": "boolean"
+        },
+        "native_run_state": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "process": {
+          "$ref": "#/$defs/process"
+        }
+      },
+      "required": [
+        "id",
+        "status",
+        "expected",
+        "evidence",
+        "published_artifacts"
+      ]
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schema": {
+          "const": "renderflow.creative-fixture-result/v1"
+        },
+        "mode": {
+          "enum": [
+            "plan",
+            "execute"
+          ]
+        },
+        "state": {
+          "enum": [
+            "running",
+            "planned",
+            "complete",
+            "partial",
+            "failed",
+            "cancelled"
+          ]
+        },
+        "qualification": {
+          "const": "unqualified"
+        },
+        "coverage_complete": {
+          "const": false
+        },
+        "request": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "schema": {
+              "const": "renderflow.creative-fixture/v1"
+            },
+            "path": {
+              "type": "string"
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "size_bytes": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "schema",
+            "path",
+            "sha256",
+            "size_bytes"
+          ]
+        },
+        "runner_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "binary": {
+          "$ref": "#/$defs/file"
+        },
+        "gaps": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "jobs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/jobResult"
+          }
+        },
+        "diagnostic": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "mode",
+        "state",
+        "qualification",
+        "coverage_complete",
+        "request",
+        "runner_sha256",
+        "binary",
+        "gaps",
+        "jobs"
+      ]
+    }
+  }
+}

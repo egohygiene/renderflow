@@ -3,7 +3,7 @@ schema: aether.architecture-document/v1
 id: renderflow-roadmap
 title: Renderflow Roadmap
 kind: architecture-document
-version: 0.1.7
+version: 0.1.8
 status: draft
 owners:
   - egohygiene
@@ -26,7 +26,37 @@ supersedes: []
 
 # Renderflow Roadmap
 
-## 2026-10-13 creative toolchain reconciliation checkpoint
+## 2026-10-13 multi-family forest and Flow handoff checkpoint
+
+[#429](https://github.com/egohygiene/renderflow/issues/429) reconciliation
+merged in [PR #447](https://github.com/egohygiene/renderflow/pull/447) at
+`1853824691041491bc6284c9e67c59c6ecda7a48`. The current
+[#430](https://github.com/egohygiene/renderflow/issues/430) checkpoint authors
+per-target publication evidence, an isolated multi-family CLI fixture, a
+generated creative capability matrix shared with doctor, and the
+[Flow consumption contract](docs/architecture/flow-artifact-forest.md).
+
+The forest now distinguishes selected intent from actual target publications;
+sources, intermediates and rejected candidates cannot count as produced
+derivatives. Native evidence retains hashes, exact producers, losses and review
+requirements. The [fixture guide](docs/user-guide/creative-forest.md) groups
+separate source-family jobs without pretending that incompatible policies form
+one native graph.
+
+This is authored integration, not an executed proof. Tests, builds, lint,
+schema validation, native execution and CI remain deferred. General
+Fountain-to-native/canonical exports and graph plain-transcript text output
+remain unsupported; #430's broader scenario must retain these gaps until
+implemented or explicitly narrowed. #430 and #421 remain open for that scope
+reconciliation, native fixture/CLI-SDK evidence and verified release consumption.
+The [handoff](docs/work/430/HANDOFF.md) records the remaining work.
+
+After this integration checkpoint, #406 is the next planned implementation lane
+for layered/localized composition. #412/#413 fixture expansion, #429 exact
+toolchain qualification and #419 verified release remain aligned with the later
+deep test session. No new audit issues are created before actual findings.
+
+## 2026-10-13 creative toolchain reconciliation checkpoint (historical)
 
 [#422](https://github.com/egohygiene/renderflow/issues/422) merged in
 [PR #445](https://github.com/egohygiene/renderflow/pull/445), followed by
@@ -262,13 +292,13 @@ availability. Merging does not turn authored coverage into passing evidence.
 | #423 | Canonical screenplay model merged in #442 | Deferred acceptance/fixture qualification |
 | #424 | Three bounded native imports merged in #443 | Deferred direction/platform qualification |
 | #425 | Fountain PDF, analysis, and policy fix merged in #444 | Deferred runtime, two-run, and visual qualification |
-| #429 | Doctor in #441; recovery/schema/setup reconciliation authored | Exact fixture/release toolchains and platform qualification |
+| #429 | Doctor in #441; recovery/schema/setup reconciliation merged in #447 | Exact fixture/release toolchains and platform qualification |
 | #422 | Cycle-safe identities, route groups, and versioned forest evidence merged in #445 | Tests/build/native qualification deferred |
 | #426 | Review-required PDF/text recovery and bounded native body exports merged in #446 | Recovery, OCR, native-application, and platform qualification |
-| #430 | Cross-family/Flow proof outstanding | Next implementation lane after #429 reconciliation |
+| #430 | Per-target publication evidence, multi-family fixture and Flow handoff authored | Native integration proof, missing direction decisions, CLI/SDK and released-contract qualification |
 
-After the #429 reconciliation, the next implementation order is #430 → #406
-(layered/localized page composition). Keep #412/#413
+After the #430 implementation checkpoint, the next planned implementation lane
+is #406 (layered/localized page composition). Keep #412/#413
 fixture expansion and #419 verified release work aligned with the later deep
 testing session. Existing open qualification issues retain the evidence gaps;
 no new audit issues are created before that session.

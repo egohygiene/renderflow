@@ -1,0 +1,331 @@
+{
+  "schema_version": "renderflow.creative-route-catalog/v1",
+  "profile": "creative-publishing",
+  "runtime_qualified": false,
+  "scope": "Authored capability declarations shared with creative doctor, not local provider observations or proof that a configured execution will succeed. No conversion, inference, installation, or discovery is performed when generating this matrix.",
+  "routes": [
+    {
+      "id": "subtitle.convert.plain",
+      "implementation": "authored_unqualified",
+      "providers": [],
+      "required_configuration": [
+        "execution.subtitles",
+        "supported_plain_timed_text"
+      ],
+      "detail": "Built-in bounded SRT/WebVTT and canonical timed-transcript conversion needs no external executable. The opt-in graph/SDK route is authored; runtime qualification remains deferred."
+    },
+    {
+      "id": "speech.align",
+      "implementation": "authored_unqualified",
+      "providers": [],
+      "required_configuration": [
+        "pinned_saved_result_receipt",
+        "pinned_explicit_time_map"
+      ],
+      "detail": "The standalone offline alignment exporter needs no external executable. It verifies saved evidence and applies an explicit operator map; it does not infer or attest original-video synchronization."
+    },
+    {
+      "id": "screenplay.scripttool",
+      "implementation": "authored_unqualified",
+      "providers": [
+        "tool.scripttool"
+      ],
+      "required_configuration": [
+        "execution.screenplay",
+        "execution.screenplay.executable",
+        "execution.screenplay.executable_sha256",
+        "execution.screenplay.allow_unqualified",
+        "supported_body_only_native_import"
+      ],
+      "detail": "Bounded body-only FDX/OSF/Fade In imports to Fountain are authored. Execution requires an explicitly pinned scripttool 0.0.10, opt-in policy, and independent semantic comparison. Doctor's PATH observation does not select that executable or add graph edges; reverse exports and runtime qualification remain unavailable."
+    },
+    {
+      "id": "screenplay.pdf.afterwriting",
+      "implementation": "authored_unqualified",
+      "providers": [
+        "tool.node",
+        "tool.afterwriting"
+      ],
+      "required_configuration": [
+        "execution.screenplay_pdf",
+        "execution.screenplay_pdf.node_executable",
+        "execution.screenplay_pdf.node_sha256",
+        "execution.screenplay_pdf.expected_node_version",
+        "execution.screenplay_pdf.package_root",
+        "execution.screenplay_pdf.package_tree_sha256",
+        "execution.screenplay_pdf.expected_provider_version",
+        "execution.screenplay_pdf.profile",
+        "execution.screenplay_pdf.allow_unqualified",
+        "strict_ascii_fountain_body",
+        "screenplay.fonts"
+      ],
+      "detail": "Direct original strict ASCII Fountain to PDF is authored with fixed A4/US Letter profiles and independent analysis/PDF inspection. Node and Afterwriting remain unobserved by doctor: explicit pinned clear-environment preflight reads package identity without a fabricated provider version command. Chained native imports, runtime/visual fidelity, and reproducibility remain unqualified."
+    },
+    {
+      "id": "pdf.extract.text",
+      "implementation": "authored_unqualified",
+      "providers": [
+        "tool.pdftotext"
+      ],
+      "required_configuration": [
+        "execution.screenplay_recovery",
+        "execution.screenplay_recovery.pdftotext",
+        "execution.screenplay_recovery.allow_unqualified",
+        "bounded_local_pdf"
+      ],
+      "detail": "Bounded text-bearing PDF extraction for screenplay recovery is authored. Execution uses an explicit pinned provider and preserves page boundaries and extraction evidence; PATH discovery does not select that provider or qualify recovery."
+    },
+    {
+      "id": "ocr.extract.text",
+      "implementation": "authored_unqualified",
+      "providers": [
+        "tool.pdftotext",
+        "tool.pdftoppm",
+        "tool.tesseract"
+      ],
+      "required_configuration": [
+        "execution.screenplay_recovery.ocr",
+        "ocr.language_data"
+      ],
+      "detail": "Explicitly configured, bounded per-page PDF OCR fallback is authored for pages without usable embedded text. Pinned rasterizer, recognizer, and language data are required; discovery does not qualify OCR, and recovered structure still requires review."
+    },
+    {
+      "id": "screenplay.recover.structure",
+      "implementation": "authored_unqualified",
+      "providers": [
+        "tool.renderflow-screenplay-recovery"
+      ],
+      "required_configuration": [
+        "execution.screenplay_recovery",
+        "execution.screenplay_recovery.allow_unqualified",
+        "screenplay.recovery.review"
+      ],
+      "detail": "Deterministic heuristics recover a validated canonical screenplay from bounded PDF extraction or plain text. Per-element confidence and ambiguities record heuristic evidence rather than calibrated probabilities. Recovery is always lossy and review-required; AI reconstruction is unsupported and no execution setting approves the result."
+    },
+    {
+      "id": "screenplay.recovery.export",
+      "implementation": "authored_unqualified",
+      "providers": [
+        "tool.renderflow-screenplay-recovery"
+      ],
+      "required_configuration": [
+        "validated_recovery_candidate",
+        "screenplay.recovery.review"
+      ],
+      "detail": "Bounded canonical recovery candidates can produce supported body-only Fountain, FDX, Fade In, and OSF derivatives with recovery lineage and mandatory review retained. These authored writers do not claim original-document reconstruction or native runtime qualification."
+    },
+    {
+      "id": "subtitle.streams.inspect",
+      "implementation": "authored_unqualified",
+      "providers": [
+        "tool.ffprobe"
+      ],
+      "required_configuration": [
+        "supported_local_container"
+      ],
+      "detail": "Bounded subtitle inventory is authored; finding FFprobe does not qualify a particular container or codec."
+    },
+    {
+      "id": "subtitle.extract.plain",
+      "implementation": "authored_unqualified",
+      "providers": [
+        "tool.ffprobe",
+        "tool.ffmpeg"
+      ],
+      "required_configuration": [
+        "execution.subtitles",
+        "explicit_subtitle_stream",
+        "supported_plain_subtitle_codec"
+      ],
+      "detail": "The opt-in plain-subtitle graph route is authored and requires explicit stream selection; runtime qualification remains deferred."
+    },
+    {
+      "id": "speech.audio.inspect",
+      "implementation": "authored_unqualified",
+      "providers": [
+        "tool.ffprobe"
+      ],
+      "required_configuration": [
+        "pinned_ffprobe",
+        "source_sha256"
+      ],
+      "detail": "The standalone audio inventory is authored and uses explicitly pinned tools; PATH discovery does not select those tools."
+    },
+    {
+      "id": "speech.audio.prepare",
+      "implementation": "authored_unqualified",
+      "providers": [
+        "tool.ffprobe",
+        "tool.ffmpeg"
+      ],
+      "required_configuration": [
+        "pinned_ffprobe",
+        "pinned_ffmpeg",
+        "source_sha256",
+        "explicit_audio_stream"
+      ],
+      "detail": "Selected-stream preparation is authored with explicit pins and stream selection. Preparation alone does not establish original-video subtitle alignment."
+    },
+    {
+      "id": "speech.transcribe",
+      "implementation": "authored_unqualified",
+      "providers": [
+        "tool.whisper_cpp"
+      ],
+      "required_configuration": [
+        "pinned_speech_provider",
+        "speech.model.configuration",
+        "speech.model.license",
+        "strict_pcm_wav"
+      ],
+      "detail": "The local recognition adapter is authored but unqualified. A discovered executable is not a selected pinned provider/model or proof that inference can run."
+    }
+  ],
+  "documentation": {
+    "subtitle.convert.plain": {
+      "sources": [
+        "crates/renderflow-core/src/timed_text/codec.rs",
+        "crates/renderflow-core/src/timed_text/graph.rs"
+      ],
+      "guide": "docs/user-guide/subtitles.md"
+    },
+    "speech.align": {
+      "sources": [
+        "crates/renderflow-core/src/speech/alignment.rs"
+      ],
+      "guide": "docs/user-guide/speech.md#export-subtitles-using-an-explicit-original-media-time-map"
+    },
+    "screenplay.scripttool": {
+      "sources": [
+        "crates/renderflow-core/src/screenplay/provider.rs",
+        "crates/renderflow-core/src/screenplay/graph.rs"
+      ],
+      "guide": "docs/user-guide/scripttool.md"
+    },
+    "screenplay.pdf.afterwriting": {
+      "sources": [
+        "crates/renderflow-core/src/screenplay/afterwriting.rs",
+        "crates/renderflow-core/src/screenplay/afterwriting_graph.rs"
+      ],
+      "guide": "docs/user-guide/screenplay-pdf.md"
+    },
+    "pdf.extract.text": {
+      "sources": [
+        "crates/renderflow-core/src/screenplay/recovery/provider.rs"
+      ],
+      "guide": "docs/screenplay-recovery.md"
+    },
+    "ocr.extract.text": {
+      "sources": [
+        "crates/renderflow-core/src/screenplay/recovery/provider.rs"
+      ],
+      "guide": "docs/screenplay-recovery.md"
+    },
+    "screenplay.recover.structure": {
+      "sources": [
+        "crates/renderflow-core/src/screenplay/recovery/model.rs",
+        "crates/renderflow-core/src/screenplay/recovery/graph.rs"
+      ],
+      "guide": "docs/screenplay-recovery.md"
+    },
+    "screenplay.recovery.export": {
+      "sources": [
+        "crates/renderflow-core/src/screenplay/recovery/export.rs"
+      ],
+      "guide": "docs/screenplay-recovery.md"
+    },
+    "subtitle.streams.inspect": {
+      "sources": [
+        "crates/renderflow-core/src/timed_text/provider.rs"
+      ],
+      "guide": "docs/user-guide/subtitles.md#inspect-and-extract-existing-subtitle-streams"
+    },
+    "subtitle.extract.plain": {
+      "sources": [
+        "crates/renderflow-core/src/timed_text/provider.rs"
+      ],
+      "guide": "docs/user-guide/subtitles.md#inspect-and-extract-existing-subtitle-streams"
+    },
+    "speech.audio.inspect": {
+      "sources": [
+        "crates/renderflow-core/src/speech/audio.rs"
+      ],
+      "guide": "docs/user-guide/speech.md#select-audio-from-a-video-or-another-audio-file"
+    },
+    "speech.audio.prepare": {
+      "sources": [
+        "crates/renderflow-core/src/speech/audio.rs"
+      ],
+      "guide": "docs/user-guide/speech.md#select-audio-from-a-video-or-another-audio-file"
+    },
+    "speech.transcribe": {
+      "sources": [
+        "crates/renderflow-core/src/speech/provider.rs",
+        "crates/renderflow-core/src/speech/graph.rs"
+      ],
+      "guide": "docs/user-guide/speech.md"
+    }
+  },
+  "unsupported_directions": [
+    {
+      "id": "screenplay.general_canonical_export",
+      "detail": "General conversion of an original Fountain source to FDX, Fade In, OSF, or canonical screenplay JSON is not an exposed export route. General canonical screenplay JSON to native formats is also unavailable. The internal body parser and canonical codec do not create those routes; recovery-only exporters require a replayable recovery candidate and retain lossy, review-required evidence.",
+      "sources": [
+        "docs/user-guide/screenplay.md#loss-and-round-trip-limits",
+        "docs/screenplay-recovery.md"
+      ]
+    },
+    {
+      "id": "screenplay.scripttool.reverse",
+      "detail": "Fountain to FDX, OSF, and Fade In through scripttool is not adopted. The independent recovery-candidate exporters are a different, review-required path; their existence does not qualify scripttool's reverse converters.",
+      "sources": [
+        "docs/work/424/PROVIDER_EVALUATION.md",
+        "docs/screenplay-recovery.md"
+      ]
+    },
+    {
+      "id": "screenplay.scripttool.json",
+      "detail": "Fountain to scripttool JSON is an unadopted inspection candidate, not canonical Renderflow screenplay JSON and not an execution edge.",
+      "sources": [
+        "docs/work/424/PROVIDER_EVALUATION.md"
+      ]
+    },
+    {
+      "id": "screenplay.pdf.native_chain",
+      "detail": "The afterwriting route accepts a direct original strict ASCII Fountain source only. Direct native screenplay inputs and chaining a native import into this PDF graph route are not adopted.",
+      "sources": [
+        "docs/user-guide/screenplay-pdf.md"
+      ]
+    },
+    {
+      "id": "screenplay.recovery.lossless",
+      "detail": "PDF/text recovery does not reconstruct the original native document, typography, pagination, or editing history. Recovery and its derivatives stay lossy and review-required.",
+      "sources": [
+        "docs/screenplay-recovery.md"
+      ]
+    },
+    {
+      "id": "speech.align.inferred",
+      "detail": "Offline speech alignment applies an explicit operator time map. It does not infer or attest synchronization to the original media timeline.",
+      "sources": [
+        "docs/user-guide/speech.md#export-subtitles-using-an-explicit-original-media-time-map"
+      ]
+    },
+    {
+      "id": "transcript.graph.plain_text",
+      "detail": "Plain transcript text is available through standalone speech/subtitle exports, but it is not a creative transcript graph target. Graph transcript derivatives use canonical timed-transcript JSON, SRT, or WebVTT; format recognition does not create a plain-text graph writer.",
+      "sources": [
+        "docs/user-guide/subtitles.md#opt-in-to-graph-and-sdk-execution",
+        "docs/user-guide/speech.md#use-the-planner-and-rust-sdk"
+      ]
+    },
+    {
+      "id": "speech.subtitle.combined_selection",
+      "detail": "Speech recognition and embedded-subtitle extraction are separate explicitly configured choices and cannot be enabled together in one run. Audio and subtitle stream indexes identify different selected streams; neither policy silently falls back to the other route.",
+      "sources": [
+        "docs/user-guide/speech.md#use-the-planner-and-rust-sdk",
+        "docs/user-guide/subtitles.md#opt-in-to-graph-and-sdk-execution"
+      ]
+    }
+  ]
+}

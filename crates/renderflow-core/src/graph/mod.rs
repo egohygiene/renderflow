@@ -20,6 +20,7 @@ pub use derivative_path::{
 };
 pub use execution_plan::{
     ArtifactForest, DiagnosticLevel, ExecutionPlan, ForestBranch, ForestBranchState, ForestRouteEvidence,
+    ForestExecutionEvidence, ForestTargetExecution, ForestTargetOutcome, FOREST_EXECUTION_SCHEMA_V1,
     PlanCollectionMember, PlanSourceArtifact, PlanSourceCollection,
 };
 pub use format::Format;

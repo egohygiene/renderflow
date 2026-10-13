@@ -1,0 +1,60 @@
+{
+  "schema": "renderflow/v2",
+  "sources": [
+    {
+      "id": "source.fixture",
+      "path": "REPLACED_BY_RUNNER",
+      "format": "text"
+    }
+  ],
+  "targets": {
+    "exact": [
+      {
+        "id": "target.screenplay_json",
+        "role": "screenplay_json",
+        "format": "screenplay_json"
+      },
+      {
+        "id": "target.fountain",
+        "role": "fountain",
+        "format": "fountain"
+      },
+      {
+        "id": "target.fdx",
+        "role": "fdx",
+        "format": "fdx"
+      },
+      {
+        "id": "target.fadein",
+        "role": "fadein",
+        "format": "fadein"
+      },
+      {
+        "id": "target.osf",
+        "role": "osf",
+        "format": "osf"
+      }
+    ]
+  },
+  "execution": {
+    "network": "deny",
+    "ai": "deny",
+    "max_parallel": 1,
+    "screenplay_recovery": {
+      "allow_unqualified": true,
+      "limits": {
+        "max_input_bytes": 8388608,
+        "max_pages": 100,
+        "max_page_text_bytes": 262144,
+        "max_total_text_bytes": 2097152,
+        "max_raster_side": 3000,
+        "timeout_seconds": 300
+      }
+    }
+  },
+  "output": {
+    "bundle_root": "REPLACED_BY_RUNNER",
+    "naming_template": "{source.id}/{target.id}.{ext}",
+    "collision": "error"
+  }
+}
