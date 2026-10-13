@@ -19,8 +19,9 @@ pub const CREATIVE_FINGERPRINT_SCOPE: &str = "provider-discovery-observations/v1
 
 /// Optional creative tools excluded from plain `doctor`. Explicit profile and
 /// complete inventories may report them without selecting execution providers.
-pub const CREATIVE_OPTIONAL_TOOL_IDS: [&str; 5] = [
+pub const CREATIVE_OPTIONAL_TOOL_IDS: [&str; 6] = [
     "tool.scripttool", "tool.node", "tool.afterwriting", "tool.pdftotext", "tool.pdftoppm",
+    "tool.renderflow-screenplay-recovery",
 ];
 
 pub const CREATIVE_TOOL_IDS: [&str; 10] = [
@@ -501,5 +502,84 @@ mod tests {
         assert!(probe.calls.lock().unwrap().is_empty());
         assert!(registry.get("tool.afterwriting").unwrap().capabilities.iter()
             .any(|capability| capability.as_str() == "screenplay.render.fountain.pdf"));
+    }
+
+    #[test]
+    fn creative_inventory_count_and_report_rows_match_the_published_schema() {
+        let schema: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../schemas/renderflow-creative-doctor-v1.schema.json"
+        )).unwrap();
+        let registry = ToolRegistry::builtins();
+        let probe = FakeProbe::default();
+        let report = assess_with(&registry, &probe,
+            &ToolRuntimeContext::for_platform("linux", "x86_64")).unwrap();
+        let value = serde_json::to_value(&report).unwrap();
+        let count = report.tools.len() as u64;
+        assert_eq!(count, CREATIVE_TOOL_IDS.len() as u64);
+        assert_eq!(schema["properties"]["tools"]["minItems"].as_u64(), Some(count));
+        assert_eq!(schema["properties"]["tools"]["maxItems"].as_u64(), Some(count));
+
+        // These source-contract assertions deliberately compare the serialized
+        // producer with the separately maintained schema. They do not invoke
+        // a schema engine, native tool, or conversion during this test.
+        fn assert_object_fields(value: &serde_json::Value, definition: &serde_json::Value) {
+            let actual = value.as_object().unwrap();
+            let properties = definition["properties"].as_object().unwrap();
+            for required in definition["required"].as_array().unwrap() {
+                assert!(actual.contains_key(required.as_str().unwrap()), "missing required field {required}");
+            }
+            if definition["additionalProperties"] == false {
+                for key in actual.keys() {
+                    assert!(properties.contains_key(key), "schema does not declare emitted field {key}");
+                }
+            }
+        }
+        fn assert_enum(value: &serde_json::Value, declaration: &serde_json::Value) {
+            assert!(declaration["enum"].as_array().unwrap().contains(value),
+                "schema does not permit emitted enum value {value}");
+        }
+        assert_object_fields(&value, &schema);
+        for tool in value["tools"].as_array().unwrap() {
+            assert_object_fields(tool, &schema["$defs"]["tool"]);
+            assert_object_fields(&tool["availability"], &schema["$defs"]["availability"]);
+            assert_enum(&tool["availability"]["status"], &schema["$defs"]["availability"]["properties"]["status"]);
+            assert_object_fields(&tool["descriptor"], &schema["$defs"]["descriptor"]);
+            assert_object_fields(&tool["descriptor"]["version"], &schema["$defs"]["descriptor"]["properties"]["version"]);
+            let discovery = &tool["descriptor"]["discovery"];
+            let declaration = schema["$defs"]["discovery"]["oneOf"].as_array().unwrap().iter()
+                .find(|branch| branch["properties"]["kind"]["const"] == discovery["kind"]).unwrap();
+            assert_object_fields(discovery, declaration);
+        }
+        for route in value["routes"].as_array().unwrap() {
+            assert_object_fields(route, &schema["$defs"]["route"]);
+            for name in ["implementation", "provider_status"] {
+                assert_enum(&route[name], &schema["$defs"]["route"]["properties"][name]);
+            }
+            for provider in route["providers"].as_array().unwrap() {
+                assert!(report.tools.iter().any(|tool| tool.availability.id.as_str() == provider.as_str().unwrap()));
+            }
+        }
+        for requirement in value["requirements"].as_array().unwrap() {
+            assert_object_fields(requirement, &schema["$defs"]["requirement"]);
+            assert_enum(&requirement["status"], &schema["$defs"]["requirement"]["properties"]["status"]);
+        }
+    }
+
+    #[test]
+    fn creative_only_additions_stay_outside_the_plain_doctor_inventory() {
+        let registry = ToolRegistry::builtins();
+        let plain_ids = registry.all()
+            .filter(|tool| !CREATIVE_OPTIONAL_TOOL_IDS.contains(&tool.id.as_str()))
+            .map(|tool| tool.id.as_str()).collect::<Vec<_>>();
+        for id in ["tool.scripttool", "tool.node", "tool.afterwriting", "tool.pdftotext",
+            "tool.pdftoppm", "tool.renderflow-screenplay-recovery"] {
+            assert!(!plain_ids.contains(&id));
+            assert!(CREATIVE_TOOL_IDS.contains(&id));
+            assert!(registry.get(id).is_some());
+        }
+        // These existing providers retain their original plain-doctor scope.
+        for id in ["tool.ffmpeg", "tool.ffprobe", "tool.tesseract", "tool.whisper_cpp"] {
+            assert!(plain_ids.contains(&id));
+        }
     }
 }

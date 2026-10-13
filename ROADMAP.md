@@ -3,12 +3,12 @@ schema: aether.architecture-document/v1
 id: renderflow-roadmap
 title: Renderflow Roadmap
 kind: architecture-document
-version: 0.1.6
+version: 0.1.7
 status: draft
 owners:
   - egohygiene
 created: 2026-08-19
-updated: 2026-09-28
+updated: 2026-10-13
 governed_by:
   - architecture-roadmap
 depends_on:
@@ -26,7 +26,31 @@ supersedes: []
 
 # Renderflow Roadmap
 
-## 2026-10-12 derivative-forest implementation checkpoint
+## 2026-10-13 creative toolchain reconciliation checkpoint
+
+[#422](https://github.com/egohygiene/renderflow/issues/422) merged in
+[PR #445](https://github.com/egohygiene/renderflow/pull/445), followed by
+[#426](https://github.com/egohygiene/renderflow/issues/426) in
+[PR #446](https://github.com/egohygiene/renderflow/pull/446) at
+`8e0f5f4a6132364965cc31bbee9c3e72074dfd4b`. Recovery now has authored,
+review-required PDF/text routes, optional pinned OCR, evidence bundles, and
+bounded native body exports. It does not promise original screenplay structure
+or page layout.
+
+The current [#429](https://github.com/egohygiene/renderflow/issues/429)
+checkpoint reconciles the ten-provider doctor schema and plain-doctor scope,
+refreshes generated tool documentation, and adds manual platform setup guidance.
+The [qualification record](docs/work/429/QUALIFICATION.md) records the exact
+configuration contracts and the runtime evidence still missing. Tests, builds,
+lint, native probes/conversions, schema validation, and CI remain deferred;
+merged implementation is not a qualified release.
+
+The next implementation issue is #430 for cross-family artifact forest and
+Flow contract integration, followed by #406 for layered/localized composition.
+#412/#413 fixture work and #419 release qualification belong to the later
+testing and release pass. #429 stays open for actual toolchain qualification.
+
+## 2026-10-12 derivative-forest implementation checkpoint (historical)
 
 [#422](https://github.com/egohygiene/renderflow/issues/422) now has authored
 cycle-safe route selection, stable target identities, constrained provider/transform
@@ -36,11 +60,12 @@ prefer cumulative fidelity and fewer conversions. Unsupported and unavailable ta
 remain diagnostics rather than promised output paths. Native screenplay, speech, and
 collection policies retain their bounded route restrictions.
 
-The implementation is a draft checkpoint, not a qualified release. Tests, compilation,
+At this checkpoint the implementation was a draft, not a qualified release. Tests, compilation,
 linting, native probes/conversions, schema validation, and CI were explicitly deferred.
 The [forest contract](docs/architecture/derivative-forest.md) and
 [checkpoint handoff](docs/work/422/HANDOFF.md) record the policy and remaining evidence.
-#422 stays open for review and the later deep test session. #426 is the next adapter lane.
+#422 stays open for the later deep test session. The subsequent #445 and #446
+merges are recorded above.
 
 ## 2026-09-28 integration-candidate release review handoff
 
@@ -237,13 +262,13 @@ availability. Merging does not turn authored coverage into passing evidence.
 | #423 | Canonical screenplay model merged in #442 | Deferred acceptance/fixture qualification |
 | #424 | Three bounded native imports merged in #443 | Deferred direction/platform qualification |
 | #425 | Fountain PDF, analysis, and policy fix merged in #444 | Deferred runtime, two-run, and visual qualification |
-| #429 | Doctor checkpoint and adapter reconciliation in #441 | Recovery integration and later toolchain qualification |
-| #422 | Cycle-safe identities, route groups, and versioned forest evidence authored | Draft review; tests/build/native qualification deferred |
-| #426 | PDF/text screenplay recovery not implemented | Next screenplay adapter; explicitly lossy/review-required |
-| #430 | Cross-family/Flow proof outstanding | Follow #422, #426, and remaining #429 wiring |
+| #429 | Doctor in #441; recovery/schema/setup reconciliation authored | Exact fixture/release toolchains and platform qualification |
+| #422 | Cycle-safe identities, route groups, and versioned forest evidence merged in #445 | Tests/build/native qualification deferred |
+| #426 | Review-required PDF/text recovery and bounded native body exports merged in #446 | Recovery, OCR, native-application, and platform qualification |
+| #430 | Cross-family/Flow proof outstanding | Next implementation lane after #429 reconciliation |
 
-After the #422 draft review, the next implementation order is #426 → remaining #429 → #430;
-#406 is the subsequent layered/localized page-composition lane. Keep #412/#413
+After the #429 reconciliation, the next implementation order is #430 → #406
+(layered/localized page composition). Keep #412/#413
 fixture expansion and #419 verified release work aligned with the later deep
 testing session. Existing open qualification issues retain the evidence gaps;
 no new audit issues are created before that session.
@@ -361,14 +386,18 @@ acceptance or release readiness.
 
 The #429 checkpoint supplies the optional `creative-publishing` doctor profile,
 independent tool observations, separate route/configuration status, and a JSON
-observation fingerprint. Its registry is reconciled with #424/#425 capabilities;
-Poppler remains discovery-only. Node and afterwriting remain unprobed by generic
+observation fingerprint. Its ten-provider inventory includes #424/#425 and
+#426 capabilities, with pinned Poppler extraction/rasterization and a virtual
+recovery provider. Node and afterwriting remain unprobed by generic
 discovery: their PDF route requires explicit pinned configuration and its own
 preflight. Doctor reports the implemented screenplay routes as authored and
-unqualified. Recovery integration, real fixture/release versions, platform
+unqualified. Recovery execution owns its exact configured tool/data pins; global
+discovery does not attest to them. Real fixture/release versions, platform
 qualification, and execution checks remain outstanding; #429 is not complete. Resume
 from [the #429 handoff](docs/work/429/HANDOFF.md) and
-[profile guide](docs/user-guide/creative-toolchain.md).
+[profile guide](docs/user-guide/creative-toolchain.md),
+[setup guide](docs/user-guide/creative-toolchain-setup.md), and
+[qualification record](docs/work/429/QUALIFICATION.md).
 
 The exhaustive planner must materialize each eligible target identity at most
 once, suppress source-format regeneration unless explicitly requested, avoid

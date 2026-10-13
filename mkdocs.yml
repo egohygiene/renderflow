@@ -73,6 +73,7 @@ nav:
       - Supported Formats: user-guide/supported-formats.md
       - Tool Registry: user-guide/tool-registry.md
       - Creative Toolchain: user-guide/creative-toolchain.md
+      - Creative Toolchain Setup: user-guide/creative-toolchain-setup.md
       - Adapter Ecosystem: user-guide/adapter-ecosystem.md
       - EPUB and KEPUB Derivatives: user-guide/ebook-derivatives.md
       - Fixed-layout EPUB: user-guide/fixed-layout-epub.md

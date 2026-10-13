@@ -28,11 +28,13 @@
 
 The official documentation site is published at <https://egohygiene.github.io/renderflow/> and includes versioned guides, architecture references, generated format support tables, examples, troubleshooting, and FAQ content.
 
-The [subtitle workflow](docs/user-guide/subtitles.md) is an **unvalidated draft**
-under [#427](https://github.com/egohygiene/renderflow/issues/427): standalone
-SRT/WebVTT conversion, bounded local subtitle extraction, and opt-in graph/SDK
-routes through a canonical transcript artifact. See the
-[checkpoint handoff](docs/work/427/HANDOFF.md) before relying on it.
+The creative workflows are **authored and unqualified**: screenplay imports,
+PDF rendering, review-required PDF/text recovery, subtitles, and local speech.
+Use the [creative toolchain guide](docs/user-guide/creative-toolchain.md) to see
+the route boundaries and [setup guide](docs/user-guide/creative-toolchain-setup.md)
+to select and pin only the providers you need. The
+[qualification record](docs/work/429/QUALIFICATION.md) separates configuration
+requirements from evidence still deferred to the later test session.
 
 ---
 

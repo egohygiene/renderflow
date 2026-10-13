@@ -15,7 +15,7 @@
     "operating_system": { "type": "string" },
     "architecture": { "type": "string" },
     "registry_schema": { "const": "renderflow.tool-registry/v1" },
-    "tools": { "type": "array", "minItems": 8, "maxItems": 8, "items": { "$ref": "#/$defs/tool" } },
+    "tools": { "type": "array", "minItems": 10, "maxItems": 10, "items": { "$ref": "#/$defs/tool" } },
     "routes": { "type": "array", "items": { "$ref": "#/$defs/route" } },
     "requirements": { "type": "array", "items": { "$ref": "#/$defs/requirement" } },
     "limitations": { "$ref": "#/$defs/strings" }
