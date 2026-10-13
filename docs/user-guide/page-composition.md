@@ -1,13 +1,15 @@
 # Layered and localized page composition
 
 The `composition` commands turn an explicitly authored page composition into
-per-locale SVG, HTML, and accessible transcript files. Art, shapes, text content,
+per-locale PNG, SVG, HTML, and accessible transcript files. Art, shapes, text content,
 and typography remain separate inputs. The source language, default language,
 and every translation use the same planner and renderer.
 
-This is the **second authored, unqualified #406 implementation checkpoint**.
+This is the **third authored, unqualified #406 implementation checkpoint**.
 Its measured-typography path uses pinned HarfRust 0.14.0 and Skrifa 0.48.0 to
-shape supported text and derive glyph outlines from captured font bytes.
+shape supported text and derive glyph outlines from captured font bytes. The
+PNG branch adds pinned resvg 0.48.1 to rasterize that same composed geometry
+with explicitly captured image resources.
 Tests, builds, visual review, native execution, and CI were deferred during the
 sprint. Source implementation and serialized evidence do not establish print
 readability, font rights, or acceptance by a design application.
@@ -49,11 +51,11 @@ opacity, and normal blending. Text layers select semantic font roles and
 explicit font-size, minimum-size, line-height, padding, alignment, and color
 settings. An explicit reading order is independent of visual paint order.
 
-The canonical composition and content schemas remain v1. Measured preview
-output uses `renderflow.layered-svg/v2`; plans and runs use
-`renderflow.composition-plan/v2` and `renderflow.composition-run/v2`. The new
-profile separates its geometry and cache evidence from older v1 browser-text
-previews.
+The canonical composition and content schemas remain v1. Composition output
+uses `renderflow.layered-composition/v3`; plans and runs use
+`renderflow.composition-plan/v3` and `renderflow.composition-run/v3`. The new
+profile separates PNG/settings evidence from earlier v2 outlined previews and
+v1 browser-text previews.
 
 ## Inspect and plan without output writes
 
@@ -120,6 +122,7 @@ own `.artifact-store`.
 | `inputs/<sha256>` | Captured input bytes, shared by content identity within the bundle |
 | `outputs/<locale>/page.svg` | Published SVG for a successful selected SVG branch |
 | `outputs/<locale>/page.html` | Published HTML for a successful selected HTML branch |
+| `outputs/<locale>/page.png` | Published composed PNG for a successful explicitly selected PNG branch |
 | `outputs/<locale>/page.transcript.json` | Published structured transcript |
 | `outputs/<locale>/page.transcript.txt` | Published plain transcript |
 
@@ -151,12 +154,85 @@ error before a run receipt can be created is not evidence of publication.
 | `html` | The same path-based page preview plus a separate readable transcript |
 | `transcript_json` | Structured localized text in declared reading order |
 | `transcript_text` | Plain localized text in declared reading order |
-| `png`, `pdf` | Explicit unsupported branches; no implicit browser or image renderer |
+| `png` | Opt-in rasterization of the measured composition with explicit DPI/background and captured PNG/JPEG/SVG plates |
+| `pdf` | Explicit unsupported composition branch; no printer or PDF/X acceptance claim |
 | `ora`, `psd`, `idml` | Explicit unsupported interchange branches; no claim of native editability |
 
 Selecting `svg,pdf`, for example, can publish the supported SVG branch while
 retaining the unavailable PDF branch and reporting an incomplete run. Do not
 interpret an output filename alone as proof that every requested branch ran.
+
+## Compose a PNG
+
+PNG is opt-in; it is not added to the default target list. The standalone
+[mixed-asset example](../../examples/page-composition/raster-composition/README.md)
+contains authored alpha PNG, copied synthetic JPEG, bounded vector artwork,
+shapes and measured text. Its 50.8 mm square canvas corresponds to 288 × 288
+pixels at 144 DPI by arithmetic; no checked-in output proves that expectation.
+
+```bash
+renderflow composition plan \
+  --input "examples/page-composition/raster-composition/page.composition.json" \
+  --locales "en,de" \
+  --targets "png,svg,transcript_json" \
+  --raster-dpi 144 \
+  --raster-background "transparent"
+
+renderflow composition render \
+  --input "examples/page-composition/raster-composition/page.composition.json" \
+  --locales "en,de" \
+  --targets "png,svg,transcript_json" \
+  --raster-dpi 144 \
+  --raster-background "#FFFFFF" \
+  --output-dir "dist/page-raster-first-run"
+```
+
+`--raster-dpi` accepts integers from 36 through 600 and defaults to 144.
+`--raster-background` defaults to `transparent` or accepts an opaque `#RRGGBB`
+color. The equivalent SDK settings live under `CompositionRequest.raster`;
+omitting that object uses defaults, while an explicit object requires both
+`dpi` and `background`. Invalid raster settings block PNG branches; they do not
+change the geometry, output or cache identity of SVG/HTML/transcript branches.
+Keep explicit quotes around hex colors in shell commands.
+
+PNG plans carry `branches[].raster` with the provider identity, effective
+settings, pixel dimensions, `rgba8`/straight-alpha encoding and
+`assumed_srgb_no_profile_conversion` color policy. Dimensions round upward from
+`millimeters × DPI / 25.4`. Each output axis is capped at 8,192 pixels and the
+whole canvas at 16,777,216 pixels. Terminal artifact metadata retains the same
+raster plan. Non-PNG branches carry no raster plan; invalid PNG settings leave
+it absent and retain actionable branch diagnostics.
+
+The PNG provider has no font discovery or browser text shaping. It receives
+the measured glyph paths and a closed set of resources from the captured
+composition; paths, URLs and implicit system resources cannot supply missing
+artwork. Raster plates must pass the provider's decode limits before use.
+Retain the plan, receipt, canonical inputs and transcript when handing PNG
+output to another project. Pixels flatten layers and visual text; they do not
+replace the editable source or accessibility content.
+
+Each source raster image has the same 8,192-axis/16,777,216-pixel caps as the
+output canvas. Repeated raster-image instances count toward a 33,554,432-pixel
+aggregate. Encoded assets are capped at 16 MiB; decode buffers and the output
+PNG are each capped at 64 MiB. A separate 384 MiB estimate bounds simultaneous
+pixel surfaces during tree rendering, including nested groups, clip alpha masks and
+image decode surfaces. It is not a process-memory or wall-clock guarantee.
+
+The source-image policy accepts bounded 8-bit PNG and baseline/progressive
+8-bit grayscale or RGB JPEG. PNG ICC/HDR/cICP/EXIF/animation metadata and
+nonstandard gamma/chromaticity declarations are refused. JPEG EXIF/XMP, ICC,
+Adobe color transforms and CMYK/YCCK are refused. Unprofiled RGB is assumed sRGB;
+the provider does not repair orientation or convert color profiles. The output
+is straight-alpha RGBA8 PNG with sRGB and rounded pixels-per-meter metadata.
+Fresh output and cached output pass the same authored decode/dimension/metadata
+checks before publication. See the [raster provider decision](../work/406/RASTER_PROVIDER.md)
+for the exact admitted container subset and remaining qualification limits.
+
+This is a bounded screen-raster composition path. It does not establish ICC
+conversion, CMYK, spot colors, PDF/X or printer acceptance. DPI records the
+chosen sampling density; it is not proof of readable print typography. The
+PNG route, decoder handling, image appearance and platform repeatability remain
+unrun and unqualified during this sprint.
 
 ## Layout and review boundaries
 
@@ -216,8 +292,8 @@ Spaces and newline delimiters count toward text-code-point limits. Repeated
 glyph outlines count per occurrence in the path budget, and retrying the same
 font on a different layer counts as another candidate attempt. Font work counts
 repeated policy/shaping use of the bytes, not just unique font file sizes.
-Each locale counts once toward request limits when both SVG and HTML are
-selected; the full serialized plan can repeat that locale's report in both
+Each locale counts once toward request limits when PNG, SVG and HTML are
+selected; the full serialized plan can repeat that locale's report in those
 branches. The private paths are shared in memory. Request-budget failures use
 `composition.typography.plan_budget` and advise selecting fewer locales before
 any output writes. Transcript-only requests bypass visual typography budgets.
@@ -241,8 +317,8 @@ and at its intended size before publication, and retain the font license
 notices when distributing font-derived assets as their terms require.
 
 Trim, bleed, safe area, and gutter values describe page geometry. They do not
-establish PDF/X, a printer profile, or commercial print acceptance. Native
-PNG/PDF generation and native design-file interchange remain separate work.
+establish PDF/X, a printer profile, or commercial print acceptance. Composed
+print-PDF generation and native design-file interchange remain separate work.
 
 For flattened or reconstructed sources, keep the original references and
 honest provenance flags. The composition path does not perform AI inpainting,

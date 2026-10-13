@@ -1,0 +1,14 @@
+{
+  "schema": "renderflow.page-content/v1",
+  "composition_id": "fixture.raster-composition",
+  "locale": "en",
+  "revision": "en-1",
+  "source_revision": "en-1",
+  "reviewed": true,
+  "direction": "ltr",
+  "writing_mode": "horizontal_tb",
+  "content": {
+    "caption.one": "Shared art.",
+    "caption.two": "One clear step."
+  }
+}

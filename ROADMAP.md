@@ -3,7 +3,7 @@ schema: aether.architecture-document/v1
 id: renderflow-roadmap
 title: Renderflow Roadmap
 kind: architecture-document
-version: 0.1.10
+version: 0.1.11
 status: draft
 owners:
   - egohygiene
@@ -26,7 +26,39 @@ supersedes: []
 
 # Renderflow Roadmap
 
-## 2026-10-13 measured composition typography checkpoint
+## 2026-10-13 composed PNG checkpoint
+
+Measured typography for [#406](https://github.com/egohygiene/renderflow/issues/406)
+merged in [PR #450](https://github.com/egohygiene/renderflow/pull/450) at
+`3fcff775e43e4126a422391a65b31df0096675c8`. The next checkpoint, on
+`feat/renderflow-406-composited-png`, authors opt-in composed PNG using pinned
+resvg 0.48.1. The provider rasterizes measured glyph paths, shapes and captured
+PNG/JPEG/bounded-SVG plates with explicit DPI and transparent/opaque backgrounds.
+Its closed resource policy does not use system fonts, network assets or an
+implicit browser.
+
+`renderflow.layered-composition/v3` and v3 plan/run evidence record effective
+PNG settings, pixel dimensions, provider identity and output evidence. Canonical
+composition/content inputs remain v1; default targets still exclude PNG.
+Raster settings affect PNG branches and their cache identity. The
+[mixed-asset fixture](examples/page-composition/raster-composition/README.md)
+retains a directly authored tiny alpha PNG, unchanged synthetic JPEG/vector
+artwork and the earlier licensed font. No fixture decode or renderer was run.
+
+This remains source-reviewed implementation. Tests, builds, lint, schema
+validation, asset/native/visual execution and CI are deferred, and dependency
+lock additions are authored without Cargo resolution. PNG availability in the
+source does not prove ICC/color management, print acceptance or platform
+repeatability. #406 stays open with no acceptance checkbox closed.
+
+Next is composed print PDF with explicit color/font/page evidence, then general
+locale/output planner integration, broader typography and justified layered
+interchange. Runtime, visual, adversarial, platform and release qualification
+remain for the later session. See the [raster provider decision](docs/work/406/RASTER_PROVIDER.md),
+[composition guide](docs/user-guide/page-composition.md) and
+[handoff](docs/work/406/HANDOFF.md).
+
+## 2026-10-13 measured composition typography checkpoint (historical)
 
 The first [#406](https://github.com/egohygiene/renderflow/issues/406) checkpoint
 merged in [PR #449](https://github.com/egohygiene/renderflow/pull/449) at
@@ -354,8 +386,8 @@ availability. Merging does not turn authored coverage into passing evidence.
 | #430 | Per-target publication evidence, multi-family fixture and Flow handoff authored | Native integration proof, missing direction decisions, CLI/SDK and released-contract qualification |
 
 After the #430 implementation checkpoint, #406 has an authored bounded
-composition SDK/CLI slice and a measured-typography follow-up. Composed
-raster/print output, general planner integration, native interoperability and
+composition SDK/CLI slice, measured typography and a composed-PNG follow-up.
+Composed print output, general planner integration, native interoperability and
 broader typography remain its implementation lane. Keep #412/#413
 fixture expansion and #419 verified release work aligned with the later deep
 testing session. Existing open qualification issues retain the evidence gaps;

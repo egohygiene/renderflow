@@ -259,6 +259,7 @@ fn structural_font_stub_blocks_visuals_but_preserves_semantic_transcripts() {
         && item.severity == DiagnosticSeverity::Error));
     assert!(render(&snapshot, "en", CompositionOutput::Svg).is_err());
     assert!(render(&snapshot, "en", CompositionOutput::Html).is_err());
+    assert!(render(&snapshot, "en", CompositionOutput::Png).is_err());
     let bytes = render(&snapshot, "en", CompositionOutput::TranscriptJson).unwrap().bytes;
     let transcript: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
     assert_eq!(transcript["entries"][0]["text"],

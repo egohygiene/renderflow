@@ -1,0 +1,235 @@
+{
+  "schema": "renderflow.page-composition/v1",
+  "composition_id": "fixture.raster-composition",
+  "revision": "raster-layout-1",
+  "page": {
+    "width_mm": 50.8,
+    "height_mm": 50.8,
+    "trim": {
+      "x": 0.02,
+      "y": 0.02,
+      "width": 0.96,
+      "height": 0.96
+    },
+    "bleed": {
+      "x": 0,
+      "y": 0,
+      "width": 1,
+      "height": 1
+    },
+    "safe": {
+      "x": 0.04,
+      "y": 0.04,
+      "width": 0.92,
+      "height": 0.92
+    },
+    "gutter_mm": 0
+  },
+  "source_locale": "en",
+  "default_locale": "en",
+  "locales": {
+    "en": {
+      "path": "content/en.json",
+      "sha256": "0220e6a6e967f9ff71f130eb9f9ca24095f96fbcb35a022c3718bb08fb9bc81f"
+    },
+    "de": {
+      "path": "content/de.json",
+      "sha256": "5c2b0a3c5ed9ca70916974cf8fb7ce177ce0308129bc570ab779a9ba5df0f0dc"
+    }
+  },
+  "font_registry": {
+    "path": "fonts/registry.json",
+    "sha256": "772c4c1b782eaf176da9f9d0a2244cd881f2d6bc59033733d1059b4b3e66213e"
+  },
+  "assets": [
+    {
+      "id": "vector.two-panels",
+      "file": {
+        "path": "assets/two-panels.svg",
+        "sha256": "4ab4f73dd5756e43e4e811d869cfa37164597341e1e43379128a8dbdc9afcbef"
+      },
+      "format": "svg",
+      "alt": "Two geometric landscapes, reused as a small inset vector plate."
+    },
+    {
+      "id": "raster.png-alpha",
+      "file": {
+        "path": "assets/alpha-tile.png",
+        "sha256": "3e5cc2fc163d3e2a09ffa5e100a0a999f2280e492025a17bbbd18e146f94a2cc"
+      },
+      "format": "png",
+      "alt": "A four-by-four blue and green RGBA tile with transparent and partially transparent pixels."
+    },
+    {
+      "id": "raster.jpeg-red",
+      "file": {
+        "path": "assets/red-tile.jpg",
+        "sha256": "3b3febaff00904644f3d40757e5ce44caef2d933d2ae3d08d847a138bbc3152f"
+      },
+      "format": "jpeg",
+      "alt": "An original repository synthetic red RGB JPEG tile."
+    }
+  ],
+  "layers": [
+    {
+      "id": "plate.vector",
+      "bounds": {
+        "x": 0.06,
+        "y": 0.06,
+        "width": 0.88,
+        "height": 0.52
+      },
+      "opacity": 1,
+      "blend": "normal",
+      "content": {
+        "kind": "vector",
+        "asset_id": "vector.two-panels"
+      }
+    },
+    {
+      "id": "plate.alpha",
+      "bounds": {
+        "x": 0.1,
+        "y": 0.1,
+        "width": 0.28,
+        "height": 0.28
+      },
+      "opacity": 0.8,
+      "blend": "normal",
+      "content": {
+        "kind": "raster",
+        "asset_id": "raster.png-alpha"
+      },
+      "clip": {
+        "x": 0.12,
+        "y": 0.12,
+        "width": 0.24,
+        "height": 0.24
+      }
+    },
+    {
+      "id": "plate.jpeg",
+      "bounds": {
+        "x": 0.62,
+        "y": 0.1,
+        "width": 0.28,
+        "height": 0.28
+      },
+      "opacity": 1,
+      "blend": "normal",
+      "content": {
+        "kind": "raster",
+        "asset_id": "raster.jpeg-red"
+      }
+    },
+    {
+      "id": "shape.ellipse",
+      "bounds": {
+        "x": 0.39,
+        "y": 0.39,
+        "width": 0.22,
+        "height": 0.15
+      },
+      "opacity": 0.7,
+      "blend": "normal",
+      "content": {
+        "kind": "shape",
+        "shape": "ellipse",
+        "fill": "#ffd36e",
+        "stroke": "#263d49",
+        "stroke_width_pt": 0.5
+      }
+    },
+    {
+      "id": "shape.caption-box",
+      "bounds": {
+        "x": 0.06,
+        "y": 0.62,
+        "width": 0.88,
+        "height": 0.33
+      },
+      "opacity": 1,
+      "blend": "normal",
+      "content": {
+        "kind": "shape",
+        "shape": "rect",
+        "fill": "#fff7e8",
+        "stroke": "#263d49",
+        "stroke_width_pt": 0.5
+      }
+    },
+    {
+      "id": "caption.text.one",
+      "bounds": {
+        "x": 0.08,
+        "y": 0.65,
+        "width": 0.84,
+        "height": 0.14
+      },
+      "opacity": 1,
+      "blend": "normal",
+      "content": {
+        "kind": "text",
+        "content_id": "caption.one",
+        "typography": {
+          "role": "caption",
+          "font_size_pt": 10,
+          "min_font_size_pt": 8,
+          "line_height": 1.3,
+          "padding_pt": 2,
+          "alignment": "center",
+          "color": "#263d49"
+        }
+      }
+    },
+    {
+      "id": "caption.text.two",
+      "bounds": {
+        "x": 0.08,
+        "y": 0.8,
+        "width": 0.84,
+        "height": 0.14
+      },
+      "opacity": 1,
+      "blend": "normal",
+      "content": {
+        "kind": "text",
+        "content_id": "caption.two",
+        "typography": {
+          "role": "caption",
+          "font_size_pt": 10,
+          "min_font_size_pt": 8,
+          "line_height": 1.3,
+          "padding_pt": 2,
+          "alignment": "center",
+          "color": "#263d49"
+        }
+      }
+    }
+  ],
+  "reading_order": [
+    "caption.text.one",
+    "caption.text.two"
+  ],
+  "provenance": {
+    "kind": "textless_original",
+    "originals": [
+      {
+        "path": "assets/two-panels.svg",
+        "sha256": "4ab4f73dd5756e43e4e811d869cfa37164597341e1e43379128a8dbdc9afcbef"
+      },
+      {
+        "path": "assets/alpha-tile.png",
+        "sha256": "3e5cc2fc163d3e2a09ffa5e100a0a999f2280e492025a17bbbd18e146f94a2cc"
+      },
+      {
+        "path": "assets/red-tile.jpg",
+        "sha256": "3b3febaff00904644f3d40757e5ce44caef2d933d2ae3d08d847a138bbc3152f"
+      }
+    ],
+    "separation_reviewed": true,
+    "requires_human_review": true,
+    "notes": "Original MIT-licensed synthetic assets, copy and layout. Alpha PNG authored directly from fixed pixels without image conversion. JPEG and SVG copied unchanged from repository fixtures. Retained DejaVu font/license copied unchanged. Reviewed content flags are synthetic declarations. No asset decode, composition renderer, schema validator or test was run for this checkpoint."
+  },
+  "locale_overrides": {}
+}

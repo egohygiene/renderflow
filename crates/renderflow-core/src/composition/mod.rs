@@ -4,6 +4,9 @@
 
 pub mod load;
 pub mod model;
+pub mod raster;
+mod raster_svg;
+mod raster_tree;
 pub mod render;
 pub mod typography;
 mod typography_provider;
@@ -18,15 +21,18 @@ use sha2::{Digest, Sha256};
 pub use execution::{execute, CompositionBranchOutcome, CompositionBranchRun, CompositionRun, CompositionRunState};
 pub use load::LoadedComposition;
 pub use model::{CompositionDiagnostic, DiagnosticSeverity};
+pub use raster::{RasterPlan, RasterSettings};
 use crate::font::FontTarget;
 
-/// Historical receipt identifier; new plans use [`COMPOSITION_PLAN_SCHEMA_V2`].
+/// Historical receipt identifier; new plans use [`COMPOSITION_PLAN_SCHEMA_V3`].
 pub const COMPOSITION_PLAN_SCHEMA_V1: &str = "renderflow.composition-plan/v1";
-/// Historical receipt identifier; new runs use [`COMPOSITION_RUN_SCHEMA_V2`].
+/// Historical receipt identifier; new runs use [`COMPOSITION_RUN_SCHEMA_V3`].
 pub const COMPOSITION_RUN_SCHEMA_V1: &str = "renderflow.composition-run/v1";
 pub const COMPOSITION_PLAN_SCHEMA_V2: &str = "renderflow.composition-plan/v2";
 pub const COMPOSITION_RUN_SCHEMA_V2: &str = "renderflow.composition-run/v2";
-pub const COMPOSITION_PROFILE: &str = "renderflow.layered-svg/v2";
+pub const COMPOSITION_PLAN_SCHEMA_V3: &str = "renderflow.composition-plan/v3";
+pub const COMPOSITION_RUN_SCHEMA_V3: &str = "renderflow.composition-run/v3";
+pub const COMPOSITION_PROFILE: &str = "renderflow.layered-composition/v3";
 const MAX_PLAN_TEXT_CODE_POINTS: usize = 16_384;
 const MAX_PLAN_TYPOGRAPHY_BYTES: usize = 16 * 1024 * 1024;
 const MAX_PLAN_OUTLINE_BYTES: usize = 16 * 1024 * 1024;
@@ -53,10 +59,10 @@ impl CompositionOutput {
     }
 
     pub fn supported(self) -> bool {
-        matches!(self, Self::Svg | Self::Html | Self::TranscriptJson | Self::TranscriptText)
+        matches!(self, Self::Svg | Self::Html | Self::TranscriptJson | Self::TranscriptText | Self::Png)
     }
 
-    pub fn visual(self) -> bool { matches!(self, Self::Svg | Self::Html) }
+    pub fn visual(self) -> bool { matches!(self, Self::Svg | Self::Html | Self::Png) }
 
     pub fn extension(self) -> &'static str {
         match self {
@@ -80,12 +86,17 @@ impl CompositionOutput {
 pub struct CompositionRequest {
     pub locales: LocaleSelector,
     pub targets: Vec<CompositionOutput>,
+    /// Applied only to PNG branches. Omitted serialized requests retain the
+    /// fixed default settings rather than consulting the host environment.
+    #[serde(default)]
+    pub raster: RasterSettings,
 }
 
 impl Default for CompositionRequest {
     fn default() -> Self {
         Self { locales: LocaleSelector::AllDeclared,
-            targets: vec![CompositionOutput::Svg, CompositionOutput::Html, CompositionOutput::TranscriptJson] }
+            targets: vec![CompositionOutput::Svg, CompositionOutput::Html, CompositionOutput::TranscriptJson],
+            raster: RasterSettings::default() }
     }
 }
 
@@ -107,6 +118,9 @@ pub struct CompositionBranchPlan {
     /// paths stay private in memory; their digests are retained in this report.
     /// Transcripts and unavailable output kinds do not require visual shaping.
     pub typography: Option<typography::TypographyReport>,
+    /// Effective bounded PNG dimensions and provider policy; null for other
+    /// targets or when the requested raster settings cannot be planned.
+    pub raster: Option<RasterPlan>,
     pub diagnostics: Vec<CompositionDiagnostic>,
 }
 
@@ -149,6 +163,9 @@ pub fn plan(snapshot: &LoadedComposition, request: &CompositionRequest) -> Resul
     let outputs = request.targets.iter().copied().collect::<BTreeSet<_>>();
     let needs_typography = outputs.iter().any(|output| output.visual());
     if needs_typography { check_typography_text_budget(snapshot, &locales)?; }
+    let raster = if outputs.contains(&CompositionOutput::Png) {
+        Some(raster::plan(snapshot, &request.raster))
+    } else { None };
     let font_resolution = snapshot.fonts.resolve(FontTarget::Html);
     let font_evidence = font_resolution.as_ref().ok().map(|report| report.evidence());
     let mut branches = Vec::new();
@@ -161,7 +178,7 @@ pub fn plan(snapshot: &LoadedComposition, request: &CompositionRequest) -> Resul
         let typography_sha256 = if let Some(report) = &typography {
             let bytes = serde_json::to_vec(report)?;
             typography_bytes = typography_bytes.saturating_add(bytes.len());
-            // The immutable private paths are shared by SVG/HTML branch clones.
+            // The immutable private paths are shared by all visual branch clones.
             // Count each measured locale once, before retaining its branches.
             for layer in &report.layers {
                 if let Some(paths) = report.outlines(&layer.layer_id) {
@@ -191,6 +208,18 @@ pub fn plan(snapshot: &LoadedComposition, request: &CompositionRequest) -> Resul
                 diagnostics.extend(render::layout_diagnostics(snapshot, &locale));
                 if let Some(report) = &typography { diagnostics.extend(report.diagnostics.clone()); }
             }
+            if *output == CompositionOutput::Png { diagnostics.extend(render::raster_diagnostics(&locale)); }
+            let branch_raster = if *output == CompositionOutput::Png {
+                match &raster {
+                    Some(Ok(plan)) => Some(plan.clone()),
+                    Some(Err(error)) => {
+                        diagnostics.push(CompositionDiagnostic::new(DiagnosticSeverity::Error,
+                            "composition.raster.plan", format!("{error:#}"), Some(&locale), None));
+                        None
+                    },
+                    None => None,
+                }
+            } else { None };
             if !output.supported() {
                 diagnostics.push(CompositionDiagnostic::new(DiagnosticSeverity::Error,
                     "composition.output.unavailable", format!("No adopted {} composition adapter is registered", output.name()),
@@ -204,23 +233,25 @@ pub fn plan(snapshot: &LoadedComposition, request: &CompositionRequest) -> Resul
                 "locale": locale, "output": output,
             }))?);
             let cache_key = hash_json(&serde_json::json!({
-                "schema": "renderflow.composition-cache-key/v2", "profile": COMPOSITION_PROFILE,
+                "schema": "renderflow.composition-cache-key/v3", "profile": COMPOSITION_PROFILE,
                 "version": env!("CARGO_PKG_VERSION"), "target_id": target_id,
                 "composition_sha256": snapshot.manifest_sha256, "inputs": snapshot.inputs,
                 "fonts": font_evidence,
                 "renderer": { "id": render::COMPOSITION_RENDERER_ID, "version": render::COMPOSITION_RENDERER_VERSION },
                 "typography_sha256": if output.visual() { typography_sha256.as_deref() } else { None },
+                "raster": branch_raster,
             }))?;
             branches.push(CompositionBranchPlan {
                 target_id, locale: locale.clone(), output: *output, state,
                 content_revision: content.map(|value| value.document.revision.clone()),
                 content_sha256: content.map(|value| value.sha256.clone()), cache_key,
-                typography: if output.visual() { typography.clone() } else { None }, diagnostics,
+                typography: if output.visual() { typography.clone() } else { None },
+                raster: branch_raster, diagnostics,
             });
         }
     }
     Ok(CompositionPlan {
-        schema: COMPOSITION_PLAN_SCHEMA_V2.into(), profile: COMPOSITION_PROFILE.into(),
+        schema: COMPOSITION_PLAN_SCHEMA_V3.into(), profile: COMPOSITION_PROFILE.into(),
         renderflow_version: env!("CARGO_PKG_VERSION").into(),
         composition_id: snapshot.manifest.composition_id.clone(), composition_sha256: snapshot.manifest_sha256.clone(),
         source_locale: snapshot.manifest.source_locale.clone(), default_locale: snapshot.manifest.default_locale.clone(),

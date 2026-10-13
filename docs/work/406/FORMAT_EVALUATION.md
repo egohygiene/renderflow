@@ -13,7 +13,8 @@ canonical page composition. Keep reviewed locale text outside the artwork,
 addressed by stable semantic content IDs. Treat a deliberately limited SVG
 document as a useful derivative, and raster/print output as separately qualified
 derivatives. Preserve every imported original. The second implementation
-checkpoint uses measured glyph paths in SVG/HTML previews; native editable
+checkpoint uses measured glyph paths in SVG/HTML previews, and the third adds
+opt-in PNG rasterization of those paths with captured artwork. Native editable
 text remains in the canonical package, with companion transcripts for reading.
 
 This is an engineering recommendation inferred from the evidence below. None of
@@ -31,7 +32,7 @@ layer exchange. PSD/PSB and IDML are optional compatibility directions that need
 feature-specific evidence before advertisement. [S1–S8]
 
 SVG's format-level text capabilities do not promise native editable text in the
-current export. The v2 preview intentionally uses outlines to keep measured
+current export. The outlined preview intentionally uses paths to keep measured
 geometry and published geometry aligned. The
 [typography provider decision](TYPOGRAPHY_PROVIDER.md) scopes this loss and
 the pinned HarfRust/Skrifa implementation; broader SVG text interchange remains
@@ -85,7 +86,7 @@ explicitly leaves actual glyph, shaping and ink-bound checks unverified.
 Authored capabilities still require the deferred runtime and interoperability
 qualification before they become proven capabilities.
 
-### Second checkpoint: measured typography
+### Second checkpoint: measured typography (historical)
 
 The canonical composition/content schemas remain v1, while the visual profile
 and plan/run envelopes advance to v2. The authored provider shapes bounded
@@ -105,6 +106,27 @@ the provider boundary and qualification gaps, and the
 [real-font fixture](../../../examples/page-composition/measured-typography/README.md)
 for retained font bytes, notices and capture provenance. The feasibility and
 candidate matrices below retain their original research scope.
+
+### Third checkpoint: composed PNG
+
+The authored `renderflow.layered-composition/v3` profile adds PNG as an explicit
+target using pinned resvg 0.48.1, with v3 plan/run evidence and unchanged v1
+canonical inputs. The renderer uses the existing measured outlines, shapes and
+captured PNG/JPEG/bounded-SVG plates. It disables font discovery and uses a
+closed resource resolver. Integer DPI and transparent/opaque background settings
+produce explicit pixel dimensions and cache identity for each PNG branch.
+
+This is composed screen-raster output, not a layered file or print acceptance
+proof. Flattened PNG loses editable text and layer structure; retain canonical
+inputs and companion transcripts. The route does not claim ICC conversion,
+CMYK/spot colors, PDF/X, printer acceptance or cross-platform pixel identity.
+Composed PDF and native interchange remain unavailable. The source and
+[mixed-asset fixture](../../../examples/page-composition/raster-composition/README.md)
+are unrun; no decoder, rasterizer or visual qualification was executed. The
+historical candidate tables retain their original research observations, while
+the [raster provider decision](RASTER_PROVIDER.md) and [handoff](HANDOFF.md)
+record the exact admitted image/metadata subset, current implementation and
+remaining work.
 
 ## Features and known loss
 

@@ -277,8 +277,9 @@ pub enum Commands {
             renderflow composition inspect --input page.composition.json\n  \
             renderflow composition plan --input page.composition.json --locales en,ru\n  \
             renderflow composition render --input page.composition.json --output-dir dist/page\n\n\
-            Authored, unqualified serialized SVG/HTML/transcript profile. PNG, PDF,\n\
-            ORA, PSD, and IDML remain visible unsupported target branches."
+            Authored, unqualified SVG/HTML/PNG/transcript profile. PNG is opt-in\n\
+            with --targets png; --raster-dpi and --raster-background control its\n\
+            pixels. PDF, ORA, PSD, and IDML remain unsupported target branches."
     )]
     Composition {
         #[command(subcommand)]
@@ -481,6 +482,12 @@ pub struct CompositionSelectionArguments {
     /// Comma-separated target formats. Unsupported known targets retain diagnostic branches.
     #[arg(long, default_value = "svg,html,transcript_json", value_name = "FORMATS")]
     pub targets: String,
+    /// PNG pixel density, from 36 to 600 DPI. Ignored for other target formats.
+    #[arg(long, default_value = "144", value_name = "DPI")]
+    pub raster_dpi: u32,
+    /// PNG canvas background: transparent or a six-digit #RRGGBB color.
+    #[arg(long, default_value = "transparent", value_name = "COLOR")]
+    pub raster_background: String,
 }
 
 #[derive(clap::Args)]

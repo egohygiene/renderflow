@@ -1,13 +1,14 @@
-# #406 — measured typography checkpoint
+# #406 — composed PNG checkpoint
 
-Base: first composition checkpoint merged in
-[PR #449](https://github.com/egohygiene/renderflow/pull/449) at
-`8f60d6f4398232f6956091012f533eb2908dfd35`.
-Branch: `feat/renderflow-406-measured-typography`. Obtain the eventual PR and
+Base: measured typography merged in
+[PR #450](https://github.com/egohygiene/renderflow/pull/450) at
+`3fcff775e43e4126a422391a65b31df0096675c8`.
+Branch: `feat/renderflow-406-composited-png`. Obtain the eventual PR and
 merge commit from this checkpoint's publication. The maintainer authorized
 continuing #406 under the ongoing implementation sprint; all executable
-qualification remains deferred. The first checkpoint's browser-text previews
-are historical; v2 authors measured glyph paths.
+qualification remains deferred. The first checkpoint in #449 and the second
+in #450 are historical. V3 adds opt-in PNG rasterization of measured glyph
+paths, shapes and captured artwork; canonical inputs remain editable.
 
 ## Authored scope
 
@@ -24,6 +25,11 @@ are historical; v2 authors measured glyph paths.
 - `composition inspect`, `plan`, and `render` share the scoped SDK planner.
   Exact, subset and all-declared selectors fan out by `(locale, output)`;
   source/default languages use the same path. No implicit locale fallback.
+- The explicit `png` target uses pinned resvg 0.48.1 with no font feature or
+  implicit resource resolution. It composites glyph paths, shapes and captured
+  PNG/JPEG/bounded-SVG plates using the same measured visual geometry. Raster
+  settings specify integer DPI and transparent or opaque `#RRGGBB` background.
+  Default targets remain SVG, HTML and transcript JSON.
 - Pinned HarfRust 0.14.0 and Skrifa 0.48.0 author shaping, glyph lookup and
   outline extraction from captured static TTF/OTF fonts. The current visual
   scope is bounded Latin LTR horizontal text with explicit authored lines.
@@ -44,29 +50,35 @@ are historical; v2 authors measured glyph paths.
 - Receipt-last bundles retain captured inputs, frozen plans, terminal records,
   hashes, parent IDs, review/loss declarations and observed cache outcomes.
   Shared immutable source storage is distinct from derivative cache hits.
-- Two separate two-panel packages and source-only regressions are authored.
+- Three separate packages and source-only regressions are authored.
   The original 45-byte WOFF2 stub remains explicitly structural and fails the
   measured visual provider. The new `measured-typography` package retains
   unmodified DejaVu Sans TTF bytes from local `fonts-dejavu-core` 2.37-8, the
   full packaged license, hashes and capture provenance. English/German are
   synthetic reviewed declarations; Arabic/Japanese remain unreviewed blocked
-  cases. No font tool was run, and no successful receipts are checked in.
+  cases. The new `raster-composition` package is a 50.8 mm square mixed-asset
+  page: directly authored tiny RGBA PNG, copied synthetic JPEG/SVG, shapes and
+  measured text with the same retained font/license. Neither assets nor output
+  were decoded or rendered for this checkpoint. No successful receipts are
+  checked in.
 
-The [provider decision](TYPOGRAPHY_PROVIDER.md) records dependency identities,
-the bounded API surface and qualification gaps. Its six new dependency nodes
-and lockfile entries were authored from official registry/source metadata;
-the lockfile was not resolved or validated by Cargo. The earlier direct
-`base64` dependency remains the already locked 0.22.1 package. No dependency
-build or runtime qualification is implied by pinning versions.
+The [typography provider decision](TYPOGRAPHY_PROVIDER.md) records the earlier
+font dependencies, API surface and qualification gaps. The
+[raster provider decision](RASTER_PROVIDER.md) records resvg and the admitted
+asset/output surface. Font and raster
+dependency/lock entries are authored from official registry/source metadata;
+the lockfile has not been resolved or validated by Cargo. The earlier direct
+`base64` dependency remains the locked 0.22.1 package. No dependency build or
+runtime qualification is implied by pinning versions.
 
 ## Contract and cache boundaries
 
 Canonical inputs remain `renderflow.page-composition/v1` and
-`renderflow.page-content/v1`. Profile: `renderflow.layered-svg/v2`. Plans/runs
-use `renderflow.composition-plan/v2` and `renderflow.composition-run/v2`.
-The version change separates outlined measured previews and their evidence
-from v1 browser-text outputs; old derivative cache records do not establish a
-v2 hit.
+`renderflow.page-content/v1`. Profile: `renderflow.layered-composition/v3`.
+Plans/runs use `renderflow.composition-plan/v3` and
+`renderflow.composition-run/v3`. The version change adds raster/settings
+evidence, separate from v2 outlined previews and v1 browser-text outputs; old
+derivative cache records do not establish a v3 hit.
 This is a scoped composition interface, not a new `renderflow/v2` source,
 general `ArtifactForest` extension or existing Flow adapter. The generic DAG
 currently keys nodes by format; locale/output identity must be integrated
@@ -87,6 +99,16 @@ inputs and the supported provider. Transcript branches carry no visual report.
 font, with rejected candidates and the selected fallback index on each layer.
 Top-level `font_resolution` is the generic registry report for context only;
 it can select a different candidate before whole-layer coverage/shaping checks.
+
+`CompositionRequest.raster` defaults to 144 DPI and `transparent` when omitted;
+an explicit object requires `dpi` and `background`. CLI flags are
+`--raster-dpi` and `--raster-background`. PNG branches carry a
+`renderflow.composition-raster/v1` plan with provider profile, effective settings,
+pixel dimensions, `rgba8`/straight alpha and
+`assumed_srgb_no_profile_conversion`. Terminal metadata retains that same
+plan. Invalid settings block PNG only; non-PNG branches carry no raster plan
+and do not change cache identity when raster settings change. PNG cache identity
+commits its effective raster plan in addition to typography and captured inputs.
 
 Derivative cache keys conservatively commit the entire manifest, all captured
 inputs, selected fonts, typography evidence, target identity, profile and engine
@@ -110,11 +132,35 @@ input bytes. Typography adds these bounds:
 - Any request selecting a visual target: 16,384 referenced text code points
   across distinct selected known locales, including spaces and LF delimiters.
   The request also caps their distinct-locale compact reports at 16 MiB and
-  private outline paths at 16 MiB. SVG/HTML branches may each serialize the same
+  private outline paths at 16 MiB. PNG/SVG/HTML branches may each serialize the same
   report, but it is charged once per locale; private paths share an `Arc`.
 - Transcript-only requests bypass visual typography budgets. An oversized
   visual request returns `composition.typography.plan_budget` before output
   writes and recommends selecting fewer locales.
+
+PNG canvas limits: integer DPI 36 through 600, each axis at most 8,192 pixels,
+and at most 16,777,216 total pixels. Dimensions round upward from
+`millimeters × DPI / 25.4`. A transparent default or opaque `#RRGGBB` background
+is explicit. These are bounded raster settings, not printer or ICC qualification.
+
+Raster source images share the 8,192-axis/16,777,216-pixel limit. Every repeated
+image instance counts toward the 33,554,432-pixel aggregate; encoded assets
+remain capped at 16 MiB and decode buffers at 64 MiB. A conservative 384 MiB
+estimate bounds simultaneously active pixel surfaces during resvg tree
+rendering, including the output, nested isolated groups/SVG, raster decode,
+clip alpha masks. It is not a total-process-memory bound, allocator proof or
+wall-clock isolation. Parser, encoded-input and encoder overhead remain outside
+that estimate. The provider decision records tree/isolation limits.
+
+PNG inputs are limited to bounded 8-bit grayscale/RGB/palette/gray-alpha/RGBA;
+interlacing is admitted. Only sRGB gamma (`45455`) and standard sRGB chromaticity
+metadata are admitted. ICC/HDR/cICP/EXIF/APNG and reduced `sBIT` are refused.
+JPEG allows bounded baseline/progressive 8-bit grayscale or RGB with at most
+64 scans; EXIF/XMP, ICC, Adobe APP14 transforms and CMYK/YCCK are refused.
+No color-profile, orientation or gamma conversion occurs. Output is RGBA8,
+straight alpha with sRGB/perceptual and rounded pixels-per-meter metadata.
+Fresh and cached PNG candidates receive the same authored full decode and exact
+canvas/metadata checks; those checks remain unrun during this checkpoint.
 
 Output directories must be new. Partial/failed/cancelled runs
 retain available evidence; early loading or publication I/O failures can occur
@@ -126,7 +172,7 @@ Source review and Git content identity checks only. Fixture authoring included
 hashing synthetic bytes and the copied font/license. Regression cases, schemas,
 examples, CLI/SDK behavior and platform handling are **unrun**. No tests, compiler/build,
 formatter/linter, schema validator, native renderer/probe/conversion,
-dependency download/installer or GitHub Actions was invoked. Official source,
+asset decoder, dependency download/installer or GitHub Actions was invoked. Official source,
 index metadata and documentation were read. Commit hooks remain disabled
 and commit/merge messages use `[skip ci]` under the sprint policy.
 
@@ -136,6 +182,9 @@ typography provider authors actual selected-font coverage and shaped geometry
 checks, but those code paths and their serialized reports have not been run or
 qualified. No all-script coverage, complex-script correctness, pixel identity,
 print readability, ICC/color fidelity or cross-viewer result is established.
+The raster route is authored, not executed. No output pixel values, image decode
+result, compositing fidelity, alpha behavior or repeatability is proven by its
+source or fixture byte pins. RGB/sRGB assumptions do not perform ICC conversion.
 Conservative outline bounds include the Bézier control-point hull, which can
 overestimate the curve and reject near-edge text; they are not exact curve
 bounds or observed raster ink.
@@ -153,10 +202,11 @@ is additionally unreviewed and therefore blocked until explicitly reviewed.
 
 ## Continue #406 in this order
 
-1. Add composited PNG and qualified print-PDF routes, color/font/profile
+1. Add composed print-PDF routes, color/font/profile
    evidence and explicit gutter semantics. Existing image-only PDF publication
-   can consume composed raster pages; it does not itself compose text. A pinned
-   raster provider and actual output qualification are still required.
+   can consume composed raster pages; it does not itself compose text. The
+   authored PNG route still needs decoder/render/visual qualification before
+   its output can support a qualified print chain.
 2. Integrate locale/output identities with the general build planner, artifact
    forest and Flow's released contract. Qualify shared intermediate reuse;
    sharing source storage alone does not prove intermediate cache reuse.

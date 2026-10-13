@@ -1,16 +1,17 @@
 # Layered page-composition fixtures
 
-There are two independent packages:
+There are three independent packages:
 
 | Package | Purpose |
 | --- | --- |
 | `page.composition.json` with `structural-only/` | Original contract fixture with an intentionally unusable font stub; visual branches are blocked by the measured provider |
 | [`measured-typography/page.composition.json`](measured-typography/README.md) | Real, retained DejaVu Sans TTF and license for the bounded static-font Latin LTR path; no executed or approved visual result |
+| [`raster-composition/page.composition.json`](raster-composition/README.md) | Small mixed-asset page with alpha PNG, synthetic JPEG, bounded SVG, shapes and text for opt-in composed PNG; no decoded/rendered qualification |
 
-Both retain editable canonical text and authored reading order. The v2 visual
-profile serializes measured glyph paths, while transcript targets preserve
-localized strings. The real-font package is the starting point for later
-typography and visual qualification; neither package includes successful
+All retain editable canonical text and authored reading order. The v3 visual
+profile uses measured glyph paths for SVG/HTML and opt-in PNG rasterization,
+while transcript targets preserve localized strings. The real-font packages
+are starting points for later typography and visual qualification; none includes successful
 execution receipts.
 
 `page.composition.json` is an original two-panel contract fixture. Its
@@ -32,7 +33,7 @@ and German examples; it does not grant consumer approval.
 `fonts/Fixture-Regular.woff2` is the repository's existing 45-byte CC0 synthetic
 font-container stub. It is not a usable font. The accompanying CC0 notice says
 so explicitly. The registry exercises pinned bytes and role declarations, but
-cannot establish glyph coverage, text shaping or rendering. The v2 measured
+cannot establish glyph coverage, text shaping or rendering. The measured
 provider refuses this unsupported WOFF2 stub for visual output instead of
 delegating lettering to browser fallback. English/German transcripts remain
 available when their semantic content gates are satisfied.
@@ -51,9 +52,11 @@ Before using this composition for an actual visual review:
    provider's glyph/geometry results still need qualification; registry
    coverage declarations alone are not proof.
 
-No font inspection tool, native renderer, fixture command, schema validator or
-test was run while authoring either checkpoint. Digests were computed directly
-from authored or copied bytes. They are input pins, not execution receipts.
+No font/image inspection tool, asset decoder, native renderer, fixture command,
+schema validator or test was run while authoring these checkpoints. Digests were
+computed directly from authored or copied bytes. They are input pins, not
+execution receipts. The tiny alpha PNG in the raster package was authored
+directly from recorded fixed pixels, without decoding or converting an image.
 
 ## Source package
 
@@ -76,9 +79,10 @@ the authored measured-typography case, subject to diagnostics. An unsupported
 branch must remain observable and must not receive another locale's output.
 
 See the [page-composition user guide](../../docs/user-guide/page-composition.md)
-for the current CLI and supported output contract. Raster, print and layered
-interchange availability must be read from the plan; this fixture supplies no
-external renderer installation or fabricated outputs.
+for the current CLI and supported output contract. PNG is an explicit target
+with bounded DPI/background settings; composed print PDF and layered
+interchange remain unavailable. This fixture supplies no external renderer
+installation or fabricated outputs.
 
 ## Negative cases
 

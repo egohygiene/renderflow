@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{hash_bytes, hash_json, plan, render, CompositionBranchState, CompositionDiagnostic,
     CompositionPlan, CompositionRequest, DiagnosticSeverity, LoadedComposition,
-    COMPOSITION_PROFILE, COMPOSITION_RUN_SCHEMA_V2};
+    COMPOSITION_PROFILE, COMPOSITION_RUN_SCHEMA_V3};
 use crate::artifact::{Artifact, ArtifactDescriptor, ArtifactId, ArtifactStorageClass, ArtifactStore,
     CanonicalFormat, MediaType};
 use crate::evidence::{ArtifactEvidence, ArtifactManifest, ArtifactRole, CacheDisposition,
@@ -21,7 +21,7 @@ use crate::process::ProcessCancellationToken;
 
 const MAX_OUTPUT_BYTES: usize = 64 * 1024 * 1024;
 const MAX_BUNDLE_OUTPUT_BYTES: usize = 512 * 1024 * 1024;
-const CACHE_SCHEMA: &str = "renderflow.composition-cache-entry/v2";
+const CACHE_SCHEMA: &str = "renderflow.composition-cache-entry/v3";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -163,7 +163,7 @@ pub fn execute(
                     }))
                 }).transpose()?;
                 let expected_metadata = serde_json::json!({
-                    "schema": "renderflow.composition-artifact/v2", "profile": COMPOSITION_PROFILE,
+                    "schema": "renderflow.composition-artifact/v3", "profile": COMPOSITION_PROFILE,
                     "version": env!("CARGO_PKG_VERSION"), "target_id": branch.target_id,
                     "renderer": { "id": render::COMPOSITION_RENDERER_ID, "version": render::COMPOSITION_RENDERER_VERSION },
                     "locale": branch.locale, "content_revision": branch.content_revision,
@@ -171,13 +171,16 @@ pub fn execute(
                     "cache_key": branch.cache_key, "review_required": true, "runtime_qualified": false,
                     "font_resolution": plan.font_resolution, "provenance": snapshot.manifest.provenance,
                     "typography": typography,
+                    "raster": branch.raster,
                     "locale_overrides": snapshot.manifest.locale_overrides.get(&branch.locale),
                     "deterministic_serialization": true, "visual_determinism_qualified": false,
-                    "losses": if branch.output.visual() { vec!["no_native_layered_round_trip", "visual_text_serialized_as_outlines", "raster_color_and_visual_appearance_unqualified"] }
+                    "losses": if branch.output == super::CompositionOutput::Png {
+                        vec!["flattened_pixels_no_editable_layers_or_text", "assumed_srgb_no_profile_conversion", "raster_color_and_visual_appearance_unqualified"]
+                    } else if branch.output.visual() { vec!["no_native_layered_round_trip", "visual_text_serialized_as_outlines", "raster_color_and_visual_appearance_unqualified"] }
                         else { vec!["visual_artwork_and_layout_omitted"] },
                 });
                 let cached = read_cache(&cache_path, &store, &branch.cache_key, branch.output.name(),
-                    branch.output.media_type(), &source_ids, &expected_metadata);
+                    branch.output.media_type(), &source_ids, &expected_metadata, branch.raster.as_ref());
                 let (artifact, bytes, cache) = match cached {
                     Ok(Some((artifact, bytes))) => (artifact, bytes, CacheDisposition::Hit),
                     other => {
@@ -185,8 +188,8 @@ pub fn execute(
                             result.diagnostics.push(CompositionDiagnostic::new(DiagnosticSeverity::Warning,
                                 "composition.cache.rejected", error.to_string(), Some(&branch.locale), None));
                         }
-                        let rendered = render::render_with_typography(snapshot, &branch.locale, branch.output,
-                            branch.typography.as_ref())?;
+                        let rendered = render::render_with_plan(snapshot, &branch.locale, branch.output,
+                            branch.typography.as_ref(), branch.raster.as_ref())?;
                         if rendered.bytes.len() > MAX_OUTPUT_BYTES { bail!("composition.output.byte_limit: output exceeds 64 MiB"); }
                         if rendered.media_type != branch.output.media_type() || rendered.extension != branch.output.extension() {
                             bail!("composition.output.contract: renderer output disagrees with selected target");
@@ -246,7 +249,7 @@ pub fn execute(
         else if published == branches.len() { CompositionRunState::Complete }
         else if published > 0 { CompositionRunState::Partial } else { CompositionRunState::Failed };
     let run = CompositionRun {
-        schema: COMPOSITION_RUN_SCHEMA_V2.into(), run_id: run_id.clone(), state, plan_sha256, plan,
+        schema: COMPOSITION_RUN_SCHEMA_V3.into(), run_id: run_id.clone(), state, plan_sha256, plan,
         artifact_manifest: ArtifactManifest { schema_version: ARTIFACT_MANIFEST_SCHEMA_V1.into(),
             run_id, output_dir: ".".into(), outputs, artifacts: records }, branches,
         runtime_qualified: false, review_required: true, visual_determinism_qualified: false,
@@ -278,7 +281,8 @@ fn input_type(snapshot: &LoadedComposition, kind: &str, id: &str) -> (String, St
 }
 
 fn read_cache(path: &Path, store: &ArtifactStore, key: &str, format: &str, media: &str,
-    sources: &[ArtifactId], metadata: &serde_json::Value) -> Result<Option<(Artifact, Vec<u8>)>> {
+    sources: &[ArtifactId], metadata: &serde_json::Value,
+    raster: Option<&super::RasterPlan>) -> Result<Option<(Artifact, Vec<u8>)>> {
     if !path.try_exists()? { return Ok(None); }
     let entry: CacheEntry = serde_json::from_slice(&read_regular(path, 1024 * 1024)?)?;
     let digest = entry.artifact.digest().value();
@@ -299,6 +303,10 @@ fn read_cache(path: &Path, store: &ArtifactStore, key: &str, format: &str, media
     if hash_bytes(&bytes) != entry.artifact.digest().value() || bytes.len() as u64 != entry.artifact.size_bytes() {
         bail!("cached payload digest or size differs from its record");
     }
+    // A self-consistent cache record still cannot establish PNG dimensions or
+    // decodability. Apply the same bounded output check as fresh rasterization
+    // before accepting the hit, so a corrupt record is rejected and regenerated.
+    if let Some(plan) = raster { super::raster::validate_output(&bytes, plan)?; }
     Ok(Some((entry.artifact, bytes)))
 }
 
