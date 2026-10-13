@@ -1,6 +1,7 @@
 pub mod ai;
 pub mod audit;
 pub mod build;
+pub mod composition;
 pub mod dna;
 pub mod ebook;
 pub mod font;

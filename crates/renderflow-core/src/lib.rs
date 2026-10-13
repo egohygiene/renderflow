@@ -13,6 +13,7 @@ mod assets;
 mod audio;
 pub mod cache;
 pub mod checkpoint;
+pub mod composition;
 pub mod cli;
 mod commands;
 mod compat;

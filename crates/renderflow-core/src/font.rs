@@ -4,6 +4,7 @@
 //! network access. Font acquisition is deliberately kept outside normal render
 //! execution so canonical builds use reviewed, pinned local bytes.
 
+use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 use std::fs;
@@ -442,6 +443,13 @@ pub struct LoadedFontRegistry {
     pub source_path: PathBuf,
     pub registry_digest: DigestEvidence,
     root: PathBuf,
+    snapshot: Option<FontRegistrySnapshot>,
+}
+
+#[derive(Debug, Clone)]
+struct FontRegistrySnapshot {
+    assets: BTreeMap<String, Vec<u8>>,
+    license_files: BTreeSet<String>,
 }
 
 impl LoadedFontRegistry {
@@ -467,7 +475,57 @@ impl LoadedFontRegistry {
             source_path,
             registry_digest: digest(&bytes),
             root,
+            snapshot: None,
         })
+    }
+
+    /// Resolve an already captured local registry without reopening its files.
+    ///
+    /// The caller owns bounded reads, source confinement, and verification of
+    /// the registry digest before constructing this snapshot. `font_assets` is
+    /// keyed by asset ID; `license_files` contains the exact declared license
+    /// paths whose bytes the caller retained. Missing entries remain missing
+    /// even when matching files subsequently appear on disk.
+    ///
+    /// Asset digests, container signatures, role bindings, and license policy
+    /// still pass through the same [`validate`](Self::validate) and
+    /// [`resolve`](Self::resolve) checks as a filesystem-loaded registry. Paths
+    /// in resolution reports are logical references only; snapshot consumers
+    /// must render from [`captured_asset_bytes`](Self::captured_asset_bytes).
+    pub fn from_snapshot(
+        registry: FontRegistry,
+        source_path: PathBuf,
+        registry_digest: DigestEvidence,
+        font_assets: BTreeMap<String, Vec<u8>>,
+        license_files: BTreeSet<String>,
+    ) -> Self {
+        let root = source_path
+            .parent()
+            .unwrap_or_else(|| Path::new("."))
+            .to_path_buf();
+        Self {
+            registry,
+            source_path,
+            registry_digest,
+            root,
+            snapshot: Some(FontRegistrySnapshot {
+                assets: font_assets,
+                license_files,
+            }),
+        }
+    }
+
+    /// Borrow immutable captured bytes, without consulting the filesystem.
+    ///
+    /// Returns `None` for an absent snapshot asset or a registry opened through
+    /// [`load`](Self::load). Callers should select an asset through `resolve`
+    /// before using its bytes; this accessor alone performs no validation.
+    pub fn captured_asset_bytes(&self, asset_id: &str) -> Option<&[u8]> {
+        self.snapshot
+            .as_ref()?
+            .assets
+            .get(asset_id)
+            .map(Vec::as_slice)
     }
 
     pub fn validate(&self) -> FontValidationReport {
@@ -551,7 +609,7 @@ impl LoadedFontRegistry {
                 }
             }
             let path = self.asset_path(asset);
-            match fs::read(&path) {
+            match self.read_asset_bytes(asset) {
                 Ok(bytes) => {
                     let actual = sha256_hex(&bytes);
                     if actual != asset.digest.value.to_ascii_lowercase() {
@@ -579,7 +637,7 @@ impl LoadedFontRegistry {
                 )),
             }
             let license_path = self.root.join(&asset.license.license_file);
-            if !license_path.is_file() {
+            if !self.license_file_present(&asset.license.license_file) {
                 diagnostics.push(FontDiagnostic::error(
                     "font.license.missing",
                     format!(
@@ -651,7 +709,7 @@ impl LoadedFontRegistry {
                     .get(id.as_str())
                     .expect("validated role references an existing asset");
                 let path = self.asset_path(asset);
-                if !path.is_file() {
+                if !self.asset_present(asset) {
                     diagnostics.push(FontDiagnostic::rejected(
                         *role,
                         asset,
@@ -659,7 +717,7 @@ impl LoadedFontRegistry {
                     ));
                     continue;
                 }
-                let bytes = fs::read(&path)?;
+                let bytes = self.read_asset_bytes(asset)?;
                 if sha256_hex(&bytes) != asset.digest.value.to_ascii_lowercase() {
                     diagnostics.push(FontDiagnostic::rejected(
                         *role,
@@ -713,7 +771,11 @@ impl LoadedFontRegistry {
                     style: asset.style.clone(),
                     weight: asset.weight,
                     format: asset.format,
-                    path: path.canonicalize().unwrap_or(path),
+                    path: if self.snapshot.is_some() {
+                        path
+                    } else {
+                        path.canonicalize().unwrap_or(path)
+                    },
                     digest: asset.digest.clone(),
                     fallback_index: index,
                     license: asset.license.clone(),
@@ -758,6 +820,36 @@ impl LoadedFontRegistry {
             path.to_path_buf()
         } else {
             self.root.join(path)
+        }
+    }
+
+    fn read_asset_bytes<'a>(&'a self, asset: &FontAsset) -> std::io::Result<Cow<'a, [u8]>> {
+        match &self.snapshot {
+            Some(snapshot) => snapshot
+                .assets
+                .get(&asset.id)
+                .map(|bytes| Cow::Borrowed(bytes.as_slice()))
+                .ok_or_else(|| {
+                    std::io::Error::new(
+                        std::io::ErrorKind::NotFound,
+                        "font asset is absent from the immutable snapshot",
+                    )
+                }),
+            None => fs::read(self.asset_path(asset)).map(Cow::Owned),
+        }
+    }
+
+    fn asset_present(&self, asset: &FontAsset) -> bool {
+        match &self.snapshot {
+            Some(snapshot) => snapshot.assets.contains_key(&asset.id),
+            None => self.asset_path(asset).is_file(),
+        }
+    }
+
+    fn license_file_present(&self, license_file: &str) -> bool {
+        match &self.snapshot {
+            Some(snapshot) => snapshot.license_files.contains(license_file),
+            None => self.root.join(license_file).is_file(),
         }
     }
 }
@@ -955,6 +1047,101 @@ mod tests {
             .diagnostics
             .iter()
             .any(|item| item.code == "font.fallback.selected"));
+    }
+
+    fn snapshot_fixture(loaded: &LoadedFontRegistry) -> LoadedFontRegistry {
+        LoadedFontRegistry::from_snapshot(
+            loaded.registry.clone(),
+            loaded.source_path.clone(),
+            loaded.registry_digest.clone(),
+            BTreeMap::from([
+                ("font.body".to_string(), b"OTTOfixture".to_vec()),
+                ("font.mono".to_string(), vec![0, 1, 0, 0, 1]),
+            ]),
+            BTreeSet::from(["OFL.txt".to_string()]),
+        )
+    }
+
+    #[test]
+    fn snapshot_resolution_keeps_captured_bytes_and_fallback_when_files_change() {
+        let dir = TempDir::new().unwrap();
+        let loaded = fixture_registry(&dir);
+        let snapshot = snapshot_fixture(&loaded);
+        let before = snapshot.resolve(FontTarget::Html).unwrap();
+        assert_eq!(
+            before.fingerprint().unwrap(),
+            loaded.resolve(FontTarget::Html).unwrap().fingerprint().unwrap()
+        );
+
+        // A newly available primary and changed/deleted retained files must not
+        // alter the frozen selection or cause the snapshot to reopen the disk.
+        fs::write(dir.path().join("Missing-Regular.otf"), b"OTTOmissing").unwrap();
+        fs::write(dir.path().join("Fixture-Regular.otf"), b"OTTOchanged").unwrap();
+        fs::remove_file(dir.path().join("Fixture-Mono.ttf")).unwrap();
+        fs::remove_file(dir.path().join("OFL.txt")).unwrap();
+        let after = snapshot.resolve(FontTarget::Html).unwrap();
+        assert_eq!(before, after);
+        assert_eq!(after.resolved[&FontRole::Body].fallback_index, 1);
+        assert_eq!(
+            snapshot.captured_asset_bytes("font.body"),
+            Some(b"OTTOfixture".as_slice())
+        );
+        assert_eq!(snapshot.captured_asset_bytes("font.missing"), None);
+        assert_eq!(loaded.captured_asset_bytes("font.body"), None);
+    }
+
+    #[test]
+    fn snapshot_missing_asset_does_not_fall_back_to_an_existing_file() {
+        let dir = TempDir::new().unwrap();
+        let loaded = fixture_registry(&dir);
+        let snapshot = LoadedFontRegistry::from_snapshot(
+            loaded.registry.clone(),
+            loaded.source_path.clone(),
+            loaded.registry_digest.clone(),
+            BTreeMap::from([("font.mono".to_string(), vec![0, 1, 0, 0, 1])]),
+            BTreeSet::from(["OFL.txt".to_string()]),
+        );
+        assert!(snapshot.validate().diagnostics.iter().any(|item| {
+            item.code == "font.asset.missing" && item.asset_id.as_deref() == Some("font.body")
+        }));
+        assert!(snapshot.resolve(FontTarget::Html).is_err());
+        assert!(loaded.resolve(FontTarget::Html).is_ok());
+    }
+
+    #[test]
+    fn snapshot_rechecks_captured_digest_and_license_presence() {
+        let dir = TempDir::new().unwrap();
+        let loaded = fixture_registry(&dir);
+        let changed = LoadedFontRegistry::from_snapshot(
+            loaded.registry.clone(),
+            loaded.source_path.clone(),
+            loaded.registry_digest.clone(),
+            BTreeMap::from([
+                ("font.body".to_string(), b"OTTOchanged".to_vec()),
+                ("font.mono".to_string(), vec![0, 1, 0, 0, 1]),
+            ]),
+            BTreeSet::from(["OFL.txt".to_string()]),
+        );
+        assert!(changed.validate().diagnostics.iter().any(|item| {
+            item.code == "font.digest.mismatch" && item.asset_id.as_deref() == Some("font.body")
+        }));
+        assert!(changed.resolve(FontTarget::Html).is_err());
+
+        let without_license = LoadedFontRegistry::from_snapshot(
+            loaded.registry.clone(),
+            loaded.source_path.clone(),
+            loaded.registry_digest.clone(),
+            BTreeMap::from([
+                ("font.body".to_string(), b"OTTOfixture".to_vec()),
+                ("font.mono".to_string(), vec![0, 1, 0, 0, 1]),
+            ]),
+            BTreeSet::new(),
+        );
+        assert!(without_license.validate().diagnostics.iter().any(|item| {
+            item.code == "font.license.missing"
+        }));
+        assert!(without_license.resolve(FontTarget::Html).is_err());
+        assert!(loaded.resolve(FontTarget::Html).is_ok());
     }
 
     #[test]

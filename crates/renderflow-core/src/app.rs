@@ -3,7 +3,8 @@ use clap::Parser;
 use tracing::info;
 
 use crate::cli::{
-    AiCommands, AiSkillCommands, Cli, Commands, DnaCommands, DoctorProfile, DoctorReportFormat,
+    AiCommands, AiSkillCommands, Cli, Commands, CompositionCommands, DnaCommands, DoctorProfile,
+    DoctorReportFormat,
     EbookCommands, FontCommands, GraphCommands, LuluCommands, PluginCommands, PublicationCommands,
     ScreenplayCommands, SpecCommands, SpeechCommands, SubtitleCommands, ToolCommands,
     VideoCommands,
@@ -197,6 +198,11 @@ pub fn run_cli(cli: Cli) -> Result<()> {
             FontCommands::Css { registry, output } => {
                 commands::font::run_css(&registry, output.as_deref())?
             }
+        },
+        Some(Commands::Composition { subcommand }) => match subcommand {
+            CompositionCommands::Inspect { input } => commands::composition::run_inspect(&input)?,
+            CompositionCommands::Plan(arguments) => commands::composition::run_plan(arguments)?,
+            CompositionCommands::Render(arguments) => commands::composition::run_render(arguments)?,
         },
         Some(Commands::Graph { subcommand }) => match subcommand {
             GraphCommands::Plan {

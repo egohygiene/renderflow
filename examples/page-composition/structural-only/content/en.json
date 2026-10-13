@@ -1,0 +1,14 @@
+{
+  "schema": "renderflow.page-content/v1",
+  "composition_id": "fixture.two-panels",
+  "locale": "en",
+  "revision": "en-1",
+  "source_revision": "en-1",
+  "reviewed": true,
+  "direction": "ltr",
+  "writing_mode": "horizontal_tb",
+  "content": {
+    "panel.one.caption": "A quiet pause.\nThe hills can wait.",
+    "panel.two.caption": "One small step.\nThere is room to grow."
+  }
+}

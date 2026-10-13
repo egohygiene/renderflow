@@ -269,6 +269,22 @@ pub enum Commands {
         subcommand: FontCommands,
     },
 
+    /// Inspect, plan, and render explicitly authored localized page compositions.
+    #[command(
+        subcommand_required = true,
+        arg_required_else_help = true,
+        after_help = "Examples:\n  \
+            renderflow composition inspect --input page.composition.json\n  \
+            renderflow composition plan --input page.composition.json --locales en,ru\n  \
+            renderflow composition render --input page.composition.json --output-dir dist/page\n\n\
+            Authored, unqualified serialized SVG/HTML/transcript profile. PNG, PDF,\n\
+            ORA, PSD, and IDML remain visible unsupported target branches."
+    )]
+    Composition {
+        #[command(subcommand)]
+        subcommand: CompositionCommands,
+    },
+
     /// Inspect, visualize, and export the transformation execution plan
     ///
     /// These commands expose the canonical execution plan that the planner
@@ -436,6 +452,47 @@ mod doctor_arguments_tests {
             assert!(Cli::try_parse_from(arguments).is_err());
         }
     }
+}
+
+/// Local page composition commands use the same planner as the public SDK.
+#[derive(Subcommand)]
+pub enum CompositionCommands {
+    /// Inspect the declared locales, pinned sources, layout diagnostics, and default targets.
+    /// The JSON report uses the default plan; no outputs or cache entries are written.
+    Inspect {
+        /// Canonical renderflow.page-composition/v1 JSON file; sources are read only.
+        #[arg(long, value_name = "FILE")]
+        input: String,
+    },
+    /// Emit a JSON plan with per-locale and per-target diagnostics, without writes.
+    Plan(CompositionSelectionArguments),
+    /// Render selected branches into a new evidence bundle and emit its JSON receipt.
+    Render(CompositionRenderArguments),
+}
+
+#[derive(clap::Args)]
+pub struct CompositionSelectionArguments {
+    /// Canonical renderflow.page-composition/v1 JSON file; sources are read only.
+    #[arg(long, value_name = "FILE")]
+    pub input: String,
+    /// all_declared, one locale, or a comma-separated subset. No implicit locale fallback.
+    #[arg(long, default_value = "all_declared", value_name = "LOCALES")]
+    pub locales: String,
+    /// Comma-separated target formats. Unsupported known targets retain diagnostic branches.
+    #[arg(long, default_value = "svg,html,transcript_json", value_name = "FORMATS")]
+    pub targets: String,
+}
+
+#[derive(clap::Args)]
+pub struct CompositionRenderArguments {
+    #[command(flatten)]
+    pub selection: CompositionSelectionArguments,
+    /// New bundle directory; its parent must already exist. Existing paths are refused.
+    #[arg(long, value_name = "DIRECTORY")]
+    pub output_dir: String,
+    /// Optional local cache directory. Cached payloads are verified before reuse.
+    #[arg(long, value_name = "DIRECTORY")]
+    pub cache_dir: Option<String>,
 }
 
 #[derive(Subcommand)]
