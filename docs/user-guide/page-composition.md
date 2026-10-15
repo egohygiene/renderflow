@@ -1,17 +1,19 @@
 # Layered and localized page composition
 
 The `composition` commands turn an explicitly authored page composition into
-per-locale PNG, SVG, HTML, and accessible transcript files. Art, shapes, text content,
+per-locale PDF, PNG, SVG, HTML, and accessible transcript files. Art, shapes, text content,
 and typography remain separate inputs. The source language, default language,
 and every translation use the same planner and renderer.
 
-This is the **third authored, unqualified #406 implementation checkpoint**.
+This is the **fourth authored, unqualified #406 implementation checkpoint**.
 Its measured-typography path uses pinned HarfRust 0.14.0 and Skrifa 0.48.0 to
 shape supported text and derive glyph outlines from captured font bytes. The
 PNG branch adds pinned resvg 0.48.1 to rasterize that same composed geometry
-with explicitly captured image resources.
-Tests, builds, visual review, native execution, and CI were deferred during the
-sprint. Source implementation and serialized evidence do not establish print
+with explicitly captured image resources. The PDF branch reuses that opaque
+rasterization and the existing lopdf 0.45.0 dependency for one image-only page
+per locale, with explicit geometry and color-policy evidence.
+Tests, builds, lint, schema validation, CLI/fixture/render/native execution,
+Cargo and CI were deferred during the sprint. Source implementation and serialized evidence do not establish print
 readability, font rights, or acceptance by a design application.
 
 ## Start with an authored composition
@@ -52,10 +54,10 @@ explicit font-size, minimum-size, line-height, padding, alignment, and color
 settings. An explicit reading order is independent of visual paint order.
 
 The canonical composition and content schemas remain v1. Composition output
-uses `renderflow.layered-composition/v3`; plans and runs use
-`renderflow.composition-plan/v3` and `renderflow.composition-run/v3`. The new
-profile separates PNG/settings evidence from earlier v2 outlined previews and
-v1 browser-text previews.
+uses `renderflow.layered-composition/v4`; plans and runs use
+`renderflow.composition-plan/v4` and `renderflow.composition-run/v4`. The new
+profile adds independent PDF settings and page evidence. Historical v3 PNG,
+v2 outlined-preview and v1 browser-text evidence schemas remain available.
 
 ## Inspect and plan without output writes
 
@@ -123,6 +125,7 @@ own `.artifact-store`.
 | `outputs/<locale>/page.svg` | Published SVG for a successful selected SVG branch |
 | `outputs/<locale>/page.html` | Published HTML for a successful selected HTML branch |
 | `outputs/<locale>/page.png` | Published composed PNG for a successful explicitly selected PNG branch |
+| `outputs/<locale>/page.pdf` | Published single-page flattened PDF for a successful explicitly selected PDF branch |
 | `outputs/<locale>/page.transcript.json` | Published structured transcript |
 | `outputs/<locale>/page.transcript.txt` | Published plain transcript |
 
@@ -155,11 +158,11 @@ error before a run receipt can be created is not evidence of publication.
 | `transcript_json` | Structured localized text in declared reading order |
 | `transcript_text` | Plain localized text in declared reading order |
 | `png` | Opt-in rasterization of the measured composition with explicit DPI/background and captured PNG/JPEG/SVG plates |
-| `pdf` | Explicit unsupported composition branch; no printer or PDF/X acceptance claim |
+| `pdf` | Opt-in opaque, image-only composed page with trim/bleed boxes and explicit binding-side evidence; no printer or PDF/X acceptance claim |
 | `ora`, `psd`, `idml` | Explicit unsupported interchange branches; no claim of native editability |
 
-Selecting `svg,pdf`, for example, can publish the supported SVG branch while
-retaining the unavailable PDF branch and reporting an incomplete run. Do not
+Selecting `svg,idml`, for example, can publish the supported SVG branch while
+retaining the unavailable IDML branch and reporting an incomplete run. Do not
 interpret an output filename alone as proof that every requested branch ran.
 
 ## Compose a PNG
@@ -192,7 +195,7 @@ renderflow composition render \
 color. The equivalent SDK settings live under `CompositionRequest.raster`;
 omitting that object uses defaults, while an explicit object requires both
 `dpi` and `background`. Invalid raster settings block PNG branches; they do not
-change the geometry, output or cache identity of SVG/HTML/transcript branches.
+change the geometry, output or cache identity of PDF/SVG/HTML/transcript branches.
 Keep explicit quotes around hex colors in shell commands.
 
 PNG plans carry `branches[].raster` with the provider identity, effective
@@ -200,8 +203,9 @@ settings, pixel dimensions, `rgba8`/straight-alpha encoding and
 `assumed_srgb_no_profile_conversion` color policy. Dimensions round upward from
 `millimeters × DPI / 25.4`. Each output axis is capped at 8,192 pixels and the
 whole canvas at 16,777,216 pixels. Terminal artifact metadata retains the same
-raster plan. Non-PNG branches carry no raster plan; invalid PNG settings leave
-it absent and retain actionable branch diagnostics.
+raster plan. The top-level branch raster plan is PNG-only; PDF retains its own
+raster plan inside `branches[].pdf.raster`. Invalid PNG settings leave
+its top-level raster plan absent and retain actionable branch diagnostics.
 
 The PNG provider has no font discovery or browser text shaping. It receives
 the measured glyph paths and a closed set of resources from the captured
@@ -234,6 +238,101 @@ chosen sampling density; it is not proof of readable print typography. The
 PNG route, decoder handling, image appearance and platform repeatability remain
 unrun and unqualified during this sprint.
 
+## Compose a PDF
+
+PDF is also opt-in and independent of PNG settings. It produces one page for
+each selected locale from the same measured glyph geometry, art and shapes.
+The default PDF sampling density is 300 DPI and its background is opaque white.
+The same font, text-review, overflow, decoding and surface-budget gates apply.
+
+```bash
+renderflow composition plan \
+  --input "examples/page-composition/raster-composition/page.composition.json" \
+  --locales "en,de" \
+  --targets "pdf,svg,transcript_json" \
+  --pdf-dpi 300 \
+  --pdf-background "#FFFFFF" \
+  --pdf-binding-side "none" \
+  --pdf-color-policy "assumed_srgb_no_profile_conversion" \
+  --pdf-conformance "none"
+
+renderflow composition render \
+  --input "examples/page-composition/raster-composition/page.composition.json" \
+  --locales "en,de" \
+  --targets "pdf,transcript_json" \
+  --pdf-dpi 300 \
+  --pdf-background "#FFFFFF" \
+  --output-dir "dist/page-pdf-first-run"
+```
+
+The render example assumes the `dist` parent already exists. These are commands
+for a later authorized run; no PDF was generated or viewed during this sprint.
+
+| PDF option | Default | Admitted behavior |
+| --- | --- | --- |
+| `--pdf-dpi` | `300` | Integer 36–600, subject to the same 8,192-axis and 16,777,216-total-pixel caps |
+| `--pdf-background` | `#ffffff` | Opaque `#RRGGBB`; transparent is refused and hex colors normalize to lowercase |
+| `--pdf-binding-side` | `none` | `none`, `left` or `right`; nonzero gutter requires an explicit left/right side |
+| `--pdf-color-policy` | `assumed_srgb_no_profile_conversion` | The only admitted policy; no ICC conversion or output intent |
+| `--pdf-conformance` | `none` | The only admitted value; PDF/X and other conformance requests are blocked |
+
+The equivalent SDK settings live in `CompositionRequest.pdf`. Omission chooses
+defaults; an explicit object requires all five fields. Unsupported color or
+conformance strings and invalid PDF settings produce blocked PDF branches while
+other selected outputs can proceed. Invalid CLI enum syntax is an argument
+error. PDF settings affect PDF cache identity only; `--raster-*` settings remain
+PNG-only and cannot silently change a PDF.
+
+A PDF plan carries `branches[].pdf`, including the effective settings, nested
+raster plan, provider identity, page boxes in points, gutter clearance and
+image-draw matrix. Terminal artifact metadata retains that plan. These boxes
+convert the normalized top-left composition coordinates to PDF's bottom-left
+point coordinates; values use the PDF provider's f32 round-trip precision.
+MediaBox and CropBox cover the full canvas. TrimBox and BleedBox retain their
+independent, potentially asymmetric authored rectangles. The safe rectangle
+is evidence and a layout constraint, not a separate PDF page box or printed
+guide. No crop marks or registration marks are added.
+
+`page.gutter_mm` means the minimum **total clearance from the selected trim
+edge**. For a left binding, the safe area's left edge must already lie at least
+that distance to the right of the trim's left edge; right binding is symmetric.
+The safe area must remain within trim, and effective locale text bounds must
+remain within the safe area. The setting does not add another margin to an
+existing safe inset. It does not translate artwork, resize the page, reflow
+text, alternate sides by page number or infer a duplex layout. Adjust the
+canonical layout explicitly when its authored safe area does not satisfy the
+requested gutter.
+
+The provider renders an opaque PNG in memory, verifies it, removes the opaque
+alpha channel and writes one uncompressed 8-bit DeviceRGB image into the PDF
+using the existing lopdf dependency. It keeps a uniform physical sampling
+scale; the final fractional pixel at the right or bottom is clipped to the
+page canvas instead of stretching both axes to independently rounded pixel
+dimensions. Each locale is an independent one-page PDF, not an assembled book.
+Raw RGB bytes can occupy up to 48 MiB; the whole PDF remains capped at 64 MiB.
+Selecting a high DPI can therefore yield a large file even for simple artwork.
+
+Fresh and cached PDF candidates pass the same narrow authored envelope
+admission before publication. The provider compares every structural byte with
+the current pinned writer's expected output, skipping only the fixed-size raw
+RGB payload. The surrounding output/cache SHA-256 commits those pixel bytes.
+It does not parse arbitrary cached PDFs or decompress candidate streams.
+Envelope identity does not prove source-to-pixel appearance, independent PDF
+conformance or printer acceptance. Unknown PDFs are not repaired or certified.
+
+The PDF contains flattened pixels: it has no editable layers, embedded fonts,
+selectable/searchable lettering, tags or accessibility reading order. Keep
+canonical inputs and a transcript. The unchanged font provenance and typography
+evidence explain which captured font produced the pixels; they are not a claim
+that the PDF embeds that font. RGB is assumed sRGB without ICC conversion,
+CMYK, spot colors, output intent or PDF/X conformance. An opaque white default
+does not establish paper color or printer color management.
+
+See the [PDF provider decision](../work/406/PDF_PROVIDER.md) for the exact
+bounded output contract and later qualification work. The authored route,
+schemas, regressions, cache behavior, PDF viewer appearance and print fitness
+remain unrun and unqualified.
+
 ## Layout and review boundaries
 
 The visual profile is bounded to supported Latin-script, left-to-right,
@@ -263,8 +362,9 @@ Known overflow blocks the visual branch rather than publishing clipped text as
 if it fit. These checks describe the implemented provider path; execution and
 visual qualification are still pending.
 Text containers outside the declared safe area or excluded by their clip also
-block the visual branch. A nonzero gutter reports an unresolved binding-side
-warning; the renderer does not guess which side needs the gutter.
+block the visual branch. SVG/HTML/PNG retain an unresolved binding-side warning for nonzero gutter
+intent. PDF instead requires an explicit side and validates the existing safe
+area against that clearance, as described in “Compose a PDF” above; it never guesses or shifts art.
 
 Transcript outputs preserve text and declared reading order without applying
 those visual layout restrictions. This retains readable content for review
@@ -292,7 +392,7 @@ Spaces and newline delimiters count toward text-code-point limits. Repeated
 glyph outlines count per occurrence in the path budget, and retrying the same
 font on a different layer counts as another candidate attempt. Font work counts
 repeated policy/shaping use of the bytes, not just unique font file sizes.
-Each locale counts once toward request limits when PNG, SVG and HTML are
+Each locale counts once toward request limits when PDF, PNG, SVG and HTML are
 selected; the full serialized plan can repeat that locale's report in those
 branches. The private paths are shared in memory. Request-budget failures use
 `composition.typography.plan_budget` and advise selecting fewer locales before
@@ -317,8 +417,9 @@ and at its intended size before publication, and retain the font license
 notices when distributing font-derived assets as their terms require.
 
 Trim, bleed, safe area, and gutter values describe page geometry. They do not
-establish PDF/X, a printer profile, or commercial print acceptance. Composed
-print-PDF generation and native design-file interchange remain separate work.
+establish PDF/X, a printer profile, or commercial print acceptance. The bounded
+composed PDF route above records these choices without qualifying print output;
+native design-file interchange remains separate work.
 
 For flattened or reconstructed sources, keep the original references and
 honest provenance flags. The composition path does not perform AI inpainting,
@@ -339,7 +440,7 @@ the [Flow artifact handoff](../architecture/flow-artifact-forest.md) for the
 existing distinction between planned inventory and actual publication.
 
 Issue [#406](https://github.com/egohygiene/renderflow/issues/406) remains open
-for execution and visual qualification, broader typography, and the remaining
-native output and interoperability requirements.
+for general planner/Flow integration, execution and visual qualification,
+broader typography, and the remaining native interoperability requirements.
 The [format evaluation](../work/406/FORMAT_EVALUATION.md) explains the canonical
 manifest choice and the boundaries of each proposed interchange format.

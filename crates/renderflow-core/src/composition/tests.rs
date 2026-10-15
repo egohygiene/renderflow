@@ -59,7 +59,7 @@ fn file_snapshot(root: &Path) -> BTreeMap<PathBuf, Vec<u8>> {
 }
 
 fn request(locales: LocaleSelector, targets: Vec<CompositionOutput>) -> CompositionRequest {
-    CompositionRequest { locales, targets, raster: raster::RasterSettings::default() }
+    CompositionRequest { locales, targets, raster: raster::RasterSettings::default(), pdf: pdf::PdfSettings::default() }
 }
 
 fn exact(locale: &str, targets: Vec<CompositionOutput>) -> CompositionRequest {
@@ -107,14 +107,18 @@ fn visual_branches_share_one_measured_report_and_commit_its_identity() {
     let request = exact("en", vec![CompositionOutput::Svg, CompositionOutput::Html,
         CompositionOutput::Png, CompositionOutput::TranscriptJson, CompositionOutput::Pdf]);
     let before = plan(&loaded, &request).unwrap();
-    assert_eq!(before.schema, "renderflow.composition-plan/v3");
-    assert_eq!(before.profile, "renderflow.layered-composition/v3");
+    assert_eq!(before.schema, "renderflow.composition-plan/v4");
+    assert_eq!(before.profile, "renderflow.layered-composition/v4");
     let svg = before.branches.iter().find(|branch| branch.output == CompositionOutput::Svg).unwrap();
     let html = before.branches.iter().find(|branch| branch.output == CompositionOutput::Html).unwrap();
     let png = before.branches.iter().find(|branch| branch.output == CompositionOutput::Png).unwrap();
+    let pdf = before.branches.iter().find(|branch| branch.output == CompositionOutput::Pdf).unwrap();
     let report = serde_json::to_value(svg.typography.as_ref().unwrap()).unwrap();
     assert_eq!(report, serde_json::to_value(html.typography.as_ref().unwrap()).unwrap());
     assert_eq!(report, serde_json::to_value(png.typography.as_ref().unwrap()).unwrap());
+    assert_eq!(report, serde_json::to_value(pdf.typography.as_ref().unwrap()).unwrap());
+    assert_eq!(pdf.state, CompositionBranchState::Planned);
+    assert!(pdf.raster.is_none() && pdf.pdf.is_some());
     assert_eq!(hash_json(svg.typography.as_ref().unwrap()).unwrap(),
         hash_json(html.typography.as_ref().unwrap()).unwrap());
     assert_ne!(svg.target_id, html.target_id);
@@ -174,7 +178,7 @@ fn aggregate_visual_text_budget_counts_whitespace_and_refuses_before_publication
 fn raster_settings_change_only_the_png_branch_and_invalid_settings_stay_scoped() {
     let loaded = LoadedComposition::load(example_root().join("page.composition.json")).unwrap();
     let mut request = exact("en", vec![CompositionOutput::Svg, CompositionOutput::Html,
-        CompositionOutput::Png, CompositionOutput::TranscriptJson]);
+        CompositionOutput::Png, CompositionOutput::Pdf, CompositionOutput::TranscriptJson]);
     let initial = plan(&loaded, &request).unwrap();
     request.raster = raster::RasterSettings { dpi: 72, background: "#A1B2C3".into() };
     let changed = plan(&loaded, &request).unwrap();
@@ -290,15 +294,18 @@ fn malformed_captured_png_cannot_publish_an_incomplete_picture_but_transcripts_s
     let before = file_snapshot(&input);
     let loaded = LoadedComposition::load(&manifest_path).unwrap();
     let output = root.join("partial");
-    let run = execute(&loaded, &exact("en", vec![CompositionOutput::Png, CompositionOutput::TranscriptJson]),
+    let run = execute(&loaded, &exact("en", vec![CompositionOutput::Png, CompositionOutput::Pdf, CompositionOutput::TranscriptJson]),
         &output, None, &ProcessCancellationToken::new()).unwrap();
     assert_eq!(run.state, CompositionRunState::Partial);
-    let png = run.branches.iter().find(|branch| run.plan.branches.iter().any(|plan|
-        plan.target_id == branch.target_id && plan.output == CompositionOutput::Png)).unwrap();
-    assert!(matches!(png.outcome, CompositionBranchOutcome::Blocked | CompositionBranchOutcome::Failed));
-    assert!(png.artifact_id.is_none() && png.artifact_evidence_index.is_none() && png.locator.is_none());
+    for output in [CompositionOutput::Png, CompositionOutput::Pdf] {
+        let branch = run.branches.iter().find(|branch| run.plan.branches.iter().any(|plan|
+            plan.target_id == branch.target_id && plan.output == output)).unwrap();
+        assert!(matches!(branch.outcome, CompositionBranchOutcome::Blocked | CompositionBranchOutcome::Failed));
+        assert!(branch.artifact_id.is_none() && branch.artifact_evidence_index.is_none() && branch.locator.is_none());
+    }
     assert_eq!(run.artifact_manifest.outputs, vec!["outputs/en/page.transcript.json".to_string()]);
     assert!(!output.join("outputs/en/page.png").exists());
+    assert!(!output.join("outputs/en/page.pdf").exists());
     assert!(output.join("composition-run.json").is_file());
     assert_eq!(file_snapshot(&input), before);
 }
@@ -322,7 +329,7 @@ fn shared_cache_verifies_records_and_refuses_corrupted_payloads() {
     assert_eq!(fs::read(root.join("first/outputs/en/page.svg")).unwrap(), fs::read(root.join("second/outputs/en/page.svg")).unwrap());
     let report_digest = hash_json(first.plan.branches[0].typography.as_ref().unwrap()).unwrap();
     for run in [&first, &second] {
-        assert_eq!(run.schema, "renderflow.composition-run/v3");
+        assert_eq!(run.schema, "renderflow.composition-run/v4");
         let artifact = &run.artifact_manifest.artifacts[run.branches[0].artifact_evidence_index.unwrap()];
         assert_eq!(artifact.metadata["renderflow.composition"]["typography"]["report_sha256"], report_digest);
         assert_eq!(artifact.metadata["renderflow.composition"]["renderer"]["version"], render::COMPOSITION_RENDERER_VERSION);
@@ -405,11 +412,11 @@ fn partial_receipt_names_only_published_outputs_and_preserves_source_files() {
     let before = file_snapshot(input_root);
     let loaded = LoadedComposition::load(&manifest).unwrap();
     let output = directory.path().canonicalize().unwrap().join("partial");
-    let run = execute(&loaded, &exact("en", vec![CompositionOutput::Svg, CompositionOutput::Pdf]),
+    let run = execute(&loaded, &exact("en", vec![CompositionOutput::Svg, CompositionOutput::Ora]),
         &output, None, &ProcessCancellationToken::new()).unwrap();
     assert_eq!(run.state, CompositionRunState::Partial);
     assert_eq!(run.artifact_manifest.outputs, vec!["outputs/en/page.svg".to_string()]);
-    assert!(!output.join("outputs/en/page.pdf").exists());
+    assert!(!output.join("outputs/en/page.ora").exists());
     assert_eq!(file_snapshot(input_root), before);
 
     let published = run.branches.iter().find(|branch| branch.outcome == CompositionBranchOutcome::Published).unwrap();
@@ -465,4 +472,203 @@ fn linked_cache_internals_are_refused_before_writing_through_them() {
         assert_eq!(file_snapshot(&outside), before);
         assert!(!output.join("composition-run.json").exists());
     }
+}
+
+
+#[test]
+fn legacy_requests_keep_existing_targets_and_gain_explicit_pdf_defaults() {
+    let request: CompositionRequest = serde_json::from_value(serde_json::json!({
+        "locales": { "mode": "exact", "locale": "en" },
+        "targets": ["svg", "transcript_json"],
+    })).unwrap();
+    assert_eq!(request.targets, vec![CompositionOutput::Svg, CompositionOutput::TranscriptJson]);
+    assert_eq!(request.raster, raster::RasterSettings::default());
+    assert_eq!(request.pdf, pdf::PdfSettings::default());
+    assert_eq!(request.pdf.dpi, 300);
+    assert_eq!(request.pdf.background, "#ffffff");
+    assert_eq!(request.pdf.binding_side, pdf::BindingSide::None);
+    assert_eq!(request.pdf.color_policy, "assumed_srgb_no_profile_conversion");
+    assert_eq!(request.pdf.conformance, "none");
+    assert!(!CompositionRequest::default().targets.contains(&CompositionOutput::Pdf));
+}
+
+#[test]
+fn pdf_settings_are_canonical_and_change_only_the_pdf_branch() {
+    let loaded = LoadedComposition::load(example_root().join("page.composition.json")).unwrap();
+    let mut request = exact("en", vec![CompositionOutput::Svg, CompositionOutput::Html,
+        CompositionOutput::Png, CompositionOutput::Pdf, CompositionOutput::TranscriptJson]);
+    let initial = plan(&loaded, &request).unwrap();
+    request.pdf = pdf::PdfSettings {
+        dpi: 72, background: "#A1B2C3".into(), ..pdf::PdfSettings::default()
+    };
+    let changed = plan(&loaded, &request).unwrap();
+    for before in &initial.branches {
+        let after = changed.branches.iter().find(|branch| branch.target_id == before.target_id).unwrap();
+        assert_eq!(before.state, CompositionBranchState::Planned);
+        assert_eq!(after.state, CompositionBranchState::Planned);
+        assert_eq!(serde_json::to_value(&before.typography).unwrap(),
+            serde_json::to_value(&after.typography).unwrap());
+        if before.output == CompositionOutput::Pdf {
+            assert_ne!(before.cache_key, after.cache_key);
+            assert!(before.raster.is_none() && after.raster.is_none());
+            let pdf = after.pdf.as_ref().unwrap();
+            assert_eq!(pdf.settings.dpi, 72);
+            assert_eq!(pdf.settings.background, "#a1b2c3");
+            assert_eq!((pdf.raster.width_px, pdf.raster.height_px), (596, 420));
+            assert_eq!(pdf.raster.settings.dpi, pdf.settings.dpi);
+            assert_eq!(pdf.raster.settings.background, pdf.settings.background);
+            assert!(!pdf.runtime_qualified);
+        } else {
+            assert_eq!(before.cache_key, after.cache_key);
+            assert!(before.pdf.is_none() && after.pdf.is_none());
+        }
+    }
+    request.pdf.background = "#a1b2c3".into();
+    let lowercase = plan(&loaded, &request).unwrap();
+    assert_eq!(identities(&changed), identities(&lowercase));
+
+    // A binding declaration belongs to PDF output even when no gutter is needed.
+    request.pdf.binding_side = pdf::BindingSide::Right;
+    let binding = plan(&loaded, &request).unwrap();
+    for before in &lowercase.branches {
+        let after = binding.branches.iter().find(|branch| branch.target_id == before.target_id).unwrap();
+        assert_eq!(after.state, CompositionBranchState::Planned);
+        if before.output == CompositionOutput::Pdf {
+            assert_ne!(before.cache_key, after.cache_key);
+        } else {
+            assert_eq!(before.cache_key, after.cache_key);
+        }
+    }
+}
+
+#[test]
+fn invalid_pdf_settings_block_only_pdf_and_do_not_rewrite_other_outputs() {
+    let loaded = LoadedComposition::load(example_root().join("page.composition.json")).unwrap();
+    let mut request = exact("en", vec![CompositionOutput::Svg, CompositionOutput::Png,
+        CompositionOutput::Pdf, CompositionOutput::TranscriptJson]);
+    let valid = plan(&loaded, &request).unwrap();
+    for invalid in [
+        pdf::PdfSettings { dpi: 35, ..pdf::PdfSettings::default() },
+        pdf::PdfSettings { dpi: 601, ..pdf::PdfSettings::default() },
+        pdf::PdfSettings { background: "transparent".into(), ..pdf::PdfSettings::default() },
+        pdf::PdfSettings { background: "#11223380".into(), ..pdf::PdfSettings::default() },
+        pdf::PdfSettings { color_policy: "convert_to_cmyk".into(), ..pdf::PdfSettings::default() },
+        pdf::PdfSettings { conformance: "pdf_x_4".into(), ..pdf::PdfSettings::default() },
+    ] {
+        request.pdf = invalid;
+        let blocked = plan(&loaded, &request).unwrap();
+        for branch in &blocked.branches {
+            if branch.output == CompositionOutput::Pdf {
+                assert_eq!(branch.state, CompositionBranchState::Blocked);
+                assert!(branch.pdf.is_none());
+                assert!(branch.diagnostics.iter().any(|item| item.code == "composition.pdf.plan"
+                    && item.severity == DiagnosticSeverity::Error));
+            } else {
+                assert_eq!(branch.state, CompositionBranchState::Planned);
+                let previous = valid.branches.iter().find(|item| item.target_id == branch.target_id).unwrap();
+                assert_eq!(previous.cache_key, branch.cache_key);
+            }
+        }
+    }
+}
+
+#[test]
+fn gutter_requires_an_explicit_pdf_binding_and_never_moves_canonical_layers() {
+    let mut loaded = LoadedComposition::load(example_root().join("page.composition.json")).unwrap();
+    loaded.manifest.page.gutter_mm = 2.0;
+    let before = serde_json::to_value(&loaded.manifest).unwrap();
+    let mut request = exact("en", vec![CompositionOutput::Svg, CompositionOutput::Png,
+        CompositionOutput::Pdf, CompositionOutput::TranscriptJson]);
+    let unresolved = plan(&loaded, &request).unwrap();
+    for branch in &unresolved.branches {
+        if branch.output == CompositionOutput::Pdf {
+            assert_eq!(branch.state, CompositionBranchState::Blocked);
+            assert!(branch.pdf.is_none());
+        } else {
+            assert_eq!(branch.state, CompositionBranchState::Planned);
+        }
+    }
+    request.pdf.binding_side = pdf::BindingSide::Left;
+    let resolved = plan(&loaded, &request).unwrap();
+    for branch in &resolved.branches {
+        assert_eq!(branch.state, CompositionBranchState::Planned);
+        if branch.output == CompositionOutput::Pdf {
+            assert_eq!(branch.pdf.as_ref().unwrap().settings.binding_side, pdf::BindingSide::Left);
+            assert!(!branch.diagnostics.iter().any(|item| item.code == "composition.page.gutter_unresolved"));
+        } else if branch.output.visual() {
+            assert!(branch.diagnostics.iter().any(|item| item.code == "composition.page.gutter_unresolved"));
+        }
+    }
+    assert_eq!(serde_json::to_value(&loaded.manifest).unwrap(), before);
+
+    // A declared binding does not permit a gutter wider than the authored safe inset.
+    loaded.manifest.page.gutter_mm = 5.0;
+    let too_wide = plan(&loaded, &request).unwrap();
+    for branch in &too_wide.branches {
+        assert_eq!(branch.state, if branch.output == CompositionOutput::Pdf {
+            CompositionBranchState::Blocked
+        } else {
+            CompositionBranchState::Planned
+        });
+    }
+}
+
+#[test]
+fn pdf_receipts_pin_settings_and_cache_reuses_unchanged_outputs_without_mutating_sources() {
+    let directory = tempfile::tempdir().unwrap();
+    let root = directory.path().canonicalize().unwrap();
+    let input = root.join("input");
+    copy_tree(&example_root().parent().unwrap().join("raster-composition"), &input);
+    let before = file_snapshot(&input);
+    let loaded = LoadedComposition::load(input.join("page.composition.json")).unwrap();
+    let mut request = exact("en", vec![CompositionOutput::Svg, CompositionOutput::Png,
+        CompositionOutput::Pdf, CompositionOutput::TranscriptJson]);
+    request.pdf = pdf::PdfSettings {
+        dpi: 72, background: "#204060".into(), ..pdf::PdfSettings::default()
+    };
+    let cache = root.join("cache");
+    let cancellation = ProcessCancellationToken::new();
+    let first = execute(&loaded, &request, &root.join("first"), Some(&cache), &cancellation).unwrap();
+    request.pdf.dpi = 144;
+    let second = execute(&loaded, &request, &root.join("second"), Some(&cache), &cancellation).unwrap();
+    let third = execute(&loaded, &request, &root.join("third"), Some(&cache), &cancellation).unwrap();
+    assert_eq!(file_snapshot(&input), before);
+    for (index, run) in [&first, &second, &third].into_iter().enumerate() {
+        assert_eq!(run.state, CompositionRunState::Complete);
+        assert_eq!(run.schema, "renderflow.composition-run/v4");
+        for branch in &run.branches {
+            let planned = run.plan.branches.iter().find(|plan| plan.target_id == branch.target_id).unwrap();
+            let artifact = &run.artifact_manifest.artifacts[branch.artifact_evidence_index.unwrap()];
+            let metadata = &artifact.metadata["renderflow.composition"];
+            assert_eq!(branch.outcome, CompositionBranchOutcome::Published);
+            if planned.output == CompositionOutput::Pdf {
+                assert_eq!(metadata["pdf"], serde_json::to_value(planned.pdf.as_ref().unwrap()).unwrap());
+                assert!(metadata["raster"].is_null());
+                assert_eq!(metadata["typography"]["report_sha256"],
+                    hash_json(planned.typography.as_ref().unwrap()).unwrap());
+                assert!(artifact.locator.ends_with("/page.pdf"));
+            } else {
+                assert!(metadata["pdf"].is_null());
+            }
+            let expected_cache = if index == 0 || (index == 1 && planned.output == CompositionOutput::Pdf) {
+                CacheDisposition::Miss
+            } else {
+                CacheDisposition::Hit
+            };
+            assert_eq!(branch.cache, expected_cache);
+        }
+        assert!(!run.runtime_qualified && !run.visual_determinism_qualified && run.review_required);
+    }
+    let pdf_branch = |run: &CompositionRun| run.branches.iter().find(|branch|
+        run.plan.branches.iter().any(|plan| plan.target_id == branch.target_id && plan.output == CompositionOutput::Pdf))
+        .unwrap().artifact_id.clone();
+    assert_ne!(pdf_branch(&first), pdf_branch(&second));
+    assert_eq!(pdf_branch(&second), pdf_branch(&third));
+    assert_eq!(fs::read(root.join("second/outputs/en/page.pdf")).unwrap(),
+        fs::read(root.join("third/outputs/en/page.pdf")).unwrap());
+    let receipt: CompositionRun = serde_json::from_slice(&fs::read(root.join("third/composition-run.json")).unwrap()).unwrap();
+    assert_eq!(receipt.plan_sha256, hash_bytes(&fs::read(root.join("third/composition-plan.json")).unwrap()));
+    assert_eq!(receipt.artifact_manifest, third.artifact_manifest);
+    assert_eq!(receipt.plan.schema, "renderflow.composition-plan/v4");
+    assert_eq!(receipt.plan.profile, "renderflow.layered-composition/v4");
 }

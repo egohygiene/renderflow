@@ -8,7 +8,7 @@ use anyhow::{bail, Context, Result};
 use serde::Serialize;
 
 use crate::cli::{CompositionRenderArguments, CompositionSelectionArguments};
-use crate::composition::{self, CompositionOutput, CompositionRequest, LocaleSelector, RasterSettings};
+use crate::composition::{self, CompositionOutput, CompositionRequest, LocaleSelector, RasterSettings, BindingSide, PdfSettings};
 use crate::process::ProcessCancellationToken;
 
 /// Inspection is a read-only plan for every declared locale and the default targets.
@@ -55,6 +55,18 @@ fn request_from_arguments(arguments: &CompositionSelectionArguments) -> Result<C
         dpi: arguments.raster_dpi,
         background: arguments.raster_background.clone(),
     };
+    request.pdf = PdfSettings {
+        dpi: arguments.pdf_dpi,
+        background: arguments.pdf_background.clone(),
+        binding_side: match arguments.pdf_binding_side.as_str() {
+            "none" => BindingSide::None,
+            "left" => BindingSide::Left,
+            "right" => BindingSide::Right,
+            _ => bail!("--pdf-binding-side must be none, left, or right"),
+        },
+        color_policy: arguments.pdf_color_policy.clone(),
+        conformance: arguments.pdf_conformance.clone(),
+    };
     Ok(request)
 }
 
@@ -85,7 +97,7 @@ fn selection_request(locales: &str, targets: &str) -> Result<CompositionRequest>
             _ => bail!("unknown page-composition target {target}; expected svg, html, transcript_json, transcript_text, png, pdf, ora, psd, or idml"),
         }
     }).collect::<Result<Vec<_>>>()?;
-    Ok(CompositionRequest { locales, targets, raster: RasterSettings::default() })
+    Ok(CompositionRequest { locales, targets, raster: RasterSettings::default(), pdf: PdfSettings::default() })
 }
 
 fn comma_values(value: &str, argument: &str) -> Result<Vec<String>> {
@@ -122,14 +134,14 @@ mod tests {
     fn render_uses_explicit_subset_and_retains_unsupported_target() {
         let cli = Cli::try_parse_from([
             "renderflow", "composition", "render", "--input", "page.composition.json",
-            "--locales", "en,ru", "--targets", "svg,pdf", "--output-dir", "dist/page",
+            "--locales", "en,ru", "--targets", "svg,ora", "--output-dir", "dist/page",
         ]).unwrap();
         let Some(Commands::Composition {
             subcommand: CompositionCommands::Render(arguments),
         }) = cli.command else { panic!("expected composition render"); };
         let request = selection_request(&arguments.selection.locales, &arguments.selection.targets).unwrap();
         assert!(matches!(request.locales, LocaleSelector::Subset { ref locales } if locales == &["en", "ru"]));
-        assert!(matches!(request.targets.as_slice(), [CompositionOutput::Svg, CompositionOutput::Pdf]));
+        assert!(matches!(request.targets.as_slice(), [CompositionOutput::Svg, CompositionOutput::Ora]));
         assert!(arguments.cache_dir.is_none());
     }
 
@@ -163,5 +175,67 @@ mod tests {
             r#"{"locales":{"mode":"exact","locale":"en"},"targets":["png"]}"#,
         ).unwrap();
         assert_eq!(legacy.raster, RasterSettings::default());
+        assert_eq!(legacy.pdf, PdfSettings::default());
     }
+
+    #[test]
+    fn pdf_options_reach_the_shared_request_without_changing_png_settings() {
+        let cli = Cli::try_parse_from([
+            "renderflow", "composition", "plan", "--input", "page.composition.json",
+            "--locales", "en", "--targets", "pdf,png,transcript_json",
+            "--pdf-dpi", "144", "--pdf-background", "#AAbbCC",
+            "--pdf-binding-side", "left",
+            "--pdf-color-policy", "assumed_srgb_no_profile_conversion",
+            "--pdf-conformance", "none",
+        ]).unwrap();
+        let Some(Commands::Composition {
+            subcommand: CompositionCommands::Plan(arguments),
+        }) = cli.command else { panic!("expected composition plan"); };
+        let request = request_from_arguments(&arguments).unwrap();
+        assert_eq!(request.pdf.dpi, 144);
+        assert_eq!(request.pdf.background, "#AAbbCC");
+        assert_eq!(request.pdf.binding_side, BindingSide::Left);
+        assert_eq!(request.pdf.color_policy, "assumed_srgb_no_profile_conversion");
+        assert_eq!(request.pdf.conformance, "none");
+        assert_eq!(request.raster, RasterSettings::default());
+        assert_eq!(request.targets, [CompositionOutput::Pdf, CompositionOutput::Png, CompositionOutput::TranscriptJson]);
+    }
+
+    #[test]
+    fn pdf_policy_requests_are_not_silently_normalized_to_supported_values() {
+        let cli = Cli::try_parse_from([
+            "renderflow", "composition", "plan", "--input", "page.composition.json",
+            "--targets", "pdf,transcript_json", "--pdf-background", "transparent",
+            "--pdf-color-policy", "cmyk", "--pdf-conformance", "pdfx",
+        ]).unwrap();
+        let Some(Commands::Composition {
+            subcommand: CompositionCommands::Plan(arguments),
+        }) = cli.command else { panic!("expected composition plan"); };
+        let request = request_from_arguments(&arguments).unwrap();
+        assert_eq!(request.pdf.background, "transparent");
+        assert_eq!(request.pdf.color_policy, "cmyk");
+        assert_eq!(request.pdf.conformance, "pdfx");
+        assert_eq!(request.targets, [CompositionOutput::Pdf, CompositionOutput::TranscriptJson]);
+    }
+
+    #[test]
+    fn composition_defaults_keep_pdf_opt_in_and_use_fixed_pdf_defaults() {
+        let cli = Cli::try_parse_from([
+            "renderflow", "composition", "plan", "--input", "page.composition.json",
+        ]).unwrap();
+        let Some(Commands::Composition {
+            subcommand: CompositionCommands::Plan(arguments),
+        }) = cli.command else { panic!("expected composition plan"); };
+        let request = request_from_arguments(&arguments).unwrap();
+        assert_eq!(request, CompositionRequest::default());
+        assert_eq!(request.pdf.dpi, 300);
+        assert_eq!(request.pdf.background, "#ffffff");
+        assert_eq!(request.pdf.binding_side, BindingSide::None);
+        assert!(!request.targets.contains(&CompositionOutput::Pdf));
+        assert!(Cli::try_parse_from([
+            "renderflow", "composition", "plan", "--input", "page.composition.json",
+            "--pdf-binding-side", "auto",
+        ]).is_err());
+    }
+
 }
