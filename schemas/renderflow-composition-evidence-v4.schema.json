@@ -1,0 +1,1249 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-composition-evidence-v4.schema.json",
+  "title": "Renderflow scoped composition plan and run evidence v4",
+  "description": "Candidate evidence envelopes for measured layered composition, explicit PNG rasterization and bounded image-only composed PDF. Typography, raster settings and PDF geometry record the adopted provider policy; runtime, visual fidelity, color conversion and creative qualification remain separate. Historical v1, v2 and v3 schemas remain available.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/plan"
+    },
+    {
+      "$ref": "#/$defs/run"
+    }
+  ],
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "runId": {
+      "type": "string",
+      "pattern": "^run:sha256:[a-f0-9]{64}$"
+    },
+    "targetId": {
+      "type": "string",
+      "pattern": "^target-[a-f0-9]{64}$"
+    },
+    "artifactId": {
+      "type": "string",
+      "pattern": "^artifact:sha256:[a-f0-9]{64}$"
+    },
+    "output": {
+      "enum": [
+        "svg",
+        "html",
+        "transcript_json",
+        "transcript_text",
+        "png",
+        "pdf",
+        "ora",
+        "psd",
+        "idml"
+      ]
+    },
+    "localeSelector": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "const": "exact"
+            },
+            "locale": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "mode",
+            "locale"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "const": "subset"
+            },
+            "locales": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "mode",
+            "locales"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "const": "all_declared"
+            }
+          },
+          "required": [
+            "mode"
+          ],
+          "additionalProperties": false
+        }
+      ],
+      "description": "The SDK deduplicates selected locale values. Unknown locale values remain explicit blocked branches, including malformed or empty exact values; no fallback is inferred. Successful planning requires 1 to 64 distinct selected locales."
+    },
+    "request": {
+      "type": "object",
+      "properties": {
+        "locales": {
+          "$ref": "#/$defs/localeSelector"
+        },
+        "targets": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/output"
+          },
+          "description": "The scoped planner deduplicates output values; output availability is recorded per branch."
+        },
+        "raster": {
+          "$ref": "#/$defs/rasterSettings"
+        },
+        "pdf": {
+          "$ref": "#/$defs/pdfSettings"
+        }
+      },
+      "required": [
+        "locales",
+        "targets"
+      ],
+      "additionalProperties": false,
+      "description": "Scoped locale/output selection. raster and pdf may each be omitted in incoming JSON for deterministic defaults; emitted plans include both requested objects. Each explicit settings object requires its complete field set. Effective PNG settings affect PNG identity only, and effective PDF settings affect PDF identity only."
+    },
+    "diagnostic": {
+      "type": "object",
+      "properties": {
+        "severity": {
+          "enum": [
+            "info",
+            "warning",
+            "error"
+          ]
+        },
+        "code": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "locale": {
+          "type": "string"
+        },
+        "layer_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "severity",
+        "code",
+        "message"
+      ],
+      "additionalProperties": false
+    },
+    "inputEvidence": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "enum": [
+            "manifest",
+            "asset",
+            "content",
+            "original",
+            "font_registry",
+            "font",
+            "font_license_observed"
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "kind",
+        "id",
+        "sha256",
+        "size_bytes"
+      ],
+      "additionalProperties": false,
+      "description": "Identity of captured immutable input bytes. Font-license hashes are observed because font-registry v1 has no declared license-file digest. Sharing input digests does not by itself establish an executed cache hit."
+    },
+    "branchPlan": {
+      "type": "object",
+      "properties": {
+        "target_id": {
+          "$ref": "#/$defs/targetId"
+        },
+        "locale": {
+          "type": "string"
+        },
+        "output": {
+          "$ref": "#/$defs/output"
+        },
+        "state": {
+          "enum": [
+            "planned",
+            "blocked",
+            "unavailable"
+          ]
+        },
+        "content_revision": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "content_sha256": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/sha256"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "cache_key": {
+          "$ref": "#/$defs/sha256"
+        },
+        "diagnostics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/diagnostic"
+          }
+        },
+        "typography": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/typographyReport"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "raster": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/rasterPlan"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "pdf": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/pdfPlan"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "target_id",
+        "locale",
+        "output",
+        "state",
+        "content_revision",
+        "content_sha256",
+        "cache_key",
+        "diagnostics",
+        "typography",
+        "raster",
+        "pdf"
+      ],
+      "additionalProperties": false,
+      "description": "A selected locale/output branch. SVG, HTML, PNG and PDF retain the same per-locale measured typography when captured content exists. PNG alone retains a top-level raster plan. PDF alone retains a PDF plan with its own nested raster plan when settings and geometry are valid. Other output-specific plans are null. Missing captured content or invalid settings/geometry produce blocked branches. A plan does not establish publication.",
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "output": {
+                "not": {
+                  "enum": [
+                    "svg",
+                    "html",
+                    "png",
+                    "pdf"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "output"
+            ]
+          },
+          "then": {
+            "properties": {
+              "typography": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "output": {
+                "not": {
+                  "const": "png"
+                }
+              }
+            },
+            "required": [
+              "output"
+            ]
+          },
+          "then": {
+            "properties": {
+              "raster": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "output": {
+                "const": "png"
+              },
+              "state": {
+                "const": "planned"
+              }
+            },
+            "required": [
+              "output",
+              "state"
+            ]
+          },
+          "then": {
+            "properties": {
+              "raster": {
+                "$ref": "#/$defs/rasterPlan"
+              },
+              "typography": {
+                "$ref": "#/$defs/typographyReport"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "output": {
+                "not": {
+                  "const": "pdf"
+                }
+              }
+            },
+            "required": [
+              "output"
+            ]
+          },
+          "then": {
+            "properties": {
+              "pdf": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "output": {
+                "const": "pdf"
+              },
+              "state": {
+                "const": "planned"
+              }
+            },
+            "required": [
+              "output",
+              "state"
+            ]
+          },
+          "then": {
+            "properties": {
+              "pdf": {
+                "$ref": "#/$defs/pdfPlan"
+              },
+              "typography": {
+                "$ref": "#/$defs/typographyReport"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "plan": {
+      "type": "object",
+      "properties": {
+        "schema": {
+          "const": "renderflow.composition-plan/v4"
+        },
+        "profile": {
+          "const": "renderflow.layered-composition/v4"
+        },
+        "renderflow_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "composition_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "composition_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "source_locale": {
+          "type": "string",
+          "minLength": 1
+        },
+        "default_locale": {
+          "type": "string",
+          "minLength": 1
+        },
+        "request": {
+          "$ref": "#/$defs/request"
+        },
+        "inputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/inputEvidence"
+          }
+        },
+        "font_resolution": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "Path-independent registry resolution evidence, or null when registry resolution fails. This records declared defaults and licensing status; a visual branch's typography report identifies the actual measured whole-layer fallback selection."
+        },
+        "branches": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 576,
+          "items": {
+            "$ref": "#/$defs/branchPlan"
+          }
+        },
+        "diagnostics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/diagnostic"
+          }
+        },
+        "runtime_qualified": {
+          "const": false
+        },
+        "review_required": {
+          "const": true
+        },
+        "deterministic_serialization": {
+          "const": true
+        },
+        "visual_determinism_qualified": {
+          "const": false
+        }
+      },
+      "required": [
+        "schema",
+        "profile",
+        "renderflow_version",
+        "composition_id",
+        "composition_sha256",
+        "source_locale",
+        "default_locale",
+        "request",
+        "inputs",
+        "font_resolution",
+        "branches",
+        "diagnostics",
+        "runtime_qualified",
+        "review_required",
+        "deterministic_serialization",
+        "visual_determinism_qualified"
+      ],
+      "additionalProperties": false,
+      "description": "Scoped composition plan from captured inputs with measured visual typography. It does not mutate the general format-keyed artifact forest or assert publication. Cache keys commit typography digest, renderer identity, captured inputs, target and profile. The typography plan budget can reject an oversized visual request before publication. SVG, HTML, PNG and PDF share one measurement per locale. Transcript-only requests do not consume a typography budget. Only PNG identity includes its effective top-level raster plan, and only PDF identity includes its effective PDF plan and nested raster plan. Changing settings for another output does not invalidate an otherwise identical branch."
+    },
+    "branchRun": {
+      "type": "object",
+      "properties": {
+        "target_id": {
+          "$ref": "#/$defs/targetId"
+        },
+        "outcome": {
+          "enum": [
+            "published",
+            "blocked",
+            "unavailable",
+            "failed",
+            "cancelled"
+          ]
+        },
+        "cache": {
+          "enum": [
+            "source",
+            "miss",
+            "hit",
+            "not_applicable"
+          ]
+        },
+        "artifact_evidence_index": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "artifact_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/artifactId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "locator": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^bundle:outputs/"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "diagnostics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/diagnostic"
+          }
+        }
+      },
+      "required": [
+        "target_id",
+        "outcome",
+        "cache",
+        "artifact_evidence_index",
+        "artifact_id",
+        "locator",
+        "diagnostics"
+      ],
+      "additionalProperties": false,
+      "description": "Exact publication result for a planned target. All three artifact references are explicit null unless publication succeeds. The index addresses this run's artifact_manifest.artifacts; consumers must verify index/ID/locator/hash correspondence and output membership.",
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "outcome": {
+                "const": "published"
+              }
+            },
+            "required": [
+              "outcome"
+            ]
+          },
+          "then": {
+            "properties": {
+              "cache": {
+                "enum": [
+                  "miss",
+                  "hit"
+                ]
+              },
+              "artifact_evidence_index": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "artifact_id": {
+                "$ref": "#/$defs/artifactId"
+              },
+              "locator": {
+                "type": "string",
+                "pattern": "^bundle:outputs/"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "cache": {
+                "const": "not_applicable"
+              },
+              "artifact_evidence_index": {
+                "type": "null"
+              },
+              "artifact_id": {
+                "type": "null"
+              },
+              "locator": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "run": {
+      "type": "object",
+      "properties": {
+        "schema": {
+          "const": "renderflow.composition-run/v4"
+        },
+        "run_id": {
+          "$ref": "#/$defs/runId"
+        },
+        "state": {
+          "enum": [
+            "complete",
+            "partial",
+            "failed",
+            "cancelled"
+          ]
+        },
+        "plan_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "plan": {
+          "$ref": "#/$defs/plan"
+        },
+        "artifact_manifest": {
+          "$ref": "renderflow-run-v1.schema.json#/$defs/artifact_manifest"
+        },
+        "branches": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 576,
+          "items": {
+            "$ref": "#/$defs/branchRun"
+          }
+        },
+        "runtime_qualified": {
+          "const": false
+        },
+        "review_required": {
+          "const": true
+        },
+        "visual_determinism_qualified": {
+          "const": false
+        }
+      },
+      "required": [
+        "schema",
+        "run_id",
+        "state",
+        "plan_sha256",
+        "plan",
+        "artifact_manifest",
+        "branches",
+        "runtime_qualified",
+        "review_required",
+        "visual_determinism_qualified"
+      ],
+      "additionalProperties": false,
+      "description": "Receipt written after scoped composition publication. Complete means every selected output was published, not visually qualified or creatively approved. Run and embedded artifact-manifest IDs must match; plan_sha256 commits the retained pretty-serialized composition-plan.json bytes including trailing newline. Early I/O failure can leave no receipt. Terminal artifact metadata under renderflow.composition records typography.report_sha256 and provider identity; report_sha256 commits the compact JSON serialization of the corresponding embedded branch typography report. A deserialized report lacks the private geometry needed for execution; the public executor always derives a new plan from immutable captured inputs. PNG terminal metadata under renderflow.composition.raster retains the complete small raster plan. Successful publication means the bounded decoded output matched that plan, not that visual appearance, print fitness or cross-platform reproducibility has been qualified. PDF terminal metadata under renderflow.composition.pdf retains the complete PDF plan. Fresh/cache PDF admission compares the exact current-writer envelope while skipping only the fixed-size raw RGB payload; output hashes separately commit those pixels. This is a narrow generated-profile check, not independent PDF conformance, source-to-pixel equivalence, color qualification or print acceptance."
+    },
+    "typographyBounds": {
+      "type": "object",
+      "properties": {
+        "x_min": {
+          "type": "number"
+        },
+        "y_min": {
+          "type": "number"
+        },
+        "x_max": {
+          "type": "number"
+        },
+        "y_max": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "x_min",
+        "y_min",
+        "x_max",
+        "y_max"
+      ],
+      "additionalProperties": false,
+      "description": "Conservative control-point hull in page points, not exact curve extrema or rasterized ink. Consumers must retain the provider profile and must not relabel this bound as pixel coverage."
+    },
+    "typographyFont": {
+      "type": "object",
+      "properties": {
+        "asset_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "family": {
+          "type": "string",
+          "minLength": 1
+        },
+        "format": {
+          "enum": [
+            "ttf",
+            "otf"
+          ]
+        },
+        "digest": {
+          "type": "object",
+          "properties": {
+            "algorithm": {
+              "const": "sha256"
+            },
+            "value": {
+              "$ref": "#/$defs/sha256"
+            }
+          },
+          "required": [
+            "algorithm",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        "fallback_index": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "asset_id",
+        "family",
+        "format",
+        "digest",
+        "fallback_index"
+      ],
+      "additionalProperties": false,
+      "description": "Exact captured static font selected for the whole text layer after authored fallback candidates are examined. A selection is not a font-license opinion or visual approval."
+    },
+    "typographyRejectedCandidate": {
+      "type": "object",
+      "properties": {
+        "asset_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "fallback_index": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "asset_id",
+        "fallback_index",
+        "reason"
+      ],
+      "additionalProperties": false
+    },
+    "typographyGlyph": {
+      "type": "object",
+      "properties": {
+        "glyph_id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "cluster_utf8": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "x_pt": {
+          "type": "number"
+        },
+        "y_pt": {
+          "type": "number"
+        },
+        "x_advance_pt": {
+          "type": "number"
+        },
+        "y_advance_pt": {
+          "type": "number"
+        },
+        "conservative_outline_bounds": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/typographyBounds"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "glyph_id",
+        "cluster_utf8",
+        "x_pt",
+        "y_pt",
+        "x_advance_pt",
+        "y_advance_pt",
+        "conservative_outline_bounds"
+      ],
+      "additionalProperties": false,
+      "description": "Shaped glyph identity, absolute UTF-8 byte cluster in the complete layer text, page-point position, advances and conservative outline bounds. Null bounds can represent glyphs without a drawn outline such as spaces."
+    },
+    "typographyLine": {
+      "type": "object",
+      "properties": {
+        "index": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "source_byte_start": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "source_byte_end": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "baseline_y_pt": {
+          "type": "number"
+        },
+        "origin_x_pt": {
+          "type": "number"
+        },
+        "advance_pt": {
+          "type": "number"
+        },
+        "conservative_outline_bounds": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/typographyBounds"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "glyphs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/typographyGlyph"
+          },
+          "maxItems": 4096
+        }
+      },
+      "required": [
+        "index",
+        "source_byte_start",
+        "source_byte_end",
+        "baseline_y_pt",
+        "origin_x_pt",
+        "advance_pt",
+        "conservative_outline_bounds",
+        "glyphs"
+      ],
+      "additionalProperties": false,
+      "description": "One explicit authored line. No automatic line wrapping, shrinking, truncation or translation is performed. Source byte ranges and clusters must be interpreted against the exact captured locale content."
+    },
+    "typographyLayer": {
+      "type": "object",
+      "properties": {
+        "layer_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "content_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "role": {
+          "enum": [
+            "body",
+            "heading",
+            "display",
+            "monospace",
+            "caption",
+            "math"
+          ]
+        },
+        "font_size_pt": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "selected_font": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/typographyFont"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "rejected_candidates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/typographyRejectedCandidate"
+          }
+        },
+        "lines": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/typographyLine"
+          },
+          "maxItems": 256
+        },
+        "outline_digest": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/sha256"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "layer_id",
+        "content_id",
+        "role",
+        "font_size_pt",
+        "selected_font",
+        "rejected_candidates",
+        "lines",
+        "outline_digest"
+      ],
+      "additionalProperties": false,
+      "description": "Per-layer measurement. outline_digest is the lowercase SHA-256 of compact JSON for the ordered private PositionedOutline array (glyph_id, path, x_pt, y_pt, scale). Paths use font units with an upward y axis; position and scale map them to page points. Glyphs with no drawn outline are omitted from that array; an empty array still has a digest. Raw path commands are absent from serialized plans. Failed/blocked layers can have null font or outline references; diagnostics explain the result."
+    },
+    "typographyReport": {
+      "type": "object",
+      "properties": {
+        "schema": {
+          "const": "renderflow.composition-typography/v1"
+        },
+        "provider_profile": {
+          "type": "string",
+          "minLength": 1
+        },
+        "locale": {
+          "type": "string"
+        },
+        "layers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/typographyLayer"
+          },
+          "maxItems": 256
+        },
+        "diagnostics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/diagnostic"
+          }
+        },
+        "runtime_qualified": {
+          "const": false
+        }
+      },
+      "required": [
+        "schema",
+        "provider_profile",
+        "locale",
+        "layers",
+        "diagnostics",
+        "runtime_qualified"
+      ],
+      "additionalProperties": false,
+      "description": "Measured evidence for the static Latin outline provider. Provider profile pins implementation versions and layout policies. Per-locale limits are 4096 referenced text code points, 4096 glyphs, 256 authored lines, 4 MiB private outline path bytes and 2 MiB compact report bytes. A visual plan first caps referenced text at 16384 code points across selected known locales, then caps distinct-locale compact reports and private outline paths at 16 MiB each before retaining branches. Cross-record totals and byte limits are enforced by the implementation rather than this schema. No executable qualification or creative approval is implied."
+    },
+    "rasterSettings": {
+      "type": "object",
+      "properties": {
+        "dpi": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "background": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "dpi",
+        "background"
+      ],
+      "additionalProperties": false,
+      "description": "Requested PNG-only settings. Omission of the request's raster object selects 144 DPI and a transparent background. The request preserves invalid values for blocked-branch diagnostics; successful raster plans require 36 through 600 DPI and transparent or a six-digit #RRGGBB background. Other output formats ignore these settings.",
+      "default": {
+        "dpi": 144,
+        "background": "transparent"
+      }
+    },
+    "effectiveRasterSettings": {
+      "type": "object",
+      "properties": {
+        "dpi": {
+          "type": "integer",
+          "minimum": 36,
+          "maximum": 600
+        },
+        "background": {
+          "type": "string",
+          "pattern": "^(transparent|#[0-9a-f]{6})$"
+        }
+      },
+      "required": [
+        "dpi",
+        "background"
+      ],
+      "additionalProperties": false,
+      "description": "Validated raster settings; hexadecimal backgrounds normalize to lowercase before identity is derived. PNG permits transparent; a nested PDF raster plan must use its PDF settings' opaque background and DPI."
+    },
+    "rasterPlan": {
+      "type": "object",
+      "properties": {
+        "schema": {
+          "const": "renderflow.composition-raster/v1"
+        },
+        "provider_profile": {
+          "type": "string",
+          "minLength": 1
+        },
+        "settings": {
+          "$ref": "#/$defs/effectiveRasterSettings"
+        },
+        "width_px": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8192
+        },
+        "height_px": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8192
+        },
+        "pixel_format": {
+          "const": "rgba8"
+        },
+        "alpha": {
+          "const": "straight"
+        },
+        "color_policy": {
+          "const": "assumed_srgb_no_profile_conversion"
+        },
+        "runtime_qualified": {
+          "const": false
+        }
+      },
+      "required": [
+        "schema",
+        "provider_profile",
+        "settings",
+        "width_px",
+        "height_px",
+        "pixel_format",
+        "alpha",
+        "color_policy",
+        "runtime_qualified"
+      ],
+      "additionalProperties": false,
+      "description": "Exact intended raster dimensions (standalone PNG or internal opaque PDF raster) and provider policy. Width and height are ceil(page millimeters times DPI divided by 25.4), with a joint ceiling of 16,777,216 output pixels. The product constraint and source decoding budgets are enforced by the implementation. Planning neither decodes all image pixels nor establishes successful raster publication or print color qualification."
+    },
+    "pdfSettings": {
+      "type": "object",
+      "properties": {
+        "dpi": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "background": {
+          "type": "string"
+        },
+        "binding_side": {
+          "enum": [
+            "none",
+            "left",
+            "right"
+          ]
+        },
+        "color_policy": {
+          "type": "string"
+        },
+        "conformance": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "dpi",
+        "background",
+        "binding_side",
+        "color_policy",
+        "conformance"
+      ],
+      "additionalProperties": false,
+      "default": {
+        "dpi": 300,
+        "background": "#ffffff",
+        "binding_side": "none",
+        "color_policy": "assumed_srgb_no_profile_conversion",
+        "conformance": "none"
+      },
+      "description": "Requested PDF-only settings. Omission of request.pdf selects this entire default object; an explicit object requires all five fields. Numeric/string values remain available for PDF-only blocked-branch diagnostics. Unknown binding-side enum values fail deserialization. Other output branches ignore PDF settings."
+    },
+    "effectivePdfSettings": {
+      "type": "object",
+      "properties": {
+        "dpi": {
+          "type": "integer",
+          "minimum": 36,
+          "maximum": 600
+        },
+        "background": {
+          "type": "string",
+          "pattern": "^#[0-9a-f]{6}$"
+        },
+        "binding_side": {
+          "enum": [
+            "none",
+            "left",
+            "right"
+          ]
+        },
+        "color_policy": {
+          "const": "assumed_srgb_no_profile_conversion"
+        },
+        "conformance": {
+          "const": "none"
+        }
+      },
+      "required": [
+        "dpi",
+        "background",
+        "binding_side",
+        "color_policy",
+        "conformance"
+      ],
+      "additionalProperties": false,
+      "description": "Validated PDF-only policy. Background is opaque and normalized lowercase. Nonzero canonical gutter requires left or right binding and already sufficient safe-area clearance from that trim edge. No automatic layout shift, extra margin or duplex inference occurs."
+    },
+    "pdfBox": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "minItems": 4,
+      "maxItems": 4,
+      "description": "[left, bottom, right, top] in PDF points at finite f32 round-trip precision. Box order, containment and correspondence to captured geometry are enforced by the implementation, not this schema."
+    },
+    "pdfPlan": {
+      "type": "object",
+      "properties": {
+        "schema": {
+          "const": "renderflow.composition-pdf/v1"
+        },
+        "provider_profile": {
+          "const": "renderflow.composition-pdf/v1;lopdf=0.45.0;pdf=1.4;image=opaque-rgb8;compression=none;placement=uniform-dpi-top-left;boxes=explicit-f32;output-intent=none;fonts=flattened"
+        },
+        "settings": {
+          "$ref": "#/$defs/effectivePdfSettings"
+        },
+        "raster": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/rasterPlan"
+            },
+            {
+              "properties": {
+                "settings": {
+                  "properties": {
+                    "background": {
+                      "type": "string",
+                      "pattern": "^#[0-9a-f]{6}$"
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "media_box_pt": {
+          "$ref": "#/$defs/pdfBox"
+        },
+        "trim_box_pt": {
+          "$ref": "#/$defs/pdfBox"
+        },
+        "bleed_box_pt": {
+          "$ref": "#/$defs/pdfBox"
+        },
+        "safe_box_pt": {
+          "$ref": "#/$defs/pdfBox"
+        },
+        "gutter_pt": {
+          "type": "number",
+          "minimum": 0
+        },
+        "image_draw_matrix": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 6,
+          "maxItems": 6
+        },
+        "runtime_qualified": {
+          "const": false
+        }
+      },
+      "required": [
+        "schema",
+        "provider_profile",
+        "settings",
+        "raster",
+        "media_box_pt",
+        "trim_box_pt",
+        "bleed_box_pt",
+        "safe_box_pt",
+        "gutter_pt",
+        "image_draw_matrix",
+        "runtime_qualified"
+      ],
+      "additionalProperties": false,
+      "description": "One image-only PDF page for a selected locale. MediaBox/CropBox cover the canvas; TrimBox/BleedBox preserve independent asymmetric geometry. Safe box is evidence and a layout constraint, not a PDF page box. The nested raster uses the same DPI/background as effective PDF settings; cross-field equality and the 16,777,216 pixel product limit are implementation constraints. The six-element matrix retains uniform physical DPI with top-left placement; a canvas clip removes fractional right/bottom pixel overhang. Gutter is minimum total clearance from the selected trim edge, not an additional inset. Raw opaque RGB8 image payload is capped at 48 MiB and output at 64 MiB. No font embedding, searchable text, tags, ICC profile/output intent, PDF/X or runtime/print qualification is asserted."
+    }
+  }
+}

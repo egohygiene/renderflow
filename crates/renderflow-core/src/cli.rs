@@ -277,9 +277,10 @@ pub enum Commands {
             renderflow composition inspect --input page.composition.json\n  \
             renderflow composition plan --input page.composition.json --locales en,ru\n  \
             renderflow composition render --input page.composition.json --output-dir dist/page\n\n\
-            Authored, unqualified SVG/HTML/PNG/transcript profile. PNG is opt-in\n\
+            Authored, unqualified SVG/HTML/PNG/PDF/transcript profile. PNG is opt-in\n\
             with --targets png; --raster-dpi and --raster-background control its\n\
-            pixels. PDF, ORA, PSD, and IDML remain unsupported target branches."
+            pixels. PDF is opt-in with --targets pdf and independent --pdf-* settings.\n\
+            ORA, PSD, and IDML remain unsupported target branches."
     )]
     Composition {
         #[command(subcommand)]
@@ -488,6 +489,21 @@ pub struct CompositionSelectionArguments {
     /// PNG canvas background: transparent or a six-digit #RRGGBB color.
     #[arg(long, default_value = "transparent", value_name = "COLOR")]
     pub raster_background: String,
+    /// PDF raster density, from 36 to 600 DPI, subject to bounded pixel limits.
+    #[arg(long, default_value = "300", value_name = "DPI")]
+    pub pdf_dpi: u32,
+    /// Opaque PDF canvas background: a six-digit #RRGGBB color.
+    #[arg(long, default_value = "#ffffff", value_name = "COLOR")]
+    pub pdf_background: String,
+    /// Explicit PDF binding edge. A nonzero gutter requires left or right.
+    #[arg(long, default_value = "none", value_parser = ["none", "left", "right"], value_name = "SIDE")]
+    pub pdf_binding_side: String,
+    /// PDF color policy. Only assumed_srgb_no_profile_conversion is supported.
+    #[arg(long, default_value = "assumed_srgb_no_profile_conversion", value_name = "POLICY")]
+    pub pdf_color_policy: String,
+    /// PDF conformance request. Only none is supported; PDF/X and PDF/A are refused.
+    #[arg(long, default_value = "none", value_name = "CONFORMANCE")]
+    pub pdf_conformance: String,
 }
 
 #[derive(clap::Args)]

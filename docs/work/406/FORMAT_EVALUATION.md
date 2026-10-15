@@ -14,7 +14,9 @@ addressed by stable semantic content IDs. Treat a deliberately limited SVG
 document as a useful derivative, and raster/print output as separately qualified
 derivatives. Preserve every imported original. The second implementation
 checkpoint uses measured glyph paths in SVG/HTML previews, and the third adds
-opt-in PNG rasterization of those paths with captured artwork. Native editable
+opt-in PNG rasterization of those paths with captured artwork. The fourth adds
+bounded, image-only composed PDF with explicit page boxes and color/gutter
+policy; it is not layered PDF interchange or qualified print output. Native editable
 text remains in the canonical package, with companion transcripts for reading.
 
 This is an engineering recommendation inferred from the evidence below. None of
@@ -107,7 +109,7 @@ the provider boundary and qualification gaps, and the
 for retained font bytes, notices and capture provenance. The feasibility and
 candidate matrices below retain their original research scope.
 
-### Third checkpoint: composed PNG
+### Third checkpoint: composed PNG (historical)
 
 The authored `renderflow.layered-composition/v3` profile adds PNG as an explicit
 target using pinned resvg 0.48.1, with v3 plan/run evidence and unchanged v1
@@ -127,6 +129,38 @@ historical candidate tables retain their original research observations, while
 the [raster provider decision](RASTER_PROVIDER.md) and [handoff](HANDOFF.md)
 record the exact admitted image/metadata subset, current implementation and
 remaining work.
+
+### Fourth checkpoint: composed PDF
+
+The authored `renderflow.layered-composition/v4` profile adds one image-only
+PDF page per selected locale. It reuses the measured SVG and opaque PNG path,
+then the already locked lopdf 0.45.0 dependency to serialize a bounded raw RGB
+image and page objects. PDF-only DPI/background, binding-side, color-policy and
+conformance settings have independent branch/cache evidence. V1 canonical
+inputs and older evidence schemas remain unchanged.
+
+MediaBox and CropBox cover the canvas; TrimBox and BleedBox preserve the
+authored asymmetric geometry. Safe-area geometry remains evidence and a
+constraint. A nonzero gutter requires an explicit left/right binding side and
+already sufficient clearance from that trim edge; the provider does not shift
+art, add an inset or infer duplex ordering. Existing typography and content
+review gates apply.
+
+This is an authored composed print candidate, not PDF/X or printer acceptance.
+The page is flattened: no embedded fonts, selectable text, accessibility tags,
+editable layers or original editor semantics are claimed. Color policy remains
+assumed sRGB with no ICC conversion/output intent, CMYK or spot-color support.
+The unchanged canonical content, transcript, font notices and provider evidence
+remain necessary. Fresh/cache structural checks are bounded to the generated
+contract; they are not a general PDF validation or rendering engine.
+
+The coding workspace was unavailable, so the fourth checkpoint was authored
+through GitHub source reads and writes. No dependencies were installed and no
+tests, builds, lint, schema checks, renderers, CLI/fixture runners, native tools,
+Cargo or CI were executed. The [PDF provider decision](PDF_PROVIDER.md) records
+the bounded structure and remaining qualification. General planner/Flow
+integration is next; broader typography and native interchange remain separate
+work within #406.
 
 ## Features and known loss
 

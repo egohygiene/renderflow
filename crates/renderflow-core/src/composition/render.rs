@@ -19,10 +19,11 @@ use super::model::{
 };
 use super::typography::{self, TypographyReport};
 use super::raster::{self, RasterPlan, RasterSettings};
+use super::pdf::{self, PdfPlan, PdfSettings};
 use super::{CompositionOutput, LoadedComposition};
 
 pub const COMPOSITION_RENDERER_ID: &str = "renderflow.layered-svg";
-pub const COMPOSITION_RENDERER_VERSION: u32 = 3;
+pub const COMPOSITION_RENDERER_VERSION: u32 = 4;
 pub const PAGE_TRANSCRIPT_SCHEMA_V1: &str = "renderflow.page-transcript/v1";
 const MAX_OUTPUT_BYTES: usize = 64 * 1024 * 1024;
 const POINTS_PER_MM: f64 = 72.0 / 25.4;
@@ -110,9 +111,21 @@ pub fn render(snapshot: &LoadedComposition, locale: &str, format: CompositionOut
 /// consume raster settings, so an unrelated pixel preference cannot change
 /// their output or turn a transcript into a visual rendering operation.
 pub fn render_with_settings(snapshot: &LoadedComposition, locale: &str, format: CompositionOutput, settings: &RasterSettings) -> Result<RenderedComposition> {
+    render_with_output_settings(snapshot, locale, format, settings, &PdfSettings::default())
+}
+
+/// Render a candidate with explicit PDF settings. These settings do not alter
+/// PNG, SVG, HTML, or transcript branches.
+pub fn render_with_pdf_settings(snapshot: &LoadedComposition, locale: &str, format: CompositionOutput, settings: &PdfSettings) -> Result<RenderedComposition> {
+    render_with_output_settings(snapshot, locale, format, &RasterSettings::default(), settings)
+}
+
+/// Direct rendering keeps output-specific settings independent, as planning does.
+fn render_with_output_settings(snapshot: &LoadedComposition, locale: &str, format: CompositionOutput, raster_settings: &RasterSettings, pdf_settings: &PdfSettings) -> Result<RenderedComposition> {
     let typography = format.visual().then(|| typography::measure(snapshot, locale));
-    let raster = if format == CompositionOutput::Png { Some(raster::plan(snapshot, settings)?) } else { None };
-    render_with_plan(snapshot, locale, format, typography.as_ref(), raster.as_ref())
+    let raster = if format == CompositionOutput::Png { Some(raster::plan(snapshot, raster_settings)?) } else { None };
+    let pdf = if format == CompositionOutput::Pdf { Some(pdf::plan(snapshot, pdf_settings)?) } else { None };
+    render_with_plan(snapshot, locale, format, typography.as_ref(), raster.as_ref(), pdf.as_ref())
 }
 
 /// Only in-process plans may supply measured geometry. Public callers render
@@ -120,12 +133,13 @@ pub fn render_with_settings(snapshot: &LoadedComposition, locale: &str, format: 
 #[cfg(test)]
 pub(crate) fn render_with_typography(snapshot: &LoadedComposition, locale: &str, format: CompositionOutput, typography: Option<&TypographyReport>) -> Result<RenderedComposition> {
     let raster = if format == CompositionOutput::Png { Some(raster::plan(snapshot, &RasterSettings::default())?) } else { None };
-    render_with_plan(snapshot, locale, format, typography, raster.as_ref())
+    let pdf = if format == CompositionOutput::Pdf { Some(pdf::plan(snapshot, &PdfSettings::default())?) } else { None };
+    render_with_plan(snapshot, locale, format, typography, raster.as_ref(), pdf.as_ref())
 }
 
-/// Execution uses the exact in-process typography and raster plans whose
+/// Execution uses the exact in-process typography, raster, and PDF plans whose
 /// evidence is committed by its cache key and receipt.
-pub(crate) fn render_with_plan(snapshot: &LoadedComposition, locale: &str, format: CompositionOutput, typography: Option<&TypographyReport>, raster: Option<&RasterPlan>) -> Result<RenderedComposition> {
+pub(crate) fn render_with_plan(snapshot: &LoadedComposition, locale: &str, format: CompositionOutput, typography: Option<&TypographyReport>, raster: Option<&RasterPlan>, pdf: Option<&PdfPlan>) -> Result<RenderedComposition> {
     let mut diagnostics = snapshot.diagnostics.iter().filter(|item|
         item.locale.as_deref().is_none_or(|value| value == locale)).cloned().collect::<Vec<_>>();
     if format.visual() {
@@ -137,6 +151,11 @@ pub(crate) fn render_with_plan(snapshot: &LoadedComposition, locale: &str, forma
     if format == CompositionOutput::Png {
         anyhow::ensure!(raster.is_some(), "composition.raster.plan_missing: PNG output requires an effective raster plan");
         diagnostics.extend(raster_diagnostics(locale));
+    }
+    if format == CompositionOutput::Pdf {
+        anyhow::ensure!(pdf.is_some(), "composition.pdf.plan_missing: PDF output requires an effective PDF plan");
+        diagnostics.retain(|item| item.code != "composition.page.gutter_unresolved");
+        diagnostics.extend(pdf_diagnostics(locale));
     }
     if let Some(error) = diagnostics.iter().find(|item| item.severity == DiagnosticSeverity::Error) {
         bail!("{}: {}", error.code, error.message);
@@ -150,13 +169,18 @@ pub(crate) fn render_with_plan(snapshot: &LoadedComposition, locale: &str, forma
             let bytes = raster::render_png(snapshot, svg.as_bytes(), raster.context("missing raster plan")?)?;
             (bytes, "image/png", "png")
         }
+        CompositionOutput::Pdf => {
+            let svg = render_svg(snapshot, locale, &transcript, typography.context("missing typography report")?)?;
+            let bytes = pdf::render_pdf(snapshot, svg.as_bytes(), pdf.context("missing PDF plan")?)?;
+            (bytes, "application/pdf", "pdf")
+        }
         CompositionOutput::TranscriptJson => {
             let mut bytes = serde_json::to_vec_pretty(&transcript)?;
             bytes.push(b'\n');
             (bytes, "application/json", "transcript.json")
         }
         CompositionOutput::TranscriptText => (render_transcript_text(&transcript).into_bytes(), "text/plain", "transcript.txt"),
-        _ => bail!("composition.output.unsupported: this renderer provides SVG, HTML, PNG, transcript JSON, and transcript text"),
+        _ => bail!("composition.output.unsupported: this renderer provides SVG, HTML, PNG, PDF, transcript JSON, and transcript text"),
     };
     if bytes.len() > MAX_OUTPUT_BYTES {
         bail!("composition.output.bounds: serialized output exceeds 64 MiB");
@@ -169,6 +193,14 @@ pub(crate) fn render_with_plan(snapshot: &LoadedComposition, locale: &str, forma
 pub(crate) fn raster_diagnostics(locale: &str) -> Vec<CompositionDiagnostic> {
     vec![diagnostic(DiagnosticSeverity::Warning, "composition.raster.preview_profile",
         "PNG flattens the page to pixels under an assumed-sRGB preview policy; retain the canonical package and transcript for editability and accessibility; color-managed print and cross-platform pixel fidelity remain unqualified",
+        locale, None)]
+}
+
+/// Explicit losses shared by planned branches and direct PDF rendering. Page
+/// boxes and binding clearance do not establish press-ready conformance.
+pub(crate) fn pdf_diagnostics(locale: &str) -> Vec<CompositionDiagnostic> {
+    vec![diagnostic(DiagnosticSeverity::Warning, "composition.pdf.flattened_profile",
+        "PDF contains one opaque RGB image per page; text, fonts, vectors, transparency, and layers are flattened; retain the canonical package and transcript for editing and accessibility; ICC conversion, PDF/X or PDF/A conformance, printer acceptance, and cross-platform visual fidelity remain unqualified",
         locale, None)]
 }
 

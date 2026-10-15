@@ -3,12 +3,12 @@ schema: aether.architecture-document/v1
 id: renderflow-roadmap
 title: Renderflow Roadmap
 kind: architecture-document
-version: 0.1.11
+version: 0.1.12
 status: draft
 owners:
   - egohygiene
 created: 2026-08-19
-updated: 2026-10-13
+updated: 2026-10-15
 governed_by:
   - architecture-roadmap
 depends_on:
@@ -26,7 +26,45 @@ supersedes: []
 
 # Renderflow Roadmap
 
-## 2026-10-13 composed PNG checkpoint
+## 2026-10-15 composed PDF checkpoint
+
+Composed PNG for [#406](https://github.com/egohygiene/renderflow/issues/406)
+merged in [PR #451](https://github.com/egohygiene/renderflow/pull/451) at
+`c605436445aa26b9b5d496e37cd6a6805f44999f`. The fourth checkpoint authors an
+opt-in single-page PDF for each selected locale, using the same measured SVG,
+bounded opaque rasterization and the existing lopdf 0.45.0 dependency. No new
+dependency, native tool or installation is required by this route.
+
+The v4 composition profile and plan/run envelopes retain independent PDF
+settings, exact asymmetric trim/bleed boxes, safe-area evidence and explicit
+binding-side gutter intent. PDF defaults are 300 DPI and white; transparent
+backgrounds, unsupported color policies and PDF conformance requests block PDF
+branches. PNG retains its own settings and defaults. Neither output is added to
+the default target list.
+
+The PDF is a flattened RGB image with full-canvas MediaBox/CropBox and explicit
+TrimBox/BleedBox. It does not preserve selectable text, layers, tags or embedded
+fonts. Keep canonical inputs and transcripts. Color policy is assumed sRGB
+without ICC conversion or output intent; conformance is `none`. These files
+remain unqualified print candidates, with no PDF/X or printer-acceptance claim.
+The conservative pixel caps still apply, and raw RGB image storage can make
+PDFs large (up to 48 MiB of image bytes within a 64 MiB output cap).
+
+All executable qualification remains deferred: tests, builds, lint, schema
+validation, CLI/fixture/native/render execution, Cargo and CI were not run.
+This checkpoint was authored through GitHub while the coding workspace was
+unavailable. Source inspection and content identity do not replace runtime or
+visual evidence. #406 remains open with its acceptance checklist unchanged.
+
+Next is integration of locale/output identities with the general planner,
+artifact forest and Flow consumption, followed by justified typography and
+interchange extensions. The later deep test session must qualify PDF structure,
+page geometry, color/appearance, caches, platforms and consumer/release behavior.
+See the [PDF provider decision](docs/work/406/PDF_PROVIDER.md),
+[composition guide](docs/user-guide/page-composition.md) and
+[handoff](docs/work/406/HANDOFF.md).
+
+## 2026-10-13 composed PNG checkpoint (historical)
 
 Measured typography for [#406](https://github.com/egohygiene/renderflow/issues/406)
 merged in [PR #450](https://github.com/egohygiene/renderflow/pull/450) at
@@ -386,9 +424,10 @@ availability. Merging does not turn authored coverage into passing evidence.
 | #430 | Per-target publication evidence, multi-family fixture and Flow handoff authored | Native integration proof, missing direction decisions, CLI/SDK and released-contract qualification |
 
 After the #430 implementation checkpoint, #406 has an authored bounded
-composition SDK/CLI slice, measured typography and a composed-PNG follow-up.
-Composed print output, general planner integration, native interoperability and
-broader typography remain its implementation lane. Keep #412/#413
+composition SDK/CLI slice, measured typography, composed PNG and a bounded
+image-only composed-PDF follow-up. General planner/Flow integration, native
+interoperability and broader typography remain its implementation lane;
+composed print output still needs the deferred qualification evidence. Keep #412/#413
 fixture expansion and #419 verified release work aligned with the later deep
 testing session. Existing open qualification issues retain the evidence gaps;
 no new audit issues are created before that session.

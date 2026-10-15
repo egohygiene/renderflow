@@ -2,7 +2,8 @@
 
 This standalone package authors a small page containing all currently admitted
 composition asset kinds: PNG, JPEG and bounded SVG, plus shapes and measured
-glyph paths. It is an input fixture for the v3 composition profile. No decoded
+glyph paths. It is an input fixture for the v4 composition profile, including the opt-in
+image-only PDF route. No decoded
 asset result, generated output or visual approval is checked in.
 
 The page is 50.8 × 50.8 mm. At 144 DPI, the declared dimensions correspond to
@@ -62,7 +63,45 @@ Raster settings apply to PNG branches. The integer DPI range is 36 through
 explicit opaque `#RRGGBB` color. The profile bounds canvas and asset decoding
 work; see the [composition guide](../../../docs/user-guide/page-composition.md)
 for current limits and refusals. DPI is a declared sampling choice, not a
-printer acceptance or color-management result. PDF remains unavailable.
+printer acceptance or color-management result. PDF has its own independent
+settings and opaque background requirement.
+
+## PDF commands for a later authorized run
+
+The same canonical package supplies a one-page PDF per selected locale.
+At 300 DPI its 50.8 mm square canvas implies 600 × 600 pixels by arithmetic,
+not by an observed render. The zero-gutter fixture uses the default binding
+side `none`.
+
+```bash
+renderflow composition plan \
+  --input "examples/page-composition/raster-composition/page.composition.json" \
+  --locales "en,de" \
+  --targets "pdf,png,transcript_json" \
+  --pdf-dpi 300 \
+  --pdf-background "#FFFFFF" \
+  --pdf-binding-side "none" \
+  --pdf-color-policy "assumed_srgb_no_profile_conversion" \
+  --pdf-conformance "none"
+
+renderflow composition render \
+  --input "examples/page-composition/raster-composition/page.composition.json" \
+  --locales "en,de" \
+  --targets "pdf,transcript_json" \
+  --pdf-dpi 300 \
+  --pdf-background "#FFFFFF" \
+  --output-dir "composition-pdf-output"
+```
+
+PDF defaults are 300 DPI, opaque white, no binding side, assumed sRGB without
+profile conversion and no conformance claim. The `--raster-*` options affect
+only the PNG branch. For later review, inspect PDF plan boxes, effective
+settings and image-draw matrix, then the receipt's actual PDF publication.
+A PDF flattens the measured page into one RGB image; it does not retain text,
+fonts, editable layers or accessibility tags. Preserve the canonical package,
+font notice and transcript. Raw RGB embedding can yield large PDFs; canvas,
+surface and output-size limits still apply. No PDF was generated, parsed,
+viewed or printed while authoring this checkpoint.
 
 ## Authorship and retained notices
 

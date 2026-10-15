@@ -190,6 +190,8 @@ fn unsupported_visual_layout_still_allows_direction_tagged_transcripts() {
     assert!(diagnostics(&snapshot, "ar").iter().any(|item| item.code == "composition.layout.unsupported"));
     assert!(render(&snapshot, "ar", CompositionOutput::Svg).is_err());
     assert!(render(&snapshot, "ja", CompositionOutput::Html).is_err());
+    assert!(render(&snapshot, "ar", CompositionOutput::Pdf).is_err());
+    assert!(render(&snapshot, "ja", CompositionOutput::Pdf).is_err());
     let bytes = render(&snapshot, "ar", CompositionOutput::TranscriptJson).unwrap().bytes;
     let transcript: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
     assert_eq!(transcript["direction"], "rtl");
@@ -215,6 +217,8 @@ fn content_approval_diagnostics_cannot_be_bypassed_by_direct_rendering() {
         "composition.content.unreviewed", "not reviewed", Some("en"), None));
     let error = render(&snapshot, "en", CompositionOutput::TranscriptJson).unwrap_err();
     assert!(error.to_string().contains("composition.content.unreviewed"));
+    assert!(render(&snapshot, "en", CompositionOutput::Pdf).unwrap_err().to_string()
+        .contains("composition.content.unreviewed"));
 }
 
 #[test]
@@ -236,6 +240,7 @@ fn effective_locale_bounds_must_stay_inside_safe_area_and_clip() {
             && item.layer_id.as_deref() == Some("caption.text.one")));
     }
     assert!(render(&snapshot, "de", CompositionOutput::Svg).is_err());
+    assert!(render(&snapshot, "de", CompositionOutput::Pdf).is_err());
     assert!(render(&snapshot, "de", CompositionOutput::TranscriptText).is_ok());
 }
 
@@ -260,6 +265,7 @@ fn structural_font_stub_blocks_visuals_but_preserves_semantic_transcripts() {
     assert!(render(&snapshot, "en", CompositionOutput::Svg).is_err());
     assert!(render(&snapshot, "en", CompositionOutput::Html).is_err());
     assert!(render(&snapshot, "en", CompositionOutput::Png).is_err());
+    assert!(render(&snapshot, "en", CompositionOutput::Pdf).is_err());
     let bytes = render(&snapshot, "en", CompositionOutput::TranscriptJson).unwrap().bytes;
     let transcript: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
     assert_eq!(transcript["entries"][0]["text"],
@@ -424,4 +430,50 @@ fn measured_lines_retain_global_utf8_clusters_and_bounded_glyph_geometry() {
     assert!(recovered.outlines("caption.text.one").is_none());
     assert_eq!(crate::composition::hash_json(&first).unwrap(), crate::composition::hash_json(&recovered).unwrap());
     assert!(render_with_typography(&snapshot, "en", CompositionOutput::Svg, Some(&recovered)).is_err());
+    assert!(render_with_typography(&snapshot, "en", CompositionOutput::Pdf, Some(&recovered)).is_err());
+}
+
+
+#[test]
+fn direct_pdf_render_requires_binding_and_retains_explicit_flattening_diagnostics() {
+    let mut snapshot = fixture();
+    snapshot.manifest.page.gutter_mm = 2.0;
+    let canonical = serde_json::to_value(&snapshot.manifest).unwrap();
+    assert!(render(&snapshot, "en", CompositionOutput::Pdf).is_err());
+    let settings = crate::composition::pdf::PdfSettings {
+        dpi: 72,
+        binding_side: crate::composition::pdf::BindingSide::Left,
+        ..crate::composition::pdf::PdfSettings::default()
+    };
+    let result = render_with_pdf_settings(&snapshot, "en", CompositionOutput::Pdf, &settings).unwrap();
+    assert_eq!(result.media_type, "application/pdf");
+    assert_eq!(result.extension, "pdf");
+    assert!(result.bytes.starts_with(b"%PDF-"));
+    assert!(result.diagnostics.iter().any(|item| item.code == "composition.pdf.flattened_profile"
+        && item.severity == DiagnosticSeverity::Warning));
+    assert!(!result.diagnostics.iter().any(|item| item.code == "composition.page.gutter_unresolved"));
+    assert_eq!(serde_json::to_value(&snapshot.manifest).unwrap(), canonical);
+    // A binding declaration is a clearance check, never a request to translate text.
+    let second = render_with_pdf_settings(&snapshot, "en", CompositionOutput::Pdf, &settings).unwrap();
+    assert_eq!(result.bytes, second.bytes);
+}
+
+#[test]
+fn unsupported_pdf_color_claims_cannot_bypass_planning_through_direct_render() {
+    let snapshot = fixture();
+    for settings in [
+        crate::composition::pdf::PdfSettings {
+            color_policy: "cmyk_output_intent".into(),
+            ..crate::composition::pdf::PdfSettings::default()
+        },
+        crate::composition::pdf::PdfSettings {
+            conformance: "pdf_x_4".into(),
+            ..crate::composition::pdf::PdfSettings::default()
+        },
+    ] {
+        assert!(render_with_pdf_settings(&snapshot, "en", CompositionOutput::Pdf, &settings).is_err());
+        let expected = render(&snapshot, "en", CompositionOutput::TranscriptJson).unwrap();
+        let actual = render_with_pdf_settings(&snapshot, "en", CompositionOutput::TranscriptJson, &settings).unwrap();
+        assert_eq!(expected.bytes, actual.bytes);
+    }
 }
