@@ -280,7 +280,9 @@ pub enum Commands {
             Authored, unqualified SVG/HTML/PNG/PDF/transcript profile. PNG is opt-in\n\
             with --targets png; --raster-dpi and --raster-background control its\n\
             pixels. PDF is opt-in with --targets pdf and independent --pdf-* settings.\n\
-            ORA, PSD, and IDML remain unsupported target branches."
+            ORA, PSD, and IDML remain unsupported target branches. Plan emits the\n\
+            native composition, common execution forest, and shared-stage wrapper;\n\
+            render retains both native and common run receipts."
     )]
     Composition {
         #[command(subcommand)]

@@ -9,6 +9,7 @@ use serde::Serialize;
 
 use crate::cli::{CompositionRenderArguments, CompositionSelectionArguments};
 use crate::composition::{self, CompositionOutput, CompositionRequest, LocaleSelector, RasterSettings, BindingSide, PdfSettings};
+use crate::planning::{resolve_composition, execute_composition, CompositionPlanningRequest};
 use crate::process::ProcessCancellationToken;
 
 /// Inspection is a read-only plan for every declared locale and the default targets.
@@ -20,23 +21,25 @@ pub fn run_inspect(input: &str) -> Result<()> {
 
 pub fn run_plan(arguments: CompositionSelectionArguments) -> Result<()> {
     let request = request_from_arguments(&arguments)?;
-    let loaded = composition::load::load_composition(Path::new(&arguments.input))?;
-    let plan = composition::plan(&loaded, &request)?;
+    let resolved = resolve_composition(CompositionPlanningRequest {
+        input: arguments.input.into(), request,
+    })?;
     // An unavailable branch is a useful plan result, not a failed serialization.
     // Execution treats every selected branch as required and returns nonzero.
-    emit_json(&plan)
+    emit_json(resolved.plan())
 }
 
 pub fn run_render(arguments: CompositionRenderArguments) -> Result<()> {
     let request = request_from_arguments(&arguments.selection)?;
-    let loaded = composition::load::load_composition(Path::new(&arguments.selection.input))?;
+    let resolved = resolve_composition(CompositionPlanningRequest {
+        input: arguments.selection.input.into(), request,
+    })?;
     let cancellation = ProcessCancellationToken::new();
     let signal = cancellation.clone();
     ctrlc::set_handler(move || signal.cancel())
         .context("cannot install page-composition cancellation handler")?;
-    let run = composition::execute(
-        &loaded,
-        &request,
+    let run = execute_composition(
+        &resolved,
         Path::new(&arguments.output_dir),
         arguments.cache_dir.as_deref().map(Path::new),
         &cancellation,

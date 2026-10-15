@@ -26,6 +26,14 @@ use crate::speech::recovery::inspect_saved_result;
 pub const PROVIDER_CONTRACT_V1: &str = "renderflow.provider/v1";
 pub const PROGRESS_EVENT_V1: &str = "renderflow.progress/v1";
 
+/// Explicit composition entry points share the canonical plan/run evidence
+/// contracts without changing the v1 provider trait or treating a composition
+/// package as an ordinary JSON conversion source.
+pub use crate::planning::{
+    execute_composition, resolve_composition, CompositionExecutionPlan,
+    CompositionPlanningRequest, CompositionStagePlan, ResolvedCompositionExecution,
+};
+
 #[derive(Debug, Error)]
 pub enum RenderflowError {
     #[error("configuration error: {0}")]

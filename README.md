@@ -46,7 +46,7 @@ directions. The fixture and integration contract remain unqualified.
 The [localized page composition guide](docs/user-guide/page-composition.md)
 introduces a separate authored path for shared artwork, editable text layers,
 and explicitly declared languages. `composition inspect`, `plan`, and `render`
-use one planner for PDF/PNG/SVG/HTML and accessible transcripts. The v4 profile
+use one planner for PDF/PNG/SVG/HTML and accessible transcripts. The v5 profile
 authors measured glyph paths from pinned static fonts for bounded Latin LTR
 text; canonical inputs retain editable text. A
 [real-font fixture](examples/page-composition/measured-typography/README.md)
@@ -58,6 +58,17 @@ measured page into one opaque RGB image per locale, with explicit page boxes,
 DPI, background and binding-side evidence. It preserves canonical inputs and
 transcripts for editing and reading; PDF/X, ICC conversion, native design-file
 interchange and visual/runtime qualification remain unavailable or deferred.
+
+The [composition planner integration](docs/work/406/PLANNER_INTEGRATION.md)
+adds a frozen composition entry point to the shared planning module, with
+locale-specific artifact-forest targets and common execution/publication
+evidence. SVG and transcript intermediates are materialized lazily and shared
+within one locale when selected outputs miss the cache; run observations remain
+separate from planned reuse. `composition plan` emits a wrapper containing the
+native plan, common execution plan and intermediate-stage inventory. This does
+not admit composition inputs to `renderflow/v2` build specs or add a Renderflow
+adapter to Flow. Flow integration still needs a Flow-owned adapter and a
+qualified, immutable Renderflow release.
 
 ---
 

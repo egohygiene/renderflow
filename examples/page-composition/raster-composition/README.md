@@ -2,7 +2,7 @@
 
 This standalone package authors a small page containing all currently admitted
 composition asset kinds: PNG, JPEG and bounded SVG, plus shapes and measured
-glyph paths. It is an input fixture for the v4 composition profile, including the opt-in
+glyph paths. It is an input fixture for the v5 composition profile, including the opt-in
 image-only PDF route. No decoded
 asset result, generated output or visual approval is checked in.
 
@@ -53,7 +53,10 @@ renderflow composition render \
   --output-dir "composition-raster-output"
 ```
 
-Use a new output directory for each run. Inspect the PNG branch's planned
+Use a new output directory for each run. The plan command emits
+`renderflow.composition-execution-plan/v1`: inspect PNG evidence under
+`composition.branches`, locale/output targets under `execution`, and planned
+shared intermediates under `stages`. Inspect the PNG branch's planned
 dimensions, provider/settings evidence and diagnostics before execution, then
 its actual output hash and run state afterward. PNG remains opt-in; default
 targets are SVG, HTML and transcript JSON.
@@ -102,6 +105,26 @@ fonts, editable layers or accessibility tags. Preserve the canonical package,
 font notice and transcript. Raw RGB embedding can yield large PDFs; canvas,
 surface and output-size limits still apply. No PDF was generated, parsed,
 viewed or printed while authoring this checkpoint.
+
+## Planned reuse and actual publication
+
+Each locale has distinct common artifact-forest target identities even when
+both produce PNG or PDF. Relevant target settings are explicit: PDF settings
+do not change PNG target identity and PNG settings do not change PDF target
+identity. The full captured package still enters conservative cache identity.
+
+Transcript and measured-SVG intermediates are materialized lazily on cache
+misses and reused within one locale. The plan's expected materializations are
+not observed work. Keep derivative cache outcomes, actual stage observations
+and immutable input sharing separate when reviewing a later run.
+
+A rendered bundle retains `composition-plan.json`, `execution-plan.json`,
+`composition-run.json` and `run-manifest.json` alongside retained inputs and
+published outputs. The command prints the native v5 composition receipt.
+Use common forest execution evidence to join locale/output target IDs to
+actual published artifacts; an expected target alone is not publication proof.
+These examples remain unrun. The checkpoint adds no generic `renderflow/v2`
+build-source support and no Flow-owned Renderflow adapter.
 
 ## Authorship and retained notices
 

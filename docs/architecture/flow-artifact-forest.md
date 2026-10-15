@@ -1,6 +1,7 @@
 # Artifact forest handoff to Flow
 
-This is the authored #430 integration contract. It is not a released or
+This is the authored #430 integration contract, with the #406 composition seam
+described below. It is not a released or
 runtime-qualified creative stack. Flow owns project orchestration, scheduling,
 checkpoint policy and approval; Renderflow owns each bounded conversion and
 its native artifact evidence. Aniflow retains temporal segmentation and
@@ -103,6 +104,73 @@ Do not infer generic cache/checkpoint reuse for screenplay imports, PDF,
 recovery or speech. Their adapter handoffs define the actual restrictions.
 Speech's explicit verified historical-result recovery is a separate mechanism;
 a saved result is not an observation of a newly installed native toolchain.
+
+## Localized composition handoff
+
+Composition uses a frozen, captured package and its scoped executor. It does
+not register the page manifest as ordinary JSON input or add locales to the
+format-keyed conversion DAG. `planning::resolve_composition` captures the input
+once and returns `ResolvedCompositionExecution`; `planning::execute_composition`
+consumes that snapshot and plan. Existing `composition` CLI commands retain
+their native v5 stdout contracts.
+
+| Bundle evidence | Meaning |
+| --- | --- |
+| `composition-plan.json` | Native `renderflow.composition-plan/v5`, including exact locale/output identities, input pins, typography and raster/PDF policy |
+| `execution-plan.json` | `renderflow.composition-execution-plan/v1` wrapper with the native plan, common `ExecutionPlan`/artifact forest and identified shared-stage dependencies |
+| `composition-run.json` | Native `renderflow.composition-run/v5`, actual per-branch outcomes/times, shared-stage observations and the complete artifact inventory |
+| `run-manifest.json` | Common `renderflow.run/v1` projection with the same run ID, state, inventory and exact publication references |
+
+The wrapper is planning evidence, not a serialized executable snapshot.
+Replaying deserialized plans is not supported. Its format nodes are a
+compatibility view; the forest target IDs and stage IDs preserve the locale
+identity that format nodes alone cannot represent. Dependency waves do not
+claim concurrent execution. Structural costs and unqualified quality values
+are bookkeeping, not observed performance or fidelity measurements.
+
+The native run's `plan_sha256` commits to the exact pretty-printed, newline-
+terminated `composition-plan.json` bytes. The common `execution_plan_digest`
+commits to the same encoding of the whole `execution-plan.json` wrapper.
+`source_spec_digest` identifies only the canonical manifest bytes; it is not a
+digest of the entire source directory. The full plan retains content, artwork,
+font and license input evidence. The common projection has no observed generic
+toolchain snapshot; native provider profiles remain in the retained plan and
+artifact metadata.
+
+Every native branch has a corresponding common step and forest execution row.
+A published cache hit maps to a reused step, blocked/unavailable branches map
+to skipped steps, and failure/cancellation remain distinct. Only published rows
+carry output artifact references. Publication matching checks exact native
+record index, ID, locator, output kind, cache state, lineage, producer and native
+identity/review metadata; the output list must agree with those records. These
+are receipt-correlation checks, not independent observations of on-disk bytes.
+Apply the host checks described above before using any payload.
+
+Successful shared transcript/SVG preparation is retained as
+`composition.shared_stage.observed` diagnostics keyed to the planned stage ID.
+The digest, size, materialization/reuse counts and actual consumer IDs describe
+an in-memory intermediate. They do not create artifact-store records, published
+intermediates, timed stage execution records, or runtime/visual qualification.
+A recorded consumer can still fail later during rendering or publication. A
+terminal cache hit can bypass shared preparation entirely. Do not turn planned
+sharing into an observed cache hit.
+
+Composition publications preserve the `renderflow.composition` metadata,
+including locale, content revision, exact source/configuration pins, typography
+provider evidence, flattening and color limitations, and mandatory review.
+The original canonical package remains necessary for editable source layout;
+the hashed `inputs/` evidence collection is not a reconstructed source tree.
+
+Flow main was source-inspected at
+`4621df7437e0fdb278f025c75e9feb7298eb7bd9`: it has no Renderflow adapter. Its
+`flow.artifact/v1` shape remains compatible with the minimal projection, but
+that does not establish execution compatibility. A future Flow-owned adapter
+must consume a pinned release, preserve the native receipts, and translate
+publication locators to confined root-relative bindings. Flow's current
+artifact acceptance requires a complete produced/reused result and an exact
+declared output set; it must not relabel a partial composition run as complete.
+No Flow repository changes or end-to-end runtime qualification are included in
+this checkpoint.
 
 ## Current capability boundary
 
