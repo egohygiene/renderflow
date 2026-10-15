@@ -12,16 +12,17 @@ use serde::{Deserialize, Serialize};
 
 use super::{hash_bytes, hash_json, plan, render, CompositionBranchState, CompositionDiagnostic,
     CompositionPlan, CompositionRequest, DiagnosticSeverity, LoadedComposition,
-    COMPOSITION_PROFILE, COMPOSITION_RUN_SCHEMA_V4};
+    COMPOSITION_PROFILE, COMPOSITION_RUN_SCHEMA_V5};
 use crate::artifact::{Artifact, ArtifactDescriptor, ArtifactId, ArtifactStorageClass, ArtifactStore,
     CanonicalFormat, MediaType};
 use crate::evidence::{ArtifactEvidence, ArtifactManifest, ArtifactRole, CacheDisposition,
-    FidelityDeclaration, ProducerEvidence, ValidationState, ARTIFACT_MANIFEST_SCHEMA_V1};
+    FidelityDeclaration, ProducerEvidence, RunManifest, ValidationState, unix_time_ms,
+    ARTIFACT_MANIFEST_SCHEMA_V1};
 use crate::process::ProcessCancellationToken;
 
 const MAX_OUTPUT_BYTES: usize = 64 * 1024 * 1024;
 const MAX_BUNDLE_OUTPUT_BYTES: usize = 512 * 1024 * 1024;
-const CACHE_SCHEMA: &str = "renderflow.composition-cache-entry/v4";
+const CACHE_SCHEMA: &str = "renderflow.composition-cache-entry/v5";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -35,6 +36,8 @@ pub enum CompositionBranchOutcome { Published, Blocked, Unavailable, Failed, Can
 #[serde(deny_unknown_fields)]
 pub struct CompositionBranchRun {
     pub target_id: String,
+    pub started_at_unix_ms: u64,
+    pub completed_at_unix_ms: u64,
     pub outcome: CompositionBranchOutcome,
     pub cache: CacheDisposition,
     pub artifact_evidence_index: Option<usize>,
@@ -48,11 +51,16 @@ pub struct CompositionBranchRun {
 pub struct CompositionRun {
     pub schema: String,
     pub run_id: String,
+    pub started_at_unix_ms: u64,
+    pub completed_at_unix_ms: u64,
     pub state: CompositionRunState,
     pub plan_sha256: String,
     pub plan: CompositionPlan,
     pub artifact_manifest: ArtifactManifest,
     pub branches: Vec<CompositionBranchRun>,
+    /// Successful in-memory materializations and actual accesses. These are
+    /// neither persistent cache hits nor independently published artifacts.
+    pub shared_intermediates: Vec<render::SharedStageObservation>,
     pub runtime_qualified: bool,
     pub review_required: bool,
     pub visual_determinism_qualified: bool,
@@ -60,6 +68,13 @@ pub struct CompositionRun {
 
 impl CompositionRun {
     pub fn successful(&self) -> bool { self.state == CompositionRunState::Complete }
+
+    /// Project correlated native evidence into the shared orchestration
+    /// contract. Consumers must still verify payload bytes and retain this
+    /// native receipt; projection does not establish runtime qualification.
+    pub fn run_manifest(&self) -> Result<RunManifest> {
+        crate::planning::composition_evidence::run_manifest(self)
+    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -82,7 +97,24 @@ pub fn execute(
 ) -> Result<CompositionRun> {
     if cancellation.is_cancelled() { bail!("composition.cancelled: cancelled before planning"); }
     let plan = plan(snapshot, request)?;
+    execute_planned(snapshot, plan, output, cache_directory, cancellation)
+}
+
+/// Execute only an in-process plan whose private measured paths remain tied to
+/// the captured snapshot. The planning facade owns both values; serialized
+/// evidence is never accepted as executable geometry.
+pub(crate) fn execute_planned(
+    snapshot: &LoadedComposition,
+    plan: CompositionPlan,
+    output: &Path,
+    cache_directory: Option<&Path>,
+    cancellation: &ProcessCancellationToken,
+) -> Result<CompositionRun> {
+    let started_at_unix_ms = unix_time_ms();
+    if cancellation.is_cancelled() { bail!("composition.cancelled: cancelled before execution"); }
     let plan_bytes = json_bytes(&plan)?;
+    let execution_plan = crate::planning::composition::build_execution_plan(&plan)?;
+    let execution_plan_bytes = json_bytes(&execution_plan)?;
     let plan_sha256 = hash_bytes(&plan_bytes);
     let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos();
     let run_id = format!("run:sha256:{}", hash_json(&(plan_sha256.as_str(), now, std::process::id()))?);
@@ -105,6 +137,7 @@ pub fn execute(
     fs::create_dir(output.join("inputs"))?;
     fs::create_dir(output.join("outputs"))?;
     write_new(&output.join("composition-plan.json"), &plan_bytes)?;
+    write_new(&output.join("execution-plan.json"), &execution_plan_bytes)?;
     let mut records = Vec::new();
     let mut source_ids = Vec::<ArtifactId>::new();
     let mut copied_inputs = BTreeSet::new();
@@ -141,9 +174,21 @@ pub fn execute(
     let mut branches = Vec::new();
     let mut outputs = Vec::new();
     let mut total_bytes = 0usize;
+    let mut prepared: Option<render::PreparedLocale<'_>> = None;
+    let mut prepared_locale: Option<&str> = None;
+    let mut shared_intermediates = Vec::new();
     for branch in &plan.branches {
+        // Plans are ordered by locale, then output. Keep only one locale's
+        // prepared text/SVG in memory and allocate it only on a terminal miss.
+        if prepared_locale != Some(branch.locale.as_str()) {
+            if let Some(previous) = prepared.take() {
+                shared_intermediates.extend(previous.observations());
+            }
+            prepared_locale = Some(&branch.locale);
+        }
         let mut result = CompositionBranchRun {
             target_id: branch.target_id.clone(), outcome: CompositionBranchOutcome::Failed,
+            started_at_unix_ms: unix_time_ms(), completed_at_unix_ms: 0,
             cache: CacheDisposition::NotApplicable, artifact_evidence_index: None,
             artifact_id: None, locator: None, diagnostics: branch.diagnostics.clone(),
         };
@@ -163,7 +208,7 @@ pub fn execute(
                     }))
                 }).transpose()?;
                 let expected_metadata = serde_json::json!({
-                    "schema": "renderflow.composition-artifact/v4", "profile": COMPOSITION_PROFILE,
+                    "schema": "renderflow.composition-artifact/v5", "profile": COMPOSITION_PROFILE,
                     "version": env!("CARGO_PKG_VERSION"), "target_id": branch.target_id,
                     "renderer": { "id": render::COMPOSITION_RENDERER_ID, "version": render::COMPOSITION_RENDERER_VERSION },
                     "locale": branch.locale, "content_revision": branch.content_revision,
@@ -191,8 +236,8 @@ pub fn execute(
                             result.diagnostics.push(CompositionDiagnostic::new(DiagnosticSeverity::Warning,
                                 "composition.cache.rejected", format!("{error:#}"), Some(&branch.locale), None));
                         }
-                        let rendered = render::render_with_plan(snapshot, &branch.locale, branch.output,
-                            branch.typography.as_ref(), branch.raster.as_ref(), branch.pdf.as_ref())?;
+                        let renderer = prepared.get_or_insert_with(|| render::PreparedLocale::new(&branch.locale));
+                        let rendered = renderer.render(snapshot, branch)?;
                         if rendered.bytes.len() > MAX_OUTPUT_BYTES { bail!("composition.output.byte_limit: output exceeds 64 MiB"); }
                         if rendered.media_type != branch.output.media_type() || rendered.extension != branch.output.extension() {
                             bail!("composition.output.contract: renderer output disagrees with selected target");
@@ -245,21 +290,30 @@ pub fn execute(
                     "composition.branch.failed", format!("{error:#}"), Some(&branch.locale), None));
             }
         }
+        result.completed_at_unix_ms = unix_time_ms().max(result.started_at_unix_ms);
         branches.push(result);
+    }
+    if let Some(previous) = prepared.take() {
+        shared_intermediates.extend(previous.observations());
     }
     let published = branches.iter().filter(|branch| branch.outcome == CompositionBranchOutcome::Published).count();
     let state = if cancellation.is_cancelled() { CompositionRunState::Cancelled }
         else if published == branches.len() { CompositionRunState::Complete }
         else if published > 0 { CompositionRunState::Partial } else { CompositionRunState::Failed };
+    let completed_at_unix_ms = branches.iter().fold(unix_time_ms().max(started_at_unix_ms),
+        |latest, branch| latest.max(branch.completed_at_unix_ms));
     let run = CompositionRun {
-        schema: COMPOSITION_RUN_SCHEMA_V4.into(), run_id: run_id.clone(), state, plan_sha256, plan,
+        schema: COMPOSITION_RUN_SCHEMA_V5.into(), run_id: run_id.clone(), state, plan_sha256, plan,
+        started_at_unix_ms, completed_at_unix_ms,
         artifact_manifest: ArtifactManifest { schema_version: ARTIFACT_MANIFEST_SCHEMA_V1.into(),
-            run_id, output_dir: ".".into(), outputs, artifacts: records }, branches,
+            run_id, output_dir: ".".into(), outputs, artifacts: records }, branches, shared_intermediates,
         runtime_qualified: false, review_required: true, visual_determinism_qualified: false,
     };
-    // A failed/partial/cancelled receipt is still evidence. No receipt is created
-    // if publication I/O fails before this final atomic write.
+    let manifest = run.run_manifest()?;
+    // A failed/partial/cancelled receipt is still evidence. The common receipt
+    // is written last; early I/O failures can leave no complete receipt pair.
     write_new(&output.join("composition-run.json"), &json_bytes(&run)?)?;
+    write_new(&output.join("run-manifest.json"), &json_bytes(&manifest)?)?;
     Ok(run)
 }
 

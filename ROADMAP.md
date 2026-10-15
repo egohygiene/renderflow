@@ -3,7 +3,7 @@ schema: aether.architecture-document/v1
 id: renderflow-roadmap
 title: Renderflow Roadmap
 kind: architecture-document
-version: 0.1.12
+version: 0.1.13
 status: draft
 owners:
   - egohygiene
@@ -26,7 +26,53 @@ supersedes: []
 
 # Renderflow Roadmap
 
-## 2026-10-15 composed PDF checkpoint
+## 2026-10-15 composition planner and publication checkpoint
+
+Composed PDF for [#406](https://github.com/egohygiene/renderflow/issues/406)
+merged in [PR #452](https://github.com/egohygiene/renderflow/pull/452) at
+`024b06f83eebeeb2fbe2a6f9106936e77736a3f9`. The fifth checkpoint connects the
+bounded composition engine to the shared planning module through an explicit
+composition request. Its frozen result retains the captured source snapshot,
+native plan, common execution plan and a locale-aware intermediate-stage
+inventory. Canonical composition/content inputs remain v1; native profile,
+plan/run, cache and artifact identities advance to v5, preserving historical
+v4 evidence.
+
+Common artifact-forest target identities retain locale and relevant output
+settings, so English and German outputs of the same format remain distinct.
+The generic format graph is a projection, not the authoritative target list.
+Execution joins actual native publications to common target outcomes and the
+existing forest execution contract. A planned target is not a published file.
+Measured SVG and transcript intermediates are shared lazily within one locale
+on cache misses, and actual run observations are separate from planned reuse
+and derivative cache hits. The captured package still conservatively enters
+cache identity; this does not promise locale-selective input invalidation.
+
+`composition plan` emits the composition execution-plan wrapper, while
+`composition inspect` retains native plan output. A rendered bundle retains
+both native composition and common execution/run manifests. This is a bounded
+shared-planner entry point: `renderflow/v2` build-source admission and generic
+format-DAG composition routes remain unimplemented. Flow has no Renderflow
+adapter yet; downstream orchestration requires a Flow-owned adapter consuming
+a qualified immutable release, not a source import or a documented handoff
+alone.
+
+No dependencies change in this checkpoint. The coding workspace is available
+again, but tests, builds, lint, schema validation, CLI/fixture/native/render
+execution, Cargo and CI remain deferred. Source review is not execution,
+visual approval or consumer proof. #406 stays open and its acceptance
+checklist remains unchanged.
+
+Next, add general-build admission, then the Flow-owned adapter with its
+release prerequisites explicit. Broader typography and
+native interchange remain separate implementation work; the later deep test
+session must qualify reuse, cache isolation, common publication joins and
+rendered output before #419's release and downstream proof. See the
+[planner integration](docs/work/406/PLANNER_INTEGRATION.md),
+[composition guide](docs/user-guide/page-composition.md) and
+[handoff](docs/work/406/HANDOFF.md).
+
+## 2026-10-15 composed PDF checkpoint (historical)
 
 Composed PNG for [#406](https://github.com/egohygiene/renderflow/issues/406)
 merged in [PR #451](https://github.com/egohygiene/renderflow/pull/451) at
@@ -424,10 +470,12 @@ availability. Merging does not turn authored coverage into passing evidence.
 | #430 | Per-target publication evidence, multi-family fixture and Flow handoff authored | Native integration proof, missing direction decisions, CLI/SDK and released-contract qualification |
 
 After the #430 implementation checkpoint, #406 has an authored bounded
-composition SDK/CLI slice, measured typography, composed PNG and a bounded
-image-only composed-PDF follow-up. General planner/Flow integration, native
-interoperability and broader typography remain its implementation lane;
-composed print output still needs the deferred qualification evidence. Keep #412/#413
+composition SDK/CLI slice, measured typography, composed PNG, a bounded
+image-only composed PDF, and an explicit shared-planner composition entry point
+with common forest/publication evidence. Generic build admission, the
+Flow-owned adapter, native interoperability and broader typography remain
+implementation work; composed output and shared reuse still need deferred
+qualification evidence. Keep #412/#413
 fixture expansion and #419 verified release work aligned with the later deep
 testing session. Existing open qualification issues retain the evidence gaps;
 no new audit issues are created before that session.

@@ -5,13 +5,16 @@ per-locale PDF, PNG, SVG, HTML, and accessible transcript files. Art, shapes, te
 and typography remain separate inputs. The source language, default language,
 and every translation use the same planner and renderer.
 
-This is the **fourth authored, unqualified #406 implementation checkpoint**.
+This is the **fifth authored, unqualified #406 implementation checkpoint**.
 Its measured-typography path uses pinned HarfRust 0.14.0 and Skrifa 0.48.0 to
 shape supported text and derive glyph outlines from captured font bytes. The
 PNG branch adds pinned resvg 0.48.1 to rasterize that same composed geometry
 with explicitly captured image resources. The PDF branch reuses that opaque
 rasterization and the existing lopdf 0.45.0 dependency for one image-only page
 per locale, with explicit geometry and color-policy evidence.
+The shared planning module now exposes an explicit composition entry point
+with frozen inputs, locale-aware artifact-forest targets and common publication
+evidence. This does not add composition as a `renderflow/v2` build source.
 Tests, builds, lint, schema validation, CLI/fixture/render/native execution,
 Cargo and CI were deferred during the sprint. Source implementation and serialized evidence do not establish print
 readability, font rights, or acceptance by a design application.
@@ -54,10 +57,11 @@ explicit font-size, minimum-size, line-height, padding, alignment, and color
 settings. An explicit reading order is independent of visual paint order.
 
 The canonical composition and content schemas remain v1. Composition output
-uses `renderflow.layered-composition/v4`; plans and runs use
-`renderflow.composition-plan/v4` and `renderflow.composition-run/v4`. The new
-profile adds independent PDF settings and page evidence. Historical v3 PNG,
-v2 outlined-preview and v1 browser-text evidence schemas remain available.
+uses `renderflow.layered-composition/v5`; plans and runs use
+`renderflow.composition-plan/v5` and `renderflow.composition-run/v5`. The new
+profile records locale-aware identity and actual intermediate reuse alongside
+common execution evidence. Historical v4 PDF, v3 PNG, v2 outlined-preview and
+v1 browser-text evidence schemas remain available.
 
 ## Inspect and plan without output writes
 
@@ -86,7 +90,19 @@ still produce transcripts. Use the real-font fixture for later visual work.
 Both commands print JSON to standard output and leave the source, output, and
 cache directories unchanged. They read the manifest and referenced local
 assets and fonts. `inspect` emits the default plan: all declared locales and
-the default `svg,html,transcript_json` targets.
+the default `svg,html,transcript_json` targets. `plan` emits
+`renderflow.composition-execution-plan/v1`, a wrapper with:
+
+| Field | Meaning |
+| --- | --- |
+| `composition` | The native v5 composition plan, including branch diagnostics and provider evidence |
+| `execution` | The common execution plan with distinct locale/output artifact-forest targets |
+| `stages` | Planned intermediate stages, dependencies, consumers and expected materializations |
+
+Consumers of earlier bare `composition plan` output must read native fields
+under `composition`. `inspect` still emits the native plan directly. Stage
+counts describe opportunities to share work on cache misses; they are not
+observations that a renderer ran or that an output was published.
 
 `--locales` accepts exactly one locale, a comma-separated subset, or
 `all_declared` (the default). Unknown locales do not fall back. Empty and
@@ -119,8 +135,10 @@ own `.artifact-store`.
 
 | Bundle member | Purpose |
 | --- | --- |
-| `composition-plan.json` | The exact plan used by this run |
-| `composition-run.json` | Run receipt written after publication, including branch outcomes and artifact evidence |
+| `composition-plan.json` | The exact native v5 composition plan used by this run |
+| `execution-plan.json` | The execution-plan wrapper with native plan, common locale/output forest and stage inventory |
+| `composition-run.json` | Native v5 run receipt, including branch outcomes, artifact evidence and intermediate observations |
+| `run-manifest.json` | Common run manifest with actual publications joined to the planned forest targets |
 | `inputs/<sha256>` | Captured input bytes, shared by content identity within the bundle |
 | `outputs/<locale>/page.svg` | Published SVG for a successful selected SVG branch |
 | `outputs/<locale>/page.html` | Published HTML for a successful selected HTML branch |
@@ -146,8 +164,8 @@ and reloading its relative paths. Cache keys conservatively include the entire
 captured package, so changing one locale can invalidate other output keys while
 immutable artwork bytes remain shared. Cache reuse does not approve a candidate.
 
-The command prints its run receipt to standard output. A partial, failed, or
-cancelled run returns nonzero after emitting its available receipt. Successful
+The command prints its native v5 run receipt to standard output. A partial,
+failed, or cancelled run returns nonzero after emitting its available receipt. Successful
 branches remain distinguishable from unavailable or failed branches. A command
 error before a run receipt can be created is not evidence of publication.
 
@@ -428,19 +446,61 @@ Human review remains explicit; generating a derivative does not approve it.
 
 ## Consumption by other projects
 
-Use the same SDK composition request for inspection, planning, and execution.
-Preserve the canonical inputs and the full native run evidence with the
-published files. A consumer should use recorded branch state and actual output
-hashes to decide what is available, and carry review flags forward.
+Use `planning::resolve_composition` with a `CompositionPlanningRequest`
+containing the input path and native `CompositionRequest`. The returned
+`ResolvedCompositionExecution` keeps its snapshot and native plan private and
+frozen, so execution consumes the same planned inputs. Use
+`planning::execute_composition` with that resolved value, output path, optional
+cache path and cancellation token to obtain a `CompositionRun`. Its
+`run_manifest()` method derives the common run manifest. The existing generic
+v2 build resolver and format DAG remain unchanged; this is a dedicated
+composition entry point in their shared planning module.
 
-This candidate composition contract is separate from `renderflow/v2` build
-specs and the general artifact forest. It does not extend `flow.artifact/v1`
-or imply that a released Flow adapter already consumes the new contract. See
-the [Flow artifact handoff](../architecture/flow-artifact-forest.md) for the
-existing distinction between planned inventory and actual publication.
+The common artifact forest retains distinct target IDs for each selected
+locale and output, with only the settings relevant to that output in target
+identity. PNG settings do not change PDF/SVG/HTML/transcript target IDs; PDF
+settings do not change PNG/SVG/HTML/transcript IDs. Format alone is insufficient
+to identify an output. The format graph is a projection of this inventory,
+not a replacement for it. Cache keys still conservatively include the full
+captured package, so this target separation is not a promise that editing one
+locale leaves every other locale's cache key unchanged.
+
+The renderer creates transcript and measured-SVG intermediates only when an
+uncached branch needs them, then shares them among that locale's consumers.
+It retains one locale's intermediate payloads at a time. All-hit, blocked and
+failed-before-materialization branches do not prove intermediate execution.
+Read actual stage observations separately from the plan's expected
+materializations and each derivative's cache-hit status; shared source storage
+also remains a different kind of reuse. This authored behavior has not yet
+been qualified by execution.
+
+Native `shared_intermediates` entries record `locale`, `kind`,
+`materializations`, `reuse_count`, `sha256`, `size_bytes` and
+`consumer_target_ids`. Match them to planned stages by locale and kind.
+Consumer IDs identify branches that accessed an intermediate; a later provider
+or publication failure can still prevent those branches from publishing.
+Their digest commits the transcript's pretty JSON plus final newline, or the
+exact SVG bytes used by visual adapters. Native run and branch start/end times
+are observations, not measured cost or quality scores.
+
+Preserve both plans, both run manifests, canonical inputs and published files.
+Use the common forest execution record to join target IDs to actual published
+artifact IDs, manifest indices, locators and hashes. Carry native branch
+diagnostics, review flags and losses forward. A planned branch, filename or
+successful sibling does not establish publication for another target.
+The common projection checks receipt correlation; it does not reread published
+files or replace consumer verification of their bytes.
+
+Flow currently has no Renderflow adapter. This candidate supplies common
+Renderflow evidence for a future Flow-owned adapter; it does not extend
+`flow.artifact/v1`, change the Flow repository or establish compatibility with
+a published release. Flow consumption requires a qualified, immutable
+Renderflow release and explicit downstream integration. See the
+[planner integration](../work/406/PLANNER_INTEGRATION.md) and
+[Flow artifact handoff](../architecture/flow-artifact-forest.md).
 
 Issue [#406](https://github.com/egohygiene/renderflow/issues/406) remains open
-for general planner/Flow integration, execution and visual qualification,
-broader typography, and the remaining native interoperability requirements.
+for generic build admission and downstream Flow integration, execution and
+visual qualification, broader typography, and remaining native interoperability.
 The [format evaluation](../work/406/FORMAT_EVALUATION.md) explains the canonical
 manifest choice and the boundaries of each proposed interchange format.

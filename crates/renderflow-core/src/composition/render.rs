@@ -5,13 +5,13 @@
 //! provider; browsers do not select a font or shape the visual text again.
 //! All resources are drawn from the immutable, validated input snapshot.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write;
 
 use anyhow::{bail, Context, Result};
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use super::model::{
     CompositionDiagnostic, DiagnosticSeverity, Layer, LayerContent, NormalizedRect,
@@ -20,10 +20,10 @@ use super::model::{
 use super::typography::{self, TypographyReport};
 use super::raster::{self, RasterPlan, RasterSettings};
 use super::pdf::{self, PdfPlan, PdfSettings};
-use super::{CompositionOutput, LoadedComposition};
+use super::{CompositionBranchPlan, CompositionBranchState, CompositionOutput, LoadedComposition};
 
 pub const COMPOSITION_RENDERER_ID: &str = "renderflow.layered-svg";
-pub const COMPOSITION_RENDERER_VERSION: u32 = 4;
+pub const COMPOSITION_RENDERER_VERSION: u32 = 5;
 pub const PAGE_TRANSCRIPT_SCHEMA_V1: &str = "renderflow.page-transcript/v1";
 const MAX_OUTPUT_BYTES: usize = 64 * 1024 * 1024;
 const POINTS_PER_MM: f64 = 72.0 / 25.4;
@@ -34,6 +34,114 @@ pub struct RenderedComposition {
     pub media_type: &'static str,
     pub extension: &'static str,
     pub diagnostics: Vec<CompositionDiagnostic>,
+}
+
+/// Work observed in this invocation, independent of terminal artifact caches.
+/// The transcript digest covers its pretty JSON serialization plus final LF;
+/// the SVG digest covers the exact UTF-8 bytes supplied to visual adapters.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SharedStageObservation {
+    pub locale: String,
+    pub kind: String,
+    pub materializations: u32,
+    pub reuse_count: u32,
+    pub sha256: String,
+    pub size_bytes: u64,
+    pub consumer_target_ids: Vec<String>,
+}
+
+impl SharedStageObservation {
+    fn materialized(locale: &str, kind: &str, bytes: &[u8], target_id: &str) -> Self {
+        Self {
+            locale: locale.to_owned(), kind: kind.to_owned(), materializations: 1,
+            reuse_count: 0, sha256: super::hash_bytes(bytes), size_bytes: bytes.len() as u64,
+            consumer_target_ids: vec![target_id.to_owned()],
+        }
+    }
+
+    fn reused_by(&mut self, target_id: &str) {
+        // A branch is attempted once by PreparedLocale. Keeping the IDs sorted
+        // makes the receipt independent of the branch's observation order.
+        self.consumer_target_ids.push(target_id.to_owned());
+        self.consumer_target_ids.sort();
+        self.reuse_count += 1;
+    }
+}
+
+struct PreparedTranscript {
+    value: PageTranscript,
+    json: Vec<u8>,
+    observation: SharedStageObservation,
+}
+
+struct PreparedSvg {
+    value: String,
+    observation: SharedStageObservation,
+}
+
+/// Lazy, run-local intermediates for one locale. The executor owns at most one
+/// instance at a time and drops it when moving to the next locale. Retaining an
+/// immutable snapshot reference prevents mutation while prepared bytes exist;
+/// neither these bytes nor their private typography geometry are deserializable.
+pub(crate) struct PreparedLocale<'snapshot> {
+    locale: String,
+    snapshot: Option<&'snapshot LoadedComposition>,
+    typography_identity: Option<String>,
+    attempted_targets: BTreeSet<String>,
+    transcript: Option<PreparedTranscript>,
+    svg: Option<PreparedSvg>,
+}
+
+impl<'snapshot> PreparedLocale<'snapshot> {
+    pub(crate) fn new(locale: &str) -> Self {
+        Self {
+            locale: locale.to_owned(), snapshot: None, typography_identity: None,
+            attempted_targets: BTreeSet::new(), transcript: None, svg: None,
+        }
+    }
+
+    pub(crate) fn render(&mut self, snapshot: &'snapshot LoadedComposition, branch: &CompositionBranchPlan) -> Result<RenderedComposition> {
+        anyhow::ensure!(branch.state == CompositionBranchState::Planned,
+            "composition.shared.branch_state: only a planned branch may consume shared stages");
+        if let Some(error) = branch.diagnostics.iter().find(|item| item.severity == DiagnosticSeverity::Error) {
+            bail!("{}: {}", error.code, error.message);
+        }
+        self.render_parts(snapshot, &branch.locale, branch.output, branch.typography.as_ref(),
+            branch.raster.as_ref(), branch.pdf.as_ref(), &branch.target_id)
+    }
+
+    pub(crate) fn observations(&self) -> Vec<SharedStageObservation> {
+        self.transcript.iter().map(|stage| stage.observation.clone())
+            .chain(self.svg.iter().map(|stage| stage.observation.clone())).collect()
+    }
+
+    fn prepare_transcript(&mut self, snapshot: &LoadedComposition, target_id: &str) -> Result<()> {
+        if let Some(stage) = &mut self.transcript {
+            stage.observation.reused_by(target_id);
+        } else {
+            let value = transcript(snapshot, &self.locale)?;
+            let mut json = serde_json::to_vec_pretty(&value)?;
+            json.push(b'\n');
+            check_output_bound(json.len())?;
+            let observation = SharedStageObservation::materialized(&self.locale, "transcript", &json, target_id);
+            self.transcript = Some(PreparedTranscript { value, json, observation });
+        }
+        Ok(())
+    }
+
+    fn prepare_svg(&mut self, snapshot: &LoadedComposition, measured: &TypographyReport, target_id: &str) -> Result<()> {
+        if let Some(stage) = &mut self.svg {
+            stage.observation.reused_by(target_id);
+        } else {
+            let transcript = &self.transcript.as_ref().context("composition.shared.transcript_missing")?.value;
+            let value = render_svg(snapshot, &self.locale, transcript, measured)?;
+            check_output_bound(value.len())?;
+            let observation = SharedStageObservation::materialized(&self.locale, "svg", value.as_bytes(), target_id);
+            self.svg = Some(PreparedSvg { value, observation });
+        }
+        Ok(())
+    }
 }
 
 /// Source-derived checks only: passing these checks is not a visual proof.
@@ -137,55 +245,111 @@ pub(crate) fn render_with_typography(snapshot: &LoadedComposition, locale: &str,
     render_with_plan(snapshot, locale, format, typography, raster.as_ref(), pdf.as_ref())
 }
 
-/// Execution uses the exact in-process typography, raster, and PDF plans whose
-/// evidence is committed by its cache key and receipt.
+/// Direct callers receive a fresh preparation using their exact in-process
+/// typography, raster, and PDF plans. The executor retains PreparedLocale
+/// across cache misses instead of starting a separate preparation per target.
 pub(crate) fn render_with_plan(snapshot: &LoadedComposition, locale: &str, format: CompositionOutput, typography: Option<&TypographyReport>, raster: Option<&RasterPlan>, pdf: Option<&PdfPlan>) -> Result<RenderedComposition> {
-    let mut diagnostics = snapshot.diagnostics.iter().filter(|item|
-        item.locale.as_deref().is_none_or(|value| value == locale)).cloned().collect::<Vec<_>>();
-    if format.visual() {
-        let report = typography.context("composition.typography.missing: visual output requires measured typography")?;
-        anyhow::ensure!(report.locale == locale, "composition.typography.locale_mismatch: report belongs to a different locale");
-        diagnostics.extend(layout_diagnostics(snapshot, locale));
-        diagnostics.extend(report.diagnostics.iter().cloned());
+    let target_id = format!("direct:{locale}:{}", format.name());
+    PreparedLocale::new(locale).render_parts(snapshot, locale, format, typography, raster, pdf, &target_id)
+}
+
+/// Require real private geometry on every access, including an SVG reuse. A
+/// deserialized evidence report must never acquire drawing authority merely
+/// because another branch populated the shared intermediate first.
+fn typography_identity(snapshot: &LoadedComposition, report: &TypographyReport) -> Result<String> {
+    let mut outlines = Vec::new();
+    for layer in &snapshot.manifest.layers {
+        if !matches!(&layer.content, LayerContent::Text { .. }) { continue; }
+        let paths = report.outlines(&layer.id).context(
+            "composition.typography.geometry_missing: captured outline geometry is required; serialized evidence cannot be used as a drawing plan")?;
+        outlines.push((&layer.id, super::hash_json(&paths)?));
     }
-    if format == CompositionOutput::Png {
-        anyhow::ensure!(raster.is_some(), "composition.raster.plan_missing: PNG output requires an effective raster plan");
-        diagnostics.extend(raster_diagnostics(locale));
-    }
-    if format == CompositionOutput::Pdf {
-        anyhow::ensure!(pdf.is_some(), "composition.pdf.plan_missing: PDF output requires an effective PDF plan");
-        diagnostics.retain(|item| item.code != "composition.page.gutter_unresolved");
-        diagnostics.extend(pdf_diagnostics(locale));
-    }
-    if let Some(error) = diagnostics.iter().find(|item| item.severity == DiagnosticSeverity::Error) {
-        bail!("{}: {}", error.code, error.message);
-    }
-    let transcript = transcript(snapshot, locale)?;
-    let (bytes, media_type, extension) = match format {
-        CompositionOutput::Svg => (render_svg(snapshot, locale, &transcript, typography.context("missing typography report")?)?.into_bytes(), "image/svg+xml", "svg"),
-        CompositionOutput::Html => (render_html(snapshot, locale, &transcript, typography.context("missing typography report")?)?.into_bytes(), "text/html", "html"),
-        CompositionOutput::Png => {
-            let svg = render_svg(snapshot, locale, &transcript, typography.context("missing typography report")?)?;
-            let bytes = raster::render_png(snapshot, svg.as_bytes(), raster.context("missing raster plan")?)?;
-            (bytes, "image/png", "png")
+    super::hash_json(&(report, outlines))
+}
+
+impl<'snapshot> PreparedLocale<'snapshot> {
+    fn render_parts(&mut self, snapshot: &'snapshot LoadedComposition, locale: &str, format: CompositionOutput, typography: Option<&TypographyReport>, raster: Option<&RasterPlan>, pdf: Option<&PdfPlan>, target_id: &str) -> Result<RenderedComposition> {
+        anyhow::ensure!(locale == self.locale,
+            "composition.shared.locale_mismatch: prepared stages belong to a different locale");
+        if let Some(captured) = self.snapshot {
+            anyhow::ensure!(std::ptr::eq(captured, snapshot),
+                "composition.shared.snapshot_mismatch: prepared stages belong to a different immutable snapshot");
         }
-        CompositionOutput::Pdf => {
-            let svg = render_svg(snapshot, locale, &transcript, typography.context("missing typography report")?)?;
-            let bytes = pdf::render_pdf(snapshot, svg.as_bytes(), pdf.context("missing PDF plan")?)?;
-            (bytes, "application/pdf", "pdf")
+        anyhow::ensure!(format.supported(),
+            "composition.output.unsupported: this renderer provides SVG, HTML, PNG, PDF, transcript JSON, and transcript text");
+        let mut diagnostics = snapshot.diagnostics.iter().filter(|item|
+            item.locale.as_deref().is_none_or(|value| value == locale)).cloned().collect::<Vec<_>>();
+        if format.visual() {
+            let report = typography.context("composition.typography.missing: visual output requires measured typography")?;
+            anyhow::ensure!(report.locale == locale, "composition.typography.locale_mismatch: report belongs to a different locale");
+            diagnostics.extend(layout_diagnostics(snapshot, locale));
+            diagnostics.extend(report.diagnostics.iter().cloned());
         }
-        CompositionOutput::TranscriptJson => {
-            let mut bytes = serde_json::to_vec_pretty(&transcript)?;
-            bytes.push(b'\n');
-            (bytes, "application/json", "transcript.json")
+        if format == CompositionOutput::Png {
+            let planned = raster.context("composition.raster.plan_missing: PNG output requires an effective raster plan")?;
+            anyhow::ensure!(raster::plan(snapshot, &planned.settings)? == *planned,
+                "composition.raster.plan_mismatch: raster evidence does not match the current captured composition and provider");
+            diagnostics.extend(raster_diagnostics(locale));
         }
-        CompositionOutput::TranscriptText => (render_transcript_text(&transcript).into_bytes(), "text/plain", "transcript.txt"),
-        _ => bail!("composition.output.unsupported: this renderer provides SVG, HTML, PNG, PDF, transcript JSON, and transcript text"),
-    };
-    if bytes.len() > MAX_OUTPUT_BYTES {
-        bail!("composition.output.bounds: serialized output exceeds 64 MiB");
+        if format == CompositionOutput::Pdf {
+            let planned = pdf.context("composition.pdf.plan_missing: PDF output requires an effective PDF plan")?;
+            anyhow::ensure!(pdf::plan(snapshot, &planned.settings)? == *planned,
+                "composition.pdf.plan_mismatch: PDF evidence differs from the captured composition and current provider");
+            diagnostics.retain(|item| item.code != "composition.page.gutter_unresolved");
+            diagnostics.extend(pdf_diagnostics(locale));
+        }
+        if let Some(error) = diagnostics.iter().find(|item| item.severity == DiagnosticSeverity::Error) {
+            bail!("{}: {}", error.code, error.message);
+        }
+        let identity = if format.visual() {
+            let identity = typography_identity(snapshot, typography.context("missing typography report")?)?;
+            if let Some(expected) = &self.typography_identity {
+                anyhow::ensure!(expected == &identity,
+                    "composition.shared.typography_mismatch: prepared stages belong to different measured typography");
+            }
+            Some(identity)
+        } else { None };
+        anyhow::ensure!(self.attempted_targets.insert(target_id.to_owned()),
+            "composition.shared.duplicate_target: each target may consume prepared stages only once per invocation");
+        self.snapshot = Some(snapshot);
+        if identity.is_some() { self.typography_identity = identity; }
+
+        // A warm SVG target does not access the transcript. HTML additionally
+        // needs the transcript for its accessible copy; cold visual targets need
+        // it to build the SVG. Count each actual stage access once for this branch.
+        if !format.visual() || format == CompositionOutput::Html || self.svg.is_none() {
+            self.prepare_transcript(snapshot, target_id)?;
+        }
+        if format.visual() {
+            self.prepare_svg(snapshot, typography.context("missing typography report")?, target_id)?;
+        }
+        let (bytes, media_type, extension) = match format {
+            CompositionOutput::Svg => (self.svg.as_ref().context("composition.shared.svg_missing")?.value.as_bytes().to_vec(), "image/svg+xml", "svg"),
+            CompositionOutput::Html => (render_html(locale,
+                &self.transcript.as_ref().context("composition.shared.transcript_missing")?.value,
+                &self.svg.as_ref().context("composition.shared.svg_missing")?.value)?.into_bytes(), "text/html", "html"),
+            CompositionOutput::Png => {
+                let svg = &self.svg.as_ref().context("composition.shared.svg_missing")?.value;
+                let bytes = raster::render_png(snapshot, svg.as_bytes(), raster.context("missing raster plan")?)?;
+                (bytes, "image/png", "png")
+            }
+            CompositionOutput::Pdf => {
+                let svg = &self.svg.as_ref().context("composition.shared.svg_missing")?.value;
+                let bytes = pdf::render_pdf(snapshot, svg.as_bytes(), pdf.context("missing PDF plan")?)?;
+                (bytes, "application/pdf", "pdf")
+            }
+            CompositionOutput::TranscriptJson => {
+                (self.transcript.as_ref().context("composition.shared.transcript_missing")?.json.clone(), "application/json", "transcript.json")
+            }
+            CompositionOutput::TranscriptText => (render_transcript_text(
+                &self.transcript.as_ref().context("composition.shared.transcript_missing")?.value).into_bytes(), "text/plain", "transcript.txt"),
+            _ => bail!("composition.output.unsupported: this renderer provides SVG, HTML, PNG, PDF, transcript JSON, and transcript text"),
+        };
+        if bytes.len() > MAX_OUTPUT_BYTES {
+            bail!("composition.output.bounds: serialized output exceeds 64 MiB");
+        }
+        Ok(RenderedComposition { bytes, media_type, extension, diagnostics })
     }
-    Ok(RenderedComposition { bytes, media_type, extension, diagnostics })
 }
 
 /// Warnings shared by the planner and direct renderer. A successful preview
@@ -396,8 +560,7 @@ fn accessible_description(transcript: &PageTranscript) -> String {
     description
 }
 
-fn render_html(snapshot: &LoadedComposition, locale: &str, transcript: &PageTranscript, measured: &TypographyReport) -> Result<String> {
-    let svg = render_svg(snapshot, locale, transcript, measured)?;
+fn render_html(locale: &str, transcript: &PageTranscript, svg: &str) -> Result<String> {
     let mut output = String::new();
     writeln!(output, "<!doctype html>\n<html lang=\"{}\" dir=\"ltr\">\n<head>\n<meta charset=\"utf-8\">", escape_xml(locale))?;
     output.push_str("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; img-src data:; font-src data:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'\">\n");
@@ -405,7 +568,7 @@ fn render_html(snapshot: &LoadedComposition, locale: &str, transcript: &PageTran
     output.push_str("<style>body{margin:0;padding:2rem;background:#eee;color:#111;font-family:system-ui,sans-serif}main{max-width:72rem;margin:auto}figure{margin:0}figure>svg{display:block;max-width:100%;height:auto;background:white}li{margin-block:1rem}.composition-text{white-space:pre-wrap;overflow-wrap:anywhere}.qualification{border:1px solid #666;padding:1rem}</style>\n</head>\n<body><main>\n");
     writeln!(output, "<h1>{}</h1>", escape_xml(&transcript.composition_id))?;
     output.push_str("<p class=\"qualification\">Preview requires human review. Visual text uses measured glyph outlines with the authored line breaks and sizes. Edit text in the canonical composition package; selectable copy is available below. Raster appearance and publication fidelity still require review.</p>\n<figure aria-hidden=\"true\">\n");
-    output.push_str(&svg);
+    output.push_str(svg);
     output.push_str("</figure>\n<section aria-labelledby=\"artwork-heading\"><h2 id=\"artwork-heading\">Artwork descriptions</h2><ol>\n");
     for artwork in &transcript.artwork {
         writeln!(output, "<li data-layer-id=\"{}\">{}</li>", escape_xml(&artwork.layer_id), escape_xml(&artwork.alt))?;
@@ -455,3 +618,7 @@ fn escape_xml(value: &str) -> String {
 #[cfg(test)]
 #[path = "render_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "shared_render_tests.rs"]
+mod shared_tests;

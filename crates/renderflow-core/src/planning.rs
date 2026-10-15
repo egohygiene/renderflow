@@ -4,6 +4,13 @@
 //! Execution consumes a previously resolved [`ResolvedExecution`] and never
 //! performs implicit target/path re-planning.
 
+pub mod composition;
+pub(crate) mod composition_evidence;
+pub use composition::{
+    execute_composition, resolve_composition, CompositionExecutionPlan,
+    CompositionPlanningRequest, CompositionStagePlan, ResolvedCompositionExecution,
+};
+
 mod forest;
 use forest::{plan_forest_routes, group_forest_routes, finalize_forest_identity, attach_forest_execution,
     hygiene_candidate_key, record_target_hygiene};

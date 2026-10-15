@@ -107,8 +107,8 @@ fn visual_branches_share_one_measured_report_and_commit_its_identity() {
     let request = exact("en", vec![CompositionOutput::Svg, CompositionOutput::Html,
         CompositionOutput::Png, CompositionOutput::TranscriptJson, CompositionOutput::Pdf]);
     let before = plan(&loaded, &request).unwrap();
-    assert_eq!(before.schema, "renderflow.composition-plan/v4");
-    assert_eq!(before.profile, "renderflow.layered-composition/v4");
+    assert_eq!(before.schema, "renderflow.composition-plan/v5");
+    assert_eq!(before.profile, "renderflow.layered-composition/v5");
     let svg = before.branches.iter().find(|branch| branch.output == CompositionOutput::Svg).unwrap();
     let html = before.branches.iter().find(|branch| branch.output == CompositionOutput::Html).unwrap();
     let png = before.branches.iter().find(|branch| branch.output == CompositionOutput::Png).unwrap();
@@ -183,10 +183,11 @@ fn raster_settings_change_only_the_png_branch_and_invalid_settings_stay_scoped()
     request.raster = raster::RasterSettings { dpi: 72, background: "#A1B2C3".into() };
     let changed = plan(&loaded, &request).unwrap();
     for before in &initial.branches {
-        let after = changed.branches.iter().find(|branch| branch.target_id == before.target_id).unwrap();
+        let after = changed.branches.iter().find(|branch| branch.locale == before.locale && branch.output == before.output).unwrap();
         assert_eq!(before.state, CompositionBranchState::Planned);
         assert_eq!(after.state, CompositionBranchState::Planned);
         if before.output == CompositionOutput::Png {
+            assert_ne!(before.target_id, after.target_id);
             assert_ne!(before.cache_key, after.cache_key);
             let raster = after.raster.as_ref().unwrap();
             assert_eq!((raster.width_px, raster.height_px), (596, 420));
@@ -194,6 +195,7 @@ fn raster_settings_change_only_the_png_branch_and_invalid_settings_stay_scoped()
             assert_eq!(raster.settings.background, "#a1b2c3");
             assert_eq!(serde_json::to_value(&before.typography).unwrap(), serde_json::to_value(&after.typography).unwrap());
         } else {
+            assert_eq!(before.target_id, after.target_id);
             assert_eq!(before.cache_key, after.cache_key);
             assert!(before.raster.is_none() && after.raster.is_none());
         }
@@ -329,7 +331,7 @@ fn shared_cache_verifies_records_and_refuses_corrupted_payloads() {
     assert_eq!(fs::read(root.join("first/outputs/en/page.svg")).unwrap(), fs::read(root.join("second/outputs/en/page.svg")).unwrap());
     let report_digest = hash_json(first.plan.branches[0].typography.as_ref().unwrap()).unwrap();
     for run in [&first, &second] {
-        assert_eq!(run.schema, "renderflow.composition-run/v4");
+        assert_eq!(run.schema, "renderflow.composition-run/v5");
         let artifact = &run.artifact_manifest.artifacts[run.branches[0].artifact_evidence_index.unwrap()];
         assert_eq!(artifact.metadata["renderflow.composition"]["typography"]["report_sha256"], report_digest);
         assert_eq!(artifact.metadata["renderflow.composition"]["renderer"]["version"], render::COMPOSITION_RENDERER_VERSION);
@@ -503,12 +505,13 @@ fn pdf_settings_are_canonical_and_change_only_the_pdf_branch() {
     };
     let changed = plan(&loaded, &request).unwrap();
     for before in &initial.branches {
-        let after = changed.branches.iter().find(|branch| branch.target_id == before.target_id).unwrap();
+        let after = changed.branches.iter().find(|branch| branch.locale == before.locale && branch.output == before.output).unwrap();
         assert_eq!(before.state, CompositionBranchState::Planned);
         assert_eq!(after.state, CompositionBranchState::Planned);
         assert_eq!(serde_json::to_value(&before.typography).unwrap(),
             serde_json::to_value(&after.typography).unwrap());
         if before.output == CompositionOutput::Pdf {
+            assert_ne!(before.target_id, after.target_id);
             assert_ne!(before.cache_key, after.cache_key);
             assert!(before.raster.is_none() && after.raster.is_none());
             let pdf = after.pdf.as_ref().unwrap();
@@ -519,6 +522,7 @@ fn pdf_settings_are_canonical_and_change_only_the_pdf_branch() {
             assert_eq!(pdf.raster.settings.background, pdf.settings.background);
             assert!(!pdf.runtime_qualified);
         } else {
+            assert_eq!(before.target_id, after.target_id);
             assert_eq!(before.cache_key, after.cache_key);
             assert!(before.pdf.is_none() && after.pdf.is_none());
         }
@@ -531,11 +535,13 @@ fn pdf_settings_are_canonical_and_change_only_the_pdf_branch() {
     request.pdf.binding_side = pdf::BindingSide::Right;
     let binding = plan(&loaded, &request).unwrap();
     for before in &lowercase.branches {
-        let after = binding.branches.iter().find(|branch| branch.target_id == before.target_id).unwrap();
+        let after = binding.branches.iter().find(|branch| branch.locale == before.locale && branch.output == before.output).unwrap();
         assert_eq!(after.state, CompositionBranchState::Planned);
         if before.output == CompositionOutput::Pdf {
+            assert_ne!(before.target_id, after.target_id);
             assert_ne!(before.cache_key, after.cache_key);
         } else {
+            assert_eq!(before.target_id, after.target_id);
             assert_eq!(before.cache_key, after.cache_key);
         }
     }
@@ -635,7 +641,7 @@ fn pdf_receipts_pin_settings_and_cache_reuses_unchanged_outputs_without_mutating
     assert_eq!(file_snapshot(&input), before);
     for (index, run) in [&first, &second, &third].into_iter().enumerate() {
         assert_eq!(run.state, CompositionRunState::Complete);
-        assert_eq!(run.schema, "renderflow.composition-run/v4");
+        assert_eq!(run.schema, "renderflow.composition-run/v5");
         for branch in &run.branches {
             let planned = run.plan.branches.iter().find(|plan| plan.target_id == branch.target_id).unwrap();
             let artifact = &run.artifact_manifest.artifacts[branch.artifact_evidence_index.unwrap()];
@@ -669,6 +675,232 @@ fn pdf_receipts_pin_settings_and_cache_reuses_unchanged_outputs_without_mutating
     let receipt: CompositionRun = serde_json::from_slice(&fs::read(root.join("third/composition-run.json")).unwrap()).unwrap();
     assert_eq!(receipt.plan_sha256, hash_bytes(&fs::read(root.join("third/composition-plan.json")).unwrap()));
     assert_eq!(receipt.artifact_manifest, third.artifact_manifest);
-    assert_eq!(receipt.plan.schema, "renderflow.composition-plan/v4");
-    assert_eq!(receipt.plan.profile, "renderflow.layered-composition/v4");
+    assert_eq!(receipt.plan.schema, "renderflow.composition-plan/v5");
+    assert_eq!(receipt.plan.profile, "renderflow.layered-composition/v5");
+}
+
+// Authored, unrun orchestration regressions. A shared-stage observation proves
+// successful accesses in the invocation; it is not a persistent cache hit or a
+// publication promise for a downstream adapter.
+fn assert_common_bundle(output: &Path, native: &CompositionRun) {
+    use crate::evidence::{RunManifest, RunState};
+    use crate::graph::execution_plan::ForestTargetOutcome;
+
+    let common: RunManifest = serde_json::from_slice(&fs::read(output.join("run-manifest.json")).unwrap()).unwrap();
+    assert_eq!(common, native.run_manifest().unwrap());
+    assert_eq!(common.run_id, native.run_id);
+    assert_eq!(common.artifact_manifest, native.artifact_manifest);
+    assert_eq!(common.started_at_unix_ms, native.started_at_unix_ms);
+    assert_eq!(common.completed_at_unix_ms, native.completed_at_unix_ms);
+    assert_eq!(common.execution_plan_digest.algorithm, "sha256");
+    assert_eq!(common.execution_plan_digest.value,
+        hash_bytes(&fs::read(output.join("execution-plan.json")).unwrap()));
+    assert_eq!(common.source_spec_digest.value, native.plan.composition_sha256);
+    assert_eq!(common.state, match native.state {
+        CompositionRunState::Complete => RunState::Complete,
+        CompositionRunState::Partial => RunState::Partial,
+        CompositionRunState::Failed => RunState::Failed,
+        CompositionRunState::Cancelled => RunState::Cancelled,
+    });
+    let forest = common.artifact_forest.as_ref().unwrap();
+    let rows = &forest.execution.as_ref().unwrap().targets;
+    assert_eq!(forest.branches.len(), native.plan.branches.len());
+    assert_eq!(rows.len(), native.branches.len());
+    assert_eq!(common.steps.len(), native.branches.len());
+    for (((planned, branch), row), step) in native.plan.branches.iter().zip(&native.branches).zip(rows).zip(&common.steps) {
+        assert_eq!(planned.target_id, branch.target_id);
+        assert_eq!(row.target_id, branch.target_id);
+        assert_eq!(row.artifact_evidence_index, branch.artifact_evidence_index);
+        assert_eq!(row.artifact_id, branch.artifact_id);
+        assert_eq!(row.locator, branch.locator);
+        assert!(!row.source_identity);
+        assert_eq!(step.step_id, format!("composition.branch:{}", branch.target_id));
+        assert_eq!(step.started_at_unix_ms, branch.started_at_unix_ms);
+        assert_eq!(step.completed_at_unix_ms, branch.completed_at_unix_ms);
+        assert_eq!(step.cache, branch.cache);
+        if branch.outcome == CompositionBranchOutcome::Published {
+            assert_eq!(row.outcome, ForestTargetOutcome::Published);
+            assert_eq!(row.producing_step_id.as_deref(), Some(step.step_id.as_str()));
+            let record = &common.artifact_manifest.artifacts[row.artifact_evidence_index.unwrap()];
+            assert_eq!(Some(record.artifact_id.as_str()), row.artifact_id.as_deref());
+            assert_eq!(Some(record.locator.as_str()), row.locator.as_deref());
+            assert_eq!(record.metadata["renderflow.composition"]["target_id"], planned.target_id);
+            assert_eq!(record.metadata["renderflow.composition"]["locale"], planned.locale);
+            assert_eq!(step.output_artifacts, vec![record.artifact_id.clone()]);
+        } else {
+            assert!(row.artifact_evidence_index.is_none() && row.artifact_id.is_none() && row.locator.is_none());
+            assert!(row.producing_step_id.is_none() && step.output_artifacts.is_empty());
+            assert_ne!(row.outcome, ForestTargetOutcome::Published);
+        }
+    }
+    let published = native.branches.iter().filter_map(|branch| branch.artifact_id.clone()).collect::<BTreeSet<_>>();
+    assert_eq!(forest.produced_artifacts.iter().cloned().collect::<BTreeSet<_>>(), published);
+    assert_eq!(common.diagnostics.iter().filter(|item| item.code == "composition.shared_stage.observed").count(),
+        native.shared_intermediates.len());
+}
+
+fn stage_consumers(run: &CompositionRun, locale: &str, outputs: &[CompositionOutput]) -> Vec<String> {
+    run.plan.branches.iter().filter(|branch| branch.locale == locale && outputs.contains(&branch.output))
+        .map(|branch| branch.target_id.clone()).collect::<BTreeSet<_>>().into_iter().collect()
+}
+
+#[test]
+fn common_receipts_keep_native_publication_rows_and_observe_distinct_locale_work() {
+    let directory = tempfile::tempdir().unwrap();
+    let loaded = LoadedComposition::load(example_root().join("page.composition.json")).unwrap();
+    let output = directory.path().canonicalize().unwrap().join("localized");
+    let selected = request(LocaleSelector::Subset { locales: vec!["en".into(), "de".into()] },
+        vec![CompositionOutput::Svg, CompositionOutput::Html, CompositionOutput::TranscriptJson, CompositionOutput::Ora]);
+    let run = execute(&loaded, &selected, &output, None, &ProcessCancellationToken::new()).unwrap();
+    assert_eq!(run.state, CompositionRunState::Partial);
+    assert_common_bundle(&output, &run);
+    assert_eq!(run.shared_intermediates.len(), 4);
+    for locale in ["de", "en"] {
+        let transcript = run.shared_intermediates.iter().find(|stage| stage.locale == locale && stage.kind == "transcript").unwrap();
+        let svg = run.shared_intermediates.iter().find(|stage| stage.locale == locale && stage.kind == "svg").unwrap();
+        assert_eq!((transcript.materializations, transcript.reuse_count), (1, 2));
+        assert_eq!((svg.materializations, svg.reuse_count), (1, 1));
+        assert_eq!(transcript.consumer_target_ids, stage_consumers(&run, locale,
+            &[CompositionOutput::Svg, CompositionOutput::Html, CompositionOutput::TranscriptJson]));
+        assert_eq!(svg.consumer_target_ids, stage_consumers(&run, locale,
+            &[CompositionOutput::Svg, CompositionOutput::Html]));
+        for (observed, extension) in [(transcript, "transcript.json"), (svg, "svg")] {
+            let bytes = fs::read(output.join(format!("outputs/{locale}/page.{extension}"))).unwrap();
+            assert_eq!(observed.sha256, hash_bytes(&bytes));
+            assert_eq!(observed.size_bytes, bytes.len() as u64);
+        }
+    }
+    for kind in ["transcript", "svg"] {
+        let german = run.shared_intermediates.iter().find(|stage| stage.locale == "de" && stage.kind == kind).unwrap();
+        let english = run.shared_intermediates.iter().find(|stage| stage.locale == "en" && stage.kind == kind).unwrap();
+        assert_ne!(german.sha256, english.sha256);
+        assert!(german.consumer_target_ids.iter().all(|id| !english.consumer_target_ids.contains(id)));
+    }
+}
+
+#[test]
+fn terminal_cache_hits_do_not_claim_shared_stage_work_and_mixed_runs_observe_only_misses() {
+    let directory = tempfile::tempdir().unwrap();
+    let root = directory.path().canonicalize().unwrap();
+    let loaded = LoadedComposition::load(example_root().join("page.composition.json")).unwrap();
+    let cache = root.join("cache");
+    let cancellation = ProcessCancellationToken::new();
+    execute(&loaded, &exact("en", vec![CompositionOutput::Svg]), &root.join("prime"), Some(&cache), &cancellation).unwrap();
+    let mut selected = exact("en", vec![CompositionOutput::Svg, CompositionOutput::Html,
+        CompositionOutput::TranscriptJson, CompositionOutput::Png]);
+    selected.raster.dpi = 36;
+    let mixed = execute(&loaded, &selected, &root.join("mixed"), Some(&cache), &cancellation).unwrap();
+    assert_eq!(mixed.state, CompositionRunState::Complete);
+    assert_common_bundle(&root.join("mixed"), &mixed);
+    for branch in &mixed.branches {
+        let planned = mixed.plan.branches.iter().find(|item| item.target_id == branch.target_id).unwrap();
+        assert_eq!(branch.cache, if planned.output == CompositionOutput::Svg { CacheDisposition::Hit } else { CacheDisposition::Miss });
+    }
+    assert_eq!(mixed.shared_intermediates.len(), 2);
+    let transcript = mixed.shared_intermediates.iter().find(|stage| stage.kind == "transcript").unwrap();
+    let svg = mixed.shared_intermediates.iter().find(|stage| stage.kind == "svg").unwrap();
+    assert_eq!((transcript.materializations, transcript.reuse_count), (1, 1));
+    assert_eq!((svg.materializations, svg.reuse_count), (1, 1));
+    assert_eq!(transcript.consumer_target_ids, stage_consumers(&mixed, "en",
+        &[CompositionOutput::Html, CompositionOutput::TranscriptJson]));
+    assert_eq!(svg.consumer_target_ids, stage_consumers(&mixed, "en",
+        &[CompositionOutput::Html, CompositionOutput::Png]));
+    assert_eq!(transcript.sha256, hash_bytes(&fs::read(root.join("mixed/outputs/en/page.transcript.json")).unwrap()));
+    assert_eq!(svg.sha256, hash_bytes(&fs::read(root.join("mixed/outputs/en/page.svg")).unwrap()));
+
+    let cached = execute(&loaded, &selected, &root.join("cached"), Some(&cache), &cancellation).unwrap();
+    assert_eq!(cached.state, CompositionRunState::Complete);
+    assert!(cached.branches.iter().all(|branch| branch.cache == CacheDisposition::Hit));
+    assert!(cached.shared_intermediates.is_empty());
+    assert_common_bundle(&root.join("cached"), &cached);
+    let common = cached.run_manifest().unwrap();
+    assert!(common.steps.iter().all(|step| step.state == crate::evidence::StepState::Reused));
+}
+
+#[test]
+fn blocked_pdf_settings_remain_local_in_common_execution_evidence() {
+    let directory = tempfile::tempdir().unwrap();
+    let loaded = LoadedComposition::load(example_root().join("page.composition.json")).unwrap();
+    let output = directory.path().canonicalize().unwrap().join("blocked-pdf");
+    let mut selected = exact("en", vec![CompositionOutput::Svg, CompositionOutput::Pdf, CompositionOutput::TranscriptJson]);
+    selected.pdf.conformance = "pdf_x_4".into();
+    let run = execute(&loaded, &selected, &output, None, &ProcessCancellationToken::new()).unwrap();
+    assert_eq!(run.state, CompositionRunState::Partial);
+    assert_common_bundle(&output, &run);
+    let common = run.run_manifest().unwrap();
+    let rows = &common.artifact_forest.as_ref().unwrap().execution.as_ref().unwrap().targets;
+    for ((planned, branch), row) in run.plan.branches.iter().zip(&run.branches).zip(rows) {
+        if planned.output == CompositionOutput::Pdf {
+            assert_eq!(branch.outcome, CompositionBranchOutcome::Blocked);
+            assert_eq!(row.outcome, crate::graph::execution_plan::ForestTargetOutcome::NotSelected);
+            assert!(run.shared_intermediates.iter().all(|stage| !stage.consumer_target_ids.contains(&planned.target_id)));
+        } else {
+            assert_eq!(branch.outcome, CompositionBranchOutcome::Published);
+        }
+    }
+    assert!(!output.join("outputs/en/page.pdf").exists());
+    assert_eq!(run.artifact_manifest.outputs.len(), 2);
+}
+
+#[test]
+fn common_projection_rejects_mismatched_native_publication_evidence() {
+    let directory = tempfile::tempdir().unwrap();
+    let loaded = LoadedComposition::load(example_root().join("page.composition.json")).unwrap();
+    let output = directory.path().canonicalize().unwrap().join("receipt");
+    let run = execute(&loaded, &exact("en", vec![CompositionOutput::TranscriptJson]),
+        &output, None, &ProcessCancellationToken::new()).unwrap();
+    assert_common_bundle(&output, &run);
+    let record_index = run.branches[0].artifact_evidence_index.unwrap();
+    assert!(record_index > 0, "captured source records precede terminal records");
+    for mutation in [
+        "source_index", "missing_index", "artifact_id", "locator", "target_id", "metadata", "outputs", "cache",
+        "plan_qualification", "validation_promotion", "fidelity_promotion", "engine_metadata", "renderer_metadata",
+        "typography_metadata", "cached_stage_consumer", "correlated_forged_id", "stage_digest", "stage_size",
+    ] {
+        let mut altered = run.clone();
+        match mutation {
+            "source_index" => altered.branches[0].artifact_evidence_index = Some(0),
+            "missing_index" => altered.branches[0].artifact_evidence_index = Some(altered.artifact_manifest.artifacts.len()),
+            "artifact_id" => altered.branches[0].artifact_id = Some("artifact:sha256:forged".into()),
+            "locator" => altered.branches[0].locator = Some("bundle:outputs/de/page.transcript.json".into()),
+            "target_id" => altered.branches[0].target_id = "target-forged".into(),
+            "metadata" => altered.artifact_manifest.artifacts[record_index].metadata
+                .get_mut("renderflow.composition").unwrap()["locale"] = Value::String("de".into()),
+            "outputs" => altered.artifact_manifest.outputs.push("outputs/en/unpublished.pdf".into()),
+            "cache" => altered.artifact_manifest.artifacts[record_index].cache = CacheDisposition::Hit,
+            "plan_qualification" => {
+                altered.plan.runtime_qualified = true;
+                // Keep the receipt digest consistent so the qualification gate
+                // is exercised independently of ordinary plan corruption.
+                let mut bytes = serde_json::to_vec_pretty(&altered.plan).unwrap();
+                bytes.push(b'\n');
+                altered.plan_sha256 = hash_bytes(&bytes);
+            },
+            "validation_promotion" => altered.artifact_manifest.artifacts[record_index].validation = ValidationState::Valid,
+            "fidelity_promotion" => altered.artifact_manifest.artifacts[record_index].fidelity = crate::evidence::FidelityDeclaration::Lossless,
+            "engine_metadata" => altered.artifact_manifest.artifacts[record_index].metadata
+                .get_mut("renderflow.composition").unwrap()["version"] = Value::String("forged".into()),
+            "renderer_metadata" => altered.artifact_manifest.artifacts[record_index].metadata
+                .get_mut("renderflow.composition").unwrap()["renderer"]["version"] = serde_json::json!(999),
+            "typography_metadata" => altered.artifact_manifest.artifacts[record_index].metadata
+                .get_mut("renderflow.composition").unwrap()["typography"] = serde_json::json!({
+                    "schema": "renderflow.composition-typography/v1", "report_sha256": "0".repeat(64),
+                }),
+            "cached_stage_consumer" => {
+                // Agree on a terminal hit while retaining the impossible claim
+                // that this invocation materialized its transcript stage.
+                altered.branches[0].cache = CacheDisposition::Hit;
+                altered.artifact_manifest.artifacts[record_index].cache = CacheDisposition::Hit;
+            },
+            "correlated_forged_id" => {
+                let forged = format!("artifact:sha256:{}", "0".repeat(64));
+                altered.branches[0].artifact_id = Some(forged.clone());
+                altered.artifact_manifest.artifacts[record_index].artifact_id = forged;
+            },
+            "stage_digest" => altered.shared_intermediates[0].sha256 = "0".repeat(64),
+            "stage_size" => altered.shared_intermediates[0].size_bytes += 1,
+            _ => unreachable!(),
+        }
+        assert!(altered.run_manifest().is_err(), "must reject {mutation} mismatch");
+    }
 }

@@ -21,15 +21,17 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 pub use execution::{execute, CompositionBranchOutcome, CompositionBranchRun, CompositionRun, CompositionRunState};
+pub(crate) use execution::execute_planned;
+pub use render::SharedStageObservation;
 pub use load::LoadedComposition;
 pub use model::{CompositionDiagnostic, DiagnosticSeverity};
 pub use raster::{RasterPlan, RasterSettings};
 pub use pdf::{BindingSide, PdfPlan, PdfSettings};
 use crate::font::FontTarget;
 
-/// Historical receipt identifier; new plans use [`COMPOSITION_PLAN_SCHEMA_V4`].
+/// Historical receipt identifier; new plans use [`COMPOSITION_PLAN_SCHEMA_V5`].
 pub const COMPOSITION_PLAN_SCHEMA_V1: &str = "renderflow.composition-plan/v1";
-/// Historical receipt identifier; new runs use [`COMPOSITION_RUN_SCHEMA_V4`].
+/// Historical receipt identifier; new runs use [`COMPOSITION_RUN_SCHEMA_V5`].
 pub const COMPOSITION_RUN_SCHEMA_V1: &str = "renderflow.composition-run/v1";
 pub const COMPOSITION_PLAN_SCHEMA_V2: &str = "renderflow.composition-plan/v2";
 pub const COMPOSITION_RUN_SCHEMA_V2: &str = "renderflow.composition-run/v2";
@@ -37,7 +39,9 @@ pub const COMPOSITION_PLAN_SCHEMA_V3: &str = "renderflow.composition-plan/v3";
 pub const COMPOSITION_RUN_SCHEMA_V3: &str = "renderflow.composition-run/v3";
 pub const COMPOSITION_PLAN_SCHEMA_V4: &str = "renderflow.composition-plan/v4";
 pub const COMPOSITION_RUN_SCHEMA_V4: &str = "renderflow.composition-run/v4";
-pub const COMPOSITION_PROFILE: &str = "renderflow.layered-composition/v4";
+pub const COMPOSITION_PLAN_SCHEMA_V5: &str = "renderflow.composition-plan/v5";
+pub const COMPOSITION_RUN_SCHEMA_V5: &str = "renderflow.composition-run/v5";
+pub const COMPOSITION_PROFILE: &str = "renderflow.layered-composition/v5";
 const MAX_PLAN_TEXT_CODE_POINTS: usize = 16_384;
 const MAX_PLAN_TYPOGRAPHY_BYTES: usize = 16 * 1024 * 1024;
 const MAX_PLAN_OUTLINE_BYTES: usize = 16 * 1024 * 1024;
@@ -260,11 +264,20 @@ pub fn plan(snapshot: &LoadedComposition, request: &CompositionRequest) -> Resul
                 else if diagnostics.iter().any(|item| item.severity == DiagnosticSeverity::Error) { CompositionBranchState::Blocked }
                 else { CompositionBranchState::Planned };
             let target_id = format!("target-{}", hash_json(&serde_json::json!({
-                "schema": "renderflow.composition-target/v1", "composition_id": snapshot.manifest.composition_id,
+                "schema": "renderflow.composition-target/v2", "composition_id": snapshot.manifest.composition_id,
                 "locale": locale, "output": output,
+                // Only the selected output's settings identify its rendition.
+                // Valid settings use their normalized form; rejected settings
+                // remain explicit rather than masquerading as a default target.
+                "raster": if *output == CompositionOutput::Png {
+                    Some(branch_raster.as_ref().map(|plan| &plan.settings).unwrap_or(&request.raster))
+                } else { None },
+                "pdf": if *output == CompositionOutput::Pdf {
+                    Some(branch_pdf.as_ref().map(|plan| &plan.settings).unwrap_or(&request.pdf))
+                } else { None },
             }))?);
             let cache_key = hash_json(&serde_json::json!({
-                "schema": "renderflow.composition-cache-key/v4", "profile": COMPOSITION_PROFILE,
+                "schema": "renderflow.composition-cache-key/v5", "profile": COMPOSITION_PROFILE,
                 "version": env!("CARGO_PKG_VERSION"), "target_id": target_id,
                 "composition_sha256": snapshot.manifest_sha256, "inputs": snapshot.inputs,
                 "fonts": font_evidence,
@@ -283,7 +296,7 @@ pub fn plan(snapshot: &LoadedComposition, request: &CompositionRequest) -> Resul
         }
     }
     Ok(CompositionPlan {
-        schema: COMPOSITION_PLAN_SCHEMA_V4.into(), profile: COMPOSITION_PROFILE.into(),
+        schema: COMPOSITION_PLAN_SCHEMA_V5.into(), profile: COMPOSITION_PROFILE.into(),
         renderflow_version: env!("CARGO_PKG_VERSION").into(),
         composition_id: snapshot.manifest.composition_id.clone(), composition_sha256: snapshot.manifest_sha256.clone(),
         source_locale: snapshot.manifest.source_locale.clone(), default_locale: snapshot.manifest.default_locale.clone(),

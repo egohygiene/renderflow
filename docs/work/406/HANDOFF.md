@@ -1,18 +1,20 @@
-# #406 — composed PDF checkpoint
+# #406 — composition planner and publication checkpoint
 
-Base: composed PNG merged in
-[PR #451](https://github.com/egohygiene/renderflow/pull/451) at
-`c605436445aa26b9b5d496e37cd6a6805f44999f`.
-This is the **fourth authored, unqualified implementation checkpoint**.
-The first checkpoint in #449, measured typography in #450 and PNG in #451 are
-historical. V4 adds an opt-in, single-page, image-only composed PDF per locale;
-canonical inputs remain editable and unchanged at v1.
+Base: composed PDF merged in
+[PR #452](https://github.com/egohygiene/renderflow/pull/452) at
+`024b06f83eebeeb2fbe2a6f9106936e77736a3f9`.
+This is the **fifth authored, unqualified implementation checkpoint**.
+The first checkpoint in #449, measured typography in #450, PNG in #451 and PDF
+in #452 are historical. V5 adds an explicit shared-planner composition entry
+point, locale-aware forest identities, common publication evidence and lazy
+intermediate reuse within each locale. Canonical inputs remain editable and
+unchanged at v1.
 
 The maintainer authorized continuing the sprint and merging its implementation.
-All executable qualification remains deferred. The coding workspace was
-unavailable, so this checkpoint was authored through GitHub source reads and
-Git data writes. A remote commit identity is not a local checkout, compiler,
-runtime or visual result.
+All executable qualification remains deferred. The coding workspace is
+available again for source authoring and review. Local or remote Git content
+identity is not compiler, runtime or visual qualification. No dependency changes
+are introduced in this checkpoint.
 
 ## Authored scope
 
@@ -27,6 +29,20 @@ runtime or visual result.
 - `composition inspect`, `plan` and `render` share the scoped SDK planner.
   Exact, subset and all-declared locale selectors fan out by locale/output;
   source/default languages use that same path. No implicit locale fallback.
+- `planning::resolve_composition` accepts a dedicated
+  `CompositionPlanningRequest { input, request }`. Its
+  `ResolvedCompositionExecution` freezes a private snapshot and native plan,
+  plus common execution and stage evidence. `planning::execute_composition`
+  returns a native `CompositionRun` from that same resolved request; its
+  `run_manifest()` method derives the common receipt.
+- Locale/output targets join the common artifact forest using distinct IDs
+  and relevant settings. The format graph is a projection; it cannot represent
+  repeated-format locale targets by itself. Actual publications join the
+  existing forest execution contract rather than being inferred from plans.
+- Transcript and measured-SVG intermediates are created lazily on cache misses
+  and reused within one locale. Only one locale's intermediate payloads are
+  retained at a time. Actual stage observations, planned materialization counts,
+  derivative cache hits and immutable input sharing remain separate evidence.
 - Default targets remain SVG, HTML and transcript JSON. PNG and PDF are opt-in.
   Unsupported interchange targets remain explicit unavailable branches.
 - HarfRust 0.14.0 and Skrifa 0.48.0 author measured glyph paths from captured
@@ -65,7 +81,8 @@ runtime or visual result.
 See [FORMAT_EVALUATION.md](FORMAT_EVALUATION.md) for the canonical decision and
 historical checkpoint boundaries, [TYPOGRAPHY_PROVIDER.md](TYPOGRAPHY_PROVIDER.md)
 for font policy, [RASTER_PROVIDER.md](RASTER_PROVIDER.md) for source image and
-raster limits, and [PDF_PROVIDER.md](PDF_PROVIDER.md) for the PDF envelope.
+raster limits, [PDF_PROVIDER.md](PDF_PROVIDER.md) for the PDF envelope and
+[PLANNER_INTEGRATION.md](PLANNER_INTEGRATION.md) for the shared-planner boundary.
 Earlier font/raster lock additions were authored from official metadata without
 Cargo resolution. Existing pins, source review and dependency reuse do not
 establish a successful build.
@@ -73,18 +90,34 @@ establish a successful build.
 ## Contract and cache boundaries
 
 Canonical inputs remain v1. Profile:
-`renderflow.layered-composition/v4`. Plans/runs use
-`renderflow.composition-plan/v4` and `renderflow.composition-run/v4`.
+`renderflow.layered-composition/v5`. Plans/runs use
+`renderflow.composition-plan/v5` and `renderflow.composition-run/v5`.
 Cache/artifact identity is also versioned for this checkpoint; earlier
-derivatives do not establish a v4 hit. Historical v1/v2/v3 evidence schemas
-remain available. The new v4 schema describes the emitted PDF evidence;
-no schema validator was run.
+derivatives do not establish a v5 hit. Historical v1/v2/v3/v4 evidence schemas
+remain available. No schema validator was run.
 
-This remains a scoped composition interface, separate from a
-`renderflow/v2` source, the general `ArtifactForest` and the existing released
-Flow adapter. The generic DAG keys nodes by format; locale/output identities
-must be integrated explicitly before two outputs of the same format for
-different locales can share that planner.
+The CLI `composition plan` command now emits
+`renderflow.composition-execution-plan/v1`, containing `schema`, `composition`
+(native plan), `execution` (common plan) and `stages` (planned stage inventory).
+Consumers of its earlier bare native output must read native fields under
+`composition`. `inspect` still emits the native plan directly; `render` still
+prints the native run receipt. Bundles retain both `composition-plan.json` and
+the full wrapper at `execution-plan.json`, then native `composition-run.json`
+and common `run-manifest.json` evidence. Stage inventory entries include `stage_id`,
+`locale`, `kind`, `consumers`, `dependencies` and `expected_materializations`.
+Native `shared_intermediates` entries retain `locale`, `kind`,
+`materializations`, `reuse_count`, `sha256`, `size_bytes` and
+`consumer_target_ids`; correlate them to the planned locale/kind. Access to
+an intermediate does not establish a consumer's eventual publication. Native
+run and branch timestamps record observed start/end times.
+
+This is a dedicated composition entry point in the shared planning module,
+not a `renderflow/v2` build-source addition or generic format-DAG route.
+The ordinary v2 resolver and format graph remain unchanged. Flow has no
+Renderflow adapter yet; the earlier reference to an existing released adapter
+was incorrect. A future Flow-owned adapter must consume a qualified, immutable
+Renderflow release and retain actual publication joins. No Flow repository
+changes or downstream execution proof are included here.
 
 `composition-run.json` maps every published branch to its exact
 `artifact_manifest.artifacts` index, ID and bundle locator.
@@ -126,6 +159,8 @@ error. `branch.pdf` retains the small
 points, gutter and image-draw matrix. Terminal metadata retains the same plan.
 A non-PDF branch carries no PDF plan. PNG settings do not affect PDF, and
 PDF settings do not affect PNG/SVG/HTML/transcript branch identity.
+V5 common target IDs explicitly include the locale and only relevant output
+settings, independent of the full-package cache key described below.
 
 PDF boxes convert normalized top-left coordinates to bottom-left PDF points
 at the provider's f32 round-trip precision. The safe rectangle is evidence,
@@ -191,7 +226,7 @@ paper color.
 
 ## Qualification and deliberate limits
 
-Only source/documentation review and remote Git content identity were used.
+Only source/documentation review and Git content identity were used.
 All authored regressions, schemas, examples, CLI/SDK behavior and platform
 handling remain **unrun**. No test, compiler/build, formatter/linter, schema
 validator, fixture/CLI runner, renderer/native probe/conversion, asset decoder,
@@ -214,10 +249,13 @@ is introduced. Flattened content does not become an editable original.
 
 ## Continue #406 in this order
 
-1. Integrate locale/output identities with the general build planner, artifact
-   forest and Flow consumption. Qualify shared intermediate reuse; immutable
-   input storage alone is not intermediate execution reuse. Keep released
-   contracts and actual published artifact evidence explicit.
+1. Admit canonical composition into the general `renderflow/v2` build contract,
+   then implement the Flow-owned adapter once its immutable release
+   prerequisites can be satisfied. The explicit
+   shared-planner entry point, common forest identities and publication joins
+   are now authored; they do not make either consumer path complete. Qualify
+   actual intermediate reuse, all-hit behavior, target isolation and partial
+   publication joins during the later execution session.
 2. Extend typography through deliberate supported surfaces: broader scripts,
    bidi/vertical layout, variable/color/webfont handling and line breaking.
    Preserve canonical text and author intent; refuse unsupported requests.

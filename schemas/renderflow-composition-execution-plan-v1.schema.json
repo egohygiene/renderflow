@@ -1,0 +1,303 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-composition-execution-plan-v1.schema.json",
+  "title": "Renderflow composition execution-plan wrapper v1",
+  "description": "Frozen native composition intent plus a common ExecutionPlan/artifact-forest projection and explicit per-locale shared preparation stages. The graph remains a format-level view; native target IDs and forest options preserve locale/output identity. This is serialized evidence, not a self-contained executable snapshot: measured private glyph paths remain in the in-process resolved value. No Flow adapter, publication, actual concurrency, runtime qualification or creative approval is implied.",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": "renderflow.composition-execution-plan/v1"
+    },
+    "composition": {
+      "$ref": "renderflow-composition-evidence-v5.schema.json#/$defs/plan"
+    },
+    "execution": {
+      "$ref": "#/$defs/executionPlan"
+    },
+    "stages": {
+      "type": "array",
+      "maxItems": 128,
+      "items": {
+        "$ref": "#/$defs/stage"
+      },
+      "description": "At most transcript and SVG preparation stages per selected locale. Blocked and unavailable branches add no stage. An empty array is valid when no branch is selected."
+    }
+  },
+  "required": [
+    "schema",
+    "composition",
+    "execution",
+    "stages"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "stageId": {
+      "type": "string",
+      "pattern": "^stage-[a-f0-9]{64}$"
+    },
+    "stage": {
+      "type": "object",
+      "properties": {
+        "stage_id": {
+          "$ref": "#/$defs/stageId"
+        },
+        "locale": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "transcript",
+            "svg"
+          ]
+        },
+        "consumers": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 9,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "renderflow-composition-evidence-v5.schema.json#/$defs/targetId"
+          }
+        },
+        "dependencies": {
+          "type": "array",
+          "maxItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/stageId"
+          }
+        },
+        "expected_materializations": {
+          "const": 1
+        }
+      },
+      "required": [
+        "stage_id",
+        "locale",
+        "kind",
+        "consumers",
+        "dependencies",
+        "expected_materializations"
+      ],
+      "additionalProperties": false,
+      "description": "One planned per-locale preparation stage. consumers contains selected native terminal target IDs; dependencies contains stage IDs, never format names or target IDs. One materialization is sufficient if execution needs the stage, but terminal cache hits, cancellation, or earlier failure may mean no materialization occurs. This intent is separate from native run.shared_intermediates observations. Stage-ID uniqueness, referenced-target membership, same-locale dependency identity and consumer ordering are implementation constraints.",
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "transcript"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "dependencies": {
+                "maxItems": 0
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "dependencies": {
+                "minItems": 1,
+                "maxItems": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "node": {
+      "type": "object",
+      "properties": {
+        "format": {
+          "type": "string",
+          "minLength": 1
+        },
+        "node_type": {
+          "enum": [
+            "source",
+            "intermediate",
+            "output"
+          ]
+        }
+      },
+      "required": [
+        "format",
+        "node_type"
+      ],
+      "additionalProperties": false
+    },
+    "wave": {
+      "type": "object",
+      "properties": {
+        "index": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "edges": {
+          "type": "array",
+          "items": {
+            "$ref": "renderflow-artifact-forest-v1.schema.json#/properties/branches/items/properties/route/properties/steps/items"
+          }
+        }
+      },
+      "required": [
+        "index",
+        "edges"
+      ],
+      "additionalProperties": false,
+      "description": "Structural dependency wave, not an observation or promise of parallel execution."
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "total_nodes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total_edges": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "execution_depth": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "execution_waves": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "estimated_cost": {
+          "type": "number",
+          "minimum": 0
+        },
+        "estimated_quality": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "reused_intermediates": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "output_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "total_nodes",
+        "total_edges",
+        "execution_depth",
+        "execution_waves",
+        "estimated_cost",
+        "estimated_quality",
+        "reused_intermediates",
+        "output_count"
+      ],
+      "additionalProperties": false,
+      "description": "The common graph metadata shape. In the composition adapter, cost is one per structural dependency and quality is an unqualified zero placeholder, not measured runtime or fidelity. output_count counts selected locale/output branches, while targets and format nodes are projections that may contain fewer distinct formats. reused_intermediates counts planned stages with multiple consumers, not observed reuse."
+    },
+    "diagnostic": {
+      "type": "object",
+      "properties": {
+        "level": {
+          "enum": [
+            "info",
+            "warning",
+            "error"
+          ]
+        },
+        "message": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "level",
+        "message"
+      ],
+      "additionalProperties": false
+    },
+    "executionPlan": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "targets": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "optimization": {
+          "type": "string",
+          "minLength": 1
+        },
+        "nodes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/node"
+          }
+        },
+        "edges": {
+          "type": "array",
+          "items": {
+            "$ref": "renderflow-artifact-forest-v1.schema.json#/properties/branches/items/properties/route/properties/steps/items"
+          }
+        },
+        "waves": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/wave"
+          }
+        },
+        "metadata": {
+          "$ref": "#/$defs/metadata"
+        },
+        "diagnostics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/diagnostic"
+          }
+        },
+        "source_artifact": {
+          "type": "object",
+          "description": "Optional general-planner intake evidence; omitted by this composition adapter, whose immutable input evidence is retained in composition.inputs."
+        },
+        "source_collection": {
+          "type": "object",
+          "description": "Optional general-planner collection evidence; omitted by this composition adapter."
+        },
+        "toolchain": {
+          "type": "object",
+          "description": "Optional general-planner toolchain evidence; omitted by this composition adapter, whose provider evidence remains in the native composition plan."
+        },
+        "artifact_forest": {
+          "$ref": "renderflow-artifact-forest-v1.schema.json"
+        }
+      },
+      "required": [
+        "source",
+        "targets",
+        "optimization",
+        "nodes",
+        "edges",
+        "waves",
+        "metadata",
+        "diagnostics",
+        "artifact_forest"
+      ],
+      "additionalProperties": false,
+      "description": "The existing ExecutionPlan graph shape with an artifact forest required for this composition wrapper. Generic nodes and targets preserve their format-level meaning; no locale pseudo-format is introduced. Forest target IDs and branch options.locale preserve native locale/output identity, and stages preserve actual preparation dependencies. The frozen composition executor interprets this wrapper; it is not a general MultiTargetDag execution request. Optional general-planner source/toolchain objects are intentionally not detailed here because this adapter omits them."
+    }
+  }
+}
