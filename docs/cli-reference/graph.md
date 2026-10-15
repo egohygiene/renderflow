@@ -31,10 +31,10 @@ Prints planning diagnostics.
 ### `graph export`
 
 ```bash
-renderflow graph export --format json|yaml|mermaid|dot|markdown|text -o FILE [--config FILE] [--target FORMAT] [--optimization MODE]
+renderflow graph export --format json|yaml|mermaid|dot|markdown|text --output FILE [--config FILE] [--target FORMAT] [--optimization MODE]
 ```
 
-Writes the plan to a file; `-o/--output` is required.
+Writes the plan to a file; `--output` is required.
 
 ### `graph doctor`
 
@@ -54,4 +54,21 @@ Prints total nodes, edges, depth, waves, estimated cost/quality, reused intermed
 
 ## Shared requirements
 
-All graph subcommands require `transforms:` in the config because they build the graph from YAML definitions.
+Graph commands inspect the same resolved plan used by `build` and the SDK.
+Ordinary artifact builds use registered capabilities, with optional
+`transforms:` for custom definitions.
+
+A `kind: composition` source uses the existing composition engine and distinct
+locale/output forest targets. The format graph is only a projection: two
+locales producing SVG still have two separate publication identities. Use
+JSON or YAML to inspect the full forest inventory. Estimated costs, quality
+scores and planned reuse for this bounded engine are structural planning
+values, not observed performance or execution evidence.
+
+```bash
+renderflow graph plan --config "examples/page-composition/raster-composition/renderflow.yaml" --format "json"
+```
+
+Composition mode accepts `--target` but rejects profile/exclusion and
+optimization overrides. See the [composition guide](../user-guide/page-composition.md)
+for native settings and the ordinary build workflow.

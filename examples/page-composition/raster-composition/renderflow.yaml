@@ -1,0 +1,15 @@
+schema: renderflow/v2
+
+sources:
+  - id: page
+    kind: composition
+    path: page.composition.json
+
+targets:
+  exact:
+    - format: svg
+    - format: html
+    - format: transcript_json
+
+output:
+  bundle_root: build-output

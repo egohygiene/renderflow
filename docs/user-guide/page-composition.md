@@ -1,25 +1,107 @@
 # Layered and localized page composition
 
-The `composition` commands turn an explicitly authored page composition into
-per-locale PDF, PNG, SVG, HTML, and accessible transcript files. Art, shapes, text content,
-and typography remain separate inputs. The source language, default language,
-and every translation use the same planner and renderer.
+Renderflow turns an explicitly authored page composition into per-locale PDF,
+PNG, SVG, HTML and accessible transcript files. Art, shapes, text content and
+typography remain separate inputs. Declare the package in a `renderflow/v2`
+configuration and use the ordinary `build`, `inspect` and `graph` commands.
+The dedicated `composition` commands and SDK use the same native engine.
 
-This is the **fifth authored, unqualified #406 implementation checkpoint**.
+This is the **sixth authored, unqualified #406 implementation checkpoint**.
 Its measured-typography path uses pinned HarfRust 0.14.0 and Skrifa 0.48.0 to
 shape supported text and derive glyph outlines from captured font bytes. The
 PNG branch adds pinned resvg 0.48.1 to rasterize that same composed geometry
 with explicitly captured image resources. The PDF branch reuses that opaque
 rasterization and the existing lopdf 0.45.0 dependency for one image-only page
 per locale, with explicit geometry and color-policy evidence.
-The shared planning module now exposes an explicit composition entry point
-with frozen inputs, locale-aware artifact-forest targets and common publication
-evidence. This does not add composition as a `renderflow/v2` build source.
+The shared build facade admits one local composition package with frozen
+inputs, locale-aware artifact-forest targets and common publication evidence.
 Tests, builds, lint, schema validation, CLI/fixture/render/native execution,
 Cargo and CI were deferred during the sprint. Source implementation and serialized evidence do not establish print
 readability, font rights, or acceptance by a design application.
 
-## Start with an authored composition
+## Build from a configuration
+
+Place this `renderflow.yaml` beside an authored `page.composition.json` package:
+
+```yaml
+schema: renderflow/v2
+sources:
+  - id: page
+    kind: composition
+    path: page.composition.json
+targets:
+  exact:
+    - format: svg
+    - format: html
+    - format: transcript_json
+output:
+  bundle_root: build-output
+```
+
+Then plan and build:
+
+```bash
+renderflow build --config "renderflow.yaml" --dry-run
+renderflow build --config "renderflow.yaml"
+```
+
+All declared locales are selected by default. Each selected locale gets its
+own files, such as `build-output/outputs/en/page.svg` and
+`build-output/outputs/de/page.svg`. Source and output paths resolve relative
+to the configuration file. The bundle directory must be new and its parent
+must already exist. To keep another run, choose another `output.bundle_root`.
+
+The checked-in
+[example configuration](../../examples/page-composition/raster-composition/renderflow.yaml)
+uses the mixed-asset package and its reviewed English/German fixture content.
+From the repository root:
+
+```bash
+renderflow build --config "examples/page-composition/raster-composition/renderflow.yaml" --dry-run
+renderflow graph plan --config "examples/page-composition/raster-composition/renderflow.yaml" --format "json"
+renderflow build --config "examples/page-composition/raster-composition/renderflow.yaml"
+```
+
+Use `--target "pdf"` to replace the configured targets for one invocation, or
+add `{ format: pdf }` to `targets.exact`. PNG and PDF remain opt-in. These
+commands are examples for the later qualification session; they have not run.
+
+## Choose locales and renderer settings
+
+`execution.composition` is optional. Omit it to use all declared locales and
+the native defaults. For a subset with explicit PNG settings and a reusable
+cache, add:
+
+```yaml
+execution:
+  composition:
+    locales:
+      mode: subset
+      locales: ["en", "de"]
+    raster:
+      dpi: 144
+      background: "transparent"
+    cache_directory: "composition-cache"
+```
+
+The other locale forms are `{ mode: exact, locale: "en" }` and
+`{ mode: all_declared }`. There is no implicit locale fallback. Raster settings
+affect PNG only. `pdf` under the same policy accepts `dpi`, `background`,
+`binding_side`, `color_policy` and `conformance` with the native defaults
+described below. When specifying `raster` or `pdf`, supply that settings
+object's fields. An explicit cache directory must be outside the new output
+bundle; relative cache paths resolve from the configuration. Omit it to use
+the bundle's own artifact store. Native cache reuse is independent of generic
+checkpoint resume.
+
+This build mode accepts one composition source and explicit, required,
+format-only targets. Generic profiles, `--all`, exclusions, optimization
+overrides, `--resume`, custom naming and unsupported execution policies receive
+actionable errors. Keep locale content and geometry in the composition package,
+and build selection in `renderflow.yaml`. The native filenames below keep
+locale outputs distinct without introducing another layout template.
+
+## Author the composition package
 
 The canonical input declares `renderflow.page-composition/v1`. It references
 SHA-256-pinned local files instead of embedding translations into artwork:
@@ -58,7 +140,7 @@ settings. An explicit reading order is independent of visual paint order.
 
 The canonical composition and content schemas remain v1. Composition output
 uses `renderflow.layered-composition/v5`; plans and runs use
-`renderflow.composition-plan/v5` and `renderflow.composition-run/v5`. The new
+`renderflow.composition-plan/v5` and `renderflow.composition-run/v5`. This
 profile records locale-aware identity and actual intermediate reuse alongside
 common execution evidence. Historical v4 PDF, v3 PNG, v2 outlined-preview and
 v1 browser-text evidence schemas remain available.
@@ -139,6 +221,8 @@ own `.artifact-store`.
 | `execution-plan.json` | The execution-plan wrapper with native plan, common locale/output forest and stage inventory |
 | `composition-run.json` | Native v5 run receipt, including branch outcomes, artifact evidence and intermediate observations |
 | `run-manifest.json` | Common run manifest with actual publications joined to the planned forest targets |
+| `build-plan.json` | Ordinary `build` only: configuration-level plan identifying the selected build mode |
+| `renderflow-run.json` | Ordinary `build` only: common run receipt retaining the build-spec identity |
 | `inputs/<sha256>` | Captured input bytes, shared by content identity within the bundle |
 | `outputs/<locale>/page.svg` | Published SVG for a successful selected SVG branch |
 | `outputs/<locale>/page.html` | Published HTML for a successful selected HTML branch |
@@ -446,15 +530,24 @@ Human review remains explicit; generating a derivative does not approve it.
 
 ## Consumption by other projects
 
-Use `planning::resolve_composition` with a `CompositionPlanningRequest`
+For configuration-based clients, SDK `Engine::resolve_execution` returns a
+`ResolvedBuild` through the `planning::build` facade. It selects the existing
+graph or composition engine from the same configuration used by the CLI.
+Inspect `.plan()`, then pass the resolved value to `Engine::execute_resolved`.
+Its private native state preserves the planned inputs. Extend the native
+composition engine for composition features rather than adding a second
+renderer in the CLI or a consumer.
+
+For callers that already have a native composition request, use
+`planning::resolve_composition` with a `CompositionPlanningRequest`
 containing the input path and native `CompositionRequest`. The returned
 `ResolvedCompositionExecution` keeps its snapshot and native plan private and
 frozen, so execution consumes the same planned inputs. Use
 `planning::execute_composition` with that resolved value, output path, optional
 cache path and cancellation token to obtain a `CompositionRun`. Its
-`run_manifest()` method derives the common run manifest. The existing generic
-v2 build resolver and format DAG remain unchanged; this is a dedicated
-composition entry point in their shared planning module.
+`run_manifest()` method derives the common run manifest. The build facade
+delegates to this same entry point. It does not turn a composition into a
+generic format-DAG conversion route.
 
 The common artifact forest retains distinct target IDs for each selected
 locale and output, with only the settings relevant to that output in target

@@ -145,6 +145,12 @@
     "executionPolicy": {
       "additionalProperties": false,
       "properties": {
+        "composition": {
+          "anyOf": [
+            {"$ref": "#/$defs/compositionBuildPolicy"},
+            {"type": "null"}
+          ]
+        },
         "ai": {
           "default": "deny",
           "enum": [
@@ -1193,7 +1199,8 @@
           "default": "artifact",
           "enum": [
             "artifact",
-            "collection"
+            "collection",
+            "composition"
           ]
         },
         "media_type": {
@@ -1585,6 +1592,322 @@
           "maximum": 3600
         }
       }
+    },
+    "compositionBuildPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Native composition settings. Omission selects all declared locales and fixed renderer defaults. Settings only affect matching selected output formats; invalid selected renderer settings become branch-local diagnostics.",
+      "properties": {
+        "locales": {
+          "$ref": "#/$defs/compositionLocales",
+          "default": {
+            "mode": "all_declared"
+          }
+        },
+        "raster": {
+          "$ref": "renderflow-composition-evidence-v5.schema.json#/$defs/rasterSettings"
+        },
+        "pdf": {
+          "$ref": "renderflow-composition-evidence-v5.schema.json#/$defs/pdfSettings"
+        },
+        "cache_directory": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "description": "Optional local terminal-output cache, resolved relative to the configuration directory. Parent traversal and symlink components are refused."
+        }
+      }
+    },
+    "compositionLocales": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "mode"
+          ],
+          "properties": {
+            "mode": {
+              "const": "all_declared"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "mode",
+            "locale"
+          ],
+          "properties": {
+            "mode": {
+              "const": "exact"
+            },
+            "locale": {
+              "type": "string",
+              "minLength": 1,
+              "pattern": "\\S"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "mode",
+            "locales"
+          ],
+          "properties": {
+            "mode": {
+              "const": "subset"
+            },
+            "locales": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 64,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "\\S"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "compositionSource": {
+      "required": [
+        "kind",
+        "path"
+      ],
+      "description": "One local composition manifest; assets, content and fonts are declared and pinned inside its package. Paths resolve relative to the configuration directory. Parent traversal and symlink components are refused.",
+      "properties": {
+        "kind": {
+          "const": "composition"
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "uri": {
+          "type": "null"
+        },
+        "members": {
+          "maxItems": 0
+        },
+        "sha256": {
+          "type": "null"
+        },
+        "geometry": {
+          "type": "null"
+        },
+        "format": {
+          "type": "null"
+        },
+        "media_type": {
+          "type": "null"
+        },
+        "role": {
+          "type": "null"
+        },
+        "detect": {
+          "const": true
+        }
+      }
+    },
+    "compositionTargets": {
+      "required": [
+        "exact"
+      ],
+      "properties": {
+        "exact": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "required": [
+              "format"
+            ],
+            "properties": {
+              "format": {
+                "$ref": "renderflow-composition-evidence-v5.schema.json#/$defs/output"
+              },
+              "requirement": {
+                "const": "required"
+              },
+              "options": {
+                "maxProperties": 0
+              },
+              "id": {
+                "type": "null"
+              },
+              "role": {
+                "type": "null"
+              },
+              "family": {
+                "type": "null"
+              },
+              "capability": {
+                "type": "null"
+              },
+              "transform": {
+                "type": "null"
+              },
+              "provider": {
+                "type": "null"
+              },
+              "variant": {
+                "type": "null"
+              },
+              "preset": {
+                "type": "null"
+              },
+              "template": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        "profiles": {
+          "maxItems": 0
+        },
+        "all_reachable": {
+          "const": false
+        },
+        "include": {
+          "$ref": "#/$defs/compositionEmptySelectors"
+        },
+        "exclude": {
+          "$ref": "#/$defs/compositionEmptySelectors"
+        },
+        "intermediates": {
+          "const": "cache_only"
+        }
+      }
+    },
+    "compositionEmptySelectors": {
+      "additionalProperties": {
+        "type": "array",
+        "maxItems": 0
+      }
+    },
+    "compositionExecution": {
+      "description": "Only native composition settings and explicit local/offline requirements are configurable. Other execution fields must retain their ordinary defaults; runtime/visual qualification is not asserted.",
+      "properties": {
+        "optimization": {
+          "const": "balanced"
+        },
+        "max_parallel": {
+          "const": 1
+        },
+        "derivative_planning": {
+          "properties": {
+            "schema": {
+              "const": "renderflow/derivative-policy-v1"
+            },
+            "max_hops": {
+              "const": 8
+            },
+            "max_candidates": {
+              "const": 10000
+            },
+            "max_loss": {
+              "type": "null"
+            }
+          }
+        },
+        "budgets": {
+          "additionalProperties": {
+            "type": "null"
+          }
+        },
+        "tools": {
+          "additionalProperties": {
+            "type": "array",
+            "maxItems": 0
+          }
+        },
+        "transforms": {
+          "additionalProperties": {
+            "type": "array",
+            "maxItems": 0
+          }
+        },
+        "requirements": {
+          "properties": {
+            "deterministic": {
+              "const": false
+            }
+          }
+        },
+        "network": {
+          "const": "deny"
+        },
+        "ai": {
+          "const": "deny"
+        },
+        "retry_policy": {
+          "type": "null"
+        },
+        "timeout_policy": {
+          "type": "null"
+        },
+        "validation": {
+          "properties": {
+            "required": {
+              "const": true
+            },
+            "validators": {
+              "maxItems": 0
+            },
+            "failure_mode": {
+              "const": "branch_local"
+            },
+            "allow_unavailable": {
+              "const": false
+            }
+          }
+        },
+        "minimum_fidelity": {
+          "type": "null"
+        },
+        "reject_loss_classes": {
+          "maxItems": 0
+        },
+        "publication_policy": {
+          "type": "null"
+        },
+        "redaction_policy": {
+          "type": "null"
+        },
+        "hygiene_policy": {
+          "type": "null"
+        },
+        "print_pdf_interior": {
+          "type": "null"
+        },
+        "fixed_layout_epub": {
+          "type": "null"
+        },
+        "subtitles": {
+          "type": "null"
+        },
+        "speech": {
+          "type": "null"
+        },
+        "screenplay": {
+          "type": "null"
+        },
+        "screenplay_pdf": {
+          "type": "null"
+        },
+        "screenplay_recovery": {
+          "type": "null"
+        }
+      }
     }
   },
   "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-v2.schema.json",
@@ -1655,5 +1978,78 @@
     "targets"
   ],
   "title": "Renderflow execution specification v2",
-  "type": "object"
+  "type": "object",
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "sources": {
+            "contains": {
+              "required": [
+                "kind"
+              ],
+              "properties": {
+                "kind": {
+                  "const": "composition"
+                }
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "sources": {
+            "minItems": 1,
+            "maxItems": 1,
+            "items": {
+              "$ref": "#/$defs/compositionSource"
+            }
+          },
+          "targets": {
+            "$ref": "#/$defs/compositionTargets"
+          },
+          "execution": {
+            "$ref": "#/$defs/compositionExecution"
+          },
+          "profiles": {
+            "maxProperties": 0
+          },
+          "hygiene": {
+            "maxProperties": 0
+          },
+          "variables": {
+            "maxProperties": 0
+          },
+          "publication": {
+            "type": "null"
+          },
+          "transforms": {
+            "type": "null"
+          },
+          "output": {
+            "properties": {
+              "naming_template": {
+                "const": "{source.id}/{target.role}.{ext}"
+              },
+              "collision": {
+                "const": "error"
+              }
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "execution": {
+            "properties": {
+              "composition": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
 }

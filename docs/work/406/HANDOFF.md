@@ -1,14 +1,13 @@
-# #406 — composition planner and publication checkpoint
+# #406 — composition build admission checkpoint
 
-Base: composed PDF merged in
-[PR #452](https://github.com/egohygiene/renderflow/pull/452) at
-`024b06f83eebeeb2fbe2a6f9106936e77736a3f9`.
-This is the **fifth authored, unqualified implementation checkpoint**.
+Base: shared planning and publication merged in
+[PR #453](https://github.com/egohygiene/renderflow/pull/453).
+This is the **sixth authored, unqualified implementation checkpoint**.
 The first checkpoint in #449, measured typography in #450, PNG in #451 and PDF
-in #452 are historical. V5 adds an explicit shared-planner composition entry
-point, locale-aware forest identities, common publication evidence and lazy
-intermediate reuse within each locale. Canonical inputs remain editable and
-unchanged at v1.
+in #452 and shared planning in #453 are historical. Ordinary `renderflow/v2`
+builds now admit one local composition package through a shared CLI/SDK
+facade. It delegates to the existing native engine and its v5 plans, receipts
+and per-locale reuse. Canonical inputs remain editable and unchanged at v1.
 
 The maintainer authorized continuing the sprint and merging its implementation.
 All executable qualification remains deferred. The coding workspace is
@@ -18,6 +17,20 @@ are introduced in this checkpoint.
 
 ## Authored scope
 
+- `planning::build` selects the existing graph or composition engine from
+  the config. `build`, configuration `inspect`, `graph` and SDK consumers use
+  the same facade; a resolved build retains private frozen native state.
+- One `kind: composition` source and explicit required format targets provide
+  the bounded v2 entry point. Optional `execution.composition` contains locale
+  selection, native raster/PDF settings and a cache directory. Source, cache
+  and output paths resolve relative to the configuration.
+- A new output bundle uses native `outputs/<locale>/page.<extension>` names.
+  Generic profiles, all-reachable/exclusion/optimization overrides, checkpoint
+  resume, custom naming and unsupported execution policies are rejected with
+  guidance. Native cache reuse remains available without checkpoint resume.
+- Builds retain the original native sidecars and add `build-plan.json` and
+  `renderflow-run.json` for the configured build. Partial native publication
+  remains partial in the common receipt; expected targets are not outputs.
 - `renderflow.page-composition/v1` and `renderflow.page-content/v1` remain the
   canonical contracts: physical dimensions, normalized layout, pinned artwork,
   stable layer/content IDs, reading order, font roles, locale revisions,
@@ -74,8 +87,9 @@ are introduced in this checkpoint.
   available. The structural WOFF2 stub is not a usable visual font. The latter
   packages retain the captured, unmodified DejaVu Sans font and full license.
   The mixed-asset package adds tiny authored RGBA PNG, unchanged synthetic
-  JPEG/SVG, shapes and English/German text. The same package now has PDF command
-  examples and authored regressions; no new rendered fixture or receipt is
+  JPEG/SVG, shapes and English/German text. The same package now has a minimal
+  `renderflow.yaml` and ordinary build examples alongside native PNG/PDF
+  commands and authored regressions; no new rendered fixture or receipt is
   presented as evidence.
 
 See [FORMAT_EVALUATION.md](FORMAT_EVALUATION.md) for the canonical decision and
@@ -92,7 +106,7 @@ establish a successful build.
 Canonical inputs remain v1. Profile:
 `renderflow.layered-composition/v5`. Plans/runs use
 `renderflow.composition-plan/v5` and `renderflow.composition-run/v5`.
-Cache/artifact identity is also versioned for this checkpoint; earlier
+Cache/artifact identity remains v5 from the previous checkpoint; earlier
 derivatives do not establish a v5 hit. Historical v1/v2/v3/v4 evidence schemas
 remain available. No schema validator was run.
 
@@ -111,9 +125,11 @@ Native `shared_intermediates` entries retain `locale`, `kind`,
 an intermediate does not establish a consumer's eventual publication. Native
 run and branch timestamps record observed start/end times.
 
-This is a dedicated composition entry point in the shared planning module,
-not a `renderflow/v2` build-source addition or generic format-DAG route.
-The ordinary v2 resolver and format graph remain unchanged. Flow has no
+The ordinary build facade adds v2 source admission by delegating to the
+dedicated composition entry point. It does not add a generic format-DAG
+composition route or another renderer. The existing graph-only SDK entry
+points remain available for callers that specifically need a format DAG.
+Flow has no
 Renderflow adapter yet; the earlier reference to an existing released adapter
 was incorrect. A future Flow-owned adapter must consume a qualified, immutable
 Renderflow release and retain actual publication joins. No Flow repository
@@ -249,13 +265,12 @@ is introduced. Flattened content does not become an editable original.
 
 ## Continue #406 in this order
 
-1. Admit canonical composition into the general `renderflow/v2` build contract,
-   then implement the Flow-owned adapter once its immutable release
-   prerequisites can be satisfied. The explicit
-   shared-planner entry point, common forest identities and publication joins
-   are now authored; they do not make either consumer path complete. Qualify
-   actual intermediate reuse, all-hit behavior, target isolation and partial
-   publication joins during the later execution session.
+1. Implement the Flow-owned adapter once its qualified immutable release
+   prerequisites can be satisfied. Ordinary v2 admission, the shared-planner
+   entry point, common forest identities and publication joins are authored;
+   they do not make downstream consumption complete. During the later
+   execution session qualify CLI/SDK parity, frozen inputs, actual intermediate
+   reuse, all-hit behavior, target isolation and partial publication joins.
 2. Extend typography through deliberate supported surfaces: broader scripts,
    bidi/vertical layout, variable/color/webfont handling and line breaking.
    Preserve canonical text and author intent; refuse unsupported requests.

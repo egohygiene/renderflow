@@ -16,6 +16,7 @@ so transparent versus opaque output backgrounds can be checked separately.
 | Input | Purpose |
 | --- | --- |
 | `page.composition.json` | Exact asset/content/font pins and ordered mixed-asset layers |
+| `renderflow.yaml` | Ordinary v2 build selection: SVG, HTML and transcript JSON for all declared locales |
 | `assets/alpha-tile.png` | Original 4 × 4 RGBA tile with zero, partial and full alpha |
 | `assets/red-tile.jpg` | Unchanged synthetic red JPEG from the repository's print fixture |
 | `assets/two-panels.svg` | Unchanged original geometric SVG from the earlier composition fixture |
@@ -32,7 +33,28 @@ glyph geometry as the SVG preview. The canonical content remains editable;
 PNG pixels do not retain native text or layers. Select a transcript target when
 the consumer needs readable content and reading order alongside the image.
 
-## Commands for a later authorized run
+## Start with the ordinary build command
+
+From the repository root:
+
+```bash
+renderflow build --config "examples/page-composition/raster-composition/renderflow.yaml" --dry-run
+renderflow graph plan --config "examples/page-composition/raster-composition/renderflow.yaml" --format "json"
+renderflow build --config "examples/page-composition/raster-composition/renderflow.yaml"
+```
+
+The configuration selects English and German through the default
+`all_declared` locale mode. Its new bundle appears at `build-output` beside
+the config, with files such as `outputs/en/page.svg` and
+`outputs/de/page.transcript.json`. Keep the package unchanged; select a new
+`output.bundle_root` before another build. Add `png` or `pdf` to
+`targets.exact`, or pass `--target "pdf"` to request only PDF for one run.
+
+For explicit locales, raster/PDF settings or cache reuse, see
+[`execution.composition` in the guide](../../../docs/user-guide/page-composition.md#choose-locales-and-renderer-settings).
+These examples remain unrun.
+
+## Dedicated PNG commands for a later authorized run
 
 From the repository root, explicitly opt in to PNG:
 
@@ -123,8 +145,10 @@ A rendered bundle retains `composition-plan.json`, `execution-plan.json`,
 published outputs. The command prints the native v5 composition receipt.
 Use common forest execution evidence to join locale/output target IDs to
 actual published artifacts; an expected target alone is not publication proof.
-These examples remain unrun. The checkpoint adds no generic `renderflow/v2`
-build-source support and no Flow-owned Renderflow adapter.
+The ordinary build also retains `build-plan.json` and `renderflow-run.json`
+for the v2 configuration, while preserving those native sidecars. Both CLI
+paths use the same composition engine. These examples remain unrun; no
+Flow-owned Renderflow adapter is included.
 
 ## Authorship and retained notices
 

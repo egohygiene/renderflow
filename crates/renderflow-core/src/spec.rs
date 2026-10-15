@@ -15,6 +15,9 @@ use crate::screenplay::provider::ScripttoolConfig;
 use crate::screenplay::afterwriting::AfterwritingConfig;
 use crate::screenplay::recovery::provider::RecoveryExtractionConfig;
 
+mod composition;
+pub use composition::CompositionBuildPolicy;
+
 pub const SPEC_V2_ID: &str = "renderflow/v2";
 pub const SPEC_V2_SCHEMA_PATH: &str = "schemas/renderflow-v2.schema.json";
 
@@ -40,6 +43,7 @@ pub enum SourceKind {
     #[default]
     Artifact,
     Collection,
+    Composition,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -522,6 +526,9 @@ impl Default for ValidationPolicy {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ExecutionPolicy {
+    /// Locale and renderer settings for a single local composition package.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub composition: Option<CompositionBuildPolicy>,
     #[serde(default)]
     pub optimization: OptimizationMode,
     #[serde(default)]
@@ -706,6 +713,7 @@ impl FixedLayoutEpubPolicy {
 impl Default for ExecutionPolicy {
     fn default() -> Self {
         Self {
+            composition: None,
             optimization: OptimizationMode::default(),
             derivative_planning: DerivativePlanningPolicy::default(),
             max_parallel: default_max_parallel(),
@@ -983,6 +991,9 @@ impl SpecV2 {
             }
 
             match source.kind {
+                // This source uses the bounded native composition contract,
+                // validated separately from artifact and collection locators.
+                SourceKind::Composition => {},
                 SourceKind::Artifact => {
                     let locator_count =
                         usize::from(source.path.is_some()) + usize::from(source.uri.is_some());
@@ -1382,6 +1393,7 @@ impl SpecV2 {
             ));
         }
 
+        composition::validate(self, &mut diagnostics);
         diagnostics
     }
 }
@@ -1755,7 +1767,7 @@ pub(crate) fn migrate_v1_config(config: &Config) -> SpecV2 {
 }
 
 pub fn json_schema() -> Value {
-    json!({
+    let mut schema = json!({
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-v2.schema.json",
         "title": "Renderflow execution specification v2",
@@ -2406,7 +2418,9 @@ pub fn json_schema() -> Value {
                 }
             }
         }
-    })
+    });
+    composition::extend_schema(&mut schema);
+    schema
 }
 
 pub fn json_schema_pretty() -> Result<String> {

@@ -91,7 +91,7 @@ pub use sdk::{
     ArtifactProfile, CancellationToken, DiagnosticReport, Engine, EngineBuilder, ExecutionRequest,
     ExecutionResult, InspectionRequest, PlanRequest, ProgressEvent, ProgressReporter,
     ProgressStage, ProviderCapabilities, ProviderPlan, RenderflowError, RenderflowProvider,
-    SavedRunAssessment,
+    ResolvedBuild, SavedRunAssessment,
 };
 pub use video::{
     execute_handbrake, execute_handbrake_with_progress, plan_handbrake,

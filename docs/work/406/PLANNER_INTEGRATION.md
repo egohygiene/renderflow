@@ -1,10 +1,63 @@
-# #406 — composition planning and publication integration
+# #406 — composition build, planning and publication integration
 
-This is the fifth **authored, unqualified** #406 checkpoint. It follows composed
-PDF in [PR #452](https://github.com/egohygiene/renderflow/pull/452), merged at
-`024b06f83eebeeb2fbe2a6f9106936e77736a3f9`. It connects the bounded composition
-engine to shared planning and artifact-forest evidence without adding a new
-provider, dependency or execution engine.
+This is the sixth **authored, unqualified** #406 checkpoint. It follows shared
+planning in [PR #453](https://github.com/egohygiene/renderflow/pull/453) and
+admits the bounded composition engine through the ordinary v2 build contract.
+The shared facade selects an existing engine; it adds no provider, dependency
+or second composition renderer.
+
+## One build entry point
+
+`planning::build::resolve(PlanningRequest)` returns a `ResolvedBuild` for
+either a generic graph or one native composition package. CLI `build`,
+configuration `inspect`, `graph` and SDK clients use this facade. The returned
+value exposes a common plan and retains private executable state. Pass it to
+`planning::build::execute` without reloading configuration or captured inputs.
+Callers that need generic DAG operations can explicitly request the graph
+backend; composition is not disguised as a format-keyed DAG.
+
+SDK `Engine::resolve_execution` now returns `ResolvedBuild`, consumed by
+`Engine::execute_resolved`. Callers with an explicit `ResolvedExecution` type
+annotation must adopt `ResolvedBuild`; `.graph()` provides checked read access
+to graph-only state. Existing `planning::resolve`/`execute` remain the dedicated
+graph API. Ordinary SDK inspection and planning share the facade as well.
+
+The v2 selection is intentionally small:
+
+| Field | Composition behavior |
+| --- | --- |
+| `sources` | Exactly one local `kind: composition` manifest |
+| `targets.exact` | Explicit required format-only entries using native names, such as `svg` and `transcript_json` |
+| `execution.composition` | Optional native locale selector, raster/PDF settings and cache directory |
+| `output.bundle_root` | New destination relative to the configuration; parent must exist |
+
+Omitted locale policy means all declared locales. The optional native cache
+provides verified derivative reuse; it does not use generic checkpoint resume.
+An explicit cache directory must be outside the fresh output bundle; omission
+uses the native bundle-local artifact store.
+Unsupported profiles, selection shortcuts, custom naming and generic policies
+are rejected with guidance. The
+[minimal fixture configuration](../../../examples/page-composition/raster-composition/renderflow.yaml)
+and [guide](../../user-guide/page-composition.md) provide the user path.
+
+Composition builds preserve native sidecars and add `build-plan.json` plus
+`renderflow-run.json` to bind common build evidence to the v2 configuration.
+Native `execution-plan.json` and `run-manifest.json` continue to describe the
+frozen composition execution. The common build receipt preserves exact native
+artifact records, branch outcomes and publication joins. The source package
+and native evidence versions remain unchanged.
+
+The build receipt's execution-plan digest identifies the exact compact JSON
+bytes in `build-plan.json`; its source-spec digest identifies the effective
+normalized v2 spec after target overrides and config-relative path resolution.
+The build forest policy binds the native wrapper digest and forest identity,
+so captured package pins remain connected to the build. Native receipts keep
+their original digest meanings. Neither receipt is an authenticity proof or a
+replacement for checking actual artifact bytes at a consumer boundary.
+The build receipt anchors bundle-relative artifact locators with an absolute
+`artifact_manifest.output_dir`; native receipts retain their `.` bundle root.
+Dry-run evidence has state `planned` and expected output names, with no actual
+artifact records or produced IDs.
 
 ## Why a separate composition entry point
 
@@ -25,10 +78,9 @@ accepting a replacement plan from the caller.
 output path, optional cache path and cancellation token. It returns a native
 `CompositionRun`; the run's `run_manifest()` method derives the common run
 manifest. The common manifest joins actual native publications
-to the existing forest execution contract. This is a dedicated entry point in
-the shared planning module; the generic `renderflow/v2` resolver and format DAG
-remain unchanged. A canonical composition manifest is not newly admitted as a
-generic v2 build source.
+to the existing forest execution contract. The new build facade delegates to
+this dedicated entry point. Existing graph-only planning remains available;
+no generic format-DAG conversion route is invented for a locale package.
 
 ## Contract versions and CLI boundary
 
@@ -60,6 +112,8 @@ all declared locales and default SVG/HTML/transcript-JSON targets.
 | `execution-plan.json` | Full execution-plan wrapper with native plan, common plan and stage inventory |
 | `composition-run.json` | Native branch outcomes, artifact evidence and actual intermediate observations |
 | `run-manifest.json` | Common run evidence with actual publication joins |
+| `build-plan.json` | Ordinary build only: common configuration-level plan |
+| `renderflow-run.json` | Ordinary build only: common receipt bound to the v2 build spec |
 
 Plans and expected output paths are not proof of publication. Preserve the
 receipts and retained inputs with successful outputs, including partial runs.
@@ -148,7 +202,7 @@ inherit publication from successful siblings. Consumers must preserve review
 flags and losses instead of treating supported output syntax as publication
 approval.
 
-The common projection validates structured receipt correlation; it does not
+The native common projection validates structured receipt correlation; it does not
 reread filesystem payloads, prove visual quality or implement Flow's acceptance
 boundary. Its execution-plan digest commits the exact wrapper bytes at
 `execution-plan.json`, including captured input pins and selected branches.
@@ -172,10 +226,11 @@ sprint policy. No dependency changes are introduced. Authored regressions,
 schemas and command examples are unrun; source review does not prove runtime
 reuse, cache behavior, output appearance or platform compatibility.
 
-The next bounded implementation is general v2 build admission, followed by the
-Flow-owned adapter with its release prerequisites explicit. Broader typography,
+The next consumer boundary is the Flow-owned adapter with its qualified,
+immutable release prerequisite explicit. Broader typography,
 native interchange and print extensions remain separate work. The later test
-session must cover actual stage reuse, all-hit and mixed-hit execution,
+session must cover ordinary-build/SDK parity, frozen source and configuration
+inputs, actual stage reuse, all-hit and mixed-hit execution,
 relevant-setting identity, partial publication joins, schema compatibility,
 source mutation after planning, output rendering and platform behavior before
 #419's release and downstream proof.

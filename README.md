@@ -44,9 +44,13 @@ targets, actual publications, review requirements and remaining unsupported
 directions. The fixture and integration contract remain unqualified.
 
 The [localized page composition guide](docs/user-guide/page-composition.md)
-introduces a separate authored path for shared artwork, editable text layers,
-and explicitly declared languages. `composition inspect`, `plan`, and `render`
-use one planner for PDF/PNG/SVG/HTML and accessible transcripts. The v5 profile
+uses shared artwork, editable text layers and explicitly declared languages.
+Declare a `kind: composition` source in a `renderflow/v2` configuration, select
+the output formats, and run `renderflow build`. The
+[example configuration](examples/page-composition/raster-composition/renderflow.yaml)
+produces SVG, HTML and a readable transcript for each declared locale.
+`build`, `inspect` and `graph` use the same planning facade as the SDK; the
+dedicated `composition` commands remain available. The v5 profile
 authors measured glyph paths from pinned static fonts for bounded Latin LTR
 text; canonical inputs retain editable text. A
 [real-font fixture](examples/page-composition/measured-typography/README.md)
@@ -60,15 +64,15 @@ transcripts for editing and reading; PDF/X, ICC conversion, native design-file
 interchange and visual/runtime qualification remain unavailable or deferred.
 
 The [composition planner integration](docs/work/406/PLANNER_INTEGRATION.md)
-adds a frozen composition entry point to the shared planning module, with
+keeps the captured package and native plan frozen, with
 locale-specific artifact-forest targets and common execution/publication
 evidence. SVG and transcript intermediates are materialized lazily and shared
 within one locale when selected outputs miss the cache; run observations remain
-separate from planned reuse. `composition plan` emits a wrapper containing the
-native plan, common execution plan and intermediate-stage inventory. This does
-not admit composition inputs to `renderflow/v2` build specs or add a Renderflow
-adapter to Flow. Flow integration still needs a Flow-owned adapter and a
-qualified, immutable Renderflow release.
+separate from planned reuse. Composition builds use the existing renderer and
+publish into a new bundle with fixed locale paths and retained receipts. This
+checkpoint supports one local composition package and explicit required
+targets. Flow integration still needs a Flow-owned adapter and a qualified,
+immutable Renderflow release. Runtime and visual qualification remain deferred.
 
 ---
 

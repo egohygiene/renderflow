@@ -71,11 +71,11 @@ pub enum Commands {
         #[arg(long, default_value = "renderflow.yaml", value_name = "FILE")]
         config: String,
 
-        /// Simulate execution: log intended actions without creating files or running commands
+        /// Resolve and print the plan without publishing outputs. Ordinary graph providers may run bounded probes.
         #[arg(long)]
         dry_run: bool,
 
-        /// Resume from compatible validated node checkpoints.
+        /// Resume from compatible validated node checkpoints (not supported for composition sources).
         #[arg(long)]
         resume: bool,
 
@@ -86,9 +86,10 @@ pub enum Commands {
         #[arg(long, value_name = "MODE")]
         optimization: Option<OptimizationMode>,
 
-        /// Build only the specified output format using the canonical capability graph.
+        /// Build only the specified output format using the source's canonical executor.
         /// Built-in document/image/audio capabilities and optional configured transforms are
-        /// resolved through the same planner. Cannot be combined with --all.
+        /// resolved through the same planner. Composition accepts its native output names.
+        /// Cannot be combined with --all.
         #[arg(long, value_name = "FORMAT", conflicts_with_all = ["all", "profile"])]
         target: Option<String>,
 
