@@ -87,18 +87,8 @@ fn selection_request(locales: &str, targets: &str) -> Result<CompositionRequest>
         }
     };
     let targets = comma_values(targets, "targets")?.iter().map(|target| {
-        match target.as_str() {
-            "svg" => Ok(CompositionOutput::Svg),
-            "html" => Ok(CompositionOutput::Html),
-            "transcript_json" => Ok(CompositionOutput::TranscriptJson),
-            "transcript_text" => Ok(CompositionOutput::TranscriptText),
-            "png" => Ok(CompositionOutput::Png),
-            "pdf" => Ok(CompositionOutput::Pdf),
-            "ora" => Ok(CompositionOutput::Ora),
-            "psd" => Ok(CompositionOutput::Psd),
-            "idml" => Ok(CompositionOutput::Idml),
-            _ => bail!("unknown page-composition target {target}; expected svg, html, transcript_json, transcript_text, png, pdf, ora, psd, or idml"),
-        }
+        target.parse::<CompositionOutput>()
+            .with_context(|| format!("unknown page-composition target {target}"))
     }).collect::<Result<Vec<_>>>()?;
     Ok(CompositionRequest { locales, targets, raster: RasterSettings::default(), pdf: PdfSettings::default() })
 }

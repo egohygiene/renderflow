@@ -1,8 +1,9 @@
-use anyhow::Result;
-use tracing::info;
+use anyhow::{Context, Result};
+use tracing::{info, warn};
 
 use crate::optimization::OptimizationMode;
-use crate::planning::{execute, resolve, PlanningRequest};
+use crate::planning::build::{execute, resolve};
+use crate::planning::PlanningRequest;
 
 /// Explicit CLI override for the target intent declared by the configuration.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -73,7 +74,15 @@ pub(crate) fn run_selection(options: BuildOptions<'_>) -> Result<()> {
         );
     }
 
-    let resolved = resolve(options.planning_request()?)?.with_resume(options.resume);
+    let mut resolved = resolve(options.planning_request()?)?.with_resume(options.resume)?;
+    let composition = resolved.is_composition();
+    if composition && !options.dry_run {
+        let cancellation = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let signal = cancellation.clone();
+        ctrlc::set_handler(move || signal.store(true, std::sync::atomic::Ordering::SeqCst))
+            .context("cannot install composition build cancellation handler")?;
+        resolved = resolved.with_cancellation_flag(cancellation);
+    }
     info!(
         source = %resolved.source_format(),
         targets = %resolved
@@ -92,7 +101,7 @@ pub(crate) fn run_selection(options: BuildOptions<'_>) -> Result<()> {
         // stdout is reserved for machine-readable plan evidence; tracing remains on stderr.
         println!("{}", serde_json::to_string_pretty(&result.plan)?);
     }
-    for output in &result.run_manifest.artifact_manifest.outputs {
+    for output in &result.outputs {
         if options.dry_run {
             info!("[DRY RUN] Planned output: {}", output);
         } else {
@@ -108,14 +117,26 @@ pub(crate) fn run_selection(options: BuildOptions<'_>) -> Result<()> {
         );
     }
     if !result.is_success() {
-        anyhow::bail!(
-            "renderflow execution finished with state {:?}; inspect '{}' for structured evidence",
-            result.run_manifest.state,
-            result
-                .manifest_path
-                .as_deref()
-                .unwrap_or("renderflow-run.json")
-        );
+        if composition {
+            // Keep the full native evidence in the receipt; show a bounded,
+            // actionable summary rather than making users open JSON first.
+            for diagnostic in result.run_manifest.steps.iter()
+                .flat_map(|step| &step.diagnostics)
+                .filter(|diagnostic| matches!(diagnostic.severity,
+                    crate::evidence::DiagnosticSeverity::FatalFailure
+                    | crate::evidence::DiagnosticSeverity::RecoverableFailure
+                    | crate::evidence::DiagnosticSeverity::Cancelled))
+                .take(8)
+            {
+                warn!("{}: {}", diagnostic.code, diagnostic.message);
+            }
+        }
+        if let Some(path) = &result.manifest_path {
+            anyhow::bail!("renderflow execution finished with state {:?}; inspect '{}' for structured evidence",
+                result.run_manifest.state, path);
+        }
+        anyhow::bail!("renderflow execution finished with state {:?}; no receipt was written",
+            result.run_manifest.state);
     }
     Ok(())
 }

@@ -5,10 +5,11 @@ use tracing::info;
 
 use crate::artifact::ArtifactStore;
 use crate::optimization::OptimizationMode;
-use crate::planning::{resolve, PlanningRequest};
+use crate::planning::build::resolve;
+use crate::planning::PlanningRequest;
 use crate::{IntakeBudgets, IntakeEngine, IntakeRequest};
 
-/// Run the `inspect` subcommand against the same resolved DAG used by execution.
+/// Inspect the same resolved build used by execution.
 pub fn run(
     config_path: &str,
     output_format: &str,
@@ -28,9 +29,19 @@ pub fn run(
     }
 
     let resolved = resolve(request)?;
-    let output = match output_format.to_lowercase().as_str() {
-        "dot" | "graphviz" => resolved.dag().to_dot(resolved.source_format()),
-        _ => resolved.dag().to_tree(resolved.source_format()),
+    let output = if resolved.is_composition() {
+        let format = match output_format.to_lowercase().as_str() {
+            "dot" | "graphviz" => "dot",
+            _ => "text",
+        };
+        crate::graph::renderers::renderer_for(format)
+            .context("missing built-in plan renderer")?.render(resolved.plan())
+    } else {
+        let graph = resolved.graph()?;
+        match output_format.to_lowercase().as_str() {
+            "dot" | "graphviz" => graph.dag().to_dot(graph.source_format()),
+            _ => graph.dag().to_tree(graph.source_format()),
+        }
     };
 
     if let Some(path) = export {

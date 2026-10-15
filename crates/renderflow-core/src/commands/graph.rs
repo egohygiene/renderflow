@@ -5,9 +5,9 @@ use tracing::info;
 
 use crate::graph::execution_plan::ExecutionPlan;
 use crate::graph::renderers::renderer_for;
-use crate::graph::Format;
 use crate::optimization::OptimizationMode;
-use crate::planning::{resolve, PlanningRequest};
+use crate::planning::build::resolve;
+use crate::planning::PlanningRequest;
 
 // ── helpers ─────────────────────────────────────────────────────────────────
 
@@ -16,7 +16,7 @@ pub(crate) fn load_plan(
     config_path: &str,
     target: Option<&str>,
     optimization: Option<OptimizationMode>,
-) -> Result<(ExecutionPlan, Vec<Format>)> {
+) -> Result<(ExecutionPlan, Vec<String>)> {
     let mut request = PlanningRequest::from_path(config_path);
     if let Some(optimization) = optimization {
         request = request.with_optimization(optimization);

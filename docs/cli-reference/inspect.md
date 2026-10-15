@@ -1,6 +1,6 @@
 # `renderflow inspect`
 
-Inspect either an arbitrary input artifact or the transformation DAG for a config.
+Inspect either an arbitrary input artifact or the resolved build plan for a config.
 
 ## Syntax
 
@@ -16,7 +16,7 @@ renderflow inspect --input FILE [--media-type TYPE] [--extract [--recursive]] [-
 | `--config FILE` | config path, default `renderflow.yaml` |
 | `--output-format FORMAT` | `tree` (default) or `dot` |
 | `--target FORMAT` | restrict output to one target |
-| `--all` | show all reachable targets |
+| `--all` | graph builds: show all policy-allowed reachable targets |
 | `--export FILE` | write output to a file |
 | `--input FILE` | emit a machine-readable `renderflow.intake/v1` artifact report instead of a DAG |
 | `--media-type TYPE` | add a source-reported media-type detection signal |
@@ -30,9 +30,15 @@ renderflow inspect --input FILE [--media-type TYPE] [--extract [--recursive]] [-
 
 ## Notes
 
-- `inspect` requires `transforms:` in the config.
-- when no `--target` is supplied, reachable formats are discovered automatically.
-- `--all` is accepted for consistency but the implementation already shows all reachable formats when no explicit target is given.
+- Configuration inspection uses the same build facade and configured target
+  intent as `build`. `transforms:` is optional when built-in capabilities cover
+  an ordinary artifact build.
+- `--target` replaces the configured target selection; `--all` explicitly
+  selects all reachable outputs in graph mode.
+- A `kind: composition` source uses the native locale-aware composition plan.
+  It accepts `--target` and rejects `--all` and optimization overrides. Tree
+  and DOT views summarize the common plan; use `graph plan --format "json"`
+  for the full artifact-forest target inventory and diagnostics.
 
 ## Examples
 
@@ -40,6 +46,7 @@ renderflow inspect --input FILE [--media-type TYPE] [--extract [--recursive]] [-
 renderflow inspect
 renderflow inspect --output-format dot
 renderflow inspect --target pdf --export dag.dot
+renderflow inspect --config "examples/page-composition/raster-composition/renderflow.yaml"
 renderflow inspect --input unknown.bin
 renderflow inspect --input comic.cbz --extract --recursive --export intake.json
 ```

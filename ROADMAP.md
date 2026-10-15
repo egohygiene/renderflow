@@ -3,7 +3,7 @@ schema: aether.architecture-document/v1
 id: renderflow-roadmap
 title: Renderflow Roadmap
 kind: architecture-document
-version: 0.1.13
+version: 0.1.14
 status: draft
 owners:
   - egohygiene
@@ -26,7 +26,42 @@ supersedes: []
 
 # Renderflow Roadmap
 
-## 2026-10-15 composition planner and publication checkpoint
+## 2026-10-15 composition build admission checkpoint
+
+The sixth authored [#406](https://github.com/egohygiene/renderflow/issues/406)
+checkpoint follows shared planning in
+[PR #453](https://github.com/egohygiene/renderflow/pull/453). A `renderflow/v2`
+configuration can now declare one local `kind: composition` source, select
+required output formats and run through ordinary `build`, `inspect` and
+`graph` commands. The SDK uses that same build facade. The
+[example configuration](examples/page-composition/raster-composition/renderflow.yaml)
+starts with SVG, HTML and transcript JSON for all declared locales.
+
+The facade selects the existing graph or composition engine and retains its
+frozen execution state. Composition content, locale checks, typography,
+rendering and cache behavior stay in the native engine. Outputs keep the
+native `outputs/<locale>/page.<extension>` layout; the new bundle retains
+native sidecars plus `build-plan.json` and `renderflow-run.json` for the build
+configuration. Optional `execution.composition` selects locales and native
+PNG/PDF settings or a separate cache directory. Unsupported generic controls
+are rejected rather than accepted without effect.
+
+No dependencies, provider capabilities or native evidence versions change.
+Source review includes agreement between the CLI, SDK, schema, examples and
+docs. Tests, builds, lint, schema validation, CLI/render execution, Cargo and
+CI remain deferred. Source implementation does not establish runtime or visual
+qualification, and #406 remains open with its acceptance checklist unchanged.
+
+Next, connect a Flow-owned adapter once a qualified immutable Renderflow
+release is available. Broader typography, native interchange and concrete
+print requirements remain bounded follow-on work. The deferred qualification
+session includes ordinary-build parity, frozen inputs, branch isolation,
+cache reuse and actual publication joins before #419's release and consumer
+proof. See the [composition guide](docs/user-guide/page-composition.md),
+[planner integration](docs/work/406/PLANNER_INTEGRATION.md) and
+[handoff](docs/work/406/HANDOFF.md).
+
+## 2026-10-15 composition planner and publication checkpoint (historical)
 
 Composed PDF for [#406](https://github.com/egohygiene/renderflow/issues/406)
 merged in [PR #452](https://github.com/egohygiene/renderflow/pull/452) at
@@ -471,9 +506,9 @@ availability. Merging does not turn authored coverage into passing evidence.
 
 After the #430 implementation checkpoint, #406 has an authored bounded
 composition SDK/CLI slice, measured typography, composed PNG, a bounded
-image-only composed PDF, and an explicit shared-planner composition entry point
-with common forest/publication evidence. Generic build admission, the
-Flow-owned adapter, native interoperability and broader typography remain
+image-only composed PDF, shared-planner forest/publication evidence and
+ordinary v2 build admission through one CLI/SDK facade. The Flow-owned
+adapter, native interoperability and broader typography remain
 implementation work; composed output and shared reuse still need deferred
 qualification evidence. Keep #412/#413
 fixture expansion and #419 verified release work aligned with the later deep

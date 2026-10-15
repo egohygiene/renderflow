@@ -32,7 +32,7 @@ Spec v2 describes source intent, derivative selection, execution policy, and det
 | `geometry` | `object` | no | — |
 | `id` | `stableId` | yes | — |
 | `immutable` | `true` | no | `true` |
-| `kind` | `artifact` / `collection` | no | `"artifact"` |
+| `kind` | `artifact` / `collection` / `composition` | no | `"artifact"` |
 | `media_type` | `string` / `null` | no | — |
 | `members` | `array` | no | `[]` |
 | `path` | `string` / `null` | no | — |
@@ -112,6 +112,7 @@ Spec v2 describes source intent, derivative selection, execution policy, and det
 | `tools` | `allowDeny` | no | — |
 | `transforms` | `allowDeny` | no | — |
 | `validation` | `validation` | no | — |
+| `composition` | `object` | no | — |
 
 ## Print-interior PDF policy
 

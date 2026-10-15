@@ -9,7 +9,17 @@ use crate::config::load_config;
 
 use super::build;
 
+fn ensure_supported_source(config_path: &str) -> Result<()> {
+    if let Ok(loaded) = crate::spec::load_spec(config_path) {
+        if loaded.spec.sources.iter().any(|source| source.kind == crate::spec::SourceKind::Composition) {
+            anyhow::bail!("composition.build.watch_unsupported: composition builds require a new output directory; use build with a fresh bundle_root for each run");
+        }
+    }
+    Ok(())
+}
+
 pub fn run(config_path: &str, debounce_ms: u64) -> Result<()> {
+    ensure_supported_source(config_path)?;
     info!("Starting watch mode for: {}", config_path);
 
     // Perform an initial build before entering the watch loop.
@@ -48,7 +58,8 @@ pub fn run(config_path: &str, debounce_ms: u64) -> Result<()> {
                 for event in &events {
                     info!("File changed → rebuilding... ({})", event.path.display());
                 }
-                if let Err(e) = build::run_resilient(config_path) {
+                if let Err(e) = ensure_supported_source(config_path)
+                    .and_then(|_| build::run_resilient(config_path)) {
                     error!("Build failed: {:#}", e);
                 }
             }

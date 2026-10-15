@@ -15,10 +15,12 @@ use crate::evidence::{
 use crate::graph::ExecutionPlan;
 use crate::intake::{IntakeEngine, IntakeReport, IntakeRequest};
 use crate::optimization::OptimizationMode;
-use crate::planning::{
+use crate::planning::build::{
     cancelled as cancelled_execution, execute as execute_resolved_plan,
-    resolve as resolve_planning_request, PlanningRequest, ResolvedExecution,
+    resolve as resolve_planning_request,
 };
+use crate::planning::{PlanningRequest, ResolvedExecution};
+pub use crate::planning::build::ResolvedBuild;
 use crate::toolchain::ToolchainSnapshot;
 use crate::speech::graph::{SpeechProgressObserver, SpeechProgressPhase};
 use crate::speech::recovery::inspect_saved_result;
@@ -506,7 +508,7 @@ impl Engine {
     pub fn resolve_execution(
         &self,
         request: ExecutionRequest,
-    ) -> Result<ResolvedExecution, RenderflowError> {
+    ) -> Result<ResolvedBuild, RenderflowError> {
         self.ensure_not_cancelled()?;
         self.emit(ProgressStage::Planning, "Resolving execution request");
         let mut planning = PlanningRequest::from_path(&request.config_path);
@@ -519,7 +521,7 @@ impl Engine {
             planning = planning.with_optimization(optimization);
         }
         let mut resolved = resolve_planning_request(planning).map_err(RenderflowError::Planning)?;
-        resolved = resolved.with_resume(request.resume);
+        resolved = resolved.with_resume(request.resume).map_err(RenderflowError::Planning)?;
         if let Some(cancellation) = &self.cancellation_token {
             resolved = resolved.with_cancellation_flag(cancellation.flag());
         }
@@ -529,13 +531,13 @@ impl Engine {
     /// Execute an already-resolved plan without implicit re-planning.
     pub fn execute_resolved(
         &self,
-        mut resolved: ResolvedExecution,
+        mut resolved: ResolvedBuild,
         dry_run: bool,
     ) -> Result<ExecutionResult, RenderflowError> {
+        if let Some(cancellation) = &self.cancellation_token {
+            resolved = resolved.with_cancellation_flag(cancellation.flag());
+        }
         if resolved.spec().execution.speech.is_some() {
-            if let Some(cancellation) = &self.cancellation_token {
-                resolved = resolved.with_cancellation_flag(cancellation.flag());
-            }
             if let Some(reporter) = &self.reporter {
                 let step_id = format!("step:{}-to-{}", resolved.source_format(), crate::graph::Format::TimedTranscriptJson);
                 resolved = resolved.with_speech_observer(Arc::new(SdkSpeechProgressObserver {
@@ -662,8 +664,9 @@ impl Engine {
             "Assessing saved Renderflow checkpoints",
         );
         let resolved = self.resolve_execution(request)?;
+        let resolved = resolved.graph().map_err(RenderflowError::Execution)?;
         let (checkpoint_path, artifact_root, context) =
-            checkpoint_state(&resolved).map_err(RenderflowError::Execution)?;
+            checkpoint_state(resolved).map_err(RenderflowError::Execution)?;
         if let Some(policy) = &resolved.spec().execution.speech {
             // This branch never creates the persistent runtime artifact store
             // or opens generic checkpoint/cache state. Resolution binds the actual
@@ -841,8 +844,9 @@ impl Engine {
         step_id: Option<&str>,
     ) -> Result<usize, RenderflowError> {
         let resolved = self.resolve_execution(request)?;
+        let resolved = resolved.graph().map_err(RenderflowError::Execution)?;
         let (checkpoint_path, _, context) =
-            checkpoint_state(&resolved).map_err(RenderflowError::Execution)?;
+            checkpoint_state(resolved).map_err(RenderflowError::Execution)?;
         match step_id {
             Some(step_id) => {
                 let mut checkpoints = CheckpointStore::open(checkpoint_path, context)

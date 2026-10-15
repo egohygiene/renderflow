@@ -58,6 +58,14 @@ pub enum LocaleSelector {
 #[serde(rename_all = "snake_case")]
 pub enum CompositionOutput { Svg, Html, TranscriptJson, TranscriptText, Png, Pdf, Ora, Psd, Idml }
 
+impl std::str::FromStr for CompositionOutput {
+    type Err = serde_json::Error;
+
+    fn from_str(value: &str) -> std::result::Result<Self, Self::Err> {
+        serde_json::from_value(serde_json::Value::String(value.to_owned()))
+    }
+}
+
 impl CompositionOutput {
     pub fn name(self) -> &'static str {
         match self {

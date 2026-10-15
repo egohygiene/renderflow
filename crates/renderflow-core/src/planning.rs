@@ -1,9 +1,11 @@
 //! Canonical application-layer planning and execution lifecycle.
 //!
-//! All CLI and SDK build modes normalize v1/v2 intent here before execution.
-//! Execution consumes a previously resolved [`ResolvedExecution`] and never
-//! performs implicit target/path re-planning.
+//! [`build`] is the shared CLI/SDK entry point for graph and composition
+//! sources. This module retains the graph-specific [`ResolvedExecution`] API;
+//! both engines execute frozen state without implicit target/path re-planning.
 
+pub mod build;
+mod build_composition;
 pub mod composition;
 pub(crate) mod composition_evidence;
 pub use composition::{
@@ -427,6 +429,13 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
         .to_str()
         .context("Config path contains non-UTF8 characters")?;
     let loaded = load_spec(config_path)?;
+    if loaded.spec.sources.iter().any(|source| source.kind == SourceKind::Composition) {
+        anyhow::bail!("composition.build.entrypoint: use planning::build::resolve for composition sources");
+    }
+    resolve_loaded(request, loaded)
+}
+
+fn resolve_loaded(request: PlanningRequest, loaded: crate::spec::LoadedSpec) -> Result<ResolvedExecution> {
     let source_version = loaded.source_version;
     let mut spec = loaded.spec;
     apply_request_overrides(&mut spec, &request)?;
