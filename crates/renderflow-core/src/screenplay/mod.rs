@@ -9,6 +9,7 @@ mod codec;
 pub mod afterwriting;
 pub mod afterwriting_graph;
 pub mod analysis;
+pub mod body_graph;
 pub mod graph;
 mod installation;
 pub mod native;

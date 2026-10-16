@@ -1,4 +1,4 @@
-//! Artifact-native subtitle edges for the shared planner and executor.
+//! Artifact-native subtitle and transcript exports for the shared executor.
 //!
 //! Conversion passes through canonical timed-transcript JSON. Export metadata
 //! retains the canonical artifact reference and all disclosed losses. Native
@@ -16,7 +16,7 @@ use sha2::{Digest, Sha256};
 
 use crate::artifact::{
     Artifact, ArtifactDescriptor, ArtifactDigest, ArtifactId, ArtifactStorageClass,
-    ArtifactStore, ArtifactTransform,
+    ArtifactStore, ArtifactTransform, MediaType,
 };
 use crate::evidence::FidelityDeclaration;
 use crate::graph::Format;
@@ -30,9 +30,10 @@ use super::{
 
 pub const SUBTITLE_ARTIFACT_METADATA_KEY: &str = "renderflow.subtitle";
 pub const SUBTITLE_ARTIFACT_SCHEMA: &str = "renderflow.subtitle-artifact/v1";
+const MAX_SUBTITLE_METADATA_BYTES: usize = 64 * 1024;
 
-/// Immutable canonical payload/record needed to inspect metadata omitted by an
-/// SRT or WebVTT export. A newly produced canonical artifact references itself.
+/// Immutable canonical payload/record needed to inspect metadata omitted by a
+/// subtitle or plain-text export. A newly produced canonical references itself.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CanonicalTranscriptReference {
@@ -57,8 +58,8 @@ pub struct SubtitleArtifactEvidence {
     pub export_losses: Vec<TimedTextLoss>,
 }
 
-/// Pure SRT/WebVTT parsing or canonical JSON export. Only the four declared
-/// edges are accepted; generic JSON and richer subtitle formats are excluded.
+/// Pure SRT/WebVTT parsing or canonical JSON export. Plain text is a terminal
+/// export only; generic JSON and richer subtitle formats are excluded.
 pub struct TimedTextArtifactTransform {
     input_format: Format,
     output_format: Format,
@@ -69,7 +70,7 @@ impl TimedTextArtifactTransform {
     pub fn new(input: Format, output: Format) -> Result<Self> {
         if !matches!((input, output),
             (Format::Srt | Format::WebVtt, Format::TimedTranscriptJson)
-            | (Format::TimedTranscriptJson, Format::Srt | Format::WebVtt))
+            | (Format::TimedTranscriptJson, Format::Srt | Format::WebVtt | Format::Text))
         {
             bail!("unsupported timed-text graph edge '{input}' -> '{output}'");
         }
@@ -114,6 +115,9 @@ impl ArtifactTransform for TimedTextArtifactTransform {
         let bytes = read_bounded_artifact(input, store)?;
         let transcript = parse(&bytes, timed_format(self.input_format)?)
             .context("subtitle graph input did not satisfy the plain timed-text profile")?;
+        if output_format == Format::Text {
+            validate_canonical_input_evidence(input, &transcript)?;
+        }
         let output = render_bounded(&transcript, timed_format(output_format)?)?;
         let operation = if output_format == Format::TimedTranscriptJson { "parse" } else { "export" };
         store_transcript_output(input, output_format, &transcript, &output, operation, store)
@@ -190,6 +194,7 @@ fn timed_format(format: Format) -> Result<TimedTextFormat> {
         Format::Srt => Ok(TimedTextFormat::Srt),
         Format::WebVtt => Ok(TimedTextFormat::WebVtt),
         Format::TimedTranscriptJson => Ok(TimedTextFormat::Json),
+        Format::Text => Ok(TimedTextFormat::Text),
         _ => bail!("format '{format}' is not a supported timed-text graph payload"),
     }
 }
@@ -222,10 +227,20 @@ fn read_bounded_artifact(input: &Artifact, store: &ArtifactStore) -> Result<Vec<
 fn render_bounded(transcript: &TimedTranscript, format: TimedTextFormat) -> Result<Vec<u8>> {
     validate(transcript)?;
     if format == TimedTextFormat::Json {
-        let mut count = OutputByteCounter { bytes: 1, exceeded: false }; // renderer's final newline
+        let mut count = OutputByteCounter { bytes: 1, exceeded: false, maximum: MAX_INPUT_BYTES }; // renderer's final newline
         if let Err(error) = serde_json::to_writer_pretty(&mut count, transcript) {
             if count.exceeded { return Err(TimedTextError::OutputTooLarge.into()); }
             return Err(error.into());
+        }
+    } else if format == TimedTextFormat::Text {
+        let mut count = 0_usize;
+        for (index, cue) in transcript.cues.iter().enumerate() {
+            // The existing text renderer preserves internal cue newlines,
+            // terminates each cue, and separates adjacent cues by one blank line.
+            count = count.checked_add(cue.text.len())
+                .and_then(|bytes| bytes.checked_add(if index == 0 { 1 } else { 2 }))
+                .ok_or(TimedTextError::OutputTooLarge)?;
+            if count > MAX_INPUT_BYTES { return Err(TimedTextError::OutputTooLarge.into()); }
         }
     } else {
         let mut count = if format == TimedTextFormat::WebVtt { 8_usize } else { 0 };
@@ -241,7 +256,7 @@ fn render_bounded(transcript: &TimedTranscript, format: TimedTextFormat) -> Resu
     Ok(render(transcript, format)?)
 }
 
-struct OutputByteCounter { bytes: usize, exceeded: bool }
+struct OutputByteCounter { bytes: usize, exceeded: bool, maximum: usize }
 
 impl Write for OutputByteCounter {
     fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
@@ -249,7 +264,7 @@ impl Write for OutputByteCounter {
             self.exceeded = true;
             return Err(io::Error::other("timed-text output size overflow"));
         };
-        if total > MAX_INPUT_BYTES {
+        if total > self.maximum {
             self.exceeded = true;
             return Err(io::Error::other("timed-text output exceeds its byte limit"));
         }
@@ -297,8 +312,125 @@ fn store_transcript_output(
         descriptor = descriptor.with_metadata(crate::speech::graph::SPEECH_ARTIFACT_METADATA_KEY, speech.clone());
     }
     let output = store.put_bytes(output, descriptor)?;
+    if output_format == Format::Text { validate_text_export_from_canonical(&output, input, store)?; }
     crate::speech::graph::retained_artifacts(&output)?;
     Ok(output)
+}
+
+/// Admit only a correctly attributed terminal transcript-text record. Generic
+/// document text has no subtitle namespace and does not use this validator.
+/// Payload UTF-8 and digest checks remain the artifact validator/store's job.
+pub(crate) fn validate_text_export_evidence(artifact: &Artifact) -> Result<SubtitleArtifactEvidence> {
+    if artifact.format().as_str() != Format::Text.to_string()
+        || artifact.media_type() != &MediaType::for_format(Format::Text)
+        || artifact.size_bytes() == 0 || artifact.size_bytes() > MAX_INPUT_BYTES as u64
+        || artifact.id() != &ArtifactId::from_record(artifact.digest(), artifact.format(), artifact.sources())
+    { bail!("transcript text export has an inconsistent artifact record"); }
+    let evidence = subtitle_evidence(artifact)?
+        .context("transcript text export must retain subtitle evidence")?;
+    if evidence.schema_version != SUBTITLE_ARTIFACT_SCHEMA || evidence.operation != "export"
+        || evidence.input_artifact_id != evidence.canonical_transcript.artifact_id
+        || evidence.input_sha256 != evidence.canonical_transcript.sha256
+        || artifact.sources() != [evidence.canonical_transcript.artifact_id.clone()]
+    { bail!("transcript text export must retain its canonical transcript parent"); }
+    super::digest(&evidence.input_sha256, "subtitle input digest")?;
+    super::digest(&evidence.source.sha256, "subtitle original-source digest")?;
+    let Some(parent_digest) = evidence.input_artifact_id.as_str().strip_prefix("artifact:sha256:") else {
+        bail!("transcript text export has an invalid canonical transcript identifier");
+    };
+    super::digest(parent_digest, "subtitle canonical transcript identifier")?;
+    for losses in [&evidence.prior_losses, &evidence.export_losses] {
+        if losses.len() > 7 || losses.iter().enumerate().any(|(index, loss)| losses[..index].contains(loss)) {
+            bail!("transcript text export has invalid loss disclosure");
+        }
+    }
+    for loss in [TimedTextLoss::SourceProvenance, TimedTextLoss::OverlapPolicy,
+        TimedTextLoss::Timing, TimedTextLoss::CueIds]
+    {
+        if !evidence.export_losses.contains(&loss) {
+            bail!("transcript text export must disclose {loss:?} loss");
+        }
+    }
+    if !evidence.prior_losses.is_empty()
+        && !evidence.export_losses.contains(&TimedTextLoss::PriorLossEvidence)
+    { bail!("transcript text export must disclose prior loss evidence omission"); }
+    if (evidence.language.is_some() || evidence.source.stream.as_ref().is_some_and(|stream| stream.language.is_some()))
+        && !evidence.export_losses.contains(&TimedTextLoss::Language)
+    { bail!("transcript text export must disclose language omission"); }
+    Ok(evidence)
+}
+
+/// Revalidate a retained/cached transcript-text payload without treating plain
+/// text as input timing. Both actual bytes and their metadata remain bounded.
+pub(crate) fn validate_text_export_artifact(artifact: &Artifact, store: &ArtifactStore) -> Result<SubtitleArtifactEvidence> {
+    let evidence = validate_text_export_evidence(artifact)?;
+    let bytes = read_bounded_artifact(artifact, store)?;
+    std::str::from_utf8(&bytes).context("transcript text export is not UTF-8")?;
+    Ok(evidence)
+}
+
+/// Bind a terminal text derivative to the actual retained canonical record.
+/// Rehashed UTF-8 plus a copied parent reference is insufficient: regenerate
+/// the existing text profile and compare its exact bytes and loss disclosure.
+/// Publication must call this even when generic validation is disabled.
+pub(crate) fn validate_text_export_from_canonical(
+    artifact: &Artifact, canonical: &Artifact, store: &ArtifactStore,
+) -> Result<()> {
+    let evidence = validate_text_export_evidence(artifact)?;
+    let transcript = parse(&read_bounded_artifact(canonical, store)?, TimedTextFormat::Json)?;
+    validate_canonical_input_evidence(canonical, &transcript)?;
+    if evidence.canonical_transcript.artifact_id != *canonical.id()
+        || evidence.canonical_transcript.sha256 != canonical.digest().value()
+        || evidence.source != transcript.source || evidence.language != transcript.language
+        || evidence.overlap_policy != transcript.overlap_policy
+        || evidence.prior_losses != transcript.losses
+        || evidence.export_losses != export_losses(&transcript, TimedTextFormat::Text)
+        || artifact.metadata().get(crate::speech::graph::SPEECH_ARTIFACT_METADATA_KEY)
+            != canonical.metadata().get(crate::speech::graph::SPEECH_ARTIFACT_METADATA_KEY)
+    { bail!("transcript text export evidence differs from its retained canonical transcript"); }
+    if read_bounded_artifact(artifact, store)? != render_bounded(&transcript, TimedTextFormat::Text)? {
+        bail!("transcript text export bytes differ from the canonical cue text");
+    }
+    if crate::speech::graph::retained_artifacts(artifact)? != crate::speech::graph::retained_artifacts(canonical)? {
+        bail!("transcript text export differs from retained speech evidence");
+    }
+    Ok(())
+}
+
+/// Metadata supplied alongside canonical bytes must agree with those bytes.
+/// A canonical source without this namespace remains a supported interchange
+/// input; claimed original provenance is distinct from its observed JSON hash.
+fn validate_canonical_input_evidence(input: &Artifact, transcript: &TimedTranscript) -> Result<()> {
+    if input.format().as_str() != Format::TimedTranscriptJson.to_string()
+        || input.media_type() != &MediaType::for_format(Format::TimedTranscriptJson)
+        || input.id() != &ArtifactId::from_record(input.digest(), input.format(), input.sources())
+    { bail!("canonical transcript has an inconsistent artifact record"); }
+    let Some(evidence) = subtitle_evidence(input)? else { return Ok(()); };
+    if evidence.schema_version != SUBTITLE_ARTIFACT_SCHEMA
+        || !matches!(evidence.operation.as_str(), "parse" | "extract")
+        || evidence.canonical_transcript.artifact_id != *input.id()
+        || evidence.canonical_transcript.sha256 != input.digest().value()
+        || input.sources() != [evidence.input_artifact_id.clone()]
+        || evidence.input_sha256 != transcript.source.sha256
+        || evidence.source != transcript.source || evidence.language != transcript.language
+        || evidence.overlap_policy != transcript.overlap_policy
+        || evidence.prior_losses != transcript.losses || !evidence.export_losses.is_empty()
+    { bail!("canonical subtitle evidence differs from the retained transcript"); }
+    super::digest(&evidence.input_sha256, "subtitle input digest")?;
+    Ok(())
+}
+
+fn subtitle_evidence(artifact: &Artifact) -> Result<Option<SubtitleArtifactEvidence>> {
+    let Some(metadata) = artifact.metadata().get(SUBTITLE_ARTIFACT_METADATA_KEY) else { return Ok(None); };
+    let mut count = OutputByteCounter { bytes: 0, exceeded: false, maximum: MAX_SUBTITLE_METADATA_BYTES };
+    serde_json::to_writer(&mut count, metadata)
+        .context("subtitle artifact evidence exceeds its byte bound")?;
+    let evidence: SubtitleArtifactEvidence = serde_json::from_value(metadata.clone())
+        .context("invalid subtitle artifact evidence")?;
+    if serde_json::to_value(&evidence)? != *metadata {
+        bail!("subtitle artifact evidence must preserve every field in its typed representation");
+    }
+    Ok(Some(evidence))
 }
 
 #[cfg(test)]
@@ -338,7 +470,11 @@ mod tests {
     #[test]
     fn generic_json_rich_subtitle_and_direct_shortcuts_are_not_graph_edges() {
         for (input, output) in [(Format::Json, Format::Srt), (Format::Ass, Format::TimedTranscriptJson),
-            (Format::Srt, Format::WebVtt), (Format::TimedTranscriptJson, Format::TimedTranscriptJson)]
+            (Format::Srt, Format::WebVtt), (Format::TimedTranscriptJson, Format::TimedTranscriptJson),
+            (Format::Srt, Format::Text), (Format::WebVtt, Format::Text),
+            (Format::Mkv, Format::Text), (Format::Json, Format::Text),
+            (Format::Text, Format::TimedTranscriptJson), (Format::Text, Format::Srt),
+            (Format::Text, Format::WebVtt)]
         { assert!(TimedTextArtifactTransform::new(input, output).is_err()); }
         assert!(SubtitleExtractionTransform::new(Format::Avi, 0, None).is_err());
     }
@@ -420,5 +556,201 @@ mod tests {
         assert!(evidence.export_losses.contains(&TimedTextLoss::Language));
         assert_eq!(evidence.canonical_transcript.artifact_id, *canonical.id());
         assert_eq!(exported.sources(), &[canonical.id().clone()]);
+    }
+
+    #[test]
+    fn terminal_text_export_preserves_unicode_multiline_cues_and_discloses_every_omission() {
+        let directory = tempfile::tempdir().unwrap();
+        let store = ArtifactStore::new(directory.path()).unwrap();
+        let media = store.put_bytes(b"synthetic original", ArtifactDescriptor::for_format(
+            Format::Mkv, ArtifactStorageClass::Source)).unwrap();
+        let mut transcript = parse(SRT, TimedTextFormat::Srt).unwrap();
+        let subtitle_sha256 = transcript.source.sha256.clone();
+        transcript.source = TranscriptSource {
+            sha256: media.digest().value().to_owned(), format: "mkv".to_owned(),
+            stream: Some(super::super::StreamIdentity {
+                index: 4, codec: "webvtt".to_owned(), language: Some("mul".to_owned()),
+            }),
+            extraction: Some(super::super::ExtractionProvenance {
+                provider: "adapter.subtitles.ffmpeg".to_owned(),
+                ffprobe_version: "synthetic ffprobe".to_owned(),
+                ffmpeg_version: "synthetic ffmpeg".to_owned(), subtitle_sha256,
+            }),
+        };
+        transcript.language = Some("mul".to_owned());
+        transcript.losses = vec![TimedTextLoss::Language];
+        transcript.cues[0].id = "opening".to_owned();
+        transcript.cues[0].text = "こんにちは\nCafé — привет 🐸".to_owned();
+        transcript.cues[0].speaker = Some("Synthetic narrator".to_owned());
+        let mut second = transcript.cues[0].clone();
+        second.id = "overlap".to_owned();
+        second.start_ms = 1500;
+        second.end_ms = 2500;
+        second.text = "Second cue".to_owned();
+        second.speaker = None;
+        transcript.cues.push(second);
+        let canonical_bytes = render(&transcript, TimedTextFormat::Json).unwrap();
+        let canonical = store.put_bytes(&canonical_bytes,
+            ArtifactDescriptor::for_format(Format::TimedTranscriptJson, ArtifactStorageClass::Source)
+                .with_source(media.id().clone())).unwrap();
+        let transform = TimedTextArtifactTransform::new(Format::TimedTranscriptJson, Format::Text).unwrap();
+        assert_eq!(transform.fidelity(), Some(FidelityDeclaration::Partial));
+        let exported = transform.apply(&canonical, Format::Text, &store).unwrap();
+        assert_eq!(store.read_bytes(&exported).unwrap(), "こんにちは\nCafé — привет 🐸\n\nSecond cue\n".as_bytes());
+        assert_eq!(exported.format().as_str(), Format::Text.to_string());
+        assert_eq!(exported.media_type(), &MediaType::for_format(Format::Text));
+        let evidence = validate_text_export_evidence(&exported).unwrap();
+        assert_eq!(evidence.source, transcript.source);
+        assert_eq!(evidence.language, transcript.language);
+        assert_eq!(evidence.overlap_policy, OverlapPolicy::Preserve);
+        assert_eq!(evidence.prior_losses, transcript.losses);
+        assert_eq!(evidence.export_losses, vec![TimedTextLoss::SourceProvenance, TimedTextLoss::OverlapPolicy,
+            TimedTextLoss::Timing, TimedTextLoss::CueIds, TimedTextLoss::Speakers,
+            TimedTextLoss::Language, TimedTextLoss::PriorLossEvidence]);
+        assert_eq!(evidence.canonical_transcript.artifact_id, *canonical.id());
+        assert_eq!(evidence.canonical_transcript.sha256, canonical.digest().value());
+        assert_eq!(exported.sources(), &[canonical.id().clone()]);
+        assert_eq!(store.read_bytes(&canonical).unwrap(), canonical_bytes);
+        assert_eq!(store.read_bytes(&media).unwrap(), b"synthetic original");
+        assert!(matches!(parse(&store.read_bytes(&exported).unwrap(), TimedTextFormat::Text),
+            Err(TimedTextError::UnsupportedInput)));
+    }
+
+    #[test]
+    fn graph_parsed_canonical_transcript_exports_text_without_losing_its_source_evidence() {
+        let directory = tempfile::tempdir().unwrap();
+        let store = ArtifactStore::new(directory.path()).unwrap();
+        let original = source(&store);
+        let canonical = TimedTextArtifactTransform::new(Format::Srt, Format::TimedTranscriptJson).unwrap()
+            .apply(&original, Format::TimedTranscriptJson, &store).unwrap();
+        let exported = TimedTextArtifactTransform::new(Format::TimedTranscriptJson, Format::Text).unwrap()
+            .apply(&canonical, Format::Text, &store).unwrap();
+        let evidence = validate_text_export_evidence(&exported).unwrap();
+        assert_eq!(evidence.source.sha256, original.digest().value());
+        assert_eq!(evidence.input_sha256, canonical.digest().value());
+        assert_ne!(evidence.source.sha256, evidence.input_sha256);
+        assert_eq!(store.read_bytes(&exported).unwrap(), b"Synthetic cue\n");
+    }
+
+    #[test]
+    fn canonical_payload_drift_is_refused_before_text_export() {
+        for truncate in [false, true] {
+            let directory = tempfile::tempdir().unwrap();
+            let store = ArtifactStore::new(directory.path()).unwrap();
+            let canonical = TimedTextArtifactTransform::new(Format::Srt, Format::TimedTranscriptJson).unwrap()
+                .apply(&source(&store), Format::TimedTranscriptJson, &store).unwrap();
+            let mut bytes = store.read_bytes(&canonical).unwrap();
+            if truncate { bytes.pop(); } else { bytes[0] = b'['; }
+            fs::write(store.payload_path(&canonical).unwrap(), bytes).unwrap();
+            let error = TimedTextArtifactTransform::new(Format::TimedTranscriptJson, Format::Text).unwrap()
+                .apply(&canonical, Format::Text, &store).unwrap_err();
+            assert!(matches!(error.downcast_ref::<SubtitleProviderError>(), Some(SubtitleProviderError::SourceChanged)));
+        }
+    }
+
+    #[test]
+    fn canonical_evidence_drift_is_refused_instead_of_overwritten_by_text_export() {
+        let directory = tempfile::tempdir().unwrap();
+        let store = ArtifactStore::new(directory.path()).unwrap();
+        let canonical = TimedTextArtifactTransform::new(Format::Srt, Format::TimedTranscriptJson).unwrap()
+            .apply(&source(&store), Format::TimedTranscriptJson, &store).unwrap();
+        let original = serde_json::to_value(&canonical).unwrap();
+        for mutation in 0..8 {
+            let mut changed = original.clone();
+            let evidence = &mut changed["metadata"][SUBTITLE_ARTIFACT_METADATA_KEY];
+            match mutation {
+                0 => evidence["source"]["sha256"] = serde_json::json!("0".repeat(64)),
+                1 => evidence["language"] = serde_json::json!("jpn"),
+                2 => evidence["canonical_transcript"]["sha256"] = serde_json::json!("0".repeat(64)),
+                3 => evidence["overlap_policy"] = serde_json::json!("reject"),
+                4 => evidence["prior_losses"] = serde_json::json!(["language"]),
+                5 => evidence["unknown"] = serde_json::json!(true),
+                6 => evidence["language"] = serde_json::json!("a".repeat(MAX_SUBTITLE_METADATA_BYTES)),
+                _ => evidence["input_sha256"] = serde_json::json!("0".repeat(64)),
+            }
+            let changed: Artifact = serde_json::from_value(changed).unwrap();
+            assert!(TimedTextArtifactTransform::new(Format::TimedTranscriptJson, Format::Text).unwrap()
+                .apply(&changed, Format::Text, &store).is_err(), "mutation {mutation} was admitted");
+        }
+    }
+
+    #[test]
+    fn text_export_rejects_malformed_canonical_bytes_and_wrong_requested_formats() {
+        let directory = tempfile::tempdir().unwrap();
+        let store = ArtifactStore::new(directory.path()).unwrap();
+        let malformed = store.put_bytes(b"{}", ArtifactDescriptor::for_format(
+            Format::TimedTranscriptJson, ArtifactStorageClass::Source)).unwrap();
+        let transform = TimedTextArtifactTransform::new(Format::TimedTranscriptJson, Format::Text).unwrap();
+        assert!(transform.apply(&malformed, Format::Text, &store).is_err());
+        assert!(transform.apply(&malformed, Format::Srt, &store).is_err());
+        assert!(transform.apply(&source(&store), Format::Text, &store).is_err());
+    }
+
+    #[test]
+    fn text_export_refuses_unaccounted_line_separators_before_output_allocation() {
+        let mut transcript = parse(SRT, TimedTextFormat::Srt).unwrap();
+        let mut cue = transcript.cues[0].clone();
+        cue.text = "a".repeat(super::super::MAX_CUE_TEXT_BYTES);
+        transcript.cues = (0..MAX_INPUT_BYTES / super::super::MAX_CUE_TEXT_BYTES).map(|index| {
+            let mut cue = cue.clone();
+            cue.id = (index + 1).to_string();
+            cue
+        }).collect();
+        validate(&transcript).unwrap();
+        let error = render_bounded(&transcript, TimedTextFormat::Text).unwrap_err();
+        assert!(matches!(error.downcast_ref::<TimedTextError>(), Some(TimedTextError::OutputTooLarge)));
+    }
+
+    #[test]
+    fn text_export_evidence_requires_loss_disclosure_and_canonical_parent_identity() {
+        let directory = tempfile::tempdir().unwrap();
+        let store = ArtifactStore::new(directory.path()).unwrap();
+        let canonical = TimedTextArtifactTransform::new(Format::Srt, Format::TimedTranscriptJson).unwrap()
+            .apply(&source(&store), Format::TimedTranscriptJson, &store).unwrap();
+        let exported = TimedTextArtifactTransform::new(Format::TimedTranscriptJson, Format::Text).unwrap()
+            .apply(&canonical, Format::Text, &store).unwrap();
+        let original = serde_json::to_value(&exported).unwrap();
+        for mutation in 0..6 {
+            let mut changed = original.clone();
+            let evidence = &mut changed["metadata"][SUBTITLE_ARTIFACT_METADATA_KEY];
+            match mutation {
+                0 => evidence["export_losses"].as_array_mut().unwrap().retain(|loss| loss.as_str() != Some("timing")),
+                1 => evidence["export_losses"] = serde_json::json!(["timing", "timing"]),
+                2 => evidence["input_sha256"] = serde_json::json!("0".repeat(64)),
+                3 => evidence["language"] = serde_json::json!("jpn"),
+                4 => evidence["prior_losses"] = serde_json::json!(["speakers"]),
+                _ => evidence["unknown"] = serde_json::json!(true),
+            }
+            let changed: Artifact = serde_json::from_value(changed).unwrap();
+            assert!(validate_text_export_evidence(&changed).is_err(), "mutation {mutation} was admitted");
+        }
+        let text = store.put_bytes(b"ordinary document", ArtifactDescriptor::for_format(
+            Format::Text, ArtifactStorageClass::Source)).unwrap();
+        assert!(validate_text_export_evidence(&text).is_err());
+    }
+
+    #[test]
+    fn rehashed_unrelated_text_cannot_inherit_a_valid_canonical_transcript_reference() {
+        let directory = tempfile::tempdir().unwrap();
+        let store = ArtifactStore::new(directory.path()).unwrap();
+        let canonical = TimedTextArtifactTransform::new(Format::Srt, Format::TimedTranscriptJson).unwrap()
+            .apply(&source(&store), Format::TimedTranscriptJson, &store).unwrap();
+        let exported = TimedTextArtifactTransform::new(Format::TimedTranscriptJson, Format::Text).unwrap()
+            .apply(&canonical, Format::Text, &store).unwrap();
+        validate_text_export_from_canonical(&exported, &canonical, &store).unwrap();
+        let forged = store.put_bytes(b"Unrelated freshly rehashed UTF-8 text\n",
+            ArtifactDescriptor::for_format(Format::Text, ArtifactStorageClass::Terminal)
+                .with_source(canonical.id().clone())
+                .with_metadata(SUBTITLE_ARTIFACT_METADATA_KEY,
+                    exported.metadata()[SUBTITLE_ARTIFACT_METADATA_KEY].clone())).unwrap();
+        // Structural/UTF-8 validation alone cannot establish this relationship.
+        validate_text_export_artifact(&forged, &store).unwrap();
+        let error = validate_text_export_from_canonical(&forged, &canonical, &store).unwrap_err();
+        assert!(error.to_string().contains("bytes differ from the canonical cue text"));
+        let unrelated = store.put_bytes(b"1\n00:00:01,000 --> 00:00:02,000\nOther cue\n",
+            ArtifactDescriptor::for_format(Format::Srt, ArtifactStorageClass::Source)).unwrap();
+        let other_canonical = TimedTextArtifactTransform::new(Format::Srt, Format::TimedTranscriptJson).unwrap()
+            .apply(&unrelated, Format::TimedTranscriptJson, &store).unwrap();
+        assert!(validate_text_export_from_canonical(&exported, &other_canonical, &store).is_err());
     }
 }

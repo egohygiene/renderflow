@@ -2,7 +2,7 @@
 
 SPDX-License-Identifier: MIT
 
-This is an authored, **unqualified** integration suite. No command, conversion,
+This is an authored, **unqualified** integration suite. No Renderflow command, conversion,
 native probe, test, schema validation or platform qualification was performed
 while adding it. The runner uses only the public Renderflow CLI. It does not
 import Renderflow implementation code or invoke another Flow repository.
@@ -40,8 +40,9 @@ not directly runnable specs with machine paths. All exact targets are required.
 
 | Job | Source | Exact graph targets / standalone output |
 | --- | --- | --- |
+| `original-body` | `sources/original.fountain` | `target.screenplay_json`, `target.fdx`, `target.fadein`, `target.osf`, `target.trelby`; built-in body exports with no provider |
 | `recovery-text` | `sources/unstructured-scene.txt` | `target.screenplay_json`, `target.fountain`, `target.fdx`, `target.fadein`, `target.osf` |
-| `timed-text` | `sources/captions.srt` | `target.timed_transcript_json`, `target.vtt` |
+| `timed-text` | `sources/captions.srt` | `target.timed_transcript_json`, `target.vtt`, `target.text` |
 | `fountain-analysis` | `sources/original.fountain` | Analysis JSON in `stdout.log`; no invented graph target |
 | `transcript-text` | `sources/captions.srt` | `transcript.txt` plus export report in `stdout.log` |
 | `screenplay-pdf` | `sources/original.fountain` | `target.pdf`; optional pinned afterwriting policy |
@@ -65,8 +66,31 @@ roles, no render variants/options/selectors; generated reachable targets have
 no declared ID and their role equals their format. They are not observed plan
 receipts. Both actual selected membership and actual published membership must
 match those declarations. The duplicate case expects one effective target;
-the exhaustive cycle case expects canonical transcript and VTT, with no source
+the exhaustive cycle case expects canonical transcript, VTT and terminal text, with no source
 SRT identity export and no repeating-format route.
+
+`original-body` uses the unchanged bundled original Fountain directly, with
+`execution.screenplay_body: {"allow_unqualified": true}` in its own spec. Every
+target is one independent Fountain edge. The built-in writers accept the strict
+six-kind body profile: scene heading, action, character, dialogue, parenthetical
+and transition. They reject unsupported structure or unrepresentable text rather
+than dropping it. This is separate from lossy recovery and from Scripttool's
+native import; Scripttool reverse exports remain unavailable. Canonical JSON
+retains the accepted parsed model; native files do not promise title pages,
+layout, typography, pagination or application compatibility.
+
+Each original-body publication retains original and canonical references,
+digests, policy/profile identity, `runtime_qualified: false`, and mandatory
+review. The runner cross-checks those declarations against the actual source,
+published canonical target and direct route. A completed job is not a qualified
+native-app opening or creative approval.
+
+`timed-text` keeps caption parsing and canonical-to-text export in the same
+isolated subtitle job. Text is terminal and retains its canonical parent,
+original provenance and partial-fidelity loss declarations in native evidence.
+Its bytes omit timing, cue identifiers and structured metadata. The standalone
+`transcript-text` job remains a separate public-command example; it does not
+provide a dry-run or create an edge back from text to timed data.
 
 ## Explicit native configuration
 
@@ -169,12 +193,13 @@ consumption was qualified. Results always retain `qualification: unqualified`
 and `coverage_complete: false`. Failed children produce `partial`/`failed` with
 nonzero exit; interruption produces `cancelled` when the runner can write it.
 
-General original-Fountain export to FDX/Fade In/OSF/canonical JSON is unsupported.
-Native import is native-to-Fountain; recovery exports apply to recovered
-PDF/plain-text candidates. Original Fountain is never mislabeled as plain text.
-Fountain-to-PDF, standalone Fountain analysis, caption conversion, speech and
-embedded subtitle extraction remain separate jobs. Graph plain transcript-text
-export and automatic cross-job chaining are not implied by this example.
+Original-Fountain export is restricted to the built-in body profile above and
+remains unqualified. Native import is native-to-Fountain; recovery exports apply
+to recovered PDF/plain-text candidates. Original Fountain is never mislabeled
+as plain text. Fountain-to-PDF, standalone Fountain analysis, caption conversion,
+speech and embedded subtitle extraction remain separate jobs. Text cannot supply
+timing, speech is never inferred from missing captions, and automatic cross-job
+chaining is not implied by this example.
 
 ## Source provenance
 

@@ -264,6 +264,96 @@ def expected_membership(job, forest, published=None):
         raise ValueError("automatic reachable targets must not publish the original as a derivative")
 
 
+def original_body_evidence(manifest, published, source_record, policy):
+    """Check retained declarations without claiming native-application qualification."""
+    records = manifest["artifact_manifest"]["artifacts"]
+    sources = [record for record in records if record.get("lifecycle") == "source"]
+    if len(sources) != 1 or sources[0].get("format") != "fountain":
+        raise ValueError("original body job requires exactly one Fountain source record")
+    source = sources[0]
+    expected_digest = {"algorithm": "sha256", "value": source_record["sha256"]}
+    if source.get("digest") != expected_digest or source.get("size_bytes") != source_record["size_bytes"] or source.get("sources") != []:
+        raise ValueError("original body source identity differs from its actual input")
+    if policy != {"allow_unqualified": True}:
+        raise ValueError("original body job requires its explicit unqualified policy")
+    policy_sha256 = sha256(json.dumps(policy, separators=(",", ":")).encode())
+    branches = {branch["target_id"]: branch for branch in manifest["artifact_forest"]["branches"]}
+    canonical_outputs = [item for item in published if item["format"] == "screenplay_json"]
+    if len(canonical_outputs) != 1:
+        raise ValueError("original body fixture requires its actual canonical publication")
+    canonical_output = canonical_outputs[0]
+    for item in published:
+        record = records[item["artifact_evidence_index"]]
+        metadata = record.get("metadata")
+        evidence = metadata.get("renderflow.screenplay_body") if isinstance(metadata, dict) else None
+        if not isinstance(evidence, dict):
+            raise ValueError("original body publication requires an object metadata namespace")
+        original = evidence.get("original_source", {})
+        canonical = evidence.get("canonical_artifact", {})
+        if not isinstance(original, dict) or not isinstance(canonical, dict):
+            raise ValueError("original body source and canonical references must be objects")
+        if evidence.get("schema_version") != "renderflow.screenplay-body-artifact/v1" or evidence.get("profile") != "strict-six-kind-body-v1":
+            raise ValueError("original body publication lacks its bounded body profile")
+        if evidence.get("qualification") != "authored_unqualified" or evidence.get("runtime_qualified") is not False or evidence.get("review_required") is not True:
+            raise ValueError("original body publication lost unqualified review declarations")
+        if original.get("id") != source["artifact_id"] or original.get("format") != "fountain" or original.get("digest") != expected_digest or original.get("size_bytes") != source_record["size_bytes"] or original.get("sources") != []:
+            raise ValueError("original body evidence refers to a different original source")
+        if evidence.get("input_artifact_id") != source["artifact_id"] or evidence.get("input_sha256") != source_record["sha256"] or record.get("sources") != [source["artifact_id"]]:
+            raise ValueError("original body publication lost direct original-source lineage")
+        if evidence.get("output_format") != item["format"] or record.get("format") != item["format"] or evidence.get("output_sha256") != item["file"]["sha256"] or evidence.get("policy_sha256") != policy_sha256:
+            raise ValueError("original body output or policy identity differs")
+        if canonical.get("format") != "screenplay_json" or canonical.get("sources") != [source["artifact_id"]] or canonical.get("digest") != {"algorithm": "sha256", "value": evidence.get("canonical_sha256")} or canonical.get("id") != canonical_output["artifact_id"] or evidence.get("canonical_sha256") != canonical_output["file"]["sha256"]:
+            raise ValueError("original body publication lost its retained canonical reference")
+        if item["format"] == "screenplay_json" and (canonical["id"] != record["artifact_id"] or evidence["canonical_sha256"] != item["file"]["sha256"]):
+            raise ValueError("original body canonical publication differs from its retained reference")
+        steps = branches[item["target_id"]]["route"]["steps"]
+        if item["source_identity"] or len(steps) != 1 or steps[0]["from"] != "fountain" or steps[0]["to"] != item["format"]:
+            raise ValueError("original body publication must use one direct Fountain edge")
+
+
+def transcript_text_evidence(manifest, published, source_record):
+    """Keep text's canonical parent and declared timing/provenance losses visible."""
+    records = manifest["artifact_manifest"]["artifacts"]
+    for item in published:
+        if item["format"] != "text":
+            continue
+        record = records[item["artifact_evidence_index"]]
+        metadata = record.get("metadata")
+        evidence = metadata.get("renderflow.subtitle") if isinstance(metadata, dict) else None
+        if not isinstance(evidence, dict):
+            raise ValueError("transcript text publication requires an object metadata namespace")
+        canonical = evidence.get("canonical_transcript", {})
+        source = evidence.get("source")
+        if not isinstance(canonical, dict) or not isinstance(source, dict):
+            raise ValueError("transcript text source and canonical references must be objects")
+        stream = source.get("stream")
+        if stream is not None and not isinstance(stream, dict):
+            raise ValueError("transcript text optional stream must be an object or absent")
+        parents = [parent for parent in records
+                   if parent.get("artifact_id") == canonical.get("artifact_id")
+                   and parent.get("format") == "timed_transcript_json"
+                   and parent.get("digest") == {"algorithm": "sha256", "value": canonical.get("sha256")}]
+        if evidence.get("schema_version") != "renderflow.subtitle-artifact/v1" or evidence.get("operation") != "export" or record.get("fidelity") != "partial":
+            raise ValueError("transcript text publication lacks partial-fidelity export evidence")
+        if not parents or evidence.get("input_artifact_id") != canonical.get("artifact_id") or evidence.get("input_sha256") != canonical.get("sha256") or record.get("sources") != [canonical.get("artifact_id")]:
+            raise ValueError("transcript text publication lost its retained canonical parent")
+        parent_metadata = parents[0].get("metadata")
+        parent_evidence = parent_metadata.get("renderflow.subtitle") if isinstance(parent_metadata, dict) else None
+        if not isinstance(parent_evidence, dict):
+            raise ValueError("transcript text canonical parent requires an object metadata namespace")
+        if source.get("sha256") != source_record["sha256"] or source != parent_evidence.get("source") or evidence.get("language") != parent_evidence.get("language") or evidence.get("prior_losses") != parent_evidence.get("prior_losses"):
+            raise ValueError("transcript text publication changed original provenance or prior losses")
+        losses = evidence.get("export_losses", [])
+        if not isinstance(losses, list) or not all(isinstance(loss, str) for loss in losses):
+            raise ValueError("transcript text export losses must be an array of names")
+        if not {"timing", "cue_ids", "source_provenance", "overlap_policy"}.issubset(losses):
+            raise ValueError("transcript text publication omitted timing or provenance losses")
+        if evidence.get("prior_losses") and "prior_loss_evidence" not in losses:
+            raise ValueError("transcript text publication omitted prior-loss disclosure")
+        if (evidence.get("language") is not None or (stream or {}).get("language") is not None) and "language" not in losses:
+            raise ValueError("transcript text publication omitted language-loss disclosure")
+
+
 def configure(job, native, directory):
     entry = native.get(job.get("configuration", job["id"]))
     if job.get("native") and entry is None:
@@ -383,6 +473,10 @@ def run_job(job, native, binary, mode, root, timeout):
             if len(source_records) != 1 or source_records[0].get("digest") != {"algorithm": "sha256", "value": source_record["sha256"]} or source_records[0].get("size_bytes") != source_record["size_bytes"]:
                 raise ValueError("native run source identity differs from the actual fixture input")
             expected_membership(job, manifest["artifact_forest"], result["published_artifacts"])
+            if "screenplay_body" in spec["execution"]:
+                original_body_evidence(manifest, result["published_artifacts"], source_record, spec["execution"]["screenplay_body"])
+            if "subtitles" in spec["execution"]:
+                transcript_text_evidence(manifest, result["published_artifacts"], source_record)
             if job.get("expected") == "review_required":
                 records = manifest["artifact_manifest"]["artifacts"]
                 for item in result["published_artifacts"]:

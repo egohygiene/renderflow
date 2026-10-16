@@ -173,3 +173,15 @@ fn bounded_fountain_join_refuses_oversized_paragraph_instead_of_truncating() {
     assert_eq!(body_projection(&screenplay, NativeScreenplayFormat::Fountain).unwrap_err().code,
         "screenplay_recovery.export.bounds");
 }
+
+#[test]
+fn shared_trelby_codec_does_not_expand_the_recovery_export_contract() {
+    let recovered = dialogue_candidate();
+    let unchanged = serde_json::to_vec(&recovered).unwrap();
+    assert_eq!(export(&recovered, NativeScreenplayFormat::Trelby).unwrap_err().code,
+        "screenplay_recovery.export.unsupported");
+    let fdx = export(&recovered, NativeScreenplayFormat::Fdx).unwrap();
+    assert_eq!(validate_export(&recovered, NativeScreenplayFormat::Trelby, &fdx.bytes, &fdx.evidence)
+        .unwrap_err().code, "screenplay_recovery.export.unsupported");
+    assert_eq!(serde_json::to_vec(&recovered).unwrap(), unchanged);
+}

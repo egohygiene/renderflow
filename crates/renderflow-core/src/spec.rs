@@ -12,6 +12,7 @@ use crate::optimization::OptimizationMode;
 use crate::publication::{PageGeometry, PublicationContract};
 use crate::speech::policy::SpeechPolicy;
 use crate::screenplay::provider::ScripttoolConfig;
+use crate::screenplay::body_graph::BodyExportPolicy;
 use crate::screenplay::afterwriting::AfterwritingConfig;
 use crate::screenplay::recovery::provider::RecoveryExtractionConfig;
 
@@ -579,6 +580,9 @@ pub struct ExecutionPolicy {
     /// Explicit pinned, unqualified native screenplay conversion.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub screenplay: Option<ScripttoolConfig>,
+    /// Explicit, unqualified original Fountain to canonical/native body exports.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub screenplay_body: Option<BodyExportPolicy>,
     /// Explicit pinned, unqualified original Fountain to screenplay PDF route.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub screenplay_pdf: Option<AfterwritingConfig>,
@@ -736,6 +740,7 @@ impl Default for ExecutionPolicy {
             subtitles: None,
             speech: None,
             screenplay: None,
+            screenplay_body: None,
             screenplay_pdf: None,
             screenplay_recovery: None,
         }
@@ -886,6 +891,7 @@ impl SpecV2 {
                 ));
             }
             if self.execution.speech.is_some() || self.execution.subtitles.is_some()
+                || self.execution.screenplay_body.is_some()
                 || self.execution.screenplay_pdf.is_some()
                 || self.execution.screenplay_recovery.is_some()
                 || self.execution.print_pdf_interior.is_some() || self.execution.fixed_layout_epub.is_some()
@@ -898,6 +904,25 @@ impl SpecV2 {
             }
         }
 
+        if let Some(body) = &self.execution.screenplay_body {
+            if let Err(error) = body.validate() {
+                diagnostics.push(SpecDiagnostic::new(
+                    "$.execution.screenplay_body", "screenplay_body.policy.invalid", error.to_string(),
+                ));
+            }
+            if self.execution.screenplay.is_some() || self.execution.screenplay_pdf.is_some()
+                || self.execution.screenplay_recovery.is_some() || self.execution.speech.is_some()
+                || self.execution.subtitles.is_some() || self.execution.print_pdf_interior.is_some()
+                || self.execution.fixed_layout_epub.is_some() || self.transforms.is_some()
+                || self.execution.hygiene_policy.is_some()
+            {
+                diagnostics.push(SpecDiagnostic::new(
+                    "$.execution.screenplay_body", "screenplay_body.policy.ambiguous",
+                    "original Fountain body export requires its own spec without other native policies, custom transforms, or post-export hygiene",
+                ));
+            }
+        }
+
         if let Some(screenplay_pdf) = &self.execution.screenplay_pdf {
             if let Err(error) = screenplay_pdf.validate() {
                 diagnostics.push(SpecDiagnostic::new(
@@ -905,6 +930,7 @@ impl SpecV2 {
                 ));
             }
             if self.execution.screenplay.is_some() || self.execution.speech.is_some()
+                || self.execution.screenplay_body.is_some()
                 || self.execution.screenplay_recovery.is_some()
                 || self.execution.subtitles.is_some() || self.execution.print_pdf_interior.is_some()
                 || self.execution.fixed_layout_epub.is_some() || self.transforms.is_some()
@@ -926,6 +952,7 @@ impl SpecV2 {
                 ));
             }
             if self.execution.screenplay.is_some() || self.execution.screenplay_pdf.is_some()
+                || self.execution.screenplay_body.is_some()
                 || self.execution.speech.is_some() || self.execution.subtitles.is_some()
                 || self.execution.print_pdf_interior.is_some() || self.execution.fixed_layout_epub.is_some()
                 || self.transforms.is_some() || self.execution.hygiene_policy.is_some()
@@ -2156,10 +2183,17 @@ pub fn json_schema() -> Value {
                     ,"subtitles": {"anyOf": [{"$ref": "#/$defs/subtitles"}, {"type": "null"}]}
                     ,"speech": {"anyOf": [{"$ref": "#/$defs/speechPolicy"}, {"type": "null"}]}
                     ,"screenplay": {"anyOf": [{"$ref": "#/$defs/screenplayPolicy"}, {"type": "null"}]}
+                    ,"screenplay_body": {"anyOf": [{"$ref": "#/$defs/screenplayBodyPolicy"}, {"type": "null"}]}
                     ,"screenplay_pdf": {"anyOf": [{"$ref": "#/$defs/screenplayPdfPolicy"}, {"type": "null"}]}
                     ,"screenplay_recovery": {"anyOf": [{"$ref": "#/$defs/screenplayRecoveryPolicy"}, {"type": "null"}]}
                 }
             },
+                "screenplayBodyPolicy": {
+                    "type": "object", "additionalProperties": false,
+                    "required": ["allow_unqualified"],
+                    "description": "Original strict Fountain body exports only. Built-in codecs do not imply native application, layout or runtime qualification.",
+                    "properties": {"allow_unqualified": {"const": true}}
+                },
                 "screenplayRecoveryPolicy": {
                     "type": "object", "additionalProperties": false,
                     "required": ["allow_unqualified"],
@@ -2654,6 +2688,40 @@ variables:
             "timeout_seconds": 30,
             "allow_unqualified": true
         })
+    }
+
+    #[test]
+    fn original_screenplay_body_policy_is_explicit_and_isolated() {
+        let defaults: ExecutionPolicy = serde_json::from_value(json!({})).unwrap();
+        assert!(defaults.screenplay_body.is_none());
+        assert!(serde_json::to_value(defaults).unwrap().get("screenplay_body").is_none());
+        for invalid in [json!({}), json!([true]), json!({"allow_unqualified": true, "provider": "scripttool"})] {
+            assert!(serde_json::from_value::<ExecutionPolicy>(json!({"screenplay_body": invalid})).is_err());
+        }
+        let mut spec = load_spec_str(VALID_EXACT).unwrap().spec;
+        spec.execution.screenplay_body = Some(BodyExportPolicy { allow_unqualified: false });
+        assert!(spec.validate().iter().any(|item| item.code == "screenplay_body.policy.invalid"));
+        spec.execution.screenplay_body.as_mut().unwrap().allow_unqualified = true;
+        assert!(!spec.validate().iter().any(|item| item.code.starts_with("screenplay_body.")));
+        spec.execution.subtitles = Some(SubtitlePolicy::default());
+        assert!(spec.validate().iter().any(|item| item.code == "screenplay_body.policy.ambiguous"));
+        spec.execution.subtitles = None;
+        spec.transforms = Some("transforms.yaml".to_owned());
+        assert!(spec.validate().iter().any(|item| item.code == "screenplay_body.policy.ambiguous"));
+        spec.transforms = None;
+        spec.execution.hygiene_policy = Some("scrub".to_owned());
+        assert!(spec.validate().iter().any(|item| item.code == "screenplay_body.policy.ambiguous"));
+    }
+
+    #[test]
+    fn original_screenplay_body_schema_matches_published_contract() {
+        let runtime = json_schema();
+        let published: Value = serde_json::from_str(include_str!("../../../schemas/renderflow-v2.schema.json")).unwrap();
+        assert_eq!(runtime["$defs"]["screenplayBodyPolicy"], published["$defs"]["screenplayBodyPolicy"]);
+        assert_eq!(runtime["$defs"]["executionPolicy"]["properties"]["screenplay_body"],
+            published["$defs"]["executionPolicy"]["properties"]["screenplay_body"]);
+        assert_eq!(runtime["$defs"]["screenplayBodyPolicy"]["properties"]["allow_unqualified"]["const"], true);
+        assert_eq!(runtime["$defs"]["screenplayBodyPolicy"]["additionalProperties"], false);
     }
 
     #[test]

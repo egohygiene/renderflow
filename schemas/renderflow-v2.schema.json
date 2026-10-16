@@ -294,6 +294,12 @@
             }
           ]
         },
+        "screenplay_body": {
+          "anyOf": [
+            { "$ref": "#/$defs/screenplayBodyPolicy" },
+            { "type": "null" }
+          ]
+        },
         "screenplay_recovery": {
           "anyOf": [
             { "$ref": "#/$defs/screenplayRecoveryPolicy" },
@@ -314,6 +320,12 @@
         }
       },
       "type": "object"
+    },
+    "screenplayBodyPolicy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["allow_unqualified"],
+      "description": "Original strict Fountain body exports only. Built-in codecs do not imply native application, layout or runtime qualification.",
+      "properties": {"allow_unqualified": {"const": true}}
     },
     "screenplayRecoveryPolicy": {
       "type": "object", "additionalProperties": false,
@@ -1902,6 +1914,9 @@
           "type": "null"
         },
         "screenplay_pdf": {
+          "type": "null"
+        },
+        "screenplay_body": {
           "type": "null"
         },
         "screenplay_recovery": {

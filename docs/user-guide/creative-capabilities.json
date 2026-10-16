@@ -2,7 +2,7 @@
   "schema_version": "renderflow.creative-capabilities/v1",
   "catalog": {
     "path": "crates/renderflow-core/data/creative-routes.json",
-    "sha256": "e20fe4ff39f3512ef02f0c7cc66ed1ee3e87a2b2dc236fe6133bcbc78a414a3e",
+    "sha256": "ba2f29fcfdb63aea9f3d6d0e1a34de6d75af7c008488897a71bc009c1841d9c6",
     "schema_version": "renderflow.creative-route-catalog/v1",
     "profile": "creative-publishing"
   },
@@ -47,6 +47,24 @@
           "crates/renderflow-core/src/screenplay/recovery/provider.rs"
         ],
         "guide": "docs/screenplay-recovery.md"
+      }
+    },
+    {
+      "id": "screenplay.body.export",
+      "implementation": "authored_unqualified",
+      "providers": [],
+      "required_configuration": [
+        "execution.screenplay_body",
+        "execution.screenplay_body.allow_unqualified",
+        "strict_original_fountain_body"
+      ],
+      "detail": "Built-in independent original Fountain exports to canonical screenplay JSON, FDX, Fade In, OSF, and native Trelby require execution.screenplay_body with allow_unqualified: true. Each edge consumes the immutable original directly, admits only scene heading, action, character, dialogue, parenthetical, and transition body kinds, and refuses titles, dual dialogue, extensions, and unrepresentable content. No provider executable or recovery heuristic is involved. Retained canonical/source/output evidence and independent readback do not confer approval or native application fidelity; runtime_qualified remains false.",
+      "documentation": {
+        "sources": [
+          "crates/renderflow-core/src/screenplay/body_graph.rs",
+          "crates/renderflow-core/src/screenplay/native.rs"
+        ],
+        "guide": "docs/user-guide/screenplay.md"
       }
     },
     {
@@ -222,7 +240,7 @@
         "execution.subtitles",
         "supported_plain_timed_text"
       ],
-      "detail": "Built-in bounded SRT/WebVTT and canonical timed-transcript conversion needs no external executable. The opt-in graph/SDK route is authored; runtime qualification remains deferred.",
+      "detail": "Built-in bounded SRT/WebVTT and canonical timed-transcript conversion needs no external executable. Under the existing subtitle policy, canonical timed transcripts also export terminal UTF-8 Text, including explicitly selected speech descendants. Text retains source/canonical provenance but drops timing, cue IDs, and structured metadata; it has no reverse timed-text edge and does not imply text-to-screenplay structure. The opt-in graph/SDK routes are authored; runtime qualification remains deferred.",
       "documentation": {
         "sources": [
           "crates/renderflow-core/src/timed_text/codec.rs",
@@ -272,7 +290,7 @@
   "unsupported_directions": [
     {
       "id": "screenplay.general_canonical_export",
-      "detail": "General conversion of an original Fountain source to FDX, Fade In, OSF, or canonical screenplay JSON is not an exposed export route. General canonical screenplay JSON to native formats is also unavailable. The internal body parser and canonical codec do not create those routes; recovery-only exporters require a replayable recovery candidate and retain lossy, review-required evidence.",
+      "detail": "General rich Fountain or arbitrary canonical screenplay JSON to native formats remains unavailable. The separate opt-in screenplay.body.export route admits a strict six-kind original Fountain body only; it does not add native inputs, metadata/title/dual-dialogue preservation, recovered/imported-source chaining, or general native round trips. Recovery-only exporters still require a replayable recovery candidate and retain lossy, review-required evidence.",
       "sources": [
         "docs/user-guide/screenplay.md#loss-and-round-trip-limits",
         "docs/screenplay-recovery.md"
@@ -280,7 +298,7 @@
     },
     {
       "id": "screenplay.scripttool.reverse",
-      "detail": "Fountain to FDX, OSF, and Fade In through scripttool is not adopted. The independent recovery-candidate exporters are a different, review-required path; their existence does not qualify scripttool's reverse converters.",
+      "detail": "Fountain to FDX, OSF, and Fade In through scripttool is not adopted. The built-in original-body exports and independent recovery-candidate exports are distinct bounded paths; neither qualifies scripttool's reverse converters or adds scripttool graph edges.",
       "sources": [
         "docs/work/424/PROVIDER_EVALUATION.md",
         "docs/screenplay-recovery.md"
@@ -315,8 +333,8 @@
       ]
     },
     {
-      "id": "transcript.graph.plain_text",
-      "detail": "Plain transcript text is available through standalone speech/subtitle exports, but it is not a creative transcript graph target. Graph transcript derivatives use canonical timed-transcript JSON, SRT, or WebVTT; format recognition does not create a plain-text graph writer.",
+      "id": "transcript.text.reverse",
+      "detail": "Canonical timed transcript to terminal Text is an authored opt-in graph export. The text deliberately drops timing, cue IDs, and structured metadata. No Text-to-timed-transcript reverse edge, inferred timing, plain-text screenplay parsing, or recognition fallback is introduced by that terminal; ordinary source-format suppression still applies.",
       "sources": [
         "docs/user-guide/subtitles.md#opt-in-to-graph-and-sdk-execution",
         "docs/user-guide/speech.md#use-the-planner-and-rust-sdk"

@@ -4,15 +4,19 @@
 //! retain the candidate and canonical JSON alongside this evidence. Removing
 //! the envelope for the body comparison below never changes the candidate.
 
-use std::io::{Cursor, Write};
+#[cfg(test)]
+use std::io::Cursor;
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use thiserror::Error;
-use zip::{write::SimpleFileOptions, CompressionMethod, DateTime, ZipWriter};
+#[cfg(test)]
+use zip::CompressionMethod;
 
 use super::model::{validate_candidate, RecoveryCandidate};
-use crate::screenplay::native::{equivalent_semantics, parse_native, NativeScreenplayFormat};
+use crate::screenplay::native::{export_body, NativeScreenplayError, NativeScreenplayFormat};
+#[cfg(test)]
+use crate::screenplay::native::parse_native;
 use crate::screenplay::{
     render_json, validate, Screenplay, ScreenplayElementKind, ScreenplayLossDirection,
     ScreenplayLossEvidence, ScreenplayLossKind, MAX_INPUT_BYTES, MAX_LOSS_ENTRIES, MAX_TEXT_BYTES,
@@ -85,19 +89,19 @@ fn digest(bytes: &[u8]) -> String { format!("{:x}", Sha256::digest(bytes)) }
 /// this function. This is structural evidence, not native-application or
 /// original-source fidelity qualification.
 pub fn export(candidate: &RecoveryCandidate, format: NativeScreenplayFormat) -> Checked<RecoveryExport> {
+    // The shared codec also serves original-source exports. Its target catalog
+    // does not widen the separately versioned recovery evidence contract.
+    if format == NativeScreenplayFormat::Trelby {
+        return Err(failure("screenplay_recovery.export.unsupported",
+            "Trelby is outside the recovery export target contract; retain the recovery candidate and choose an existing recovery target"));
+    }
     validate_candidate(candidate).map_err(|error| failure("screenplay_recovery.export.candidate", error.to_string()))?;
     let canonical = render_json(&candidate.screenplay)
         .map_err(|error| failure("screenplay_recovery.export.canonical", error.to_string()))?;
     let candidate_bytes = serde_json::to_vec(candidate)
         .map_err(|error| failure("screenplay_recovery.export.candidate", error.to_string()))?;
     let (body, dialogue_joins) = body_projection(&candidate.screenplay, format)?;
-    let bytes = match format {
-        NativeScreenplayFormat::Fountain => fountain_bytes(&body)?,
-        NativeScreenplayFormat::Fdx => xml_bytes(&body, format)?,
-        NativeScreenplayFormat::Osf => xml_bytes(&body, format)?,
-        NativeScreenplayFormat::FadeIn => fadein_bytes(&body)?,
-    };
-    validate_body_bytes(&body, format, &bytes)?;
+    let bytes = export_body(&body, format).map_err(native_export_error)?;
     let mut losses = candidate.screenplay.losses.clone();
     let directional = [
         (ScreenplayLossKind::StableIds, "Native body bytes do not retain canonical stable element IDs. Retain the candidate and canonical JSON identified by this evidence."),
@@ -212,117 +216,20 @@ fn body_projection(screenplay: &Screenplay, format: NativeScreenplayFormat) -> C
     Ok((body, joins))
 }
 
-fn append(output: &mut String, value: &str) -> Checked<()> {
-    if output.len().saturating_add(value.len()) > MAX_INPUT_BYTES {
-        return Err(failure("screenplay_recovery.export.bounds", "native output exceeds 16 MiB"));
-    }
-    output.push_str(value);
-    Ok(())
-}
-
-fn append_xml(output: &mut String, value: &str) -> Checked<()> {
-    for character in value.chars() {
-        match character {
-            '&' => append(output, "&amp;")?,
-            '<' => append(output, "&lt;")?,
-            '>' => append(output, "&gt;")?,
-            '"' => append(output, "&quot;")?,
-            '\'' => append(output, "&apos;")?,
-            other => append(output, other.encode_utf8(&mut [0; 4]))?,
-        }
-    }
-    Ok(())
-}
-
-fn kind_label(kind: ScreenplayElementKind) -> Checked<&'static str> {
-    match kind {
-        ScreenplayElementKind::SceneHeading => Ok("Scene Heading"),
-        ScreenplayElementKind::Action => Ok("Action"),
-        ScreenplayElementKind::Character => Ok("Character"),
-        ScreenplayElementKind::Dialogue => Ok("Dialogue"),
-        ScreenplayElementKind::Parenthetical => Ok("Parenthetical"),
-        ScreenplayElementKind::Transition => Ok("Transition"),
-        _ => Err(failure("screenplay_recovery.export.unsupported", "unsupported native paragraph kind")),
-    }
-}
-
-fn xml_bytes(body: &Screenplay, format: NativeScreenplayFormat) -> Checked<Vec<u8>> {
-    let fdx = format == NativeScreenplayFormat::Fdx;
-    let mut output = String::new();
-    append(&mut output, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")?;
-    append(&mut output, if fdx {
-        "<FinalDraft DocumentType=\"Script\" Template=\"No\" Version=\"1\"><Content>\n"
-    } else {
-        "<document type=\"Open Screenplay Format document\" version=\"20\"><paragraphs>\n"
-    })?;
-    for element in &body.elements {
-        append(&mut output, if fdx { "<Paragraph Type=\"" } else { "<para><style basestylename=\"" })?;
-        append(&mut output, kind_label(element.kind)?)?;
-        append(&mut output, if fdx { "\"><Text>" } else { "\"/><text>" })?;
-        if element.kind == ScreenplayElementKind::Parenthetical {
-            if element.text.contains(['(', ')']) {
-                return Err(failure("screenplay_recovery.export.unsupported", "nested parentheses cannot be represented by the verified native parenthetical profile"));
-            }
-            append(&mut output, "(")?;
-        }
-        append_xml(&mut output, &element.text)?;
-        if element.kind == ScreenplayElementKind::Parenthetical { append(&mut output, ")")?; }
-        append(&mut output, if fdx { "</Text></Paragraph>\n" } else { "</text></para>\n" })?;
-    }
-    append(&mut output, if fdx { "</Content></FinalDraft>\n" } else { "</paragraphs></document>\n" })?;
-    Ok(output.into_bytes())
-}
-
-fn fountain_bytes(body: &Screenplay) -> Checked<Vec<u8>> {
-    let mut output = String::new();
-    for element in &body.elements {
-        if !matches!(element.kind, ScreenplayElementKind::Dialogue | ScreenplayElementKind::Parenthetical)
-            && !output.is_empty()
-        {
-            append(&mut output, "\n")?;
-        }
-        if element.kind == ScreenplayElementKind::Parenthetical { append(&mut output, "(")?; }
-        append(&mut output, &element.text)?;
-        if element.kind == ScreenplayElementKind::Parenthetical { append(&mut output, ")")?; }
-        append(&mut output, "\n")?;
-    }
-    Ok(output.into_bytes())
-}
-
-fn fadein_bytes(body: &Screenplay) -> Checked<Vec<u8>> {
-    let xml = xml_bytes(body, NativeScreenplayFormat::Osf)?;
-    // Reserve more than the fixed one-member ZIP header/directory overhead.
-    if xml.len() > MAX_INPUT_BYTES - 1024 {
-        return Err(failure("screenplay_recovery.export.bounds", "Fade In XML leaves insufficient bounded archive space"));
-    }
-    let mut archive = ZipWriter::new(Cursor::new(Vec::new()));
-    let options = SimpleFileOptions::default()
-        .compression_method(CompressionMethod::Stored)
-        .last_modified_time(DateTime::default())
-        .unix_permissions(0o644);
-    archive.start_file("document.xml", options)
-        .map_err(|error| failure("screenplay_recovery.export.archive", error.to_string()))?;
-    archive.write_all(&xml).map_err(|error| failure("screenplay_recovery.export.archive", error.to_string()))?;
-    let output = archive.finish()
-        .map_err(|error| failure("screenplay_recovery.export.archive", error.to_string()))?.into_inner();
-    if output.len() > MAX_INPUT_BYTES {
-        return Err(failure("screenplay_recovery.export.bounds", "Fade In archive exceeds 16 MiB"));
-    }
-    Ok(output)
-}
-
-fn validate_body_bytes(body: &Screenplay, format: NativeScreenplayFormat, bytes: &[u8]) -> Checked<()> {
-    if bytes.is_empty() || bytes.len() > MAX_INPUT_BYTES {
-        return Err(failure("screenplay_recovery.export.bounds", "native output is empty or exceeds 16 MiB"));
-    }
-    let parsed = parse_native(bytes, format).map_err(|error| failure(
-        "screenplay_recovery.export.unsupported",
-        format!("{} body could not be independently accepted; retain the canonical candidate or choose another native target: {error}", format.as_str()),
-    ))?;
-    equivalent_semantics(body, &parsed).map_err(|error| failure(
-        "screenplay_recovery.export.semantic_mismatch",
-        format!("{} representation changed the recovery body projection: {error}", format.as_str()),
-    ))
+/// Preserve the recovery diagnostic namespace while sharing the body codec.
+/// The replayed candidate, dialogue joins and mandatory loss/review evidence
+/// remain owned by this wrapper; only an already verified projection is sent
+/// to the common serializer.
+fn native_export_error(error: NativeScreenplayError) -> RecoveryExportError {
+    let code = match error.code {
+        "screenplay.native.export.structure" => "screenplay_recovery.export.structure",
+        "screenplay.native.export.text" => "screenplay_recovery.export.text",
+        "screenplay.native.export.bounds" => "screenplay_recovery.export.bounds",
+        "screenplay.native.export.archive" => "screenplay_recovery.export.archive",
+        "screenplay.native.export.semantic_mismatch" => "screenplay_recovery.export.semantic_mismatch",
+        _ => "screenplay_recovery.export.unsupported",
+    };
+    failure(code, error.message)
 }
 
 #[cfg(test)]

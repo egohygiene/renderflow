@@ -91,10 +91,10 @@ mod tests {
 
     #[test]
     fn screenplay_candidates_are_not_pandoc_input_formats() {
-        for identifier in ["fountain", "fdx", "fadein", "osf", "screenplay_json"] {
+        for identifier in ["fountain", "fdx", "fadein", "osf", "trelby", "screenplay_json"] {
             assert!(serde_yaml_ng::from_str::<InputFormat>(identifier).is_err());
         }
-        for path in ["scene.fountain", "scene.fdx", "scene.fadein", "scene.osf", "scene.screenplay.json"] {
+        for path in ["scene.fountain", "scene.fdx", "scene.fadein", "scene.osf", "scene.trelby", "scene.screenplay.json"] {
             assert_eq!(InputFormat::from_extension(path), None);
         }
     }

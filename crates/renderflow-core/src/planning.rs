@@ -19,6 +19,9 @@ use forest::{plan_forest_routes, group_forest_routes, finalize_forest_identity, 
 mod screenplay_recovery;
 use screenplay_recovery::{recovery_provider_ids, register_recovery_edges,
     register_recovery_executors, validate_recovery_source, validate_recovery_targets};
+mod screenplay_body;
+use screenplay_body::{register_body_edges, register_body_executors,
+    validate_body_source, validate_body_targets, SCREENPLAY_BODY_ADAPTER_EVIDENCE};
 
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::fs;
@@ -74,6 +77,10 @@ use crate::speech::policy::SpeechPolicy;
 use crate::speech::recovery::{receipt_bytes, SAVED_RESULT_FILENAME, SAVED_RESULT_SCHEMA};
 use crate::speech::WHISPER_PROVIDER_ID;
 use crate::screenplay::graph::{native_format, ScreenplayArtifactTransform};
+use crate::screenplay::body_graph::{
+    retained_canonical as retained_body_canonical, validate_artifact as validate_screenplay_body_artifact,
+    SCREENPLAY_BODY_CAPABILITY,
+};
 use crate::screenplay::afterwriting::{self, AfterwritingConfig, AFTERWRITING_PROVIDER_ID, NODE_PROVIDER_ID};
 use crate::screenplay::afterwriting_graph::{
     validate_published_artifact, AfterwritingArtifactTransform, SCREENPLAY_PDF_CAPABILITY,
@@ -82,7 +89,8 @@ use crate::process::ProcessCancellationToken;
 use crate::screenplay::provider::{supported_route, supported_version_line, ScripttoolConfig};
 use crate::super_resolution::{select_upscayl_variants, UpscaylModelCatalog};
 use crate::timed_text::graph::{
-    supports_media_format, SubtitleExtractionTransform, TimedTextArtifactTransform,
+    supports_media_format, validate_text_export_from_canonical, SubtitleExtractionTransform,
+    TimedTextArtifactTransform, SUBTITLE_ARTIFACT_METADATA_KEY,
 };
 use crate::toolchain::{
     transform_capability_id, CapabilityId, ToolDeterminism, ToolDiscovery, ToolFidelity, ToolId,
@@ -557,6 +565,12 @@ fn resolve_loaded(request: PlanningRequest, loaded: crate::spec::LoadedSpec) -> 
     let source_format = source_format.context("source collection has no members")?;
     let source_path = source_members[0].path.clone();
     let source_intake = &source_members[0].intake;
+    if let Some(policy) = &spec.execution.screenplay_body {
+        validate_body_source(source_format, collection, policy, &spec)?;
+        if !source_intake.profile.conflicts.is_empty() {
+            anyhow::bail!("screenplay_body.source.format_conflict: original Fountain source has conflicting format signals");
+        }
+    }
     if let Some(policy) = &spec.execution.screenplay_pdf {
         validate_screenplay_pdf_policy(source_format, collection, policy)?;
         validate_screenplay_pdf_hygiene(&spec)?;
@@ -617,6 +631,11 @@ fn resolve_loaded(request: PlanningRequest, loaded: crate::spec::LoadedSpec) -> 
         };
 
     register_builtin_strategy_edges(&mut graph, &mut tool_registry)?;
+    if let Some(policy) = &spec.execution.screenplay_body {
+        register_body_edges(&mut graph, &mut tool_registry, source_format, policy)?;
+        graph = graph.filtered_by(|edge| edge.evidence.get("adapter").map(String::as_str)
+            == Some(SCREENPLAY_BODY_ADAPTER_EVIDENCE));
+    }
     if let Some(policy) = &spec.execution.screenplay_recovery {
         register_recovery_edges(&mut graph, &mut tool_registry, source_format, policy)?;
         graph = graph.filtered_by(|edge| edge.evidence.get("adapter").map(String::as_str)
@@ -638,6 +657,9 @@ fn resolve_loaded(request: PlanningRequest, loaded: crate::spec::LoadedSpec) -> 
             collection,
             policy,
         )?;
+        // Plain transcript text deliberately loses timing and cue identity.
+        // A custom registry must not turn this terminal into an inferred input.
+        graph = graph.filtered_by(|edge| edge.from != Format::Text);
     }
     if let Some(policy) = &spec.execution.print_pdf_interior {
         register_print_pdf_edge(&mut graph, &mut tool_registry, source_format, policy)?;
@@ -661,7 +683,7 @@ fn resolve_loaded(request: PlanningRequest, loaded: crate::spec::LoadedSpec) -> 
             edge.evidence.get("adapter").map(String::as_str) == Some(SPEECH_ADAPTER_EVIDENCE)
                 || (edge.evidence.get("adapter").map(String::as_str) == Some(SUBTITLE_ADAPTER_EVIDENCE)
                     && edge.from == Format::TimedTranscriptJson
-                    && matches!(edge.to, Format::Srt | Format::WebVtt))
+                    && matches!(edge.to, Format::Srt | Format::WebVtt | Format::Text))
         });
     }
     let policy_graph = apply_execution_policy(&graph, &tool_registry, &spec);
@@ -672,13 +694,16 @@ fn resolve_loaded(request: PlanningRequest, loaded: crate::spec::LoadedSpec) -> 
         policy_graph
     };
     let requested_targets = resolve_target_intent(&spec, &graph, source_format)?;
+    if spec.execution.screenplay_body.is_some() {
+        validate_body_targets(&requested_targets)?;
+    }
     if spec.execution.screenplay_recovery.is_some() {
         validate_recovery_targets(&requested_targets)?;
     }
     if spec.execution.speech.is_some() && requested_targets.iter().any(|target| {
-        !matches!(target.format, Format::TimedTranscriptJson | Format::Srt | Format::WebVtt)
+        !matches!(target.format, Format::TimedTranscriptJson | Format::Srt | Format::WebVtt | Format::Text)
     }) {
-        anyhow::bail!("speech.target.unsupported: speech targets are timed_transcript_json, srt, or vtt");
+        anyhow::bail!("speech.target.unsupported: speech targets are timed_transcript_json, srt, vtt, or text");
     }
     if spec.execution.screenplay.is_some() && requested_targets.iter().any(|target| {
         !matches!((native_format(source_format), native_format(target.format)),
@@ -735,7 +760,7 @@ fn resolve_loaded(request: PlanningRequest, loaded: crate::spec::LoadedSpec) -> 
     let grouped_routes = group_forest_routes(source_format, &planned_forest.routes)?;
     if grouped_routes.len() > 1 && (collection || spec.execution.speech.is_some()
         || spec.execution.screenplay.is_some() || spec.execution.screenplay_pdf.is_some()
-        || spec.execution.screenplay_recovery.is_some()
+        || spec.execution.screenplay_recovery.is_some() || spec.execution.screenplay_body.is_some()
         || spec.execution.subtitles.is_some() || print_pages.is_some() || fixed_epub_pages.is_some()) {
         anyhow::bail!("forest.native_group_conflict: this bounded native/collection policy requires one compatible execution group; use separate requests for distinct render settings");
     }
@@ -838,6 +863,9 @@ fn resolve_loaded(request: PlanningRequest, loaded: crate::spec::LoadedSpec) -> 
     if spec.execution.screenplay_recovery.is_some() {
         plan.add_tool_diagnostic("screenplay_recovery.provider.unobserved: recovery and its exporters are authored and unqualified. Native paths, versions, and digests are declarations checked only at execution; planning launches no probes. Every result remains lossy and review-required. No AI fallback, source PDF regeneration, cache, checkpoint, or observed-toolchain claim is supplied.");
     }
+    if spec.execution.screenplay_body.is_some() {
+        plan.add_tool_diagnostic("screenplay_body.provider.unqualified: direct original-Fountain body exports use the local built-in codec without native executables. The bounded semantic profile and retained canonical reference do not qualify native application opening, pagination, layout, or creative approval. Publication independently revalidates the original, output, policy and canonical evidence; cache and checkpoint reuse remain disabled.");
+    }
     if spec.execution.screenplay_pdf.is_some() {
         plan.add_tool_diagnostic("screenplay_pdf.provider.unqualified: bounded preflight verifies configured Node/package pins, required package assets, and exact Node/package versions. This is availability evidence only; no PDF rendering or visual qualification occurs during planning. Execution independently inspects the emitted PDF; cache and checkpoint reuse remain disabled.");
     }
@@ -867,7 +895,8 @@ fn resolve_loaded(request: PlanningRequest, loaded: crate::spec::LoadedSpec) -> 
         ));
     }
     if spec.execution.speech.is_none() && spec.execution.screenplay.is_none()
-        && spec.execution.screenplay_pdf.is_none() && spec.execution.screenplay_recovery.is_none() && selected_inventory
+        && spec.execution.screenplay_pdf.is_none() && spec.execution.screenplay_recovery.is_none()
+        && spec.execution.screenplay_body.is_none() && selected_inventory
         .tools
         .iter()
         .all(|tool| tool.is_available())
@@ -1099,6 +1128,10 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
         &mut executor, &resolved.dag, resolved.spec.execution.screenplay_recovery.as_ref(),
         resolved.cancellation.clone(),
     )?;
+    register_body_executors(
+        &mut executor, &resolved.dag, resolved.spec.execution.screenplay_body.as_ref(),
+        resolved.cancellation.clone(),
+    )?;
     if let Some(pages) = &resolved.print_pages {
         let policy = resolved
             .spec
@@ -1166,7 +1199,8 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
     };
     let multiple_groups = resolved.execution_groups.len() > 1;
     let executor = if multiple_groups || resolved.spec.execution.speech.is_some() || resolved.spec.execution.screenplay.is_some()
-        || resolved.spec.execution.screenplay_pdf.is_some() || resolved.spec.execution.screenplay_recovery.is_some() {
+        || resolved.spec.execution.screenplay_pdf.is_some() || resolved.spec.execution.screenplay_recovery.is_some()
+        || resolved.spec.execution.screenplay_body.is_some() {
         // Unqualified native routes and isolated rendition groups never read
         // or amend a shared cache/checkpoint file.
         executor
@@ -1375,6 +1409,28 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
         }
     };
 
+    if let Some(policy) = &resolved.spec.execution.screenplay_body {
+        // Direct native exports also create a real canonical payload. Keep it
+        // in the run's intermediate inventory and storage/artifact budgets even
+        // when the operator did not select it as a published terminal target.
+        for artifact in target_artifacts.values() {
+            match retained_body_canonical(artifact, &source_artifact, &store, policy) {
+                Ok(canonical) => {
+                    all_artifacts.entry(canonical.id().to_string()).or_insert(canonical);
+                }
+                Err(error) => {
+                    target_failures = true;
+                    fatal_validation_failure = true;
+                    diagnostics.push(ExecutionDiagnostic {
+                        severity: DiagnosticSeverity::FatalFailure,
+                        code: "screenplay_body.evidence.invalid".to_owned(),
+                        message: redact_sensitive_text(&error.to_string()), step_id: None,
+                    });
+                }
+            }
+        }
+    }
+
     if let Err(error) = validate_post_execution_budgets(&resolved, &target_artifacts, &all_artifacts, &retained_speech) {
         target_failures = true;
         diagnostics.push(ExecutionDiagnostic {
@@ -1403,7 +1459,7 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
         };
 
         let mut outcome = if resolved.print_pages.is_some() || resolved.spec.execution.screenplay_pdf.is_some()
-            || resolved.spec.execution.screenplay_recovery.is_some() {
+            || resolved.spec.execution.screenplay_recovery.is_some() || resolved.spec.execution.screenplay_body.is_some() {
             if resolved.spec.execution.validation.validators.is_empty() {
                 ArtifactValidationOutcome {
                     state: ValidationState::Valid,
@@ -1487,6 +1543,40 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
                 provider: "renderflow.core".to_owned(), state,
                 diagnostics: check.err().map(|error| vec![ValidationDiagnostic {
                     code: "screenplay_recovery.validation.evidence".to_owned(), message: error.to_string(),
+                }]).unwrap_or_default(),
+            });
+            if state == ValidationState::Invalid { outcome.state = state; }
+        }
+        if let Some(policy) = &resolved.spec.execution.screenplay_body {
+            // This source-bound admission check is mandatory even when the
+            // caller disables the optional generic validator registry.
+            let check = validate_screenplay_body_artifact(artifact, &source_artifact, &store, policy);
+            let state = if check.is_ok() { ValidationState::Valid } else { ValidationState::Invalid };
+            outcome.validators.push(ValidatorEvidence {
+                validator_id: "validator.screenplay_body.evidence".to_owned(),
+                validator_version: env!("CARGO_PKG_VERSION").to_owned(),
+                provider: "renderflow.core".to_owned(), state,
+                diagnostics: check.err().map(|error| vec![ValidationDiagnostic {
+                    code: "screenplay_body.validation.evidence".to_owned(), message: error.to_string(),
+                }]).unwrap_or_default(),
+            });
+            if state == ValidationState::Invalid { outcome.state = state; }
+        }
+        if target.format == Format::Text && (resolved.spec.execution.subtitles.is_some()
+            || resolved.spec.execution.speech.is_some()
+            || artifact.metadata().contains_key(SUBTITLE_ARTIFACT_METADATA_KEY)) {
+            // Persistent subtitle records can bypass transform application.
+            // Never publish a cached text export with detached loss/lineage evidence.
+            let check = report.artifacts.get(&Format::TimedTranscriptJson)
+                .context("subtitle.text.validation.canonical: the actual retained canonical transcript is required")
+                .and_then(|canonical| validate_text_export_from_canonical(artifact, canonical, &store));
+            let state = if check.is_ok() { ValidationState::Valid } else { ValidationState::Invalid };
+            outcome.validators.push(ValidatorEvidence {
+                validator_id: "validator.subtitle.text_evidence".to_owned(),
+                validator_version: env!("CARGO_PKG_VERSION").to_owned(),
+                provider: "renderflow.core".to_owned(), state,
+                diagnostics: check.err().map(|error| vec![ValidationDiagnostic {
+                    code: "subtitle.text.validation.evidence".to_owned(), message: error.to_string(),
                 }]).unwrap_or_default(),
             });
             if state == ValidationState::Invalid { outcome.state = state; }
@@ -2070,6 +2160,13 @@ fn artifact_evidence(
             } else {
                 report.steps.iter().find(|step| step.output_artifacts.iter()
                     .any(|artifact_id| artifact_id == artifact.id().as_str()))
+                    .or_else(|| if resolved.spec.execution.screenplay_body.is_some()
+                        && artifact.format().as_str() == "screenplay_json" {
+                        // Auxiliary canonical bytes are produced by the direct
+                        // body step, without introducing a canonical graph hop.
+                        report.steps.iter().find(|step| step.capability.as_deref()
+                            == Some(SCREENPLAY_BODY_CAPABILITY) && step.state == StepState::Complete)
+                    } else { None })
             };
             let producer = producing_step.map(|step| ProducerEvidence {
                 system: "renderflow".to_string(),
@@ -3161,11 +3258,12 @@ fn register_subtitle_edges(
         (Format::WebVtt, Format::TimedTranscriptJson),
         (Format::TimedTranscriptJson, Format::Srt),
         (Format::TimedTranscriptJson, Format::WebVtt),
+        (Format::TimedTranscriptJson, Format::Text),
     ] {
         let capability = CapabilityId::new(format!("subtitle.convert.{from}.{to}"))?;
         tools.add_capability(&provider, capability.clone())?;
         graph.add_transform(
-            TransformEdge::new(from, to, 0.1, 0.95)
+            TransformEdge::new(from, to, 0.1, if to == Format::Text { 0.5 } else { 0.95 })
                 .with_provider(provider.to_string(), capability.to_string())
                 .with_evidence("adapter", SUBTITLE_ADAPTER_EVIDENCE)
                 .with_evidence("family", "subtitle")
@@ -3555,11 +3653,11 @@ fn register_speech_edges(
     graph.add_transform(edge);
     // Conversion exports reuse the same canonical transcript from the one ASR
     // edge. No native subtitle extraction is registered under speech intent.
-    for to in [Format::Srt, Format::WebVtt] {
+    for to in [Format::Srt, Format::WebVtt, Format::Text] {
         let from = Format::TimedTranscriptJson;
         let capability = CapabilityId::new(format!("subtitle.convert.{from}.{to}"))?;
         tools.add_capability(&ToolId::new(TIMED_TEXT_PROVIDER)?, capability.clone())?;
-        graph.add_transform(TransformEdge::new(from, to, 0.1, 0.95)
+        graph.add_transform(TransformEdge::new(from, to, 0.1, if to == Format::Text { 0.5 } else { 0.95 })
             .with_provider(TIMED_TEXT_PROVIDER, capability.to_string())
             .with_evidence("adapter", SUBTITLE_ADAPTER_EVIDENCE)
             .with_evidence("family", "subtitle")
@@ -3732,6 +3830,15 @@ fn apply_execution_policy(
 }
 
 fn edge_allowed(edge: &TransformEdge, tools: &ToolRegistry, spec: &SpecV2) -> bool {
+    if edge.from == Format::Text && (spec.execution.subtitles.is_some()
+        || spec.execution.speech.is_some()) {
+        return false;
+    }
+    if edge.evidence.get("adapter").map(String::as_str) == Some(SCREENPLAY_BODY_ADAPTER_EVIDENCE)
+        && spec.execution.screenplay_body.as_ref().is_none_or(|policy| !policy.allow_unqualified)
+    {
+        return false;
+    }
     if edge.evidence.get("adapter").map(String::as_str) == Some(SCREENPLAY_RECOVERY_ADAPTER_EVIDENCE)
         && spec.execution.screenplay_recovery.is_none()
     {
@@ -4161,7 +4268,9 @@ fn validate_pre_execution_budgets(resolved: &ResolvedExecution) -> Result<()> {
     }
     if let Some(max_artifacts) = budgets.max_artifacts {
         let retained_count = resolved.spec.execution.speech.as_ref()
-            .map(|policy| if policy.audio.is_some() { 5 } else { 3 }).unwrap_or(0);
+            .map(|policy| if policy.audio.is_some() { 5 } else { 3 }).unwrap_or(0)
+            + u64::from(resolved.spec.execution.screenplay_body.is_some()
+                && !resolved.targets.iter().any(|target| target.format == Format::ScreenplayJson));
         let nodes = resolved.source_members.len() as u64 + resolved.execution_groups.iter().map(|group| group.dag.node_count().saturating_sub(1) as u64).sum::<u64>();
         let estimate = nodes.checked_add(retained_count)
             .context("execution artifact estimate overflow")?;
@@ -4483,6 +4592,60 @@ mod tests {
             assert!(graph.find_path(unsupported, Format::TimedTranscriptJson).is_none());
         }
         assert_eq!(artifact_extension(Format::TimedTranscriptJson), "timed-transcript.json");
+    }
+
+    #[test]
+    fn transcript_text_is_a_lossy_terminal_even_with_custom_outgoing_text_edges() {
+        let mut graph = TransformGraph::new();
+        let mut tools = ToolRegistry::builtins();
+        register_subtitle_edges(&mut graph, &mut tools, Format::Srt, false,
+            &SubtitlePolicy::default()).unwrap();
+        graph.add_transform(TransformEdge::new(Format::Text, Format::Pdf, 0.1, 1.0));
+        graph.add_transform(TransformEdge::new(Format::Text, Format::TimedTranscriptJson, 0.1, 1.0));
+        let mut spec = minimal_spec("srt");
+        spec.execution.subtitles = Some(SubtitlePolicy::default());
+        let filtered = apply_execution_policy(&graph, &tools, &spec);
+        assert!(filtered.find_path(Format::Srt, Format::Text).is_some());
+        assert!(filtered.transforms_from(Format::Text).is_empty());
+        assert!(filtered.find_path(Format::Srt, Format::Pdf).is_none());
+        assert!(validate_subtitle_policy(Format::Text, false, &SubtitlePolicy::default()).is_err());
+        let exports = filtered.transforms_from(Format::TimedTranscriptJson);
+        let text = exports.iter().find(|edge| edge.to == Format::Text).unwrap();
+        let timed = exports.iter().find(|edge| edge.to == Format::Srt).unwrap();
+        assert!(text.quality < timed.quality);
+        spec.execution.minimum_fidelity = Some(0.9);
+        let preserved = apply_execution_policy(&graph, &tools, &spec);
+        assert!(preserved.find_path(Format::Srt, Format::Text).is_none());
+        assert!(preserved.find_path(Format::Srt, Format::WebVtt).is_some());
+    }
+
+    #[test]
+    fn explicit_speech_recipe_exports_text_from_its_one_canonical_transcript() {
+        let policy: SpeechPolicy = serde_json::from_value(serde_json::json!({
+            "source_sha256": "a".repeat(64),
+            "provider": {"path": std::env::temp_dir().join("unobserved-whisper"), "sha256": "b".repeat(64)},
+            "model": {"path": std::env::temp_dir().join("unobserved-model.bin"),
+                "sha256": "c".repeat(64), "id": "synthetic-model"}
+        })).unwrap();
+        let mut graph = TransformGraph::new();
+        let mut tools = ToolRegistry::builtins();
+        register_speech_edges(&mut graph, &mut tools, Format::Wav, &policy).unwrap();
+        let recognition = graph.transforms_from(Format::Wav);
+        assert_eq!(recognition.len(), 1);
+        assert_eq!(recognition[0].to, Format::TimedTranscriptJson);
+        assert!(graph.find_path(Format::Wav, Format::Text).is_some());
+        assert!(graph.transforms_from(Format::Text).is_empty());
+        let exports = graph.transforms_from(Format::TimedTranscriptJson);
+        let text = exports.iter().find(|edge| edge.to == Format::Text).unwrap();
+        assert_eq!(text.evidence.get("cache").map(String::as_str), Some("disabled"));
+        assert!(text.quality < exports.iter().find(|edge| edge.to == Format::Srt).unwrap().quality);
+        let mut spec = minimal_spec("wav");
+        spec.execution.ai = AiPolicy::LocalOnly;
+        spec.execution.speech = Some(policy);
+        spec.targets.exact.push(TargetSpec { format: Some("text".to_owned()), ..Default::default() });
+        let targets = resolve_target_intent(&spec, &graph, Format::Wav).unwrap();
+        assert_eq!(targets.len(), 1);
+        assert_eq!(targets[0].format, Format::Text);
     }
 
     #[test]
