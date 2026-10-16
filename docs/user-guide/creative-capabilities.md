@@ -6,7 +6,7 @@ generated from [the shared route catalog](https://github.com/egohygiene/renderfl
 embeds the same declarations. Edit the catalog and regenerate these files;
 do not maintain a separate capability table by hand.
 
-The catalog declares **13 routes**: 13 `authored_unqualified`.
+The catalog declares **14 routes**: 14 `authored_unqualified`.
 Authored capability declarations shared with creative doctor, not local provider observations or proof that a configured execution will succeed. No conversion, inference, installation, or discovery is performed when generating this matrix.
 
 `authored_unqualified` means code exists for the stated scope; runtime
@@ -22,6 +22,7 @@ surface, full configuration contract, bounds, and evidence to retain.
 | --- | --- | --- | --- |
 | `ocr.extract.text` | `authored_unqualified` | `tool.pdftotext`, `tool.pdftoppm`, `tool.tesseract` | [Guide](../screenplay-recovery.md) |
 | `pdf.extract.text` | `authored_unqualified` | `tool.pdftotext` | [Guide](../screenplay-recovery.md) |
+| `screenplay.body.export` | `authored_unqualified` | No external provider | [Guide](screenplay.md) |
 | `screenplay.pdf.afterwriting` | `authored_unqualified` | `tool.node`, `tool.afterwriting` | [Guide](screenplay-pdf.md) |
 | `screenplay.recover.structure` | `authored_unqualified` | `tool.renderflow-screenplay-recovery` | [Guide](../screenplay-recovery.md) |
 | `screenplay.recovery.export` | `authored_unqualified` | `tool.renderflow-screenplay-recovery` | [Guide](../screenplay-recovery.md) |
@@ -73,6 +74,18 @@ Declared requirements:
 - `bounded_local_pdf`
 
 Sources: [crates/renderflow-core/src/screenplay/recovery/provider.rs](https://github.com/egohygiene/renderflow/blob/main/crates/renderflow-core/src/screenplay/recovery/provider.rs).
+
+### `screenplay.body.export`
+
+Built-in independent original Fountain exports to canonical screenplay JSON, FDX, Fade In, OSF, and native Trelby require execution.screenplay_body with allow_unqualified: true. Each edge consumes the immutable original directly, admits only scene heading, action, character, dialogue, parenthetical, and transition body kinds, and refuses titles, dual dialogue, extensions, and unrepresentable content. No provider executable or recovery heuristic is involved. Retained canonical/source/output evidence and independent readback do not confer approval or native application fidelity; runtime_qualified remains false.
+
+Declared requirements:
+
+- `execution.screenplay_body`
+- `execution.screenplay_body.allow_unqualified`
+- `strict_original_fountain_body`
+
+Sources: [crates/renderflow-core/src/screenplay/body_graph.rs](https://github.com/egohygiene/renderflow/blob/main/crates/renderflow-core/src/screenplay/body_graph.rs); [crates/renderflow-core/src/screenplay/native.rs](https://github.com/egohygiene/renderflow/blob/main/crates/renderflow-core/src/screenplay/native.rs).
 
 ### `screenplay.pdf.afterwriting`
 
@@ -181,7 +194,7 @@ Sources: [crates/renderflow-core/src/speech/provider.rs](https://github.com/egoh
 
 ### `subtitle.convert.plain`
 
-Built-in bounded SRT/WebVTT and canonical timed-transcript conversion needs no external executable. The opt-in graph/SDK route is authored; runtime qualification remains deferred.
+Built-in bounded SRT/WebVTT and canonical timed-transcript conversion needs no external executable. Under the existing subtitle policy, canonical timed transcripts also export terminal UTF-8 Text, including explicitly selected speech descendants. Text retains source/canonical provenance but drops timing, cue IDs, and structured metadata; it has no reverse timed-text edge and does not imply text-to-screenplay structure. The opt-in graph/SDK routes are authored; runtime qualification remains deferred.
 
 Declared requirements:
 
@@ -219,13 +232,13 @@ policy. They distinguish rejected paths from authored, unqualified paths.
 
 ### `screenplay.general_canonical_export`
 
-General conversion of an original Fountain source to FDX, Fade In, OSF, or canonical screenplay JSON is not an exposed export route. General canonical screenplay JSON to native formats is also unavailable. The internal body parser and canonical codec do not create those routes; recovery-only exporters require a replayable recovery candidate and retain lossy, review-required evidence.
+General rich Fountain or arbitrary canonical screenplay JSON to native formats remains unavailable. The separate opt-in screenplay.body.export route admits a strict six-kind original Fountain body only; it does not add native inputs, metadata/title/dual-dialogue preservation, recovered/imported-source chaining, or general native round trips. Recovery-only exporters still require a replayable recovery candidate and retain lossy, review-required evidence.
 
 Sources: [docs/user-guide/screenplay.md#loss-and-round-trip-limits](https://github.com/egohygiene/renderflow/blob/main/docs/user-guide/screenplay.md#loss-and-round-trip-limits); [docs/screenplay-recovery.md](https://github.com/egohygiene/renderflow/blob/main/docs/screenplay-recovery.md).
 
 ### `screenplay.scripttool.reverse`
 
-Fountain to FDX, OSF, and Fade In through scripttool is not adopted. The independent recovery-candidate exporters are a different, review-required path; their existence does not qualify scripttool's reverse converters.
+Fountain to FDX, OSF, and Fade In through scripttool is not adopted. The built-in original-body exports and independent recovery-candidate exports are distinct bounded paths; neither qualifies scripttool's reverse converters or adds scripttool graph edges.
 
 Sources: [docs/work/424/PROVIDER_EVALUATION.md](https://github.com/egohygiene/renderflow/blob/main/docs/work/424/PROVIDER_EVALUATION.md); [docs/screenplay-recovery.md](https://github.com/egohygiene/renderflow/blob/main/docs/screenplay-recovery.md).
 
@@ -253,9 +266,9 @@ Offline speech alignment applies an explicit operator time map. It does not infe
 
 Sources: [docs/user-guide/speech.md#export-subtitles-using-an-explicit-original-media-time-map](https://github.com/egohygiene/renderflow/blob/main/docs/user-guide/speech.md#export-subtitles-using-an-explicit-original-media-time-map).
 
-### `transcript.graph.plain_text`
+### `transcript.text.reverse`
 
-Plain transcript text is available through standalone speech/subtitle exports, but it is not a creative transcript graph target. Graph transcript derivatives use canonical timed-transcript JSON, SRT, or WebVTT; format recognition does not create a plain-text graph writer.
+Canonical timed transcript to terminal Text is an authored opt-in graph export. The text deliberately drops timing, cue IDs, and structured metadata. No Text-to-timed-transcript reverse edge, inferred timing, plain-text screenplay parsing, or recognition fallback is introduced by that terminal; ordinary source-format suppression still applies.
 
 Sources: [docs/user-guide/subtitles.md#opt-in-to-graph-and-sdk-execution](https://github.com/egohygiene/renderflow/blob/main/docs/user-guide/subtitles.md#opt-in-to-graph-and-sdk-execution); [docs/user-guide/speech.md#use-the-planner-and-rust-sdk](https://github.com/egohygiene/renderflow/blob/main/docs/user-guide/speech.md#use-the-planner-and-rust-sdk).
 

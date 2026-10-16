@@ -102,6 +102,15 @@ planning and the Rust SDK. The optional `execution.subtitles` object enables
 these routes; omitting it leaves subtitle graph routes disabled. This is still
 unvalidated implementation work, not a released Flow provider qualification.
 
+The #430 checkpoint also authors `timed_transcript_json` → `text` as a graph
+terminal. Add `- format: text` to the exact targets below, or select it from a
+canonical transcript source under the same subtitle policy. Explicit speech
+jobs can select this terminal too. Export metadata retains the canonical
+reference and source lineage, with losses for timing, cue identifiers and
+structured metadata. Plain text carries no alignment claim and has no reverse
+edge into a timed transcript. This graph addition and its regression coverage
+remain unexecuted under the current sprint's validation deferral.
+
 For a local SRT file, save this as `subtitles.yaml` beside `captions.srt`:
 
 ```yaml

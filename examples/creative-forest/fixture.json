@@ -5,14 +5,48 @@
   "license": "MIT",
   "identity_expectations": "Authored target-identity-v1 declaration hashes; not receipts from generated plans. Exact targets have explicit roles; generated all_reachable roles equal canonical formats; no selectors.",
   "gaps": [
-    "Original Fountain to FDX/FadeIn/OSF/canonical screenplay JSON is not a supported graph conversion.",
+    "Original Fountain body exports cover only the strict six-kind body profile; unsupported structures and native application behavior remain unqualified.",
     "Original Fountain to PDF is a separate pinned job; recovery and native import outputs are not automatically chained into it.",
     "Speech, embedded subtitles, and screenplay native policies are isolated jobs, not a single cross-family native DAG.",
-    "Plain transcript text and Fountain analysis use standalone commands; there is no public standalone dry-run plan.",
+    "Transcript text has both a terminal graph target and a separate standalone export; standalone analysis/text commands have no public dry-run plan.",
     "Native tools, platform compatibility, OCR/ASR accuracy, and fixtures remain unqualified until manually exercised.",
     "Speech and embedded-subtitle positive jobs require operator-supplied recordings/media; redistributed silence is a negative fixture only."
   ],
   "jobs": [
+    {
+      "id": "original-body",
+      "kind": "build",
+      "spec": "specs/original-body.json",
+      "expected_targets": [
+        {
+          "declared_id": "target.screenplay_json",
+          "format": "screenplay_json",
+          "target_id": "target-74cc6ebd2da0217637eda3fe774494e11d62673bf7a86ff8cf1cc2466413371d"
+        },
+        {
+          "declared_id": "target.fdx",
+          "format": "fdx",
+          "target_id": "target-38afd0269648bd876ab597f2aa0b480d6f59dcd2842e9b98daa9da795e7d4a93"
+        },
+        {
+          "declared_id": "target.fadein",
+          "format": "fadein",
+          "target_id": "target-a08f10642c72a9928bff3db9e81b4da646628083b67894308cd6a40d4510b8e1"
+        },
+        {
+          "declared_id": "target.osf",
+          "format": "osf",
+          "target_id": "target-1d7c7ea2e18b744907fb0717d3d08b5caebd28791f8522ac81df73a4ff1cf6a8"
+        },
+        {
+          "declared_id": "target.trelby",
+          "format": "trelby",
+          "target_id": "target-6eac4184b0da3a46a1baadc58f11c0fbc39565d74cdbc87f6d612eca014082e8"
+        }
+      ],
+      "source": "sources/original.fountain",
+      "expected": "success"
+    },
     {
       "id": "recovery-text",
       "kind": "build",
@@ -61,6 +95,11 @@
           "declared_id": "target.vtt",
           "format": "vtt",
           "target_id": "target-df9fb8e184b71853ab93adb1bf6507bb3563d68b614923be85ec688cd4485da6"
+        },
+        {
+          "declared_id": "target.text",
+          "format": "text",
+          "target_id": "target-6e7961117de5e3e2736336c3d5b5f48855db788bb0cbb3ae6d8637c9945c3b37"
         }
       ],
       "source": "sources/captions.srt"
@@ -308,6 +347,11 @@
           "declared_id": null,
           "format": "vtt",
           "target_id": "target-471012bdbd8216c7a1618723c9b53f39895cf03e16928e78a4560721e7a42cf7"
+        },
+        {
+          "declared_id": null,
+          "format": "text",
+          "target_id": "target-f72c1d5b809bedf0f35f6487f1f817136ef4da6aac737a74c6302b763b865f2f"
         }
       ],
       "source": "sources/captions.srt",

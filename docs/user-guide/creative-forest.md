@@ -6,8 +6,8 @@ The #430 implementation is authored and unqualified. The commands below have
 not been run during the sprint; tests, builds, native execution and CI remain
 deferred.
 
-The launcher runs isolated jobs because screenplay PDF, recovery, subtitles and
-speech have different policies. It does not combine their sources into one
+The launcher runs isolated jobs because original screenplay bodies, screenplay
+PDF, recovery, subtitles and speech have different policies. It does not combine their sources into one
 native DAG or silently convert a source into another family's input type.
 
 ## Start with the bundled sources
@@ -46,15 +46,30 @@ results and failures. None of these modes installs a provider or downloads a mod
 
 | Default job | Intended output when later executed |
 | --- | --- |
+| `original-body` | Built-in direct original Fountain to canonical screenplay JSON, FDX, Fade In, OSF and Trelby body exports; no external provider. |
 | `recovery-text` | Recovered canonical screenplay and Fountain/FDX/Fade In/OSF body derivatives, with mandatory loss/review evidence. |
-| `timed-text` | Canonical transcript and supported caption derivatives from original fixture captions. |
+| `timed-text` | Canonical transcript, WebVTT and terminal plain text from original fixture captions; text retains timing/provenance loss evidence. |
 | `fountain-analysis` | Standalone analysis of the original bounded Fountain fixture. |
-| `transcript-text` | Standalone text export from caption data; this does not add a graph text-export edge. |
+| `transcript-text` | Separate standalone text export from caption data, retaining its existing public-command behavior. |
 
 The sources and policies are in
 [`examples/creative-forest`](../../examples/creative-forest/README.md). They are
 synthetic fixtures, not observed provider output or proof of conversion fidelity.
 The README records their provenance, exact target membership and output layout.
+
+The original-body spec declares `screenplay_body` with explicit
+`allow_unqualified: true`. It uses the existing original Fountain bytes directly,
+never recovery or Scripttool reverse exports. The authored body profile accepts
+scene headings, action, characters, dialogue, parentheticals and transitions;
+unsupported constructs and metadata refuse. Every output retains the original
+source digest and canonical reference with `runtime_qualified: false` and required
+review. FDX/Fade In/OSF/Trelby application opening, editing, layout and pagination
+remain unobserved. A successful later CLI run will not imply creative approval.
+
+Graph transcript text remains terminal under the existing subtitle policy. Its
+native evidence links the actual retained canonical transcript and discloses
+timing, cue-ID and structured-metadata omissions with partial fidelity. Neither
+the graph text target nor the standalone example can recreate timing from text.
 
 ## Add explicitly configured native jobs
 
@@ -120,12 +135,13 @@ lineage and loss/review metadata. Do not count every inventory record as an
 output. A complete child run can still carry required review, and a suite with
 unconfigured native jobs has not demonstrated those routes.
 
-Current unsupported directions remain explicit in the
-[generated capability matrix](creative-capabilities.md): general
-Fountain-to-FDX/Fade In/OSF/canonical export and graph plain-transcript text
-export. Recovery-native exports apply only to recovered candidates. #430's
-original diagram is an outcome to reconcile, not evidence that every arrow
-already runs.
+The [generated capability matrix](creative-capabilities.md) distinguishes the
+new authored built-in body and terminal-text routes from qualified behavior.
+General original screenplay metadata/layout conversion and Scripttool reverse
+exports remain unavailable. Recovery-native exports apply only to recovered
+candidates; they never turn a recovered candidate into an approved original.
+#430's original diagram is an outcome to reconcile, not evidence that every
+arrow has run.
 
 For downstream consumption, use the [Flow handoff](../architecture/flow-artifact-forest.md).
 Actual repeated runs, CLI/SDK parity, native/platform qualification and released

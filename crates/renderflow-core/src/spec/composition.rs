@@ -144,6 +144,7 @@ pub(super) fn validate(spec: &SpecV2, diagnostics: &mut Vec<SpecDiagnostic>) {
         ("print_pdf_interior", policy.print_pdf_interior.is_some()),
         ("fixed_layout_epub", policy.fixed_layout_epub.is_some()), ("subtitles", policy.subtitles.is_some()),
         ("speech", policy.speech.is_some()), ("screenplay", policy.screenplay.is_some()),
+        ("screenplay_body", policy.screenplay_body.is_some()),
         ("screenplay_pdf", policy.screenplay_pdf.is_some()), ("screenplay_recovery", policy.screenplay_recovery.is_some()),
     ] {
         if unsupported {
@@ -253,7 +254,7 @@ pub(super) fn extend_schema(schema: &mut Value) {
                     "minimum_fidelity": {"type": "null"}, "reject_loss_classes": {"maxItems": 0},
                     "publication_policy": {"type": "null"}, "redaction_policy": {"type": "null"}, "hygiene_policy": {"type": "null"},
                     "print_pdf_interior": {"type": "null"}, "fixed_layout_epub": {"type": "null"}, "subtitles": {"type": "null"},
-                    "speech": {"type": "null"}, "screenplay": {"type": "null"}, "screenplay_pdf": {"type": "null"}, "screenplay_recovery": {"type": "null"}
+                    "speech": {"type": "null"}, "screenplay": {"type": "null"}, "screenplay_body": {"type": "null"}, "screenplay_pdf": {"type": "null"}, "screenplay_recovery": {"type": "null"}
                 }
             }
         },
@@ -361,6 +362,7 @@ targets:
             ("execution", "budgets", json!({"max_output_bytes": 1024})),
             ("execution", "validation", json!({"allow_unavailable": true})),
             ("execution", "subtitles", json!({})),
+            ("execution", "screenplay_body", json!({"allow_unqualified": true})),
         ];
         for (section, field, value) in cases {
             let mut candidate = base.clone();

@@ -1,8 +1,12 @@
-//! Independent readers for the deliberately narrow scripttool import profile.
+//! Independent codecs for deliberately narrow screenplay body profiles.
 //!
 //! These readers do not invoke a converter. They refuse constructs for which
 //! this checkpoint cannot compare meaning independently. Parsing is evidence
 //! about the accepted semantic subset, not native-application qualification.
+
+mod export;
+
+pub use export::export_body;
 
 use std::collections::BTreeMap;
 use std::io::{Cursor, Read};
@@ -20,6 +24,7 @@ use super::{
 
 const MAX_XML_NODES: u32 = 500_000;
 const MAX_XML_DEPTH: usize = 8;
+const TRELBY_BODY_PREFIX: &str = "\u{feff}#Version 3\n#Start-Script \n";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -29,6 +34,7 @@ pub enum NativeScreenplayFormat {
     Osf,
     #[serde(rename = "fadein")]
     FadeIn,
+    Trelby,
 }
 
 impl NativeScreenplayFormat {
@@ -38,6 +44,7 @@ impl NativeScreenplayFormat {
             Self::Fdx => "fdx",
             Self::Osf => "osf",
             Self::FadeIn => "fadein",
+            Self::Trelby => "trelby",
         }
     }
 
@@ -70,7 +77,10 @@ fn utf8(bytes: &[u8]) -> Checked<&str> {
 /// Read an observed source into the common body-only, unstyled profile.
 ///
 /// Only FDX version 1, OSF version 20, a single-member Fade In wrapper of that
-/// OSF profile, and the corresponding plain Fountain subset are accepted.
+/// OSF profile, the corresponding plain Fountain subset, and a minimal Trelby
+/// version-3 body envelope are accepted. Trelby configuration and wrapped-line
+/// records are outside this profile; arbitrary native application saves are
+/// not claimed to be supported.
 /// Title pages, notes, styling, scene numbers, dual dialogue, revision metadata,
 /// application layout, and unknown fields fail explicitly; none are dropped.
 pub fn parse_native(bytes: &[u8], format: NativeScreenplayFormat) -> Checked<Screenplay> {
@@ -79,6 +89,7 @@ pub fn parse_native(bytes: &[u8], format: NativeScreenplayFormat) -> Checked<Scr
         NativeScreenplayFormat::Fountain => parse_fountain(utf8(bytes)?)?,
         NativeScreenplayFormat::Fdx => parse_fdx(utf8(bytes)?)?,
         NativeScreenplayFormat::Osf => parse_osf(utf8(bytes)?)?,
+        NativeScreenplayFormat::Trelby => parse_trelby(utf8(bytes)?)?,
         NativeScreenplayFormat::FadeIn => {
             let document = fadein_document(bytes)?;
             parse_osf(utf8(&document)?)?
@@ -352,6 +363,65 @@ fn parse_fountain(input: &str) -> Checked<Vec<ScreenplayElement>> {
     }
     finish(&mut block, &mut elements)?;
     Ok(elements)
+}
+
+/// Independently read the documented Trelby version-3 line format without
+/// invoking its application or inheriting its unknown-field fallbacks.
+fn parse_trelby(input: &str) -> Checked<Vec<ScreenplayElement>> {
+    let body = input.strip_prefix(TRELBY_BODY_PREFIX).ok_or_else(|| failure(
+        "screenplay.native.trelby_envelope",
+        "Trelby body profile requires UTF-8 BOM, version 3 and an immediate exact Start-Script directive; configuration is unsupported",
+    ))?;
+    let body = body.strip_suffix('\n').ok_or_else(|| failure(
+        "screenplay.native.trelby_envelope", "Trelby body records must end with LF",
+    ))?;
+    let mut elements = Vec::new();
+    for record in body.split('\n') {
+        let mut characters = record.chars();
+        require(characters.next() == Some('.'), "screenplay.native.trelby_record",
+            "Trelby body profile accepts only complete one-line elements; configuration and wrapped lines are unsupported")?;
+        let kind = match characters.next() {
+            Some('\\') => ScreenplayElementKind::SceneHeading,
+            Some('.') => ScreenplayElementKind::Action,
+            Some('_') => ScreenplayElementKind::Character,
+            Some(':') => ScreenplayElementKind::Dialogue,
+            Some('(') => ScreenplayElementKind::Parenthetical,
+            Some('/') => ScreenplayElementKind::Transition,
+            _ => return Err(failure("screenplay.native.trelby_record", "unknown or unsupported Trelby paragraph kind")),
+        };
+        let text = characters.as_str();
+        // Python's upstream loader splits these Unicode line separators even
+        // though Rust does not classify them as controls. Accepting them as
+        // payload text would overstate preservation by that loader.
+        require(!text.contains(['\u{2028}', '\u{2029}']), "screenplay.native.text",
+            "Trelby paragraph text cannot contain Unicode line separators")?;
+        let text = decode_parenthetical(kind, text, false)?;
+        push_element(&mut elements, kind, &text)?;
+    }
+    validate_trelby_neighbors(&elements)?;
+    Ok(elements)
+}
+
+/// The native application's own error finder rejects separate adjacent
+/// dialogue paragraphs and consecutive parentheticals. Preserve those
+/// distinctions by refusal rather than joining author-owned elements.
+fn validate_trelby_neighbors(elements: &[ScreenplayElement]) -> Checked<()> {
+    for (index, element) in elements.iter().enumerate() {
+        let previous = index.checked_sub(1).map(|index| elements[index].kind);
+        let next = elements.get(index + 1).map(|element| element.kind);
+        let accepted = match element.kind {
+            ScreenplayElementKind::Character => matches!(next,
+                Some(ScreenplayElementKind::Parenthetical | ScreenplayElementKind::Dialogue)),
+            ScreenplayElementKind::Parenthetical => matches!(previous,
+                Some(ScreenplayElementKind::Character | ScreenplayElementKind::Dialogue)),
+            ScreenplayElementKind::Dialogue => matches!(previous,
+                Some(ScreenplayElementKind::Character | ScreenplayElementKind::Parenthetical)),
+            _ => true,
+        };
+        require(accepted, "screenplay.native.trelby_structure",
+            "paragraph neighbors are outside the Trelby body profile; elements cannot be silently joined or retyped")?;
+    }
+    Ok(())
 }
 
 #[cfg(test)]

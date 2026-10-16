@@ -22,7 +22,7 @@ source identity, and directional loss policy. The inspected JSON bytes receive
 their own digest. Any source digest inside the document is a declaration; the
 source file is not reopened or verified by inspection.
 
-This command refuses native Fountain, FDX, Fade In, and OSF files. The separate
+This command refuses native Fountain, FDX, Fade In, OSF and Trelby files. The separate
 [scripttool conversion command](scripttool.md) authors three explicitly pinned,
 unqualified imports into Fountain under #424. Canonical inspection neither
 selects nor inventories those provider routes. A generic `.json` path is accepted
@@ -36,6 +36,7 @@ only when its contents satisfy the canonical screenplay contract.
 | `fdx` | `.fdx` | Recognition for Final Draft XML; strict body-subset import to Fountain with explicit scripttool policy. |
 | `fadein` | `.fadein` | Recognition for the ZIP-based format; strict single-document body-subset import to Fountain. |
 | `osf` | `.osf` | Recognition for Open Screenplay Format XML; strict body-subset import to Fountain. |
+| `trelby` | `.trelby` | Recognition for native version 3; strict minimal body export from original Fountain under the separate opt-in policy below. |
 | `screenplay_json` | `.screenplay.json` | Canonical model parsing, structural validation, and inspection. |
 
 These identifiers alone do not create conversion graph edges. In particular,
@@ -55,6 +56,62 @@ JSON and the strict Fountain body profile. General FDX/OSF/Fade In artifact
 validation remains unavailable; their provider-local readers verify the
 restricted conversion inputs. Nonempty UTF-8 text or a ZIP signature is
 insufficient screenplay evidence.
+
+## Export an original Fountain body
+
+The #430 checkpoint authors a separate built-in policy for the missing original
+Fountain export direction. Save this example beside `original.fountain` and use
+the existing `renderflow build --config "screenplay.yaml"` interface:
+
+```yaml
+schema: renderflow/v2
+sources:
+  - id: original
+    path: original.fountain
+    format: fountain
+targets:
+  exact:
+    - format: screenplay_json
+    - format: fdx
+    - format: fadein
+    - format: osf
+    - format: trelby
+execution:
+  screenplay_body:
+    allow_unqualified: true
+output:
+  bundle_root: screenplay-export
+```
+
+This example and its regression coverage are authored, not executed. No external
+converter is required. Each direct edge reads the immutable original Fountain;
+it does not run Scripttool in reverse or disguise structured Fountain as
+unstructured recovery input. Native outputs retain a canonical artifact reference
+and hash, source/output hashes, review state and explicit qualification limits.
+Publication rechecks the original, canonical payload and deterministic export
+even when generic artifact validation is disabled. Cache reuse is disabled.
+
+Canonical bytes are retained in the local `.renderflow/artifacts` store and
+listed as an intermediate when not selected. A native-only output bundle does
+not copy that companion automatically. Select `screenplay_json` as in the
+example when taking the canonical companion with the exported files, and retain
+the run evidence and original source; otherwise preserve the local artifact
+store needed to resolve its canonical reference.
+
+The strict profile supports scene headings, action, character cues, dialogue,
+parentheticals and transitions. It rejects title pages, dual dialogue, unsupported
+elements or metadata and text the target cannot represent without changing its
+semantics. Conversion does not approve the script. PDF, native imports and
+PDF/text recovery keep their separate policies; use separate requests for them.
+
+Trelby is the screenplay editor's native `.trelby` artifact, distinct from
+Fountain. The independent codec implements only a minimal version 3 body
+envelope, based on the [published format](https://github.com/trelby/trelby/blob/86079b162e6514754ce0a2f3ea323eaca81146e7/trelby/fileformat.txt).
+General GUI-saved configuration/wrapping/title pages are outside that bounded
+reader. Trelby opening, Unicode display/editing, pagination and native layout have
+not been observed; exports declare `runtime_qualified: false`. The
+[design and qualification checkpoint](../work/430/ORIGINAL_EXPORTS.md) records
+the exact scope and upstream source pin.
 
 ## Canonical structure
 
@@ -91,7 +148,8 @@ necessary. Unsupported numeric values are rejected rather than silently rounded.
 The model is a conversion boundary. It does not establish that every native
 format represents each semantic feature identically. Directional assessments
 keep general canonical import/export policy separate from configured native
-body converters. No general canonical-to-native writer is implemented. The
+body converters. No general canonical-input-to-native graph route is implemented.
+The original-Fountain policy above uses only its bounded parsed body. The
 [recovery-only exporters](../screenplay-recovery.md) accept replayable recovery
 candidates and retain their separate lossy, review-required evidence. A missing
 writer must not become a lossless conversion claim.

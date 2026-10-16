@@ -353,6 +353,11 @@ pub fn retained_artifacts(artifact: &Artifact) -> Result<Vec<Artifact>> {
         { bail!("speech canonical transcript record does not match its evidence"); }
     } else if artifact.format().as_str() == Format::Srt.to_string() || artifact.format().as_str() == Format::WebVtt.to_string() {
         if artifact.sources() != [expected_canonical_id] { bail!("speech export must retain its canonical transcript parent"); }
+    } else if artifact.format().as_str() == Format::Text.to_string() {
+        let text = crate::timed_text::graph::validate_text_export_evidence(artifact)?;
+        if text.canonical_transcript != evidence.canonical_transcript {
+            bail!("speech text export must reference the retained recognition transcript");
+        }
     } else { bail!("speech evidence is attached to an unsupported artifact format"); }
     if artifact.id() != &ArtifactId::from_record(artifact.digest(), artifact.format(), artifact.sources()) {
         bail!("speech-bearing artifact identity does not match its record");
@@ -510,7 +515,7 @@ mod tests {
     }
 
     #[test]
-    fn retained_sidecars_survive_both_subtitle_exports_with_uncached_lineage() {
+    fn retained_sidecars_survive_subtitle_and_text_exports_with_uncached_lineage() {
         let directory = tempfile::tempdir().unwrap();
         let store = ArtifactStore::new(directory.path()).unwrap();
         let input = source(&store);
@@ -520,13 +525,20 @@ mod tests {
         assert_eq!(retained_artifact_name(&retained[0]).unwrap(), "provider-output.json");
         assert_eq!(retained_artifact_name(&retained[1]).unwrap(), "transcription.json");
         assert_eq!(transcript.sources(), &[input.id().clone(), retained[0].id().clone(), retained[1].id().clone()]);
-        for format in [Format::Srt, Format::WebVtt] {
+        for format in [Format::Srt, Format::WebVtt, Format::Text] {
             let transform = TimedTextArtifactTransform::new(Format::TimedTranscriptJson, format).unwrap().without_cache();
             assert!(!transform.cacheable());
             let exported = transform.apply(&transcript, format, &store).unwrap();
             assert_eq!(exported.sources(), &[transcript.id().clone()]);
             assert_eq!(retained_artifacts(&exported).unwrap(), retained);
             assert_eq!(exported.metadata()[SPEECH_ARTIFACT_METADATA_KEY], transcript.metadata()[SPEECH_ARTIFACT_METADATA_KEY]);
+            if format == Format::Text {
+                let evidence = crate::timed_text::graph::validate_text_export_evidence(&exported).unwrap();
+                assert!(evidence.export_losses.contains(&timed_text::TimedTextLoss::Timing));
+                assert!(evidence.export_losses.contains(&timed_text::TimedTextLoss::CueIds));
+                assert_eq!(exported.metadata()[SPEECH_ARTIFACT_METADATA_KEY]["human_reviewed"], false);
+                assert_eq!(exported.metadata()[SPEECH_ARTIFACT_METADATA_KEY]["timestamp_origin"], STRICT_WAV_TIMESTAMP_ORIGIN);
+            }
         }
         for artifact in &retained { store.verify(artifact).unwrap(); }
     }
@@ -541,6 +553,42 @@ mod tests {
         assert_eq!(first.digest(), second.digest());
         assert_ne!(first.id(), second.id());
         assert_ne!(retained_artifacts(&first).unwrap()[1].digest(), retained_artifacts(&second).unwrap()[1].digest());
+        let export = TimedTextArtifactTransform::new(Format::TimedTranscriptJson, Format::Text).unwrap().without_cache();
+        let first_text = export.apply(&first, Format::Text, &store).unwrap();
+        let second_text = export.apply(&second, Format::Text, &store).unwrap();
+        assert_eq!(first_text.digest(), second_text.digest());
+        assert_ne!(first_text.id(), second_text.id());
+        assert_ne!(crate::artifact::compute_artifact_node_hash(&first, Format::TimedTranscriptJson,
+            Format::Text, &export.cache_identity()), crate::artifact::compute_artifact_node_hash(&second,
+            Format::TimedTranscriptJson, Format::Text, &export.cache_identity()));
+    }
+
+    #[test]
+    fn speech_text_exports_refuse_missing_loss_or_drifted_recognition_evidence() {
+        let directory = tempfile::tempdir().unwrap();
+        let store = ArtifactStore::new(directory.path()).unwrap();
+        let input = source(&store);
+        let transcript = canonical(&store, &input, "synthetic-1");
+        let exported = TimedTextArtifactTransform::new(Format::TimedTranscriptJson, Format::Text).unwrap()
+            .without_cache().apply(&transcript, Format::Text, &store).unwrap();
+        let original = serde_json::to_value(&exported).unwrap();
+        for mutation in 0..6 {
+            let mut changed = original.clone();
+            let subtitle = &mut changed["metadata"][crate::timed_text::graph::SUBTITLE_ARTIFACT_METADATA_KEY];
+            match mutation {
+                0 => subtitle["export_losses"].as_array_mut().unwrap().retain(|loss| loss.as_str() != Some("timing")),
+                1 => subtitle["canonical_transcript"]["sha256"] = serde_json::json!("0".repeat(64)),
+                2 => subtitle["operation"] = serde_json::json!("parse"),
+                3 => {
+                    changed["metadata"].as_object_mut().unwrap()
+                        .remove(crate::timed_text::graph::SUBTITLE_ARTIFACT_METADATA_KEY);
+                }
+                4 => changed["metadata"][SPEECH_ARTIFACT_METADATA_KEY]["human_reviewed"] = serde_json::json!(true),
+                _ => changed["metadata"][SPEECH_ARTIFACT_METADATA_KEY]["canonical_transcript"]["sha256"] = serde_json::json!("0".repeat(64)),
+            }
+            let changed: Artifact = serde_json::from_value(changed).unwrap();
+            assert!(retained_artifacts(&changed).is_err(), "mutation {mutation} was admitted");
+        }
     }
 
     #[test]
