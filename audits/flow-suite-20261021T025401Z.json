@@ -1,0 +1,1134 @@
+{
+  "schema": "renderflow.audit-validation-receipt/v1",
+  "audit_timestamp_utc": "20261021T024412Z",
+  "source_sha": "81088f01b14c010e7dc6523763771f8461ed9b09",
+  "source_tree": "ed6dbccf4aec9220c27d6eff3395e12a9239c284",
+  "validation_mode": "source-review-plus-existing-provider-records; product execution remains deferred",
+  "product_execution_performed": false,
+  "new_ci_dispatches": 0,
+  "new_ci_reruns": 0,
+  "explicitly_not_run": [
+    "Rust compiler/build/Cargo resolution",
+    "product tests",
+    "format/lint checks",
+    "product schema qualification",
+    "Renderflow CLI/SDK/native/provider/visual execution",
+    "dependency/model/installer downloads",
+    "new CI execution"
+  ],
+  "executed_non_product_checks": [
+    "Git source identity/clean working-tree inventory",
+    "audit artifact structure, issue completeness and original-body hash preservation",
+    "public report privacy/path and link-reference inspection"
+  ],
+  "existing_provider_summary": {
+    "skipped": 2,
+    "failure": 4,
+    "success": 4
+  },
+  "existing_provider_records": [
+    {
+      "name": "Fast hermetic corpus",
+      "result": "skipped",
+      "head_sha": "81088f01b14c010e7dc6523763771f8461ed9b09",
+      "job_id": 118553148154,
+      "url": "https://github.com/egohygiene/renderflow/actions/runs/39400332960/job/118553148154",
+      "started_at": "2026-10-20T09:23:36Z",
+      "completed_at": "2026-10-20T09:23:35Z",
+      "method": "read-existing-provider-record",
+      "scope": "provider-job-summary-only",
+      "diagnosis": "No broader product/capability claim inferred from this job result."
+    },
+    {
+      "name": "Maximal tool-backed corpus",
+      "result": "failure",
+      "head_sha": "81088f01b14c010e7dc6523763771f8461ed9b09",
+      "job_id": 118553145836,
+      "url": "https://github.com/egohygiene/renderflow/actions/runs/39400332960/job/118553145836",
+      "started_at": "2026-10-20T09:23:39Z",
+      "completed_at": "2026-10-20T09:24:21Z",
+      "method": "read-existing-provider-record",
+      "scope": "before-tests",
+      "diagnosis": "Existing locked corpus invocation exits before tests; Cargo reports lock update required under --locked. Exact resolution delta unverified."
+    },
+    {
+      "name": "Run benchmarks",
+      "result": "success",
+      "head_sha": "81088f01b14c010e7dc6523763771f8461ed9b09",
+      "job_id": 117955209694,
+      "url": "https://github.com/egohygiene/renderflow/actions/runs/39220749774/job/117955209694",
+      "started_at": "2026-10-19T08:09:24Z",
+      "completed_at": "2026-10-19T08:10:44Z",
+      "method": "read-existing-provider-record",
+      "scope": "provider-job-summary-only",
+      "diagnosis": "No broader product/capability claim inferred from this job result."
+    },
+    {
+      "name": "Validate bundled examples",
+      "result": "skipped",
+      "head_sha": "81088f01b14c010e7dc6523763771f8461ed9b09",
+      "job_id": 117795213996,
+      "url": "https://github.com/egohygiene/renderflow/actions/runs/39167972817/job/117795213996",
+      "started_at": "2026-10-18T21:29:59Z",
+      "completed_at": "2026-10-18T21:29:58Z",
+      "method": "read-existing-provider-record",
+      "scope": "provider-job-summary-only",
+      "diagnosis": "No broader product/capability claim inferred from this job result."
+    },
+    {
+      "name": "Validate PKGBUILD stable (Arch Linux)",
+      "result": "success",
+      "head_sha": "81088f01b14c010e7dc6523763771f8461ed9b09",
+      "job_id": 117794850454,
+      "url": "https://github.com/egohygiene/renderflow/actions/runs/39167972817/job/117794850454",
+      "started_at": "2026-10-18T21:28:19Z",
+      "completed_at": "2026-10-18T21:28:47Z",
+      "method": "read-existing-provider-record",
+      "scope": "provider-job-summary-only",
+      "diagnosis": "No broader product/capability claim inferred from this job result."
+    },
+    {
+      "name": "Validate PKGBUILD git (Arch Linux)",
+      "result": "success",
+      "head_sha": "81088f01b14c010e7dc6523763771f8461ed9b09",
+      "job_id": 117794850432,
+      "url": "https://github.com/egohygiene/renderflow/actions/runs/39167972817/job/117794850432",
+      "started_at": "2026-10-18T21:28:19Z",
+      "completed_at": "2026-10-18T21:28:42Z",
+      "method": "read-existing-provider-record",
+      "scope": "provider-job-summary-only",
+      "diagnosis": "No broader product/capability claim inferred from this job result."
+    },
+    {
+      "name": "build-and-test",
+      "result": "failure",
+      "head_sha": "81088f01b14c010e7dc6523763771f8461ed9b09",
+      "job_id": 117794850405,
+      "url": "https://github.com/egohygiene/renderflow/actions/runs/39167972817/job/117794850405",
+      "started_at": "2026-10-18T21:28:20Z",
+      "completed_at": "2026-10-18T21:29:58Z",
+      "method": "read-existing-provider-record",
+      "scope": "compile-and-lint",
+      "diagnosis": "Existing Clippy invocation exits with two overflowing JSON numeric literals plus 22 lint errors under -D warnings; later build/test steps do not run."
+    },
+    {
+      "name": "Web checks",
+      "result": "success",
+      "head_sha": "81088f01b14c010e7dc6523763771f8461ed9b09",
+      "job_id": 117794850395,
+      "url": "https://github.com/egohygiene/renderflow/actions/runs/39167972817/job/117794850395",
+      "started_at": "2026-10-18T21:28:19Z",
+      "completed_at": "2026-10-18T21:28:50Z",
+      "method": "read-existing-provider-record",
+      "scope": "provider-job-summary-only",
+      "diagnosis": "No broader product/capability claim inferred from this job result."
+    },
+    {
+      "name": "Installer smoke test",
+      "result": "failure",
+      "head_sha": "81088f01b14c010e7dc6523763771f8461ed9b09",
+      "job_id": 117794850285,
+      "url": "https://github.com/egohygiene/renderflow/actions/runs/39167972817/job/117794850285",
+      "started_at": "2026-10-18T21:28:19Z",
+      "completed_at": "2026-10-18T21:30:05Z",
+      "method": "read-existing-provider-record",
+      "scope": "before-installer-smoke",
+      "diagnosis": "Existing release build stops on the two shared overflowing numeric literals, before installer smoke invocation."
+    },
+    {
+      "name": "Validate Snap package",
+      "result": "failure",
+      "head_sha": "81088f01b14c010e7dc6523763771f8461ed9b09",
+      "job_id": 117794850194,
+      "url": "https://github.com/egohygiene/renderflow/actions/runs/39167972817/job/117794850194",
+      "started_at": "2026-10-18T21:28:19Z",
+      "completed_at": "2026-10-18T21:33:18Z",
+      "method": "read-existing-provider-record",
+      "scope": "package-build",
+      "diagnosis": "Existing Snap job reports virtual-workspace cargo-install package selection failure and the shared compiler literal failures. No published Snap channel is established."
+    }
+  ],
+  "not_proven": [
+    "Current product tests pass",
+    "Creative/composition native capabilities are qualified",
+    "Cross-platform support",
+    "Pixel/print/native-app fidelity",
+    "Paid/local model quality",
+    "Immutable release availability or released Flow adapter consumption"
+  ],
+  "no_releases_snapshot": true,
+  "original_inventory": {
+    "open_issues_including_roadmap": 25,
+    "open_original_work_issues_excluding_roadmap": 24,
+    "open_draft_pr": 455,
+    "draft_head": "eb47f6331cf3f81868b3566521976484349a64b9"
+  },
+  "identity_digests": {
+    "issues.json": "4219682d08776153ca49d30bf36ab5e1934b720b55f7f9056360d088c580aaf4",
+    "comments.json": "2f3d7fd4af1787885e55e0f21eee69fb02d2bea775ac4518fa4754bb348cddcd",
+    "pr455.json": "e07c7e7931e7d9999cf26952d1d00830e26c444ab6ab9e0823054d69748e4f88",
+    "pr455files.json": "39181cc1a92aed6a15fe022dec72b130d62294f33c3c3bf793290a3c8a415715",
+    "checks.json": "8fa6dbb5805f4ce3508b25604d16a8b00a9f1be59db4842daa0fb8cbc0975209",
+    "releases.json": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "closed-dependencies.json": "2748af7992ad8b4b1b05e0aa888b0617728f8cbbe20ea05f1112ee4d8ae271f0"
+  },
+  "public_receipt_excludes": "Full issue dumps, provider payloads and raw runner logs; digests identify retained snapshot evidence.",
+  "audit_artifact_checks": {
+    "result": "pass",
+    "scope": "audit artifacts only, no product qualification",
+    "original_work_body_hashes_preserved": 24,
+    "original_roadmap_body_preserved_verbatim": true,
+    "original_roadmap_title_preserved": true,
+    "unique_recommended_children_including_new_gaps": 26,
+    "all_source_permalinks_resolve_in_frozen_checkout": true,
+    "public_artifacts_no_workspace_runner_paths_or_credential_patterns": true,
+    "source_worktree_clean": true,
+    "normalized_finding_model_checked_against": "Aether auditor spec2.0.0 sections6-9"
+  },
+  "publication": {
+    "stem": "flow-suite-20261021T025401Z",
+    "branch": "audit/flow-suite-20261021T025401Z",
+    "report_path": "audits/flow-suite-20261021T025401Z.md",
+    "receipt_path": "audits/flow-suite-20261021T025401Z.json",
+    "roadmap_url": "https://github.com/egohygiene/renderflow/issues/367",
+    "audit_pr_url": "https://github.com/egohygiene/renderflow/pull/460",
+    "note": "Publication naming time does not replace original source/audit/provider review times."
+  },
+  "guidance": {
+    "repository": "egohygiene/aether",
+    "commit": "dc8a16851f452763ef4f7fbe4bf057d4500b1921",
+    "governing_spec": {
+      "path": "library/organization/specs/quality/auditor.spec.md",
+      "version": "2.0.0",
+      "status": "approved"
+    },
+    "procedure": {
+      "path": "library/organization/skills/quality/audit-repository/SKILL.md",
+      "version": "1.1.0",
+      "status": "draft"
+    },
+    "issue_authoring": {
+      "version": "1.2.0",
+      "status": "experimental"
+    },
+    "continuity_mode": "Resume read-only; no existing tracked CONTINUITY.md; no adoption performed"
+  },
+  "source_context": {
+    "repository": "egohygiene/renderflow",
+    "default_branch": "main",
+    "frozen_sha": "81088f01b14c010e7dc6523763771f8461ed9b09",
+    "frozen_tree": "ed6dbccf4aec9220c27d6eff3395e12a9239c284",
+    "source_worktree_clean_after_audit": true,
+    "workspace_crates": [
+      "crates/renderflow-core",
+      "crates/renderflow-cli",
+      "crates/renderflow-plugin-sdk"
+    ],
+    "declared_version": "0.3.0-rc.1",
+    "declared_rust_edition": "2021",
+    "declared_rust_msrv": "1.94",
+    "toolchain_executed_for_this_audit": false,
+    "tracked_files": 741,
+    "tracked_bytes": 16462221,
+    "rust_files": 231,
+    "inspection_mode": "Repository-wide inventory plus targeted source/contracts/tests/workflows/issues review; no claim of line-by-line whole-source or dependency-internal review."
+  },
+  "findings": [
+    {
+      "id": "AUDIT-001",
+      "title": "Current Rust qualification stops before product tests",
+      "classification": "confirmed defect",
+      "severity": "medium",
+      "confidence": "high",
+      "status": "confirmed",
+      "area": "schema construction and qualification",
+      "effort": "small",
+      "impact": "medium",
+      "observation": "Two JSON schema maxima 4294967295 at spec.rs lines2363/2408 are inferred as overflowing i32 in existing Rust1.94 compilation. Clippy also reports22 lint errors; later tests do not execute.",
+      "evidence": [
+        {
+          "kind": "observed",
+          "reference": "https://github.com/egohygiene/renderflow/blob/81088f01b14c010e7dc6523763771f8461ed9b09/crates/renderflow-core/src/spec.rs"
+        },
+        {
+          "kind": "observed",
+          "reference": "https://github.com/egohygiene/renderflow/actions/runs/39167972817/job/117794850405"
+        },
+        {
+          "kind": "observed",
+          "reference": "https://github.com/egohygiene/renderflow/actions/runs/39167972817/job/117794850285"
+        }
+      ],
+      "why_it_matters": "The exact-source candidate cannot meet #419 green-build gate; a compiler stop is not an installer smoke or behavioral-test failure.",
+      "recommendation": "Preserve schema unsigned range, correct typed literals and meaningful lint findings without weakening -D warnings.",
+      "validation": "After qualification resumes, run the declared Rust1.94/MSRV/exact-source locked gate and affected installer check; retain actual step outcomes.",
+      "dependencies_risks": "Executable qualification remains explicitly deferred; no product command was run by this audit.",
+      "coverage": {
+        "existing_issues": [
+          419,
+          406
+        ],
+        "new_issue_keys": [
+          "RF-GAP-1"
+        ],
+        "reason": "Existing issues own eventual qualification; focused baseline recovery has no open narrow owner. Closed407 is a different historical baseline."
+      },
+      "remediation_status": "observed-unresolved",
+      "effort_details": "small source/lint correction plus later qualification",
+      "impact_description": "Candidate binaries and build/test evidence unavailable",
+      "suggested_validation": "After qualification resumes, run the declared Rust1.94/MSRV/exact-source locked gate and affected installer check; retain actual step outcomes."
+    },
+    {
+      "id": "AUDIT-002",
+      "title": "Locked corpus cannot begin",
+      "classification": "confirmed defect",
+      "severity": "medium",
+      "confidence": "high",
+      "status": "confirmed",
+      "area": "dependency reproducibility",
+      "effort": "small",
+      "impact": "medium",
+      "observation": "Existing exact-source maximal corpus exits before tests because Cargo.lock requires updating under --locked; exact resolution delta remains unverified.",
+      "evidence": [
+        {
+          "kind": "observed",
+          "reference": "https://github.com/egohygiene/renderflow/actions/runs/39400332960/job/118553145836"
+        },
+        {
+          "kind": "observed",
+          "reference": "https://github.com/egohygiene/renderflow/blob/81088f01b14c010e7dc6523763771f8461ed9b09/docs/work/406/HANDOFF.md"
+        },
+        {
+          "kind": "observed",
+          "reference": "https://github.com/egohygiene/renderflow/blob/81088f01b14c010e7dc6523763771f8461ed9b09/Cargo.lock"
+        }
+      ],
+      "why_it_matters": "Declared pins and hand-authored entries do not prove a Cargo-resolved reproducible graph.",
+      "recommendation": "When authorized, obtain/review Cargo-produced delta and preserve --locked; do not guess culprit or hand-author resolution.",
+      "validation": "Later exact-source locked conformance invocation begins and reports actual assertion outcomes with dependency delta reviewed.",
+      "dependencies_risks": "Cargo resolution/execution deferred. No entire-corpus behavior failure inferred.",
+      "coverage": {
+        "existing_issues": [
+          406,
+          429,
+          430,
+          419
+        ],
+        "new_issue_keys": [
+          "RF-GAP-1"
+        ],
+        "reason": "Retain lane-specific qualification; new baseline task only owns immediate resolution blocker."
+      },
+      "remediation_status": "observed-unresolved",
+      "effort_details": "bounded Cargo investigation",
+      "impact_description": "Locked conformance evidence unavailable",
+      "suggested_validation": "Later exact-source locked conformance invocation begins and reports actual assertion outcomes with dependency delta reviewed."
+    },
+    {
+      "id": "AUDIT-003",
+      "title": "Optional Snap template does not select a workspace package",
+      "classification": "confirmed defect",
+      "severity": "low",
+      "confidence": "high",
+      "status": "confirmed",
+      "area": "optional packaging",
+      "effort": "small",
+      "impact": "low",
+      "observation": "Rust Snap plugin operates at source . virtual workspace; hosted cargo install reports requires actual package, plus shared compiler errors.",
+      "evidence": [
+        {
+          "kind": "observed",
+          "reference": "https://github.com/egohygiene/renderflow/blob/81088f01b14c010e7dc6523763771f8461ed9b09/snap/snapcraft.yaml"
+        },
+        {
+          "kind": "observed",
+          "reference": "https://github.com/egohygiene/renderflow/blob/81088f01b14c010e7dc6523763771f8461ed9b09/Cargo.toml"
+        },
+        {
+          "kind": "observed",
+          "reference": "https://github.com/egohygiene/renderflow/actions/runs/39167972817/job/117794850194"
+        }
+      ],
+      "why_it_matters": "Correct package selection is necessary to evaluate recipe; current template is explicitly unpublished.",
+      "recommendation": "Select CLI package or documented explicit equivalent; preserve unpublished status.",
+      "validation": "Later authorized package job passes selected package build/install without claiming Snap Store availability.",
+      "dependencies_risks": "Package/compiler execution deferred; first verified release remains Linux tarball, not all channels.",
+      "coverage": {
+        "existing_issues": [
+          419
+        ],
+        "new_issue_keys": [
+          "RF-GAP-1"
+        ],
+        "reason": "Small current baseline blocker, not expansion of distribution release scope."
+      },
+      "remediation_status": "observed-unresolved",
+      "effort_details": "small source recipe and later package check",
+      "impact_description": "Aggregate package CI cannot complete; no published channel outage established",
+      "suggested_validation": "Later authorized package job passes selected package build/install without claiming Snap Store availability."
+    },
+    {
+      "id": "AUDIT-004",
+      "title": "Contributor and architecture entry points disagree with current implementation",
+      "classification": "documentation gap",
+      "severity": "low",
+      "confidence": "high",
+      "status": "confirmed",
+      "area": "contributor experience and ownership",
+      "effort": "small",
+      "impact": "low",
+      "observation": "CONTRIBUTING describes obsolete auto bump/tag workflow,10 binary targets/package channels/main mutation and root src paths. Root SYSTEM repeats same generic ownership for7 systems; older foundation docs lack navigation disposition.",
+      "evidence": [
+        {
+          "kind": "observed",
+          "reference": "https://github.com/egohygiene/renderflow/blob/81088f01b14c010e7dc6523763771f8461ed9b09/CONTRIBUTING.md"
+        },
+        {
+          "kind": "observed",
+          "reference": "https://github.com/egohygiene/renderflow/blob/81088f01b14c010e7dc6523763771f8461ed9b09/.github/workflows/release.yml"
+        },
+        {
+          "kind": "observed",
+          "reference": "https://github.com/egohygiene/renderflow/blob/81088f01b14c010e7dc6523763771f8461ed9b09/docs/release-candidate.md"
+        },
+        {
+          "kind": "observed",
+          "reference": "https://github.com/egohygiene/renderflow/blob/81088f01b14c010e7dc6523763771f8461ed9b09/SYSTEM.md"
+        },
+        {
+          "kind": "observed",
+          "reference": "https://github.com/egohygiene/renderflow/blob/81088f01b14c010e7dc6523763771f8461ed9b09/docs/architecture/foundation/SYSTEM.md"
+        }
+      ],
+      "why_it_matters": "A new worker can follow a superseded release path or fail to identify bounded owner.",
+      "recommendation": "Reconcile current workspace/release docs and one architecture entry point with distinct responsibilities; retain historical text via explicit disposition.",
+      "validation": "Documentation-only structure/link/diff checks. Do not start product qualification for plain documentation.",
+      "dependencies_risks": "No new org-policy adoption or blanket architecture move;405 explicit scheduling remains.",
+      "coverage": {
+        "existing_issues": [
+          419,
+          405,
+          409
+        ],
+        "new_issue_keys": [
+          "RF-GAP-2"
+        ],
+        "reason": "419 release closeout/405 ADR shared milestone/409 future full audit do not provide focused present contributor-navigation task."
+      },
+      "remediation_status": "observed-unresolved",
+      "effort_details": "small focused documentation increment",
+      "impact_description": "Incorrect release instructions and navigation ambiguity",
+      "suggested_validation": "Documentation-only structure/link/diff checks. Do not start product qualification for plain documentation."
+    },
+    {
+      "id": "AUDIT-005",
+      "title": "Roadmap needs a complete current open-work ledger",
+      "classification": "maintainability risk",
+      "severity": "low",
+      "confidence": "high",
+      "status": "confirmed",
+      "area": "backlog and continuity",
+      "effort": "small",
+      "impact": "low",
+      "observation": "#367 predates newer source/AI/speech qualification records; provider summaries show zero native children across25open issues while prose gives421/412 parentage.",
+      "evidence": [
+        {
+          "kind": "observed",
+          "reference": "https://github.com/egohygiene/renderflow/issues/367"
+        },
+        {
+          "kind": "observed",
+          "reference": "https://github.com/egohygiene/renderflow/issues/421"
+        },
+        {
+          "kind": "observed",
+          "reference": "https://github.com/egohygiene/renderflow/issues/412"
+        }
+      ],
+      "why_it_matters": "A single complete ledger reduces drift without deleting optional or gated outcomes.",
+      "recommendation": "Reuse367, prepend dated state/order, preserve entire originalbody, materialize421→422..430+440 and412→413, preserve existing native parents if refresh discovers any.",
+      "validation": "Verify all24 originalwork issues represented exactlyonce across descendants; originalbody hashes/titles/labels unchanged; newgaps added.",
+      "dependencies_risks": "Fulloutcome stars are issue-specific; common deferredqualification boundary remains. Scope/history not replaced.",
+      "coverage": {
+        "existing_issues": [
+          367
+        ],
+        "new_issue_keys": [],
+        "reason": "Existing roadmap owns its own remediation; no new epic."
+      },
+      "remediation_status": "observed-remediation-proposed",
+      "effort_details": "small ledger/hierarchy reconciliation",
+      "impact_description": "Workers may confuse historical green/source completion with current acceptance or omit newer work",
+      "suggested_validation": "Verify all24 originalwork issues represented exactlyonce across descendants; originalbody hashes/titles/labels unchanged; newgaps added."
+    }
+  ],
+  "original_issue_identities": [
+    {
+      "number": 349,
+      "id": 5285923140,
+      "node_id": "I_kwDORskJR88AAAABOxDJRA",
+      "url": "https://github.com/egohygiene/renderflow/issues/349",
+      "title": "Evaluate repository briefings and podcast derivatives from canonical content",
+      "state": "open",
+      "original_body_sha256": "1d57fe8dbd38602dd68be2d2f3aa39f71fabb8291cefb870c3a3496b72c5935b",
+      "original_labels": [],
+      "existing_native_sub_issue_total": 0,
+      "original_updated_at": "2026-08-29T10:11:38Z"
+    },
+    {
+      "number": 350,
+      "id": 5292589665,
+      "node_id": "I_kwDORskJR88AAAABO3aCYQ",
+      "url": "https://github.com/egohygiene/renderflow/issues/350",
+      "title": "Add a Slidev-backed product presentation publication profile",
+      "state": "open",
+      "original_body_sha256": "c1c9e5e6636f02cefd9e59e7cef1f7846ff6602b82d4f7bacb41287ee5e24f27",
+      "original_labels": [],
+      "existing_native_sub_issue_total": 0,
+      "original_updated_at": "2026-08-30T14:31:03Z"
+    },
+    {
+      "number": 367,
+      "id": 5303357482,
+      "node_id": "I_kwDORskJR88AAAABPBrQKg",
+      "url": "https://github.com/egohygiene/renderflow/issues/367",
+      "title": "Roadmap: universal artifact forest, maximal Renderflow profile, and Flow orchestration readiness",
+      "state": "open",
+      "original_body_sha256": "2d69903209c6b5176eb0194dc8d8e6ff03deb05b9fc22787b9978b41e5944f68",
+      "original_labels": [],
+      "existing_native_sub_issue_total": 0,
+      "original_updated_at": "2026-09-26T02:31:45Z"
+    },
+    {
+      "number": 378,
+      "id": 5370649648,
+      "node_id": "I_kwDORskJR88AAAABQB2cMA",
+      "url": "https://github.com/egohygiene/renderflow/issues/378",
+      "title": "🤖 Add Medium-style article Copilot agent for generation and polishing",
+      "state": "open",
+      "original_body_sha256": "07f5f978d480a7038059f98dd82671abe53caa8bf91f6433db7c0d742a7197c2",
+      "original_labels": [],
+      "existing_native_sub_issue_total": 0,
+      "original_updated_at": "2026-09-07T05:58:54Z"
+    },
+    {
+      "number": 379,
+      "id": 5370652837,
+      "node_id": "I_kwDORskJR88AAAABQB2opQ",
+      "url": "https://github.com/egohygiene/renderflow/issues/379",
+      "title": "📝 Add long-form editorial article template/profile paired with the Medium-style Copilot agent",
+      "state": "open",
+      "original_body_sha256": "087ef6dd86d6e0ffbfa09ee67b587648fbd109344fa248a9434798808e3d586b",
+      "original_labels": [],
+      "existing_native_sub_issue_total": 0,
+      "original_updated_at": "2026-09-07T05:59:19Z"
+    },
+    {
+      "number": 397,
+      "id": 5428407109,
+      "node_id": "I_kwDORskJR88AAAABQ47rRQ",
+      "url": "https://github.com/egohygiene/renderflow/issues/397",
+      "title": "Add Sonic DNA normalization and semantic audio descriptions",
+      "state": "open",
+      "original_body_sha256": "33511385a240d8db420159c2c854fea80162e8681b3a5fdfaad5f22943606cae",
+      "original_labels": [],
+      "existing_native_sub_issue_total": 0,
+      "original_updated_at": "2026-09-11T19:53:44Z"
+    },
+    {
+      "number": 405,
+      "id": 5434779346,
+      "node_id": "I_kwDORskJR88AAAABQ_Am0g",
+      "url": "https://github.com/egohygiene/renderflow/issues/405",
+      "title": "Backfill repository ADR history and enable continuous decision capture",
+      "state": "open",
+      "original_body_sha256": "dfcac8d5d7e7827252a1a9abfd2aac88caac39dcc56efe1e5ca646682d1c52d4",
+      "original_labels": [],
+      "existing_native_sub_issue_total": 0,
+      "original_updated_at": "2026-09-12T17:03:46Z"
+    },
+    {
+      "number": 406,
+      "id": 5441563796,
+      "node_id": "I_kwDORskJR88AAAABRFeslA",
+      "url": "https://github.com/egohygiene/renderflow/issues/406",
+      "title": "[Publication] Add localization-ready layered page composition and locale render targets",
+      "state": "open",
+      "original_body_sha256": "277aee1f821162b0a552abe29f27f6238cf22ffabff96d8f6ef735c304b93234",
+      "original_labels": [],
+      "existing_native_sub_issue_total": 0,
+      "original_updated_at": "2026-10-15T15:42:01Z"
+    },
+    {
+      "number": 409,
+      "id": 5442197182,
+      "node_id": "I_kwDORskJR88AAAABRGFWvg",
+      "url": "https://github.com/egohygiene/renderflow/issues/409",
+      "title": "[Audit] Post-roadmap repository, backlog, and Identity audit",
+      "state": "open",
+      "original_body_sha256": "fe168e0042907363b876523441d25f9856856d740c17660157501cb23eb2cbeb",
+      "original_labels": [],
+      "existing_native_sub_issue_total": 0,
+      "original_updated_at": "2026-09-13T19:19:34Z"
+    },
+    {
+      "number": 412,
+      "id": 5461174306,
+      "node_id": "I_kwDORskJR88AAAABRYLoIg",
+      "url": "https://github.com/egohygiene/renderflow/issues/412",
+      "title": "Build a comprehensive adversarial rendering fixture corpus",
+      "state": "open",
+      "original_body_sha256": "7f39576e7c0e2a080c6bf691613ebe8c619003c5043c97dcbf39503c57300708",
+      "original_labels": [],
+      "existing_native_sub_issue_total": 0,
+      "original_updated_at": "2026-09-16T21:35:07Z"
+    },
+    {
+      "number": 413,
+      "id": 5480188301,
+      "node_id": "I_kwDORskJR88AAAABRqUJjQ",
+      "url": "https://github.com/egohygiene/renderflow/issues/413",
+      "title": "Add a synthetic comic fixture and reusable document-type fixture packs",
+      "state": "open",
+      "original_body_sha256": "b5640a7cb1e9328edcbfd488afaa623c417c2d125cabfda31b37d65d09acced2",
+      "original_labels": [],
+      "existing_native_sub_issue_total": 0,
+      "original_updated_at": "2026-09-16T21:34:50Z"
+    },
+    {
+      "number": 419,
+      "id": 5543167804,
+      "node_id": "I_kwDORskJR88AAAABSmYHPA",
+      "url": "https://github.com/egohygiene/renderflow/issues/419",
+      "title": "[Release] Publish the first verified Renderflow integration-candidate release and reconcile distribution truth",
+      "state": "open",
+      "original_body_sha256": "a51693c4abb8a066dfb57769e80acc93f4e3fc00634dd625e890ee1208df41f3",
+      "original_labels": [],
+      "existing_native_sub_issue_total": 0,
+      "original_updated_at": "2026-09-22T17:49:44Z"
+    },
+    {
+      "number": 420,
+      "id": 5560327907,
+      "node_id": "I_kwDORskJR88AAAABS2ve4w",
+      "url": "https://github.com/egohygiene/renderflow/issues/420",
+      "title": "🌐 Expose Renderflow through a first-class HTTP API and job service",
+      "state": "open",
+      "original_body_sha256": "e6c9468969ecdb1f3efb8df6ecb837ca6dd65f3a5f07968d4ec1785cf2585760",
+      "original_labels": [],
+      "existing_native_sub_issue_total": 0,
+      "original_updated_at": "2026-09-23T22:28:54Z"
+    },
+    {
+      "number": 421,
+      "id": 5590696230,
+      "node_id": "I_kwDORskJR88AAAABTTtBJg",
+      "url": "https://github.com/egohygiene/renderflow/issues/421",
+      "title": "[EPIC][Artifact Forest] Build truthful screenplay, transcript, and exhaustive derivative workflows",
+      "state": "open",
+      "original_body_sha256": "e7b4834ff4d9b9f276fd4b39e0e34642759e9e9a1d7ca3d5cab6661df62fa6e1",
+      "original_labels": [],
+      "existing_native_sub_issue_total": 0,
+      "original_updated_at": "2026-10-13T06:07:14Z"
+    },
+    {
+      "number": 422,
+      "id": 5590705447,
+      "node_id": "I_kwDORskJR88AAAABTTtlJw",
+      "url": "https://github.com/egohygiene/renderflow/issues/422",
+      "title": "[Artifact Forest 1/9] Define cycle-safe exhaustive derivative planning",
+      "state": "open",
+      "original_body_sha256": "64309faa9b339c94d2d74053ee37e9b22fa73a38792a72c435de77ca11aabb79",
+      "original_labels": [],
+      "existing_native_sub_issue_total": 0,
+      "original_updated_at": "2026-10-12T22:29:50Z"
+    },
+    {
+      "number": 423,
+      "id": 5590705570,
+      "node_id": "I_kwDORskJR88AAAABTTtlog",
+      "url": "https://github.com/egohygiene/renderflow/issues/423",
+      "title": "[Artifact Forest 2/9] Define canonical screenplay artifacts and capability truth",
+      "state": "open",
+      "original_body_sha256": "ae60df46191d3dae79d756625a2c1d37cd69079011a8f77f5d3ebc79265c1a05",
+      "original_labels": [],
+      "existing_native_sub_issue_total": 0,
+      "original_updated_at": "2026-10-12T21:35:09Z"
+    },
+    {
+      "number": 424,
+      "id": 5590706001,
+      "node_id": "I_kwDORskJR88AAAABTTtnUQ",
+      "url": "https://github.com/egohygiene/renderflow/issues/424",
+      "title": "[Artifact Forest 3/9] Add bounded scripttool screenplay conversion adapter",
+      "state": "open",
+      "original_body_sha256": "a65bf0022e21cd8d17f8696a1f35b26540f2ece01db6bb030ac502540e924f7a",
+      "original_labels": [],
+      "existing_native_sub_issue_total": 0,
+      "original_updated_at": "2026-10-12T21:35:10Z"
+    },
+    {
+      "number": 425,
+      "id": 5590706154,
+      "node_id": "I_kwDORskJR88AAAABTTtn6g",
+      "url": "https://github.com/egohygiene/renderflow/issues/425",
+      "title": "[Artifact Forest 4/9] Add afterwriting Fountain PDF and screenplay-analysis adapter",
+      "state": "open",
+      "original_body_sha256": "a079a8ddce54598b91058b9ec33fc3f3e21c01beb0119fd5c00171264313f719",
+      "original_labels": [],
+      "existing_native_sub_issue_total": 0,
+      "original_updated_at": "2026-10-12T21:35:11Z"
+    },
+    {
+      "number": 426,
+      "id": 5590706282,
+      "node_id": "I_kwDORskJR88AAAABTTtoag",
+      "url": "https://github.com/egohygiene/renderflow/issues/426",
+      "title": "[Artifact Forest 5/9] Recover screenplay structure from PDF and unstructured text",
+      "state": "open",
+      "original_body_sha256": "cdbe5c4bfe6a7713858641ffd931eabe8a261cb3ee3435861f4011babaa6a129",
+      "original_labels": [],
+      "existing_native_sub_issue_total": 0,
+      "original_updated_at": "2026-10-13T05:14:57Z"
+    },
+    {
+      "number": 427,
+      "id": 5590706425,
+      "node_id": "I_kwDORskJR88AAAABTTto-Q",
+      "url": "https://github.com/egohygiene/renderflow/issues/427",
+      "title": "[Artifact Forest 6/9] Add timed-text formats and embedded subtitle extraction",
+      "state": "open",
+      "original_body_sha256": "81815d860ec3ca5f86c20a2068f64e2451aa99a0460cd861973254c12f7a4bab",
+      "original_labels": [],
+      "existing_native_sub_issue_total": 0,
+      "original_updated_at": "2026-10-12T18:30:41Z"
+    },
+    {
+      "number": 428,
+      "id": 5590706560,
+      "node_id": "I_kwDORskJR88AAAABTTtpgA",
+      "url": "https://github.com/egohygiene/renderflow/issues/428",
+      "title": "[Artifact Forest 7/9] Add local speech-to-timed-transcript provider",
+      "state": "open",
+      "original_body_sha256": "18db97515c2a86ed7732d261271c61a17f0e3e01f493305d264b49f4f3be2adf",
+      "original_labels": [],
+      "existing_native_sub_issue_total": 0,
+      "original_updated_at": "2026-10-12T18:30:42Z"
+    },
+    {
+      "number": 429,
+      "id": 5590706954,
+      "node_id": "I_kwDORskJR88AAAABTTtrCg",
+      "url": "https://github.com/egohygiene/renderflow/issues/429",
+      "title": "[Artifact Forest 8/9] Add a creative conversion toolchain profile and doctor surface",
+      "state": "open",
+      "original_body_sha256": "98f692f482a4daa575440e45f10ab10f88f8d5e70eab85f54a95354fb4c3fefa",
+      "original_labels": [],
+      "existing_native_sub_issue_total": 0,
+      "original_updated_at": "2026-10-13T05:17:38Z"
+    },
+    {
+      "number": 430,
+      "id": 5590707075,
+      "node_id": "I_kwDORskJR88AAAABTTtrgw",
+      "url": "https://github.com/egohygiene/renderflow/issues/430",
+      "title": "[Artifact Forest 9/9] Prove the multi-family artifact forest and hand it to Flow",
+      "state": "open",
+      "original_body_sha256": "9dea7c24a8029dcabe31980778acc96551d061892ead0294c9de9efd011a6fe7",
+      "original_labels": [],
+      "existing_native_sub_issue_total": 0,
+      "original_updated_at": "2026-10-16T02:28:00Z"
+    },
+    {
+      "number": 440,
+      "id": 5818063657,
+      "node_id": "I_kwDORskJR88AAAABWsibKQ",
+      "url": "https://github.com/egohygiene/renderflow/issues/440",
+      "title": "[Speech] Add explicit original-media time maps and aligned subtitle exports",
+      "state": "open",
+      "original_body_sha256": "c19f307ca8971675955e22365deeec0948bb2d1eb8a6b5a7aa9a6a287783ae9a",
+      "original_labels": [],
+      "existing_native_sub_issue_total": 0,
+      "original_updated_at": "2026-10-12T18:30:43Z"
+    },
+    {
+      "number": 456,
+      "id": 5903783284,
+      "node_id": "I_kwDORskJR88AAAABX-SVdA",
+      "url": "https://github.com/egohygiene/renderflow/issues/456",
+      "title": "[AI] Add source-grounded publication summary candidates using shared runtime profiles",
+      "state": "open",
+      "original_body_sha256": "7a09f7ec78847206110ebd29aae5a857cb427b0d365216adf63fabbf496ca406",
+      "original_labels": [],
+      "existing_native_sub_issue_total": 0,
+      "original_updated_at": "2026-10-17T22:31:52Z"
+    }
+  ],
+  "issue_coverage": [
+    {
+      "number": 349,
+      "lane": "optional products",
+      "assessment": "independently-startable; common qualification remains deferred",
+      "bounded_preparation": "Review existing approved-content profile contracts; draft a bounded evaluation and source/approval model.",
+      "full_outcome_gate": "Chosen provider/assets, approved content and executable qualification for any adopted path.",
+      "recommended_parent": 367,
+      "dependency_starred": false
+    },
+    {
+      "number": 350,
+      "lane": "optional products",
+      "assessment": "independently-startable; common qualification remains deferred",
+      "bounded_preparation": "Inspect current profiles and draft one synthetic deck/renderer-neutral input contract.",
+      "full_outcome_gate": "Pinned tools/assets, reviewed product example and deferred runtime/accessibility qualification.",
+      "recommended_parent": 367,
+      "dependency_starred": false
+    },
+    {
+      "number": 367,
+      "lane": "ledger",
+      "assessment": "tracker",
+      "bounded_preparation": "Publish current dated audit delta and native sub-issue hierarchy.",
+      "full_outcome_gate": "All represented issues and preserved original completion definition, rather than this audit alone.",
+      "recommended_parent": null
+    },
+    {
+      "number": 378,
+      "lane": "optional products",
+      "assessment": "distinct-full-outcome-dependency",
+      "bounded_preparation": "Draft neutral editorial-agent instructions and paired Markdown/metadata contract.",
+      "full_outcome_gate": "Paired article semantics and deferred applicable checks/CI; human content review.",
+      "recommended_parent": 367,
+      "dependency_starred": true
+    },
+    {
+      "number": 379,
+      "lane": "optional products",
+      "assessment": "independently-startable; common qualification remains deferred",
+      "bounded_preparation": "Inspect existing canonical profile path and align metadata contract with #378.",
+      "full_outcome_gate": "Rendered fixture, typography/accessibility and deferred build/test/CI qualification.",
+      "recommended_parent": 367,
+      "dependency_starred": false
+    },
+    {
+      "number": 397,
+      "lane": "optional intelligence",
+      "assessment": "distinct-full-outcome-dependency",
+      "bounded_preparation": "Draft normalized synthetic analyzer inputs and schema/authority mappings against existing DNA/runtime.",
+      "full_outcome_gate": "Aniflow #8/#13 analysis/stem contracts for complete integration; optional model/provider and deferred qualification.",
+      "recommended_parent": 367,
+      "dependency_starred": true
+    },
+    {
+      "number": 405,
+      "lane": "governance",
+      "assessment": "distinct-full-outcome-dependency",
+      "bounded_preparation": "Inventory decision candidates and uncertainty without accepting or rewriting history.",
+      "full_outcome_gate": "Shared ADR system readiness and maintainer scheduling; later full backfill and decisions-view evidence.",
+      "recommended_parent": 367,
+      "dependency_starred": true
+    },
+    {
+      "number": 406,
+      "lane": "composition",
+      "assessment": "distinct-full-outcome-dependency",
+      "bounded_preparation": "Review bounded consumer requirements; prepare source-only typography/interchange changes if justified.",
+      "full_outcome_gate": "Deferred compiler/schema/asset/visual/platform/release/consumer qualification; no need to block ordered-page initial candidate.",
+      "recommended_parent": 367,
+      "dependency_starred": true
+    },
+    {
+      "number": 409,
+      "lane": "closeout",
+      "assessment": "distinct-full-outcome-dependency",
+      "bounded_preparation": "Retain this report as input and inventory historical audits, not final qualification.",
+      "full_outcome_gate": "Existing Flow-suite/post-roadmap scheduling and fresh runtime/release/Identity evidence at closeout.",
+      "recommended_parent": 367,
+      "dependency_starred": true
+    },
+    {
+      "number": 412,
+      "lane": "conformance",
+      "assessment": "independently-startable; common qualification remains deferred",
+      "bounded_preparation": "Map present capability rows to deterministic positive/negative fixture cases and assign finite slices.",
+      "full_outcome_gate": "Deferred execution and accepted provider contracts for each claimed native route; broad corpus is not a prerequisite to implement exporters.",
+      "recommended_parent": 367,
+      "dependency_starred": false
+    },
+    {
+      "number": 413,
+      "lane": "conformance",
+      "assessment": "distinct-full-outcome-dependency",
+      "bounded_preparation": "Design one small parameterized comic fixture and reusable document-type convention.",
+      "full_outcome_gate": "#412 fixture convention/current publication routes and deferred execution; it does not gate comics #93.",
+      "recommended_parent": 412,
+      "dependency_starred": true
+    },
+    {
+      "number": 419,
+      "lane": "first candidate",
+      "assessment": "distinct-full-outcome-dependency",
+      "bounded_preparation": "Review exact-tag workflow inputs, release manifest, rollback and source-qualified matrix.",
+      "full_outcome_gate": "Restore exact-source baseline, resume authorized qualification, then immutable release/download verification; #415–#418 are closed historical prerequisites.",
+      "recommended_parent": 367,
+      "dependency_starred": true
+    },
+    {
+      "number": 420,
+      "lane": "optional delivery",
+      "assessment": "independently-startable; common qualification remains deferred",
+      "bounded_preparation": "Draft bounded API/job/cancellation/error contract over the public SDK.",
+      "full_outcome_gate": "Common deferred API/runtime/CI qualification applies. Inspect and consume the existing core SDK; no additional release-before-implementation predecessor is imposed by this roadmap.",
+      "recommended_parent": 367,
+      "dependency_starred": false
+    },
+    {
+      "number": 421,
+      "lane": "creative forest parent",
+      "assessment": "distinct-full-outcome-dependency",
+      "bounded_preparation": "Reconcile child source boundaries and unqualified/unsupported routes.",
+      "full_outcome_gate": "Complete #422–#430 outcomes, exact fixture/provider qualification and released downstream handoff.",
+      "recommended_parent": 367,
+      "dependency_starred": true
+    },
+    {
+      "number": 422,
+      "lane": "creative forest",
+      "assessment": "independently-startable; common qualification remains deferred",
+      "bounded_preparation": "Inspect declared bounds/branch diagnostics and refine authored counterexamples.",
+      "full_outcome_gate": "Deferred focused planner/compiler/schema/corpus qualification.",
+      "recommended_parent": 421,
+      "dependency_starred": false
+    },
+    {
+      "number": 423,
+      "lane": "creative forest",
+      "assessment": "distinct-full-outcome-dependency",
+      "bounded_preparation": "Review type/detection/model/loss claims and preserve source extensions honestly.",
+      "full_outcome_gate": "Deferred model serialization/fixture/schema validation; #422 needed only for exhaustive forest semantics.",
+      "recommended_parent": 421,
+      "dependency_starred": true
+    },
+    {
+      "number": 424,
+      "lane": "creative forest",
+      "assessment": "distinct-full-outcome-dependency",
+      "bounded_preparation": "Reconcile evidence for each of the original six directions without expanding accepted routes.",
+      "full_outcome_gate": "Qualified exact external executable/platform/fixtures; preserve AGPL external-provider boundary and deferred execution.",
+      "recommended_parent": 421,
+      "dependency_starred": true
+    },
+    {
+      "number": 425,
+      "lane": "creative forest",
+      "assessment": "distinct-full-outcome-dependency",
+      "bounded_preparation": "Review exact package/Node policy and bounded ASCII/body profile.",
+      "full_outcome_gate": "Qualified Node/package/fonts and independent PDF/native visual/two-run evidence after deferral.",
+      "recommended_parent": 421,
+      "dependency_starred": true
+    },
+    {
+      "number": 426,
+      "lane": "creative forest",
+      "assessment": "distinct-full-outcome-dependency",
+      "bounded_preparation": "Review ambiguity/refusal and lineage cases; prepare bounded qualification records.",
+      "full_outcome_gate": "Exact Poppler/OCR assets and deferred recovery/native export/schema/runtime human review.",
+      "recommended_parent": 421,
+      "dependency_starred": true
+    },
+    {
+      "number": 427,
+      "lane": "creative forest",
+      "assessment": "independently-startable; common qualification remains deferred",
+      "bounded_preparation": "Review timed-text loss/codec/provider-absence cases and source invariance.",
+      "full_outcome_gate": "Deferred native extraction/conversion/fixture/schema qualification; PR #455 transcript Text edge is not main.",
+      "recommended_parent": 421,
+      "dependency_starred": false
+    },
+    {
+      "number": 428,
+      "lane": "creative forest",
+      "assessment": "distinct-full-outcome-dependency",
+      "bounded_preparation": "Review bounded fixture, resource and model license/provenance plan.",
+      "full_outcome_gate": "#427 semantics and exact local provider/model/toolchain qualification after deferral.",
+      "recommended_parent": 421,
+      "dependency_starred": true
+    },
+    {
+      "number": 429,
+      "lane": "creative forest",
+      "assessment": "independently-startable; common qualification remains deferred",
+      "bounded_preparation": "Review setup/qualification table and choose exact finite fixture combinations.",
+      "full_outcome_gate": "Common deferred execution applies; exact provider/platform/asset observations still need actual evidence, but this consolidation checkpoint has no distinct open predecessor that prevents bounded work.",
+      "recommended_parent": 421,
+      "dependency_starred": false
+    },
+    {
+      "number": 430,
+      "lane": "creative forest",
+      "assessment": "distinct-full-outcome-dependency",
+      "bounded_preparation": "Review draft #455 against main and keep it draft until separately authorized.",
+      "full_outcome_gate": "Children/provider qualification, CLI/SDK parity, source suppression/repeatability and released Flow consumption.",
+      "recommended_parent": 421,
+      "dependency_starred": true
+    },
+    {
+      "number": 440,
+      "lane": "creative forest extension",
+      "assessment": "distinct-full-outcome-dependency",
+      "bounded_preparation": "Review source/transcript/time-map binding and discontinuity/gap/overlap cases.",
+      "full_outcome_gate": "Deferred schema/compiler/runtime qualification over #428 evidence; no automatic mux/burn-in.",
+      "recommended_parent": 421,
+      "dependency_starred": true
+    },
+    {
+      "number": 456,
+      "lane": "optional intelligence",
+      "assessment": "distinct-full-outcome-dependency",
+      "bounded_preparation": "Design exact source slices/grounding/review schema and reuse existing runtime.",
+      "full_outcome_gate": "Shared runtime-profile/consumer compatibility, grounding/mock conformance and later measured local-runtime qualification; deterministic releases stay independent.",
+      "recommended_parent": 367,
+      "dependency_starred": true
+    }
+  ],
+  "focused_new_issue_keys": [
+    {
+      "key": "RF-GAP-1",
+      "title": "Restore the locked Rust qualification baseline",
+      "finding_ids": [
+        "AUDIT-001",
+        "AUDIT-002",
+        "AUDIT-003"
+      ],
+      "full_outcome_gated": true,
+      "dependency_starred": false
+    },
+    {
+      "key": "RF-GAP-2",
+      "title": "Reconcile current contributor and architecture documentation",
+      "finding_ids": [
+        "AUDIT-004"
+      ],
+      "full_outcome_gated": false,
+      "dependency_starred": false
+    }
+  ],
+  "existing_pr_review": {
+    "number": 455,
+    "url": "https://github.com/egohygiene/renderflow/pull/455",
+    "draft": true,
+    "merged": false,
+    "head_sha": "eb47f6331cf3f81868b3566521976484349a64b9",
+    "base_at_snapshot": "0427749a2cccececae2d69aa9fa0a02779603509",
+    "review_scope": "Body/file inventory and selected high-risk codec/planning/evidence/source/test diffs; not full native qualification or every changed-line review.",
+    "relationship": "Existing430/424/427/429 owner scopes; direct original-Fountain exports and transcript terminal Text remain draft-only, not main/released support.",
+    "merge_performed": false
+  },
+  "hierarchy_recommendation": {
+    "existing_root": 367,
+    "nested": {
+      "421": [
+        422,
+        423,
+        424,
+        425,
+        426,
+        427,
+        428,
+        429,
+        430,
+        440
+      ],
+      "412": [
+        413
+      ]
+    },
+    "all_other_original_work": "direct367 children",
+    "preserve_existing_native_parent_if_refresh_discovers_one": true,
+    "entire_original367_body_preserved": true
+  },
+  "provider_time_limit": "Provider start/end timestamps are retained verbatim, including skipped jobs whose recorded completion precedes start by one second. No elapsed-time calculation or execution claim is inferred.",
+  "privacy_review": {
+    "public_artifact_only": true,
+    "raw_issue_bodies_included": false,
+    "raw_logs_included": false,
+    "workspace_or_runner_paths_included": false,
+    "private_security_candidates_included": false,
+    "deferred_private_egolint_appendix_accessed": false,
+    "confirmed_security_vulnerability_claimed": false
+  },
+  "dependency_star_policy": "Distinct upstream/release/integration/scheduling dependencies only; shared deferred execution is recorded once and never creates a star by itself.",
+  "independently_startable": [
+    "RF-GAP-2",
+    "RF-GAP-1",
+    422,
+    427,
+    429,
+    412,
+    379,
+    350,
+    349,
+    420
+  ],
+  "dependency_starred": [
+    419,
+    423,
+    424,
+    425,
+    426,
+    428,
+    440,
+    430,
+    421,
+    406,
+    413,
+    378,
+    456,
+    397,
+    405,
+    409
+  ],
+  "prior_audit_classifications": {
+    "scope": "Compared sampled July audit and closed407 only; remaining historical findings not fully reconciled and retained for409.",
+    "AUDIT-001": {
+      "classification": "new-current-finding; historical-exact-recurrence-unable-to-verify",
+      "note": "Different current schema/lint cause from closed407 September blocker."
+    },
+    "AUDIT-002": {
+      "classification": "new-current-finding; historical-exact-recurrence-unable-to-verify",
+      "note": "Older bump-workflow lock concern is not proof of same current unresolved Cargo delta."
+    },
+    "AUDIT-003": {
+      "classification": "changed; prior-absence-apparently-resolved-in-source",
+      "note": "July no Snap CI; current check exists but fails workspace selection and compiler, a different defect."
+    },
+    "AUDIT-004": {
+      "classification": "new-current-finding; historical-recurrence-unable-to-verify",
+      "note": "Present contributor/navigation gap distinct from improved current README/release guide."
+    },
+    "AUDIT-005": {
+      "classification": "new-current-finding; historical-recurrence-unable-to-verify",
+      "note": "No evidence sampled July audit established same roadmap ledger gap."
+    },
+    "other_prior_findings": "Unable to verify complete resolution in bounded source/tracker audit;409 retains full historical reconciliation.",
+    "july_graph_test_absence": "Changed source context: current regression sources exist; no passing-test or complete-resolution claim."
+  },
+  "published_ledger": {
+    "roadmap": "https://github.com/egohygiene/renderflow/issues/367",
+    "review": "https://github.com/egohygiene/renderflow/pull/460",
+    "new_issues": {
+      "RF-GAP-1": {
+        "number": 458,
+        "url": "https://github.com/egohygiene/renderflow/issues/458",
+        "title": "Restore the locked Rust qualification baseline"
+      },
+      "RF-GAP-2": {
+        "number": 459,
+        "url": "https://github.com/egohygiene/renderflow/issues/459",
+        "title": "Reconcile current contributor and architecture documentation"
+      }
+    },
+    "original_scope_preserved": true,
+    "publication_kind": "draft-audit-and-roadmap",
+    "product_repairs_performed": false
+  }
+}
