@@ -191,7 +191,7 @@
     "report_path": "audits/flow-suite-20261021T025401Z.md",
     "receipt_path": "audits/flow-suite-20261021T025401Z.json",
     "roadmap_url": "https://github.com/egohygiene/renderflow/issues/367",
-    "audit_pr_url": "https://github.com/egohygiene/renderflow/compare/main...audit/flow-suite-20261021T025401Z",
+    "audit_pr_url": "https://github.com/egohygiene/renderflow/pull/460",
     "note": "Publication naming time does not replace original source/audit/provider review times."
   },
   "guidance": {
@@ -1114,7 +1114,7 @@
   },
   "published_ledger": {
     "roadmap": "https://github.com/egohygiene/renderflow/issues/367",
-    "review": "https://github.com/egohygiene/renderflow/compare/main...audit/flow-suite-20261021T025401Z",
+    "review": "https://github.com/egohygiene/renderflow/pull/460",
     "new_issues": {
       "RF-GAP-1": {
         "number": 458,
