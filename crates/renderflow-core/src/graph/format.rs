@@ -29,12 +29,14 @@ pub enum Format {
     Latex,
     /// Fountain screenplay plain-text format.
     Fountain,
-    /// Final Draft screenplay XML (`.fdx`); native conversion is not registered.
+    /// Final Draft screenplay XML (`.fdx`); conversion requires its explicit bounded policy.
     Fdx,
-    /// Fade In screenplay archive (`.fadein`); native conversion is not registered.
+    /// Fade In screenplay archive (`.fadein`); conversion requires its explicit bounded policy.
     FadeIn,
-    /// Open Screenplay Format XML (`.osf`); native conversion is not registered.
+    /// Open Screenplay Format XML (`.osf`); conversion requires its explicit bounded policy.
     Osf,
+    /// Trelby version 3 native coded text (`.trelby`); recognition is not runtime qualification.
+    Trelby,
     /// Renderflow's versioned screenplay JSON (`.screenplay.json`).
     ScreenplayJson,
 
@@ -183,6 +185,7 @@ impl fmt::Display for Format {
             Format::Fdx => "fdx",
             Format::FadeIn => "fadein",
             Format::Osf => "osf",
+            Format::Trelby => "trelby",
             Format::ScreenplayJson => "screenplay_json",
             // Image
             Format::Jpeg => "jpeg",
@@ -279,6 +282,7 @@ impl FromStr for Format {
             "fdx" => Ok(Format::Fdx),
             "fadein" | "fade_in" => Ok(Format::FadeIn),
             "osf" => Ok(Format::Osf),
+            "trelby" => Ok(Format::Trelby),
             "screenplay_json" | "screenplay-json" | "screenplay.json" => Ok(Format::ScreenplayJson),
             // Images
             "jpeg" | "jpg" => Ok(Format::Jpeg),
@@ -346,7 +350,7 @@ impl FromStr for Format {
             "timed_transcript_json" | "timed-transcript.json" => Ok(Format::TimedTranscriptJson),
             _ => anyhow::bail!(
                 "'{}' is not a known format. \
-                 Documents: markdown, html, pdf, docx, epub, kepub, rst, latex, fountain, fdx, fadein, osf, screenplay_json. \
+                 Documents: markdown, html, pdf, docx, epub, kepub, rst, latex, fountain, fdx, fadein, osf, trelby, screenplay_json. \
                  Images: jpeg, png, tiff, webp, gif, bmp, avif, svg, cbz. \
                  Audio: wav, aiff, bwf, pcm, flac, m4a_alac, wv, ape, tta, dsf, dff, shn, \
                  mp3, m4a, aac, ogg, opus, wma, amr, mp2, ra, oma, \
@@ -372,6 +376,7 @@ mod tests {
             (Format::Fdx, "fdx", &["fdx", "FDX"][..]),
             (Format::FadeIn, "fadein", &["fadein", "fade_in", "FADEIN"][..]),
             (Format::Osf, "osf", &["osf", "OSF"][..]),
+            (Format::Trelby, "trelby", &["trelby", "TRELBY"][..]),
             (
                 Format::ScreenplayJson,
                 "screenplay_json",

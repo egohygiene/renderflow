@@ -7,6 +7,7 @@ synthetic temporary files and do not launch Renderflow or any native provider.
 """
 
 import copy
+import json
 from pathlib import Path
 import tempfile
 import unittest
@@ -259,6 +260,194 @@ class EvidenceInputTests(unittest.TestCase):
         }
         with self.assertRaisesRegex(ValueError, "duplicate effective target identity"):
             fixture.forest_invariants(forest)
+
+
+class OriginalBodyEvidenceTests(unittest.TestCase):
+    """Synthetic declarations check envelope refusal, never native format fidelity."""
+
+    def setUp(self):
+        self.source = {"sha256": "1" * 64, "size_bytes": 32}
+        self.policy = {"allow_unqualified": True}
+        original_id = "artifact:sha256:" + "a" * 64
+        canonical_id = "artifact:sha256:" + "b" * 64
+        self.canonical_digest = "2" * 64
+        self.original = {"id": original_id, "format": "fountain",
+                         "digest": {"algorithm": "sha256", "value": self.source["sha256"]},
+                         "size_bytes": self.source["size_bytes"], "sources": []}
+        canonical = {"id": canonical_id, "format": "screenplay_json",
+                     "digest": {"algorithm": "sha256", "value": self.canonical_digest},
+                     "sources": [original_id]}
+        source_record = {"artifact_id": original_id, "lifecycle": "source",
+                         "format": "fountain", "digest": self.original["digest"],
+                         "size_bytes": self.source["size_bytes"], "sources": []}
+        self.manifest = {"artifact_manifest": {"artifacts": [source_record]},
+                         "artifact_forest": {"branches": []}}
+        self.published = []
+        for output_format, artifact_id, digest in (
+            ("screenplay_json", canonical_id, self.canonical_digest),
+            ("trelby", "artifact:sha256:" + "c" * 64, "3" * 64),
+        ):
+            evidence = {
+                "schema_version": "renderflow.screenplay-body-artifact/v1",
+                "profile": "strict-six-kind-body-v1", "qualification": "authored_unqualified",
+                "runtime_qualified": False, "review_required": True,
+                "original_source": copy.deepcopy(self.original),
+                "input_artifact_id": original_id, "input_sha256": self.source["sha256"],
+                "canonical_artifact": copy.deepcopy(canonical), "canonical_sha256": self.canonical_digest,
+                "output_format": output_format, "output_sha256": digest,
+                "policy_sha256": fixture.sha256(json.dumps(self.policy, separators=(",", ":")).encode()),
+            }
+            records = self.manifest["artifact_manifest"]["artifacts"]
+            index = len(records)
+            records.append({"artifact_id": artifact_id, "format": output_format,
+                            "sources": [original_id], "metadata": {"renderflow.screenplay_body": evidence}})
+            self.published.append({"target_id": "synthetic-" + output_format,
+                "artifact_id": artifact_id, "artifact_evidence_index": index,
+                "source_identity": False, "format": output_format,
+                "file": {"sha256": digest}})
+            self.manifest["artifact_forest"]["branches"].append({
+                "target_id": "synthetic-" + output_format,
+                "route": {"steps": [{"from": "fountain", "to": output_format}]}})
+
+    def review(self):
+        fixture.original_body_evidence(self.manifest, self.published, self.source, self.policy)
+
+    def evidence(self):
+        return self.manifest["artifact_manifest"]["artifacts"][2]["metadata"]["renderflow.screenplay_body"]
+
+    def test_direct_original_declarations_remain_unqualified(self):
+        self.review()
+        self.assertIs(self.evidence()["runtime_qualified"], False)
+
+    def test_runtime_or_review_promotion_is_refused(self):
+        for key, value in (("runtime_qualified", True), ("runtime_qualified", 0),
+                           ("review_required", False), ("qualification", "qualified")):
+            with self.subTest(key=key, value=value):
+                original = copy.deepcopy(self.evidence())
+                self.evidence()[key] = value
+                with self.assertRaisesRegex(ValueError, "unqualified review declarations"):
+                    self.review()
+                self.evidence().update(original)
+
+    def test_changed_original_and_output_evidence_are_refused(self):
+        self.evidence()["original_source"]["digest"]["value"] = "0" * 64
+        with self.assertRaisesRegex(ValueError, "different original source"):
+            self.review()
+        self.evidence()["original_source"] = copy.deepcopy(self.original)
+        self.evidence()["output_sha256"] = "0" * 64
+        with self.assertRaisesRegex(ValueError, "output or policy identity"):
+            self.review()
+
+    def test_native_reference_must_match_the_actual_canonical_publication(self):
+        self.evidence()["canonical_sha256"] = "0" * 64
+        self.evidence()["canonical_artifact"]["digest"]["value"] = "0" * 64
+        with self.assertRaisesRegex(ValueError, "retained canonical reference"):
+            self.review()
+
+    def test_recovered_or_indirect_route_cannot_satisfy_original_body_job(self):
+        self.manifest["artifact_forest"]["branches"][1]["route"]["steps"] = [
+            {"from": "fountain", "to": "screenplay_json"},
+            {"from": "screenplay_json", "to": "trelby"},
+        ]
+        with self.assertRaisesRegex(ValueError, "one direct Fountain edge"):
+            self.review()
+
+    def test_original_body_metadata_namespace_must_be_an_object(self):
+        self.manifest["artifact_manifest"]["artifacts"][2]["metadata"]["renderflow.screenplay_body"] = []
+        with self.assertRaisesRegex(ValueError, "object metadata namespace"):
+            self.review()
+
+
+class TranscriptTextEvidenceTests(unittest.TestCase):
+    def setUp(self):
+        self.source = {"sha256": "1" * 64}
+        self.canonical_id = "artifact:sha256:" + "a" * 64
+        self.canonical_digest = "2" * 64
+        source = {"sha256": self.source["sha256"], "format": "srt"}
+        self.evidence = {
+            "schema_version": "renderflow.subtitle-artifact/v1", "operation": "export",
+            "input_artifact_id": self.canonical_id, "input_sha256": self.canonical_digest,
+            "canonical_transcript": {"artifact_id": self.canonical_id, "sha256": self.canonical_digest},
+            "source": copy.deepcopy(source), "language": None, "prior_losses": [],
+            "export_losses": ["source_provenance", "overlap_policy", "timing", "cue_ids"],
+        }
+        self.parent_evidence = {"source": source, "language": None, "prior_losses": []}
+        self.manifest = {"artifact_manifest": {"artifacts": [
+            {"artifact_id": self.canonical_id, "format": "timed_transcript_json",
+             "digest": {"algorithm": "sha256", "value": self.canonical_digest},
+             "metadata": {"renderflow.subtitle": self.parent_evidence}},
+            {"artifact_id": "synthetic-text", "format": "text", "sources": [self.canonical_id],
+             "fidelity": "partial", "metadata": {"renderflow.subtitle": self.evidence}},
+        ]}}
+        self.published = [{"format": "text", "artifact_evidence_index": 1}]
+
+    def review(self):
+        fixture.transcript_text_evidence(self.manifest, self.published, self.source)
+
+    def test_text_retains_canonical_parent_and_timing_loss_declarations(self):
+        self.review()
+
+    def test_missing_canonical_parent_or_changed_source_is_refused(self):
+        self.manifest["artifact_manifest"]["artifacts"][0]["digest"]["value"] = "0" * 64
+        with self.assertRaisesRegex(ValueError, "retained canonical parent"):
+            self.review()
+        self.manifest["artifact_manifest"]["artifacts"][0]["digest"]["value"] = self.canonical_digest
+        self.evidence["source"]["sha256"] = "0" * 64
+        with self.assertRaisesRegex(ValueError, "original provenance"):
+            self.review()
+
+    def test_timing_loss_and_partial_fidelity_cannot_be_silenced(self):
+        self.evidence["export_losses"].remove("timing")
+        with self.assertRaisesRegex(ValueError, "timing or provenance losses"):
+            self.review()
+        self.evidence["export_losses"].append("timing")
+        self.manifest["artifact_manifest"]["artifacts"][1]["fidelity"] = "lossless"
+        with self.assertRaisesRegex(ValueError, "partial-fidelity"):
+            self.review()
+
+    def test_language_and_prior_loss_omissions_require_disclosure(self):
+        self.evidence["language"] = "en"
+        self.parent_evidence["language"] = "en"
+        with self.assertRaisesRegex(ValueError, "language-loss"):
+            self.review()
+        self.evidence["export_losses"].append("language")
+        self.evidence["prior_losses"] = ["speakers"]
+        self.parent_evidence["prior_losses"] = ["speakers"]
+        with self.assertRaisesRegex(ValueError, "prior-loss disclosure"):
+            self.review()
+        self.evidence["export_losses"].append("prior_loss_evidence")
+        self.review()
+
+    def test_optional_stream_and_metadata_namespace_are_typed(self):
+        self.evidence["source"]["stream"] = None
+        self.parent_evidence["source"]["stream"] = None
+        self.review()
+        self.evidence["source"]["stream"] = []
+        with self.assertRaisesRegex(ValueError, "optional stream must be an object"):
+            self.review()
+        self.evidence["source"].pop("stream")
+        self.manifest["artifact_manifest"]["artifacts"][1]["metadata"]["renderflow.subtitle"] = []
+        with self.assertRaisesRegex(ValueError, "object metadata namespace"):
+            self.review()
+
+
+class FixtureDeclarationTests(unittest.TestCase):
+    def test_original_job_uses_preserved_fountain_without_native_configuration(self):
+        request = fixture.read_json(fixture.FIXTURE / "fixture.json")
+        job = next(job for job in request["jobs"] if job["id"] == "original-body")
+        self.assertFalse(job.get("native", False))
+        self.assertEqual(job["source"], "sources/original.fountain")
+        spec = fixture.read_json(fixture.FIXTURE / job["spec"])
+        self.assertEqual(spec["sources"][0]["format"], "fountain")
+        self.assertEqual(spec["execution"]["screenplay_body"], {"allow_unqualified": True})
+        self.assertEqual({target["format"] for target in spec["targets"]["exact"]},
+                         {"screenplay_json", "fdx", "fadein", "osf", "trelby"})
+
+    def test_timed_graph_and_exhaustive_cycle_expect_terminal_text(self):
+        request = fixture.read_json(fixture.FIXTURE / "fixture.json")
+        for job_id in ("timed-text", "cycle-suppression"):
+            job = next(job for job in request["jobs"] if job["id"] == job_id)
+            self.assertIn("text", {target["format"] for target in job["expected_targets"]})
 
 
 if __name__ == "__main__":

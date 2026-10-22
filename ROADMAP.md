@@ -251,11 +251,14 @@ separate source-family jobs without pretending that incompatible policies form
 one native graph.
 
 This is authored integration, not an executed proof. Tests, builds, lint,
-schema validation, native execution and CI remain deferred. General
-Fountain-to-native/canonical exports and graph plain-transcript text output
-remain unsupported; #430's broader scenario must retain these gaps until
-implemented or explicitly narrowed. #430 and #421 remain open for that scope
-reconciliation, native fixture/CLI-SDK evidence and verified release consumption.
+schema validation, native execution and CI remain deferred. The next bounded
+#430 checkpoint authors opt-in original Fountain body exports to canonical JSON,
+FDX, Fade In, OSF and Trelby, plus canonical transcript → plain text as a terminal
+graph route. It reuses independently authored body codecs without enabling
+Scripttool's rejected reverse directions. See the
+[export design](docs/work/430/ORIGINAL_EXPORTS.md). #430 and #421 remain open for
+runtime/native application qualification, fixture/CLI-SDK evidence and verified
+release consumption.
 The [handoff](docs/work/430/HANDOFF.md) records the remaining work.
 
 After this integration checkpoint, #406 is the next planned implementation lane
@@ -502,7 +505,7 @@ availability. Merging does not turn authored coverage into passing evidence.
 | #429 | Doctor in #441; recovery/schema/setup reconciliation merged in #447 | Exact fixture/release toolchains and platform qualification |
 | #422 | Cycle-safe identities, route groups, and versioned forest evidence merged in #445 | Tests/build/native qualification deferred |
 | #426 | Review-required PDF/text recovery and bounded native body exports merged in #446 | Recovery, OCR, native-application, and platform qualification |
-| #430 | Per-target publication evidence, multi-family fixture and Flow handoff authored | Native integration proof, missing direction decisions, CLI/SDK and released-contract qualification |
+| #430 | Per-target evidence, fixture, Flow handoff, original body/Trelby and terminal transcript text exports authored | Native integration proof, CLI/SDK and released-contract qualification |
 
 After the #430 implementation checkpoint, #406 has an authored bounded
 composition SDK/CLI slice, measured typography, composed PNG, a bounded

@@ -295,7 +295,7 @@ mod tests {
         let mut ids = declarations.iter().map(|route| route.id.as_str()).collect::<Vec<_>>();
         ids.sort();
         assert_eq!(ids, vec![
-            "ocr.extract.text", "pdf.extract.text", "screenplay.pdf.afterwriting",
+            "ocr.extract.text", "pdf.extract.text", "screenplay.body.export", "screenplay.pdf.afterwriting",
             "screenplay.recover.structure", "screenplay.recovery.export", "screenplay.scripttool",
             "speech.align", "speech.audio.inspect", "speech.audio.prepare", "speech.transcribe",
             "subtitle.convert.plain", "subtitle.extract.plain", "subtitle.streams.inspect",
@@ -325,6 +325,31 @@ mod tests {
             assert_eq!(observed.required_configuration, declaration.required_configuration);
             assert_eq!(observed.detail, declaration.detail);
         }
+    }
+
+    #[test]
+    fn builtin_body_and_terminal_text_declarations_do_not_require_native_tool_discovery() {
+        let probe = FakeProbe::default();
+        let report = assess_with(&ToolRegistry::new(), &probe,
+            &ToolRuntimeContext::for_platform("linux", "x86_64")).unwrap();
+        let body = route(&report, "screenplay.body.export");
+        assert_eq!(body.implementation, CreativeRouteImplementation::AuthoredUnqualified);
+        assert_eq!(body.provider_status, CreativeProviderStatus::Available);
+        assert!(body.providers.is_empty());
+        assert!(body.blocked_providers.is_empty());
+        assert!(body.required_configuration.iter()
+            .any(|key| key == "execution.screenplay_body.allow_unqualified"));
+        let subtitles = route(&report, "subtitle.convert.plain");
+        assert_eq!(subtitles.implementation, CreativeRouteImplementation::AuthoredUnqualified);
+        assert!(subtitles.providers.is_empty());
+        assert!(subtitles.detail.contains("terminal UTF-8 Text"));
+        assert!(subtitles.detail.contains("drops timing, cue IDs"));
+        assert!(probe.calls.lock().unwrap().is_empty());
+        let catalog: serde_json::Value = serde_json::from_str(CREATIVE_ROUTE_CATALOG).unwrap();
+        assert_eq!(catalog["runtime_qualified"], false);
+        let unsupported = catalog["unsupported_directions"].as_array().unwrap();
+        assert!(unsupported.iter().any(|row| row["id"] == "screenplay.scripttool.reverse"));
+        assert!(unsupported.iter().any(|row| row["id"] == "transcript.text.reverse"));
     }
 
     #[test]
