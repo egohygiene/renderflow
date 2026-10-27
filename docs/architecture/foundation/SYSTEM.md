@@ -12,6 +12,11 @@ tags:
 
 # SYSTEM
 
+> **Historical foundation snapshot.** Current ownership is in
+> [root SYSTEM.md](https://github.com/egohygiene/renderflow/blob/main/SYSTEM.md).
+> The original text and dates below are retained; they do not establish current
+> implementation or qualification. See the [navigation guide](../overview.md#historical-foundation-documents).
+
 ## Introduction
 
 Renderflow's system model defines the major capability-bearing systems that make

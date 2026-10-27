@@ -1,447 +1,212 @@
 # Contributing to Renderflow
 
-Thank you for your interest in contributing to Renderflow! This guide walks you through everything you need to get started — from setting up a local development environment to submitting a pull request.
+Start with [ARCHITECTURE.md](ARCHITECTURE.md) for the current boundaries and the
+[source map](docs/architecture/overview.md#source-map) for where to make a change.
+The [live roadmap](https://github.com/egohygiene/renderflow/issues/367) separates
+implementation work from runtime qualification and release work.
 
----
+## Getting started
 
-## Table of Contents
+Renderflow is a three-crate Rust workspace. The root [Cargo.toml](Cargo.toml)
+declares edition 2021 and minimum Rust **1.94**; the core package is `renderflow`,
+the executable package is `renderflow-cli`, and the plugin boundary is
+`renderflow-plugin-sdk`. Run workspace commands from the repository root.
 
-- [Getting Started](#getting-started)
-  - [Option A: Dev Container (recommended)](#option-a-dev-container-recommended)
-  - [Option B: Local Setup](#option-b-local-setup)
-- [Build, Test, and Lint](#build-test-and-lint)
-- [Releases](#releases)
-- [Architecture Overview](#architecture-overview)
-- [Coding Guidelines](#coding-guidelines)
-- [Commit Conventions](#commit-conventions)
-- [Pull Request Workflow](#pull-request-workflow)
+```bash
+git clone https://github.com/egohygiene/renderflow.git
+cd renderflow
+```
 
----
+### Local setup
 
-## Getting Started
+Install Rust 1.94 or newer through [rustup](https://rustup.rs). Native build
+requirements depend on the host and selected dependencies. Pandoc, Tectonic,
+FFmpeg, speech models and other render providers are **route-specific**; a core
+build does not install or qualify them. Use the selected route's guide and the
+[creative toolchain setup guide](docs/user-guide/creative-toolchain-setup.md)
+when that work requires a provider. Node and pnpm are needed for the optional
+site workspace, not for a Rust-only source edit.
 
-### Option A: Dev Container (recommended)
+When dependency and build execution is in scope:
 
-The repository includes a fully configured [VS Code Dev Container](https://code.visualstudio.com/docs/devcontainers/containers) that provides all required tooling out of the box.
+```bash
+cargo fetch --locked
+cargo check --workspace --locked
+cargo build --package renderflow-cli --locked
+```
 
-**Prerequisites:**
-- [VS Code](https://code.visualstudio.com/) with the [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
-- [Docker](https://docs.docker.com/get-docker/)
+The executable is written to `target/debug/renderflow` (`renderflow.exe` on
+Windows). A source installation selects the CLI package explicitly:
 
-**Steps:**
+```bash
+cargo install --locked --path "crates/renderflow-cli"
+```
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/egohygiene/renderflow.git
-   cd renderflow
-   ```
+A successful source build is distinct from a verified release installation.
+During a maintainer-deferred qualification sprint, keep the commands deferred
+and record what was source-reviewed; do not report authored tests as passing.
+Known baseline follow-up is tracked in
+[#458](https://github.com/egohygiene/renderflow/issues/458).
 
-2. Open in VS Code and reopen in the dev container when prompted (or run **Dev Containers: Reopen in Container** from the command palette).
+### Dev container
 
-3. The container automatically runs `cargo fetch` on creation. All tools are pre-installed:
-   - Rust (stable toolchain)
-   - Pandoc (document conversion)
-   - Tectonic (PDF engine)
-   - [Task](https://taskfile.dev) (`task` CLI — Taskfile runner)
-   - `cross` (cross-compilation)
-   - `cargo-watch` (file watching)
+The [dev-container recipe](.devcontainer/Dockerfile) is a convenience Linux
+development environment. Open the repository in VS Code and use **Dev
+Containers: Reopen in Container** when container setup is in scope. Building it
+downloads tools; its [creation hook](.devcontainer/devcontainer.json) runs
+`cargo fetch`.
 
-### Option B: Local Setup
+The recipe includes stable Rust, distro Pandoc, Tectonic 0.15.0, Task 3.43.3,
+git-cliff 2.12.0, `cross`, and `cargo-watch`. Several inputs remain unpinned,
+and downloaded tool assets target Linux x86_64. It is not a complete optional
+provider installation or evidence of cross-platform reproducibility.
 
-**Prerequisites:**
+## Build, test, and lint
 
-| Tool | Version | Install |
-|------|---------|---------|
-| Rust | ≥ 1.75  | [rustup.rs](https://rustup.rs) |
-| Pandoc | latest | [pandoc.org/installing](https://pandoc.org/installing.html) |
-| Tectonic | ≥ 0.15 | [tectonic-typesetting.github.io](https://tectonic-typesetting.github.io/en-US/install.html) |
-| Task | ≥ 3     | [taskfile.dev/installation](https://taskfile.dev/installation/) |
+[Taskfile.yml](Taskfile.yml) provides convenience commands. `task --list`
+shows the full list.
 
-**Steps:**
-
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/egohygiene/renderflow.git
-   cd renderflow
-   ```
-
-2. Fetch dependencies:
-   ```bash
-   cargo fetch
-   ```
-
-3. Verify the setup:
-   ```bash
-   task check
-   ```
-
----
-
-## Build, Test, and Lint
-
-All common development tasks are available via [Taskfile](https://taskfile.dev). Run `task --list` to see all available tasks.
-
-### Common Commands
-
-| Command | Description |
-|---------|-------------|
-| `task build` | Compile in debug mode |
-| `task release` | Compile in release mode |
-| `task check` | Check for errors without producing a binary |
-| `task test` | Run the full test suite |
-| `task lint` | Run Clippy linter |
-| `task format` | Format source code with rustfmt |
+| Command | Purpose |
+| --- | --- |
+| `task build` | Compile debug binaries |
+| `task release` | Compile release binaries; does not publish a release |
+| `task check` | Check the source without producing a binary |
+| `task test` | Run the configured Rust tests |
+| `task lint` | Run the convenience Clippy command |
+| `task format` | Format Rust source |
+| `task run` | Run the CLI with its default build command |
 | `task clean` | Remove build artifacts |
-| `task run` | Run the project with the default `build` subcommand |
 
-### Cross-Compilation
+These shortcuts are not the complete release gate. The checked-in
+[CI workflow](.github/workflows/ci.yml) and
+[release guide](docs/release-candidate.md) define the exact locked, workspace,
+toolchain and warning policies. Keep those requirements intact when fixing a
+failure. Cross-compilation recipes and package templates are preparatory
+surfaces until their exact artifacts are qualified.
 
-Cross-compiled binaries require [`cross`](https://github.com/cross-rs/cross) and Docker:
+For an ordinary implementation PR, run the relevant tests and required checks
+when authorized. During an explicitly deferred sprint, state the deferral in
+the PR and handoff, keep acceptance claims bounded, and preserve the later
+qualification work. Source review cannot establish runtime, visual or native
+provider behavior.
 
-```bash
-task cross-build TARGET=x86_64-unknown-linux-gnu
-task cross-build TARGET=aarch64-unknown-linux-gnu
-task cross-build TARGET=x86_64-pc-windows-gnu
-```
+### Dependency maintenance
 
-### Before Submitting a PR
-
-Run the following to catch issues early:
-
-```bash
-task format   # format code
-task lint     # run Clippy
-task test     # run all tests
-```
-
-### Dependency Maintenance Notes
-
-- Prefer targeted dependency upgrades with a clear benefit (security fix, API simplification, or removal of compatibility glue); avoid version churn for its own sake.
-- `ureq` remains on v2 for now because the current synchronous AI transform flow is stable and fully covered by the existing build, lint, and test commands.
-- The AI networking code now routes requests through a small internal HTTP-client abstraction in `src/transforms/ai.rs`. Use that seam for future transport work instead of spreading `ureq` calls across backend-specific branches.
-- Before moving to `ureq` v3, review the migration impact on request construction, response-body handling, and error reporting so the change can stay behavior-compatible.
-- Only introduce async HTTP support when there is a concrete need for concurrent remote AI calls; doing so earlier would widen the executor surface area without benefiting the current transform pipeline.
-
----
+- Prefer targeted changes with a concrete benefit; explain unexpected lockfile
+  movement. Use Cargo to resolve the lockfile when dependency execution resumes.
+- The synchronous AI transport uses `ureq` v2 behind `AiHttpClient` in
+  [transforms/ai.rs](crates/renderflow-core/src/transforms/ai.rs). Reuse that seam
+  for transport changes and review API/error behavior before upgrading it.
+- Introduce concurrency or another transport only for a demonstrated need.
+  Keep optional provider policy and unavailable-provider diagnostics explicit.
 
 ## Releases
 
-Releases are fully automated. A single version bump through the **Bump Version** GitHub Actions workflow triggers the entire release pipeline — no manual steps are required after that.
+The current release contract is the
+[integration-candidate guide](docs/release-candidate.md), owned by
+[#419](https://github.com/egohygiene/renderflow/issues/419). The proposed version
+is `v0.3.0-rc.1`; a version edit, local build or tag is not a published release.
+The canonical source version is `[workspace.package].version` in
+[Cargo.toml](Cargo.toml).
 
-### Version Bump (single source of truth)
+The maintainer reviews and merges the candidate, qualifies the exact commit,
+creates a new annotated tag at that commit, and explicitly dispatches
+[release.yml](.github/workflows/release.yml) on that tag with its full
+`expected_commit` SHA. **Tag pushes do not publish.** Staged downloads,
+clean-install evidence and immutable-release checks must succeed before
+publication. The workflow does not bump versions or commit package manifests
+back to `main`.
 
-The canonical version lives in `Cargo.toml` under `[package].version`. Running the **Bump Version** workflow:
+The first candidate targets **Ubuntu 24.04 x86_64 GNU, glibc 2.39 or newer**.
+Support begins only with the verified immutable prerelease and its binary
+digest, manifest and installation evidence. Other platforms, containers,
+crates.io and package-manager channels remain unverified or unpublished.
+Their checked-in recipes do not establish availability.
 
-1. Resolves the new version (explicit input or a patch/minor/major bump).
-2. Updates `Cargo.toml`, `Cargo.lock` (workspace package version only), and package manifest versions in one commit:
-   - `Formula/renderflow.rb` (Homebrew — URL updated, SHA256 set by release pipeline)
-   - `pkg/scoop/renderflow.json` (Scoop)
-   - `pkg/chocolatey/renderflow.nuspec` and `chocolateyinstall.ps1` (Chocolatey)
-   - `pkg/aur/renderflow/PKGBUILD` (AUR)
-3. Creates an annotated git tag (e.g. `v0.3.0`).
-4. Pushes the commit and the tag to `main`.
+The old automatic Bump Version/tag-push/multi-platform release description is
+historical. There is no current `bump-version.yml` workflow.
+[release.toml](release.toml) disables its legacy tag, push and publish actions;
+the `release-patch`, `release-minor` and `release-major` Task helpers are not
+the integration-candidate procedure. Follow the release guide for the complete
+gates, signing decision, rollback and compromised-release response.
 
-Pushing the tag automatically triggers the **Release** workflow.
+## Architecture and source navigation
 
-### Release Pipeline
+- [ARCHITECTURE.md](ARCHITECTURE.md) is the current architecture entry point.
+- [SYSTEM.md](SYSTEM.md) defines logical ownership; the
+  [implementation source map](docs/architecture/overview.md#source-map) locates
+  code without making the directory tree the conceptual architecture.
+- [docs/architecture/overview.md](docs/architecture/overview.md) explains current
+  build routing and the disposition of older foundation documents.
+- [DECISIONS.md](DECISIONS.md) retains existing decisions and four-digit IDs.
+  [#405](https://github.com/egohygiene/renderflow/issues/405) still governs the
+  scheduled shared-ADR migration; these navigation corrections do not activate it.
+- [#409](https://github.com/egohygiene/renderflow/issues/409) remains the separate
+  future post-roadmap audit.
 
-The **Release** workflow (`.github/workflows/release.yml`) is triggered by any `v*` tag push. It runs in four sequential stages:
+| Location | Contribution boundary |
+| --- | --- |
+| `crates/renderflow-core/` | Package `renderflow`: domain models, planning, execution, public SDK and shared CLI command implementation |
+| `crates/renderflow-cli/` | Thin executable entry point calling the core application layer |
+| `crates/renderflow-plugin-sdk/` | Plugin-facing contract types; currently `renderflow.plugin/v2alpha1` |
+| `crates/renderflow-core/tests/` | Core integration tests and fixtures |
+| `tests/` | Additional integration/CLI tests and shared fixtures wired through crate manifests |
+| `schemas/`, `examples/`, `docs/` | Versioned contracts, user examples and documentation |
+| `apps/`, `scripts/` | Site workspace and supporting development/release tooling |
 
-```
-[1] generate-changelog
-       │
-       ├─ [2a] build-binaries (10 targets, in parallel)
-       │         └─ update-scoop-manifest (needs: build-binaries + update-homebrew)
-       │         └─ package-chocolatey   (needs: build-binaries)
-       │
-       ├─ [2b] package-deb-x86_64    ┐
-       │       package-deb-aarch64   │ (in parallel, all need generate-changelog)
-       │       package-rpm-x86_64    │
-       │       package-rpm-aarch64   ┘
-       │
-       ├─ [2c] snap-package
-       │
-       └─ [3]  update-homebrew-formula
-                └─ update-scoop-manifest
-                     └─ update-aur-pkgbuild
-                          └─ [4] verify-release
-```
+## Coding guidelines
 
-**Stage 1 — Changelog & GitHub Release**
+- Write idiomatic Rust 2021 with focused responsibilities and explicit errors.
+  Prefer `anyhow` for contextual propagation and `thiserror` for typed errors.
+- Reuse the shared planning/execution boundary when changing CLI or SDK
+  behavior. Preserve native artifact identity, loss/review state and explicit
+  partial results when adding a route.
+- Avoid `unwrap()` and `expect()` in production paths. Use structured `tracing`
+  events without logging private source content, credentials or unnecessary paths.
+- Place integration tests in the owning crate or the root tests declared by its
+  manifest; keep unit coverage beside the implementation. Formatting, lint and
+  test evidence must identify what actually ran.
+- Treat examples as user-facing contracts. Update relevant commands, schemas
+  and limitations together. Existing example jobs cover named cases; they do
+  not establish every example or provider combination as verified.
+- Keep generated references tied to their source registry. A new route needs
+  explicit capability and qualification status, not an inferred reverse edge.
 
-- Generates `CHANGELOG.md` and per-release notes using `git-cliff`.
-- Commits the updated changelog to `main`.
-- Creates the GitHub Release with auto-generated release notes.
+## Commit conventions
 
-**Stage 2 — Artifacts (run in parallel)**
+Use [Conventional Commits](https://www.conventionalcommits.org/):
 
-- Cross-compiles binaries for all 10 supported targets using `cross` or native Rust.
-- Generates SHA256 checksums for every binary.
-- Builds `.deb` packages for x86_64 and aarch64.
-- Builds `.rpm` packages for x86_64 and aarch64.
-- Builds the Snap package (version injected from the tag).
-- Packs the Chocolatey `.nupkg` with the real checksum.
-- Uploads all artifacts to the GitHub Release.
-
-**Stage 3 — Manifest Updates (sequential)**
-
-- Updates the Homebrew formula (`Formula/renderflow.rb`) with the new tarball URL and SHA256.
-- Updates the Scoop manifest (`pkg/scoop/renderflow.json`) with the new version, URL, and checksum.
-- Updates the AUR PKGBUILD (`pkg/aur/renderflow/PKGBUILD`) with the new version and SHA256.
-- Each update is committed and pushed to `main` with retry + rebase logic to handle concurrent changes.
-- Manifest update failures are downgraded to warnings so GitHub Release publishing can still complete.
-
-**Stage 4 — Verification**
-
-- Fetches the GitHub Release asset list and confirms every expected binary/checksum plus `.deb`, `.rpm`, `.snap`, and `.nupkg` assets are present.
-- Verifies the source tarball used by Homebrew/AUR is reachable.
-- Fails the workflow if any asset is missing.
-
-### Triggering a Release
-
-```bash
-# Trigger from GitHub UI: Actions → Bump Version → Run workflow
-# Select: bump level (patch / minor / major) or enter an explicit version
-
-# Alternatively, trigger locally (requires push access):
-# 1. Bump and tag manually
-task release-patch   # or release-minor / release-major
-
-# 2. Push commit and tag
-git push && git push --tags
-```
-
-> The `bump-version` workflow is the preferred method. It keeps the version bump commit and the release tag in sync and updates all package manifests atomically.
-
-### Supported Distribution Channels
-
-| Channel | Artifact | Updated by |
-|---------|----------|------------|
-| GitHub Releases | Binaries + checksums + packages | `release.yml` |
-| Homebrew | `Formula/renderflow.rb` | `release.yml` → update-homebrew-formula |
-| Scoop | `pkg/scoop/renderflow.json` | `release.yml` → update-scoop-manifest |
-| Chocolatey | `.nupkg` uploaded to GitHub Release | `release.yml` → package-chocolatey |
-| Snap | `.snap` uploaded to GitHub Release | `release.yml` → snap-package |
-| Debian/Ubuntu | `.deb` (x86_64 + aarch64) | `release.yml` → package-deb-* |
-| RHEL/Fedora | `.rpm` (x86_64 + aarch64) | `release.yml` → package-rpm-* |
-| Arch Linux (AUR) | `pkg/aur/renderflow/PKGBUILD` | `release.yml` → update-aur-pkgbuild |
-
-### Release Configuration Files
-
-| File | Purpose |
-|------|---------|
-| `release.toml` | `cargo-release` settings (tag format, branch restriction) |
-| `cliff.toml` | `git-cliff` changelog generation rules |
-| `.github/workflows/bump-version.yml` | Version bump workflow (triggers release) |
-| `.github/workflows/release.yml` | Full release pipeline |
-| `.github/workflows/ci.yml` | Continuous integration (lint, build, test) |
-
----
-
-## Architecture Overview
-
-Renderflow processes documents through a **two-phase pipeline**:
-
-```
-Input Document
-      │
-      ▼
-┌─────────────────────┐
-│   Transform Phase   │  In-memory text transformations (emoji, variable substitution, syntax highlighting)
-└─────────────────────┘
-      │
-      ▼
-┌─────────────────────┐
-│    Step Phase       │  I/O and external tool execution (Pandoc, Tectonic)
-└─────────────────────┘
-      │
-      ▼
-Output Files (PDF / HTML / DOCX)
-```
-
-### Key Design Patterns
-
-- **Pipeline** — Ordered, composable steps with clean error propagation
-- **Strategy** — Each output format (`html`, `pdf`, `docx`) is an independent, swappable rendering strategy in `src/strategies/`
-- **Transform** — Pure in-memory text transforms applied before any I/O, located in `src/transforms/`
-
-### Source Layout
-
-```
-src/
-├── adapters/       # Command adapter patterns
-├── commands/       # build and watch subcommands
-├── pipeline/       # Core pipeline orchestration
-├── strategies/     # Output format rendering (HTML, PDF, DOCX)
-├── transforms/     # In-memory text transforms
-├── cli.rs          # CLI argument parsing (clap)
-├── config.rs       # YAML config deserialization
-├── assets.rs       # Asset path resolution
-├── cache.rs        # Build caching
-├── deps.rs         # External dependency checking (Pandoc, Tectonic)
-├── files.rs        # File I/O utilities
-├── input_format.rs # Input format detection
-├── template.rs     # Tera template rendering
-└── main.rs         # Entry point
-```
-
----
-
-## Coding Guidelines
-
-### General
-
-- Write idiomatic Rust (edition 2021). Prefer `anyhow` for error propagation and `thiserror` for defining custom error types.
-- Keep functions focused. Prefer composable, single-responsibility units.
-- Avoid `unwrap()` and `expect()` in production paths; propagate errors explicitly.
-- Use structured logging via `tracing` macros (`tracing::info!`, `tracing::warn!`, `tracing::error!`).
-
-### Formatting and Linting
-
-- Format all code with `rustfmt` before committing (`task format`).
-- Fix all Clippy warnings before opening a pull request (`task lint`).
-
-### Tests
-
-- Add tests for new behaviour in the `tests/` directory (integration tests) or as inline `#[cfg(test)]` modules (unit tests).
-- Run `task test` to verify the full test suite passes before pushing.
-
-### Examples
-
-The `examples/` directory is treated as part of the public API. If you add a new feature, consider adding or updating an example that demonstrates it.
-
-Each bundled example is validated in CI using `renderflow build --dry-run`. If you modify an existing example or add a new one, verify it passes locally:
-
-```bash
-cd examples/hello-world
-../../target/debug/renderflow build --dry-run
-
-cd examples/transforms
-../../target/debug/renderflow build --dry-run
-```
-
----
-
-## Commit Conventions
-
-This project uses [Conventional Commits](https://www.conventionalcommits.org/) to drive automated changelog generation and predictable version bumps.
-
-Each commit message must follow this structure:
-
-```
+```text
 <type>(<scope>): <short summary>
-
-[optional body]
-
-[optional footer(s)]
 ```
 
-### Types
+Types include `feat`, `fix`, `docs`, `refactor`, `test`, `chore`, `perf`, and `ci`.
+Use a concrete scope such as `cli`, `spec`, `planning`, `composition`,
+`screenplay`, `transforms`, `cache`, or `release`. Use the imperative mood, keep
+the summary under 72 characters, and explain behavior and evidence in the body.
 
-| Type | When to use |
-|------|-------------|
-| `feat` | A new feature |
-| `fix` | A bug fix |
-| `docs` | Documentation-only changes |
-| `refactor` | Code restructuring with no behaviour change |
-| `test` | Adding or updating tests |
-| `chore` | Build process, tooling, or dependency updates |
-| `perf` | Performance improvements |
-| `ci` | CI/CD configuration changes |
+Mark breaking public changes with `!` or a `BREAKING CHANGE:` footer and provide
+migration guidance. Commit classification helps review and changelog generation;
+it does not authorize an automatic version bump, tag or publication. Stable API
+and deprecation guarantees remain subject to the candidate's compatibility
+policy.
 
-### Scopes
+## Pull request workflow
 
-Scopes are optional but strongly recommended. Use a scope that matches the area of the codebase being changed:
+1. Create a branch from current `main`:
 
-| Scope | Area |
-|-------|------|
-| `cli` | CLI argument parsing (`src/cli.rs`) |
-| `config` | YAML config handling (`src/config.rs`) |
-| `pipeline` | Pipeline orchestration (`src/pipeline/`) |
-| `strategies` | Output format strategies (`src/strategies/`) |
-| `transforms` | In-memory text transforms (`src/transforms/`) |
-| `assets` | Asset path resolution (`src/assets.rs`) |
-| `cache` | Build caching (`src/cache.rs`) |
-| `deps` | External dependency checks (`src/deps.rs`) |
-| `template` | Tera template rendering (`src/template.rs`) |
-| `release` | Release and versioning tasks |
-
-### Breaking Changes
-
-Breaking changes must be indicated in one of two ways:
-
-1. **Append `!` after the type/scope:**
-   ```
-   feat(cli)!: remove --legacy flag
-   ```
-
-2. **Add a `BREAKING CHANGE:` footer in the commit body:**
-   ```
-   feat(config): rename output_dir to output_path
-
-   BREAKING CHANGE: The `output_dir` key in renderflow.yaml has been
-   renamed to `output_path`. Update your config files accordingly.
-   ```
-
-Both approaches may be combined.
-
-### Version Bump Mapping
-
-Commit types determine how the version is automatically incremented following [Semantic Versioning](https://semver.org/):
-
-| Trigger | Version bump | Example |
-|---------|-------------|---------|
-| Any commit with `BREAKING CHANGE` or `!` | **Major** (`x.0.0`) | `feat(cli)!: redesign config format` |
-| `feat` commit | **Minor** (`0.x.0`) | `feat(pipeline): add watch mode` |
-| `fix`, `perf`, or any other type | **Patch** (`0.0.x`) | `fix(transforms): handle empty input` |
-
-### Examples
-
-```
-feat(cli): add --watch flag for live reloading
-fix(pipeline): correct transform caching for unchanged outputs
-docs: update README with cross-compilation instructions
-refactor(strategies): extract shared HTML rendering logic
-test(cli): add integration test for --dry-run flag
-chore(release): bump version to 0.2.0
-perf(transforms): cache compiled regex patterns
-ci: add commit linting workflow
-feat(config)!: rename output_dir to output_path
-```
-
-### Rules
-
-- Use the imperative mood in the summary ("add", not "added" or "adds")
-- Keep the summary line under 72 characters
-- Separate the body from the summary with a blank line
-- Reference issues where relevant: `fix(config): validate output type (#42)`
-
----
-
-## Pull Request Workflow
-
-1. **Fork** the repository and create a branch from `main`:
    ```bash
-   git checkout -b feat/your-feature-name
+   git switch --create "feat/your-feature-name"
    ```
 
-2. **Make your changes**, following the coding guidelines and commit conventions above.
+2. Make a bounded change and update its user-facing contract and examples.
+3. Review the diff and run the relevant checks when authorized. Record failures,
+   skips and deferrals separately from successes.
+4. Open a draft PR early for work that is still in progress. Describe the
+   problem, resulting behavior, related issue, migration impact and evidence.
+   Use closing references only when the issue's full acceptance scope is met.
+5. Follow the repository's required checks and maintainer review for merge.
+   Never bypass protections or present a source-only checkpoint as qualification.
 
-3. **Verify locally:**
-   ```bash
-   task format && task lint && task test
-   ```
-
-4. **Open a pull request** against the `main` branch. In the PR description:
-   - Summarise what changed and why
-   - Reference any related issues (e.g. `Closes #42`)
-
-5. **CI runs automatically** on every pull request. All checks must pass before merging:
-   - **Build & Test** (`.github/workflows/ci.yml`) — compiles and runs the test suite
-   - **Commit Lint** (`.github/workflows/commitlint.yml`) — validates commit messages against the Conventional Commits format
-
----
-
-## Questions?
-
-Open a [GitHub Discussion](https://github.com/egohygiene/renderflow/discussions) or file an [issue](https://github.com/egohygiene/renderflow/issues) if you have questions or run into problems.
+Questions belong in [Discussions](https://github.com/egohygiene/renderflow/discussions)
+or a focused [issue](https://github.com/egohygiene/renderflow/issues).

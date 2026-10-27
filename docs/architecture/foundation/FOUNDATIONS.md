@@ -12,6 +12,11 @@ tags:
 
 # FOUNDATIONS
 
+> **Historical foundation snapshot.** Current ownership is in
+> [root FOUNDATIONS.md](https://github.com/egohygiene/renderflow/blob/main/FOUNDATIONS.md).
+> The original text and dates below are retained; they do not establish current
+> implementation or qualification. See the [navigation guide](../overview.md#historical-foundation-documents).
+
 ## Introduction
 
 Renderflow's foundations are the assumptions and invariants that make its
