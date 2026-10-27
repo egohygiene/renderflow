@@ -29,5 +29,4 @@ parts:
     plugin: rust
     source: .
     rust-channel: "1.94"
-    organize:
-      renderflow: bin/renderflow
+    rust-path: ["crates/renderflow-cli"]
