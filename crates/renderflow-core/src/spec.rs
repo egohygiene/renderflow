@@ -2360,7 +2360,7 @@ pub fn json_schema() -> Value {
                         "stream_index": {
                             "type": "integer",
                             "minimum": 0,
-                            "maximum": 4294967295
+                            "maximum": u32::MAX
                         },
                         "ffprobe": {
                             "$ref": "#/$defs/speechTool"
@@ -2405,7 +2405,7 @@ pub fn json_schema() -> Value {
                 "type": "object",
                 "additionalProperties": false,
                 "properties": {
-                    "stream_index": {"type": ["integer", "null"], "minimum": 0, "maximum": 4294967295}
+                    "stream_index": {"type": ["integer", "null"], "minimum": 0, "maximum": u32::MAX}
                 }
             },
             "outputLayout": {
