@@ -111,9 +111,10 @@ The architecture favors independently usable local and self-hosted operation. Op
 - **Current source:** the workspace exposes reusable planning, execution,
   composition, provider and SDK contracts. Merged implementation is not a
   claim of passing runtime, visual, native-provider or platform qualification.
-- **Draft-only work:** [PR #455](https://github.com/egohygiene/renderflow/pull/455)
-  authors additional original-Fountain exports and transcript terminal Text;
-  at this documentation checkpoint it is draft and unmerged.
+- **Merged source checkpoint:** [PR #455](https://github.com/egohygiene/renderflow/pull/455)
+  adds original-Fountain exports and transcript terminal Text. It merged on
+  October 27, 2026; native fidelity, runtime and released-consumer evidence
+  remain outstanding under #430 and #419.
 - **Proposed release:** [#419](https://github.com/egohygiene/renderflow/issues/419)
   and the [release guide](docs/release-candidate.md) own the bounded first
   immutable publication candidate. A Cargo version does not establish a

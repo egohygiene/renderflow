@@ -1,6 +1,17 @@
 # #430 — multi-family forest integration checkpoint
 
-## Current export-gap checkpoint (2026-10-16)
+## Current integration state — October 27, 2026
+
+PR #455 merged at `0842c16cb50530f37a35b18fb6b0211f3ffc2386` with maintainer
+authorization after source review. Main subsequently reached
+`8d7a71edd4033a60801c663fec242a2195a2562e` through documentation PR #461 and
+schema-integer/Snap-selection PR #462. The source below is now integrated;
+its older draft-state and pause instructions describe the historical checkpoint.
+No tests, builds, lint, schema/CLI/native/provider execution or CI ran during
+this integration. #430/#421 and all executable qualification remain open.
+No release, application fidelity or downstream Flow consumption is established.
+
+## Historical export-gap checkpoint (2026-10-16)
 
 Branch: `feat/renderflow-430-original-exports`, based on current main
 `0427749a2cccececae2d69aa9fa0a02779603509`. The maintainer resumed this bounded

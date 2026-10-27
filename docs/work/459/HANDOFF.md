@@ -1,5 +1,13 @@
 # #459 — contributor and architecture navigation
 
+## Integration update — October 27, 2026
+
+PR #461 merged at `645a789e8ce36081287ee032f0f1a72fe160dfce` with maintainer
+authorization. PR #455's exports also merged; the three current architecture
+entry points now reflect that source state. The draft checkpoint below remains
+history. Structural/link tooling and product qualification remain deferred;
+#459 stays open for that evidence. This follow-up changes documentation only.
+
 ## Draft checkpoint — 2026-10-26
 
 Base: `9dac5428df38691b2922e09ea02d51b02a7f43eb`.

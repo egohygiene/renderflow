@@ -1,5 +1,13 @@
 # #458 — source corrections before qualification
 
+## Integration update — October 27, 2026
+
+PR #462 merged at `8d7a71edd4033a60801c663fec242a2195a2562e` with maintainer
+authorization. The draft source checkpoint below is now integrated, with its
+qualification limits unchanged. #458 stays open for Cargo-produced lock
+reconciliation, lint findings and exact-source executable/package evidence.
+No required gate has been changed or bypassed.
+
 ## Draft checkpoint — 2026-10-26
 
 Base: `9dac5428df38691b2922e09ea02d51b02a7f43eb`.
