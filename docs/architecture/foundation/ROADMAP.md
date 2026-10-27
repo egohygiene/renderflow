@@ -12,6 +12,12 @@ tags:
 
 # ROADMAP
 
+> **Historical foundation snapshot.** Current ownership is in
+> [root ROADMAP.md](https://github.com/egohygiene/renderflow/blob/main/ROADMAP.md),
+> with current issue ordering in the [live ledger](https://github.com/egohygiene/renderflow/issues/367).
+> The original text and dates below are retained; they do not establish current
+> implementation or qualification. See the [navigation guide](../overview.md#historical-foundation-documents).
+
 ## Introduction
 
 Renderflow's roadmap describes the strategic evolution required to fulfill its

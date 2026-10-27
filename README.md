@@ -640,58 +640,24 @@ Renderflow tracks a SHA-256 content hash for every DAG node. On subsequent build
 
 ## Architecture
 
-Renderflow processes documents through a layered pipeline:
+Start with [ARCHITECTURE.md](ARCHITECTURE.md) for the current boundaries and
+[SYSTEM.md](SYSTEM.md) for logical ownership. The
+[implementation view and source map](docs/architecture/overview.md) explain
+how the CLI and SDK share build resolution, then dispatch captured work to the
+existing graph or composition engine. Versioned artifact and run evidence
+distinguish requested targets from actual publications.
 
-```
-Input Document
-      │
-      ▼
-┌─────────────────────────────────────────┐
-│             Transform Phase             │
-│  1. EmojiTransform                      │  Replace emoji (format-aware)
-│  2. VariableSubstitutionTransform       │  Substitute {{key}} placeholders
-│  3. SyntaxHighlightTransform            │  Normalise code fence language tags
-│  4. AiTransform (optional)             │  LLM-powered content processing
-│  5. CommandTransform (optional)        │  External command filters
-│  6. Plugin transforms (optional)       │  Runtime-registered extensions
-└─────────────────────────────────────────┘
-      │
-      ▼
-┌─────────────────────────────────────────┐
-│             Graph Engine                │
-│  • DAG construction (petgraph)          │  Model formats as nodes, conversions as edges
-│  • Path optimisation                    │  Speed / Quality / Balanced / Pareto
-│  • Shared intermediate deduplication  │  Compute Markdown→HTML once for PDF+DOCX
-│  • Parallel wave execution (Rayon)      │  Independent edges run concurrently
-│  • Incremental hash cache              │  Skip unchanged nodes
-└─────────────────────────────────────────┘
-      │
-      ▼
-┌─────────────────────────────────────────┐
-│              Step Phase                 │
-│  • Strategy dispatch                    │  Select renderer per output type
-│  • I/O (Pandoc, Tectonic, FFmpeg)       │  External tool execution
-│  • Artifact collection                  │  Gather outputs for the release step
-└─────────────────────────────────────────┘
-      │
-      ▼
-Output Files (PDF / HTML / DOCX / images / audio / …)
-```
-
-**Key design patterns:**
-
-- **Pipeline** — Ordered, composable steps with clean error propagation
-- **Strategy** — Each output format is an independent, swappable rendering strategy
-- **Transform** — Pure in-memory text transforms applied before any I/O
-- **DAG** — Transform paths are modelled as graphs for optimal multi-target execution
-
+The older `docs/architecture/foundation/` pages are retained historical
+references with links to their current root counterparts. Current implementation,
+deferred qualification and proposed release scope remain separate; see the
+[live roadmap](https://github.com/egohygiene/renderflow/issues/367).
 
 ### Workspace crates
 
 Renderflow is organized as a Rust workspace:
 
-- `crates/renderflow-core` (`renderflow`) — reusable SDK and engine
-- `crates/renderflow-cli` — thin command-line adapter that calls the core API
+- `crates/renderflow-core` (`renderflow`) — reusable SDK, engine and shared CLI command implementation
+- `crates/renderflow-cli` — thin executable entry point that calls the core application
 - `crates/renderflow-plugin-sdk` — plugin-facing type boundary
 
 The CLI does not reimplement planning or execution logic; it delegates to the core crate.

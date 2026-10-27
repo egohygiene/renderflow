@@ -12,6 +12,11 @@ tags:
 
 # ARCHITECTURE
 
+> **Historical foundation snapshot.** Current ownership is in
+> [root ARCHITECTURE.md](https://github.com/egohygiene/renderflow/blob/main/ARCHITECTURE.md).
+> The original text and dates below are retained; they do not establish current
+> implementation or qualification. See the [navigation guide](../overview.md#historical-foundation-documents).
+
 ## Introduction
 
 Renderflow's architecture describes how its major systems are organized to turn

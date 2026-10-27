@@ -12,6 +12,11 @@ tags:
 
 # METHODOLOGY
 
+> **Historical foundation snapshot.** Current ownership is in
+> [root METHODOLOGY.md](https://github.com/egohygiene/renderflow/blob/main/METHODOLOGY.md).
+> The original text and dates below are retained; they do not establish current
+> implementation or qualification. See the [navigation guide](../overview.md#historical-foundation-documents).
+
 ## Introduction
 
 Renderflow's methodology describes how work should move from intent to validated

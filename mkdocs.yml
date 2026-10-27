@@ -104,17 +104,17 @@ nav:
       - Troubleshooting: user-guide/troubleshooting.md
       - FAQ: user-guide/faq.md
   - Architecture:
+      - Start Here: architecture/overview.md
       - Universal Intake: universal-intake.md
       - Publication Hygiene: publication-hygiene.md
-      - Overview: architecture/overview.md
-      - Knowledge Base:
+      - Reference Knowledge Base:
           - Identity:
               - Purpose: architecture/identity/PURPOSE.md
               - Vision: architecture/identity/VISION.md
               - Manifesto: architecture/identity/MANIFESTO.md
               - Principles: architecture/identity/PRINCIPLES.md
               - Pillars: architecture/identity/PILLARS.md
-          - Foundation:
+          - Historical Foundation:
               - Methodology: architecture/foundation/METHODOLOGY.md
               - Foundations: architecture/foundation/FOUNDATIONS.md
               - System: architecture/foundation/SYSTEM.md
