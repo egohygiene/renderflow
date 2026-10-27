@@ -107,10 +107,11 @@ commands, see
 
 **Source, qualification and release are different states.** The merged
 composition and creative checkpoints contain authored implementation with
-remaining runtime/visual/native qualification. At this checkpoint
-[PR #455](https://github.com/egohygiene/renderflow/pull/455) is draft and unmerged;
-its original-Fountain exports and transcript terminal Text are not main
-capabilities. The proposed `v0.3.0-rc.1` version is not a published artifact.
+remaining runtime/visual/native qualification.
+[PR #455](https://github.com/egohygiene/renderflow/pull/455) merged on
+October 27, 2026, adding original-Fountain exports and transcript terminal Text
+to main. This source integration supplies no new executable qualification.
+The proposed `v0.3.0-rc.1` version is not a published artifact.
 Flow's [adapter issue](https://github.com/egohygiene/flow/issues/52) requires a
 qualified immutable release and owns downstream consumer proof.
 

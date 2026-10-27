@@ -76,11 +76,12 @@ Systems fail closed at destructive, publication, privacy, and security boundarie
 
 ## Evidence and uncertainty
 
-This responsibility map was reconciled against source at
-`9dac5428df38691b2922e09ea02d51b02a7f43eb` for
-[#459](https://github.com/egohygiene/renderflow/issues/459). It adds no provider,
-runtime validation or release evidence. [PR #455](https://github.com/egohygiene/renderflow/pull/455)
-remains draft-only at this checkpoint; its original-Fountain and transcript
-export additions are not main or released capabilities. The
+This responsibility map was reconciled for
+[#459](https://github.com/egohygiene/renderflow/issues/459), with merge state
+refreshed at `8d7a71edd4033a60801c663fec242a2195a2562e` on October 27, 2026.
+It adds no runtime validation or release evidence.
+[PR #455](https://github.com/egohygiene/renderflow/pull/455)'s original-Fountain
+and transcript export additions are merged source, with executable and native
+qualification still deferred. The
 [architecture entry](ARCHITECTURE.md#evidence-and-evolution) keeps current,
 draft, proposed and published states distinct.
