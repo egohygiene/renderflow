@@ -1,5 +1,50 @@
 # #430 — multi-family forest integration checkpoint
 
+## Current export-gap checkpoint (2026-10-16)
+
+Branch: `feat/renderflow-430-original-exports`, based on current main
+`0427749a2cccececae2d69aa9fa0a02779603509`. The maintainer resumed this bounded
+#430 checkpoint and requested the Trelby script artifact too. The preceding
+implementation below remains history; its two missing-direction statements are
+superseded by authored source, not by passing runtime evidence.
+
+- [Original export design](ORIGINAL_EXPORTS.md) records the policy, architecture,
+  artifact trust contract and exact upstream Trelby format pin.
+- New `execution.screenplay_body: {allow_unqualified: true}` authors direct
+  original strict Fountain → canonical JSON/FDX/Fade In/OSF/Trelby. Shared body
+  codecs are separated from the recovery wrapper without weakening its source,
+  loss or review contract. Scripttool reverse directions remain rejected.
+  Auxiliary canonical bytes count in intermediate inventory/budgets and remain
+  in the local artifact store; select `screenplay_json` to publish a companion.
+  Native-only copied bundles require that store to resolve the canonical ref.
+- `.trelby` is a distinct recognized native artifact. Its independently authored
+  version 3 codec accepts only a minimal bounded six-kind body envelope. General
+  GUI saves, pagination, editing and Unicode display are unqualified.
+- Canonical transcript → text is authored as a terminal under existing subtitle
+  and explicit speech policies. Evidence retains canonical/source identity and
+  timing/cue/metadata losses; no reverse timing or alignment claim is added.
+- Authored regressions cover semantic preservation, unsupported input, Trelby
+  framing, source/output/canonical tampering, policy isolation, terminal
+  planning and speech/transcript loss admission. No execution count is a pass.
+- The existing creative fixture gains an isolated provider-free original body
+  job and a transcript text target. The launcher and new scenarios remain unrun.
+
+Permitted execution so far: `python3 scripts/generate_creative_capabilities.py`
+(exit 0, 14 authored unqualified routes; data rendering only), source reads and
+Git inspection. Tests, compiler/build, formatter/linter, schema validation,
+native execution/probes, installers/downloads, fixture launcher and CI have not
+run for this candidate. No passing validation or application-opening evidence
+is claimed. Use disabled Git hooks and `[skip ci]`; keep the PR draft.
+
+The next authorized qualification session must compile and run the authored
+coverage, exercise original Fountain and transcript targets through CLI/SDK,
+open native exports in their actual applications (including Trelby), inspect
+portable canonical/loss evidence and verify immutable source bytes. #430/#421
+stay open; #424/#427/#429/#419 retain their existing ownership. Do not start
+another issue or merge this draft until the maintainer's next instruction.
+
+## Previous forest integration checkpoint
+
 Base: merged #447 at `1853824691041491bc6284c9e67c59c6ecda7a48`.
 Branch: `feat/renderflow-430-artifact-forest-handoff`. Obtain the checkpoint's
 eventual merge SHA from its PR. The maintainer authorized #430 and continued the
@@ -39,10 +84,10 @@ that issue's history and reconciles the creative subset explicitly:
 | Requested scenario | Current boundary |
 | --- | --- |
 | Fountain to PDF and analysis | Bounded pinned PDF route and separate deterministic analysis command are authored. |
-| Fountain to FDX/Fade In/OSF/canonical | General original-Fountain export adapters are still absent. #424's authored native import direction does not imply its inverse. |
+| Fountain to FDX/Fade In/OSF/canonical | Absent at this historical checkpoint; the current original-body checkpoint above authors a separate built-in direction. #424's native imports do not imply their inverse. |
 | PDF/text recovery to canonical and native body formats | Authored, explicitly lossy and review-required; native PDF/OCR execution still needs exact tool/data qualification. |
 | Embedded subtitles and local speech | Separate explicit-policy jobs; speech is not a fallback inferred from missing captions. |
-| Canonical transcript to SRT/VTT/text | SRT/VTT graph export is authored; plain text remains a standalone export surface. |
+| Canonical transcript to SRT/VTT/text | SRT/VTT were authored here; the current checkpoint above authors the previously missing terminal text graph edge. |
 | Combined forest | One launcher combines isolated job evidence. It is not a new general multi-source engine or Flow implementation. |
 
 Do not disguise Fountain as unstructured text to satisfy a missing native export
@@ -61,8 +106,8 @@ poll Actions. Keep all unobserved acceptance criteria unchecked.
 
 ## Resume and complete the issue
 
-1. Reconcile the missing original-Fountain export and graph text-export
-   directions with #424/#430 scope before claiming the original full diagram.
+1. Qualify the authored original-Fountain export and graph text-export
+   directions with #424/#427/#430 scope before claiming the original full diagram.
    Retain existing issue ownership; create follow-up audit issues only from the
    later test session's actual findings.
 2. When execution is authorized, compile and run the focused forest publication,

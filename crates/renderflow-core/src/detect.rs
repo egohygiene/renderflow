@@ -200,6 +200,7 @@ mod tests {
             ("scene.FDX", Format::Fdx),
             ("scene.fadein", Format::FadeIn),
             ("scene.OSF", Format::Osf),
+            ("scene.TRELBY", Format::Trelby),
             ("scene.screenplay.json", Format::ScreenplayJson),
             ("SCENE.SCREENPLAY.JSON", Format::ScreenplayJson),
             ("scene.json", Format::Json),
@@ -226,6 +227,30 @@ mod tests {
             assert_eq!(detect_from_extension(path), Some(format));
             assert_eq!(detect_from_path(path, None), DetectionResult::ExtensionOnly { format });
         }
+    }
+
+    #[test]
+    fn trelby_bom_and_version_signal_remains_distinct_from_plain_text() {
+        let native = b"\xEF\xBB\xBF#Version 3\n#Start-Script \n";
+        assert_eq!(detect_from_bytes(native), Some(Format::Trelby));
+        assert_eq!(detect_from_bytes(b"\xEF\xBB\xBF#Version 3\r\n"), Some(Format::Trelby));
+        for unsupported in [
+            &b"#Version 3\n"[..],
+            &b"\xEF\xBB\xBF#Version 30\n"[..],
+            &b"\xEF\xBB\xBF#Version 2\n"[..],
+            &b"\xEF\xBB\xBF#Version 3"[..],
+        ] {
+            assert_eq!(detect_from_bytes(unsupported), None);
+        }
+        assert_eq!(detect_from_path("scene.trelby", Some(native)),
+            DetectionResult::ConfidentMatch {
+                format: Format::Trelby, signal: DetectionSignal::MagicBytes,
+            });
+        let DetectionResult::Conflict(conflict) = detect_from_path("scene.txt", Some(native)) else {
+            panic!("a plain-text extension must retain the native content conflict");
+        };
+        assert_eq!(conflict.extension_format, Format::Text);
+        assert_eq!(conflict.content_format, Format::Trelby);
     }
 
     // ── detect_from_bytes ──────────────────────────────────────────────────────

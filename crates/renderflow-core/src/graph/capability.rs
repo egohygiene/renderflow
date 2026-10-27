@@ -498,8 +498,8 @@ impl FormatCapabilityRegistry {
                 extensions: &["fountain"],
                 media_types: &["text/x-fountain"],
                 families: &[Document],
-                // Extension recognition only; Fountain is not a Pandoc input
-                // format and no native screenplay adapter is registered yet.
+                // Global recognition does not enable the opt-in body exporters
+                // or make Fountain a Pandoc input format.
                 capabilities: vec![Detect],
                 magic_signatures: vec![],
                 loss_profile: PathDependent,
@@ -551,6 +551,27 @@ impl FormatCapabilityRegistry {
                 },
             );
         }
+
+        self.register(
+            Format::Trelby,
+            FormatDescriptor {
+                id: "trelby",
+                name: "Trelby Screenplay",
+                extensions: &["trelby"],
+                // Project-owned identity label, not an IANA/vendor MIME claim.
+                media_types: &["application/vnd.renderflow.trelby"],
+                families: &[Document, Data],
+                capabilities: vec![Detect],
+                // Recognition of the native BOM/version envelope is not body
+                // validation, GUI interoperability, or execution qualification.
+                magic_signatures: vec![
+                    MagicSignature::at_start(b"\xEF\xBB\xBF#Version 3\n"),
+                    MagicSignature::at_start(b"\xEF\xBB\xBF#Version 3\r\n"),
+                ],
+                loss_profile: PathDependent,
+                external_requirements: vec![],
+            },
+        );
 
         self.register(
             Format::ScreenplayJson,
@@ -1758,6 +1779,23 @@ mod tests {
             descriptor.media_types[0],
             crate::artifact::MediaType::for_format(Format::ScreenplayJson).as_str(),
         );
+    }
+
+    #[test]
+    fn trelby_descriptor_recognizes_only_the_native_version_envelope() {
+        let descriptor = FormatCapabilityRegistry::global().get(Format::Trelby).unwrap();
+        assert_eq!(descriptor.extensions, &["trelby"]);
+        assert_eq!(descriptor.capabilities, vec![ArtifactCapability::Detect]);
+        assert!(descriptor.is_in_family(FormatFamily::Document));
+        assert!(descriptor.is_in_family(FormatFamily::Data));
+        assert!(descriptor.external_requirements.is_empty());
+        assert_eq!(descriptor.media_types[0],
+            crate::artifact::MediaType::for_format(Format::Trelby).as_str());
+        assert!(descriptor.matches_magic(b"\xEF\xBB\xBF#Version 3\n#Start-Script \n"));
+        assert!(descriptor.matches_magic(b"\xEF\xBB\xBF#Version 3\r\n#Start-Script \r\n"));
+        assert!(!descriptor.matches_magic(b"#Version 3\n"));
+        assert!(!descriptor.matches_magic(b"\xEF\xBB\xBF#Version 30\n"));
+        assert!(!descriptor.matches_magic(b"\xEF\xBB\xBF#Version 2\n"));
     }
 
     #[test]

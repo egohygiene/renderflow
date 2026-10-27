@@ -173,6 +173,7 @@ impl MediaType {
             Format::Fdx => "application/vnd.renderflow.fdx+xml",
             Format::FadeIn => "application/vnd.renderflow.fadein+zip",
             Format::Osf => "application/vnd.renderflow.osf+xml",
+            Format::Trelby => "application/vnd.renderflow.trelby",
             Format::ScreenplayJson => "application/vnd.renderflow.screenplay+json",
             Format::Jpeg => "image/jpeg",
             Format::Png => "image/png",

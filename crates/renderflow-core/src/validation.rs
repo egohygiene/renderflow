@@ -378,6 +378,14 @@ impl ArtifactValidator for Utf8Validator {
     }
 
     fn validate(&self, artifact: &Artifact, store: &ArtifactStore) -> Result<ValidationCheck> {
+        if artifact.format().as_str() == Format::Text.to_string()
+            && artifact.metadata().contains_key(crate::timed_text::graph::SUBTITLE_ARTIFACT_METADATA_KEY)
+        {
+            return Ok(match crate::timed_text::graph::validate_text_export_artifact(artifact, store) {
+                Ok(_) => ValidationCheck::valid(),
+                Err(error) => ValidationCheck::invalid("validation.invalid_transcript_text", error.to_string()),
+            });
+        }
         match String::from_utf8(store.read_bytes(artifact)?) {
             Ok(_) => Ok(ValidationCheck::valid()),
             Err(_) => Ok(ValidationCheck::invalid(
@@ -1129,6 +1137,39 @@ mod tests {
                 evidence.validator_id == "validator.core.utf8"
             }));
         }
+    }
+
+    #[test]
+    fn transcript_text_uses_utf8_with_evidence_and_payload_checks_without_timing_import() {
+        use crate::artifact::ArtifactTransform;
+        use crate::timed_text::graph::{TimedTextArtifactTransform, SUBTITLE_ARTIFACT_METADATA_KEY};
+
+        let directory = tempfile::tempdir().unwrap();
+        let store = ArtifactStore::new(directory.path()).unwrap();
+        let source = store.put_bytes(b"1\n00:00:01,000 --> 00:00:02,000\nSynthetic cue\n",
+            ArtifactDescriptor::for_format(Format::Srt, ArtifactStorageClass::Source)).unwrap();
+        let canonical = TimedTextArtifactTransform::new(Format::Srt, Format::TimedTranscriptJson).unwrap()
+            .apply(&source, Format::TimedTranscriptJson, &store).unwrap();
+        let text = TimedTextArtifactTransform::new(Format::TimedTranscriptJson, Format::Text).unwrap()
+            .apply(&canonical, Format::Text, &store).unwrap();
+        let registry = ValidationRegistry::builtins();
+        let outcome = registry.validate_in_store(&text, Format::Text, &[], &store);
+        assert_eq!(outcome.state, ValidationState::Valid);
+        assert!(outcome.validators.iter().any(|evidence| evidence.validator_id == "validator.core.utf8"));
+        assert!(!outcome.validators.iter().any(|evidence| evidence.validator_id == "validator.core.timed_text"));
+        let mut changed = serde_json::to_value(&text).unwrap();
+        changed["metadata"][SUBTITLE_ARTIFACT_METADATA_KEY]["export_losses"].as_array_mut().unwrap()
+            .retain(|loss| loss.as_str() != Some("timing"));
+        let changed: Artifact = serde_json::from_value(changed).unwrap();
+        let outcome = registry.validate_in_store(&changed, Format::Text, &[], &store);
+        assert_eq!(outcome.state, ValidationState::Invalid);
+        assert!(outcome.validators.iter().any(|evidence| evidence.diagnostics.iter()
+            .any(|diagnostic| diagnostic.code == "validation.invalid_transcript_text")));
+        std::fs::OpenOptions::new().write(true).open(store.payload_path(&text).unwrap()).unwrap()
+            .set_len(crate::timed_text::MAX_INPUT_BYTES as u64 + 1).unwrap();
+        assert_eq!(registry.validate_in_store(&text, Format::Text, &[], &store).state, ValidationState::Invalid);
+        assert_eq!(timed_text_outcome(Format::Text, "Ordinary UTF-8 document 🐸\n".as_bytes()).state,
+            ValidationState::Valid);
     }
 
     #[test]

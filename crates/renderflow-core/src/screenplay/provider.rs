@@ -159,7 +159,7 @@ pub fn conversion_command(
         NativeScreenplayFormat::Fdx => Ok("fdx2fountain"),
         NativeScreenplayFormat::Osf => Ok("osf2fountain"),
         NativeScreenplayFormat::FadeIn => Ok("fadein2fountain"),
-        NativeScreenplayFormat::Fountain => unreachable!("supported_route rejects Fountain input"),
+        NativeScreenplayFormat::Fountain | NativeScreenplayFormat::Trelby => unreachable!("supported_route rejects Fountain and Trelby input"),
     }
 }
 

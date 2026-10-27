@@ -18,6 +18,11 @@
         "id": "target.vtt",
         "role": "vtt",
         "format": "vtt"
+      },
+      {
+        "id": "target.text",
+        "role": "text",
+        "format": "text"
       }
     ]
   },
