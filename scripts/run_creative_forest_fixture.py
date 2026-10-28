@@ -508,12 +508,35 @@ def run_job(job, native, binary, mode, root, timeout):
     return result
 
 
+def select_request(request, requested_ids, include_negatives):
+    """Retain only selected declarations, in suite order, before any job work."""
+    jobs = request["jobs"]
+    known = {job["id"] for job in jobs}
+    requested_ids = requested_ids or []
+    if len(known) != len(jobs):
+        raise ValueError("fixture declares duplicate job IDs")
+    if len(set(requested_ids)) != len(requested_ids):
+        raise ValueError("--job IDs must not be repeated")
+    unknown = set(requested_ids) - known
+    if unknown:
+        raise ValueError("unknown --job IDs: " + ", ".join(sorted(unknown)))
+    selected = [job for job in jobs if not requested_ids or job["id"] in requested_ids]
+    if requested_ids and not include_negatives and any(job.get("negative") for job in selected):
+        raise ValueError("selecting a negative job requires --include-negatives")
+    selected = [job for job in selected if include_negatives or not job.get("negative")]
+    if not selected:
+        raise ValueError("no fixture jobs selected")
+    return {**request, "jobs": selected}
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--mode", choices=("describe", "plan", "execute"), default="describe")
     parser.add_argument("--renderflow", help="Absolute path to an already built regular executable")
     parser.add_argument("--output", help="New retained evidence directory; parent must exist")
     parser.add_argument("--native-config", help="Explicit per-job policies and optional absolute media source paths")
+    parser.add_argument("--job", action="append", metavar="ID",
+                        help="Select one fixture job; repeat for several. Omit to select the suite.")
     parser.add_argument("--include-negatives", action="store_true")
     parser.add_argument("--timeout-seconds", type=int, default=900)
     arguments = parser.parse_args(argv)
@@ -521,6 +544,10 @@ def main(argv=None):
     request = read_json(request_path)
     if request.get("schema") != REQUEST_SCHEMA:
         parser.error("unsupported fixture request contract")
+    try:
+        request = select_request(request, arguments.job, arguments.include_negatives)
+    except ValueError as error:
+        parser.error(str(error))
     if arguments.mode == "describe":
         print(json.dumps(request, indent=2, ensure_ascii=False))
         return 0
@@ -529,13 +556,14 @@ def main(argv=None):
     binary = Path(arguments.renderflow)
     if not binary.is_absolute():
         parser.error("--renderflow must be an absolute regular executable path")
-    binary_bytes = read_file(binary)
     native = read_json(arguments.native_config) if arguments.native_config else {}
     if not isinstance(native, dict):
         parser.error("native configuration must be a JSON object keyed by job ID")
     permitted = {job.get("configuration", job["id"]) for job in request["jobs"] if job.get("native")}
     if set(native) - permitted:
-        parser.error("native configuration contains unknown job IDs")
+        parser.error("native configuration contains keys not used by selected jobs: "
+                     + ", ".join(sorted(set(native) - permitted)))
+    binary_bytes = read_file(binary)
     root = Path(arguments.output).absolute()
     if root.exists() or root.is_symlink() or not root.parent.is_dir():
         parser.error("--output must be new and its parent must exist")
@@ -543,7 +571,7 @@ def main(argv=None):
     root = root.resolve()
     report = {"schema": RESULT_SCHEMA, "mode": arguments.mode, "state": "running",
               "qualification": "unqualified", "coverage_complete": False,
-              "request": {"sha256": sha256(read_file(request_path, MAX_JSON)), "schema": REQUEST_SCHEMA},
+              "request": {"schema": REQUEST_SCHEMA},
               "runner_sha256": sha256(read_file(Path(__file__))),
               "binary": {"path": str(binary), "sha256": sha256(binary_bytes), "size_bytes": len(binary_bytes)},
               "gaps": request["gaps"], "jobs": []}
@@ -553,8 +581,6 @@ def main(argv=None):
     write_json(root / "started.json", report)
     try:
         for job in request["jobs"]:
-            if job.get("negative") and not arguments.include_negatives:
-                continue
             result = run_job(job, native, binary, arguments.mode, root, arguments.timeout_seconds)
             report["jobs"].append(result)
             write_json(root / (job["id"] + ".result.json"), result)

@@ -7,10 +7,13 @@ synthetic temporary files and do not launch Renderflow or any native provider.
 """
 
 import copy
+from contextlib import redirect_stderr, redirect_stdout
+import io
 import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest import mock
 
 import run_creative_forest_fixture as fixture
 
@@ -448,6 +451,148 @@ class FixtureDeclarationTests(unittest.TestCase):
         for job_id in ("timed-text", "cycle-suppression"):
             job = next(job for job in request["jobs"] if job["id"] == job_id)
             self.assertIn("text", {target["format"] for target in job["expected_targets"]})
+
+
+class FixtureSelectionTests(unittest.TestCase):
+    def setUp(self):
+        self.request = fixture.read_json(fixture.FIXTURE / "fixture.json")
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.root = Path(self.temporary.name).resolve()
+        # Never executable: main only hashes this marker; dispatch is mocked.
+        self.binary = self.root / "binary-marker"
+        self.binary.write_bytes(b"synthetic binary identity; not a program\n")
+
+    def test_default_and_negative_selection_preserve_catalog_and_do_not_expand_explicit_jobs(self):
+        original = copy.deepcopy(self.request)
+        ordinary = fixture.select_request(self.request, None, False)
+        self.assertTrue(ordinary["jobs"])
+        self.assertFalse(any(job.get("negative") for job in ordinary["jobs"]))
+        self.assertIn("speech", [job["id"] for job in ordinary["jobs"]])
+        self.assertEqual(fixture.select_request(self.request, None, True), self.request)
+        selected = fixture.select_request(self.request, ["original-body"], True)
+        self.assertEqual([job["id"] for job in selected["jobs"]], ["original-body"])
+        self.assertEqual(self.request, original)
+
+    def test_describe_is_static_and_uses_catalog_order(self):
+        output = self.root / "must-not-exist"
+        stdout = io.StringIO()
+        with mock.patch.object(fixture, "run_child", side_effect=AssertionError("unexpected child")), \
+                mock.patch.object(fixture, "run_job") as dispatch, redirect_stdout(stdout):
+            code = fixture.main(["--mode", "describe", "--job", "timed-text",
+                                 "--job", "original-body", "--output", str(output),
+                                 "--renderflow", str(self.root / "missing-binary")])
+        self.assertEqual(code, 0)
+        self.assertEqual([job["id"] for job in json.loads(stdout.getvalue())["jobs"]],
+                         ["original-body", "timed-text"])
+        dispatch.assert_not_called()
+        self.assertFalse(output.exists())
+
+    def test_invalid_selection_refuses_before_output_or_dispatch(self):
+        for selection, diagnostic in (
+            (["--job", "does-not-exist"], "unknown --job IDs"),
+            (["--job", "original-body", "--job", "original-body"], "must not be repeated"),
+            (["--job", "malformed-recovery"], "requires --include-negatives"),
+        ):
+            with self.subTest(selection=selection):
+                output = self.root / "refused"
+                stderr = io.StringIO()
+                with mock.patch.object(fixture, "run_job") as dispatch, redirect_stderr(stderr):
+                    with self.assertRaises(SystemExit) as refusal:
+                        fixture.main(["--mode", "execute", "--output", str(output),
+                                      "--renderflow", str(self.root / "missing-binary"), *selection])
+                self.assertEqual(refusal.exception.code, 2)
+                self.assertIn(diagnostic, stderr.getvalue())
+                dispatch.assert_not_called()
+                self.assertFalse(output.exists())
+
+    def test_selected_plan_and_execution_retain_the_same_request_as_describe(self):
+        selection = ["--job", "timed-text", "--job", "original-body"]
+        described = io.StringIO()
+        with redirect_stdout(described):
+            self.assertEqual(fixture.main(["--mode", "describe", *selection]), 0)
+        for mode in ("plan", "execute"):
+            with self.subTest(mode=mode):
+                output = self.root / mode
+                dispatched = []
+
+                def observe_dispatch(job, native, binary, actual_mode, root, timeout):
+                    dispatched.append(job["id"])
+                    self.assertEqual(native, {})
+                    self.assertEqual(actual_mode, mode)
+                    return {"id": job["id"], "status": "planned" if mode == "plan" else "completed",
+                            "expected": job.get("expected", "success"),
+                            "evidence": [], "published_artifacts": []}
+
+                with mock.patch.object(fixture, "run_job", side_effect=observe_dispatch), \
+                        mock.patch.object(fixture, "run_child", side_effect=AssertionError("unexpected child")), \
+                        redirect_stdout(io.StringIO()):
+                    code = fixture.main(["--mode", mode, "--renderflow", str(self.binary),
+                                         "--output", str(output), *selection])
+                self.assertEqual(code, 0)
+                self.assertEqual(dispatched, ["original-body", "timed-text"])
+                retained = fixture.read_json(output / "request.json")
+                self.assertEqual(retained, json.loads(described.getvalue()))
+                report = fixture.read_json(output / "result.json")
+                self.assertEqual([job["id"] for job in report["jobs"]], dispatched)
+                self.assertEqual(report["request"]["sha256"],
+                                 fixture.sha256((output / "request.json").read_bytes()))
+                self.assertEqual(fixture.read_json(output / "started.json")["request"], report["request"])
+                self.assertEqual(report["qualification"], "unqualified")
+                self.assertFalse(report["coverage_complete"])
+                self.assertFalse((output / "speech.result.json").exists())
+
+    def test_native_configuration_for_unselected_jobs_is_refused(self):
+        native = self.root / "native.json"
+        native.write_text(json.dumps({"speech": {"policy": {}}}), encoding="utf-8")
+        output = self.root / "refused-native"
+        stderr = io.StringIO()
+        with mock.patch.object(fixture, "run_job") as dispatch, redirect_stderr(stderr):
+            with self.assertRaises(SystemExit) as refusal:
+                fixture.main(["--mode", "execute", "--job", "original-body",
+                              "--renderflow", str(self.root / "missing-binary"),
+                              "--native-config", str(native), "--output", str(output)])
+        self.assertEqual(refusal.exception.code, 2)
+        self.assertIn("keys not used by selected jobs: speech", stderr.getvalue())
+        dispatch.assert_not_called()
+        self.assertFalse(output.exists())
+
+    def test_selected_negative_accepts_its_shared_native_configuration_only(self):
+        native = self.root / "native.json"
+        configuration = {"speech": {"policy": {}}}
+        native.write_text(json.dumps(configuration), encoding="utf-8")
+        output = self.root / "negative"
+        result = {"id": "transcription-unavailable", "status": "expected_refusal",
+                  "expected": "refusal", "evidence": [], "published_artifacts": []}
+        with mock.patch.object(fixture, "run_job", return_value=result) as dispatch, \
+                mock.patch.object(fixture, "run_child", side_effect=AssertionError("unexpected child")), \
+                redirect_stdout(io.StringIO()):
+            code = fixture.main(["--mode", "execute", "--job", "transcription-unavailable",
+                                 "--include-negatives", "--renderflow", str(self.binary),
+                                 "--native-config", str(native), "--output", str(output)])
+        self.assertEqual(code, 0)
+        dispatch.assert_called_once()
+        self.assertEqual(dispatch.call_args.args[0]["id"], "transcription-unavailable")
+        self.assertEqual(dispatch.call_args.args[1], configuration)
+        self.assertEqual([job["id"] for job in fixture.read_json(output / "request.json")["jobs"]],
+                         ["transcription-unavailable"])
+        self.assertFalse((output / "speech.result.json").exists())
+
+    def test_selected_unconfigured_native_job_is_distinct_from_unselected_jobs(self):
+        output = self.root / "unconfigured"
+        with mock.patch.object(fixture, "run_child", side_effect=AssertionError("unexpected child")), \
+                redirect_stdout(io.StringIO()):
+            code = fixture.main(["--mode", "execute", "--job", "speech",
+                                 "--renderflow", str(self.binary), "--output", str(output)])
+        self.assertEqual(code, 0)
+        report = fixture.read_json(output / "result.json")
+        self.assertEqual(len(report["jobs"]), 1)
+        self.assertEqual(report["jobs"][0]["id"], "speech")
+        self.assertEqual(report["jobs"][0]["status"], "skipped_unconfigured")
+        self.assertNotIn("process", report["jobs"][0])
+        self.assertEqual(report["jobs"][0]["published_artifacts"], [])
+        self.assertFalse(report["coverage_complete"])
+        self.assertFalse((output / "original-body.result.json").exists())
 
 
 if __name__ == "__main__":

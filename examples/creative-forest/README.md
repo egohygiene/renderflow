@@ -11,17 +11,17 @@ From the repository root, Python 3.9+ can describe the suite without launching
 any child process or creating an evidence directory:
 
 ```bash
-python3 scripts/run_creative_forest_fixture.py --mode describe
+python3 scripts/run_creative_forest_fixture.py --mode describe --job original-body
 ```
 
 For the later execution session, use an already built compatible Renderflow
 binary and a new output directory whose parent exists:
 
 ```bash
-python3 scripts/run_creative_forest_fixture.py --mode plan \
+python3 scripts/run_creative_forest_fixture.py --mode plan --job original-body \
   --renderflow /absolute/path/to/renderflow --output /existing/parent/creative-plan
 
-python3 scripts/run_creative_forest_fixture.py --mode execute \
+python3 scripts/run_creative_forest_fixture.py --mode execute --job original-body \
   --renderflow /absolute/path/to/renderflow --output /existing/parent/creative-run
 ```
 
@@ -30,6 +30,28 @@ native routes may probe providers. It writes captured plans, not conversion
 artifacts. Standalone analysis/text commands have no public dry-run and are
 `not_run` in plan mode. `execute` runs every configured job independently. Neither
 mode installs tools, downloads models, resumes old output, or overwrites sources.
+
+`--job original-body` selects only the five provider-free original Fountain
+exports, including their published canonical companion. Repeat `--job` for
+several jobs, or omit it for the full nonnegative suite. Selection keeps fixture
+order and applies identically to describe, plan and execute. To see every
+declaration, use `--mode describe --include-negatives` without `--job`.
+
+Unknown/repeated job IDs and explicitly selected negatives without
+`--include-negatives` are rejected before any output directory or child process.
+With explicit job IDs, `--include-negatives` permits only selected negatives;
+it does not expand the selection. Native configuration keys must belong to
+selected jobs or their shared `configuration` aliases. For example, selecting
+`transcription-unavailable` accepts the `speech` configuration even when the
+positive speech job is not selected. Unrelated native configuration is refused.
+
+The retained `request.json` is the effective selected declaration, identified
+by the report's request digest. Unselected jobs have no result rows and no
+claimed observations. Selected unconfigured native jobs still appear as
+`skipped_unconfigured`; they are not evidence of missing providers. Reports
+remain unqualified with incomplete coverage even when a selected subset completes.
+See the [first forest walkthrough](../../docs/user-guide/creative-forest.md)
+for expected filenames and how to read actual publication evidence.
 
 ## Declared output trees
 

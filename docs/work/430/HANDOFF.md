@@ -1,5 +1,33 @@
 # #430 — multi-family forest integration checkpoint
 
+## Selectable demonstration checkpoint — October 28, 2026
+
+The maintainer switched back to the artifact forest after the suite merge and
+roadmap refresh. Branch `feat/430-selectable-forest-demo` starts at main
+`c1d1bebfd48369d18e7c46295859d76e3f831499`.
+
+- Repeatable `--job ID` selects existing fixture jobs in declared order.
+  Describe, plan and execute resolve the same subset before job work. The
+  retained request and its digest describe that exact subset.
+- Unknown/repeated IDs, negative jobs without explicit opt-in and unused native
+  configuration keys are refused before output creation/child execution.
+  Native negative cases retain their existing shared configuration aliases.
+- Default execution retains the nonnegative suite. Static describe now mirrors
+  execution selection; add `--include-negatives` to list the entire catalog.
+  Omitted jobs have no observed result. Selected unconfigured native jobs still
+  report `skipped_unconfigured`, not an observed unavailable provider.
+- The first walkthrough selects `original-body`: five built-in exports from
+  preserved synthetic Fountain, including the canonical JSON companion.
+  The Flow handoff corrects stale unsupported-route claims and documents native
+  body evidence retention and the native-only bundle portability limitation.
+
+No provider, general workflow engine, schema or dependency is added. Regression
+cases are authored for later execution; source review and Git identity are the
+current evidence. No tests, compiler/build, lint/format, schema validators,
+fixture/CLI/native/provider execution or CI are run for this checkpoint. Keep
+the PR draft and #430/#421 open. The remaining integration qualification steps
+below still apply; this usability improvement does not complete them.
+
 ## Current integration state — October 27, 2026
 
 PR #455 merged at `0842c16cb50530f37a35b18fb6b0211f3ffc2386` with maintainer
