@@ -10,12 +10,15 @@ The launcher runs isolated jobs because original screenplay bodies, screenplay
 PDF, recovery, subtitles and speech have different policies. It does not combine their sources into one
 native DAG or silently convert a source into another family's input type.
 
-## Start with the bundled sources
+## Start with one Fountain forest
 
-From the repository root, inspect the declared suite without launching Renderflow:
+Start with `original-body`: one bundled synthetic Fountain screenplay and five
+requested outputs—screenplay JSON, FDX, Fade In, OSF and Trelby. This job needs
+no external conversion provider, model or native configuration. From the
+repository root, inspect its declaration without launching Renderflow:
 
 ```bash
-python3 scripts/run_creative_forest_fixture.py --mode describe
+python3 scripts/run_creative_forest_fixture.py --mode describe --job original-body
 ```
 
 When the execution session is authorized, use an already built Renderflow binary
@@ -26,23 +29,53 @@ be new:
 mkdir -p "dist"
 
 python3 scripts/run_creative_forest_fixture.py \
-  --mode plan \
+  --mode plan --job original-body \
   --renderflow "/absolute/path/to/renderflow" \
   --output "dist/creative-forest-plan"
 
 python3 scripts/run_creative_forest_fixture.py \
-  --mode execute \
+  --mode execute --job original-body \
   --renderflow "/absolute/path/to/renderflow" \
   --output "dist/creative-forest-run"
 ```
 
-`describe` prints suite declarations only. `plan` invokes canonical
+The run report will be `dist/creative-forest-run/result.json`. The five intended
+payloads live under `jobs/original-body/bundle/source.fixture/` with names
+`target.screenplay_json.screenplay.json`, `target.fdx.fdx`,
+`target.fadein.fadein`, `target.osf.osf`, and `target.trelby.trelby`.
+The native `bundle/renderflow-run.json` records what was actually published;
+these expected filenames alone do not establish success. Keep the whole
+directory, including the canonical JSON companion and native evidence.
+
+`describe` prints selected declarations only. `plan` invokes canonical
 `renderflow build --dry-run`, captures plans and can perform the provider probes
 that those routes normally require. The launcher writes its own evidence files
 even in plan mode; Renderflow's dry-run still does not publish conversion output.
 Standalone commands with no planning interface remain deferred in that mode.
 `execute` invokes actual conversions and standalone operations, retaining their
 results and failures. None of these modes installs a provider or downloads a model.
+
+## Choose more jobs
+
+Repeat `--job` to choose several independent jobs, for example
+`--job original-body --job fountain-analysis --job timed-text`. They run in
+the stable order declared by the fixture, regardless of flag order. Omit
+`--job` for the full nonnegative suite; optional native jobs still require their
+own explicit configuration. `--mode describe --include-negatives` lists all
+declarations, including the negative corpus.
+
+Unknown or repeated IDs are errors before output creation or child execution.
+Selecting a negative job also requires `--include-negatives`; that flag never
+adds other jobs to an explicit selection. Native configuration keys must be
+used by the selected jobs. A negative job may reuse its parent's configuration:
+`transcription-unavailable` uses `speech`, and `pdf-malformed` uses `pdf-recovery`.
+
+The same selection applies to describe, plan and execute. The retained
+`request.json` contains exactly those job declarations and its digest is
+recorded in `result.json`. Omitted jobs have no result rows; they are not
+provider failures or `skipped_unconfigured` observations. An explicitly selected
+native job without configuration still reports `skipped_unconfigured`.
+Completing a subset does not establish complete suite coverage.
 
 | Default job | Intended output when later executed |
 | --- | --- |

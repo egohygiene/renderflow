@@ -3,12 +3,12 @@ schema: aether.architecture-document/v1
 id: renderflow-roadmap
 title: Renderflow Roadmap
 kind: architecture-document
-version: 0.1.14
+version: 0.1.15
 status: draft
 owners:
   - egohygiene
 created: 2026-08-19
-updated: 2026-10-15
+updated: 2026-10-28
 governed_by:
   - architecture-roadmap
 depends_on:
@@ -25,6 +25,27 @@ supersedes: []
 ---
 
 # Renderflow Roadmap
+
+## 2026-10-28 selectable artifact-forest demonstration
+
+The next bounded [#430](https://github.com/egohygiene/renderflow/issues/430)
+checkpoint makes the existing creative fixture selectable with repeatable
+`--job` flags. The [first forest walkthrough](docs/user-guide/creative-forest.md)
+starts with one synthetic Fountain source and five built-in body exports,
+including canonical JSON. Describe, plan and execute share the same selected
+request; omitted jobs are not reported as observations. Negative cases require
+explicit opt-in, and native policies cannot select additional jobs implicitly.
+
+This adds no conversion engine, provider or runtime dependency. The Flow handoff
+now reflects the merged original-body and transcript-text routes and explains
+canonical evidence retention. Source review and authored, unrun regression
+cases are the evidence for this checkpoint. Tests, builds, lint, validators,
+CLI/provider execution and CI remain deferred; #430/#421 stay open.
+
+Remaining forest work is principally actual CLI/SDK and native-provider
+qualification, source preservation/repeatability, application fidelity and
+released Flow consumption. The narrow integration release remains #419 after
+#458/#459; merging source alone does not satisfy those outcomes.
 
 ## 2026-10-15 composition build admission checkpoint
 

@@ -68,11 +68,20 @@ portable output bundle.
 
 | Family | Evidence that Flow must retain |
 | --- | --- |
+| Original screenplay body | `metadata["renderflow.screenplay_body"]`, exact original Fountain and retained canonical screenplay references/digests, output digest and policy/profile identity. The strict six-kind body profile retains `qualification: authored_unqualified`, `runtime_qualified: false` and `review_required: true`; independent semantic reparse is not native-application or creative approval. |
 | Screenplay recovery | `metadata["renderflow.screenplay_recovery"]`, the canonical candidate, extraction evidence and native export evidence. `lossy: true` and `review_required: true` survive every derivative. Ordinal heuristic confidence is not measured accuracy or approval. |
 | Timed text | `metadata["renderflow.subtitle"]`, canonical transcript references, prior/export losses, overlap and language policy. SRT/VTT bytes omit some metadata held in the canonical record. |
 | Local speech | `metadata["renderflow.speech"]`, raw provider result, transcription, any preparation evidence and the retained saved-result bundle. `human_reviewed: false` cannot become true through successful export. |
 | Screenplay PDF | Configured Node/package identity, fixed formatting profile, provider evidence and independent PDF inspection. A complete PDF is not visual or native-application qualification. |
 | Publication hygiene | Embedded hygiene decisions and findings. A `review_required` artifact needs explicit downstream approval; publication alone does not provide it. |
+
+An original-body native export keeps its canonical companion in the local
+artifact store unless `screenplay_json` is also selected for publication.
+Copying a native-only bundle does not make an `artifact-store:` reference
+portable. Preserve the referenced store, or select the canonical target and
+retain its actual publication together with the original source and native run
+evidence when moving the outputs. The creative fixture's `original-body` job
+selects that canonical companion explicitly.
 
 Prepared-audio timestamps do not establish original-video synchronization.
 The explicit saved-result time-map exporter supplies a separate assertion and
@@ -178,9 +187,21 @@ The [generated matrix](../user-guide/creative-capabilities.md) and
 [fixture guide](../user-guide/creative-forest.md) separate current behavior from
 the broader #430 outcome. Fountain PDF/analysis, native-to-Fountain imports,
 review-required PDF/text recovery, timed text and speech use separate bounded
-interfaces. General Fountain-to-FDX/Fade In/OSF/canonical export and graph plain
-transcript text export remain unsupported. Do not reinterpret a Fountain file
-as unstructured text to imply those missing conversions exist.
+interfaces. Merged source adds direct original Fountain body exports to
+canonical screenplay JSON, FDX, Fade In, OSF and Trelby through the explicit
+`screenplay_body.allow_unqualified` policy. Its strict six-kind body profile
+does not support general screenplay metadata/layout conversion or qualify
+native-application opening. Scripttool reverse writers remain rejected;
+recovery exports retain their separate lossy, review-required contract.
+Original Fountain must not be reinterpreted as unstructured text to reach
+recovery exports.
+
+Canonical transcript to plain text is also authored as a terminal graph target
+under the existing subtitle and explicit speech policies. Its evidence retains
+the canonical/source identities and timing, cue-ID and structured-metadata
+losses. It does not add a reverse timing edge, automatic recognition or
+original-media synchronization. These merged routes remain unqualified until
+their runtime and native evidence is recorded.
 
 `RunManifest::flow_artifacts_v1()` continues to project all native inventory
 records, including sources and intermediates. It intentionally omits locators,
