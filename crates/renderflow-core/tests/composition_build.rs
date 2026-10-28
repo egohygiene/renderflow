@@ -247,6 +247,15 @@ fn build_receipt_binds_exact_provider_plan_and_preserves_native_publication_join
     assert_eq!(native.artifact_manifest.output_dir, ".");
     assert_eq!(build.steps, native_common.steps);
     assert_eq!(build.run_id, native.run_id);
+    let publications = build.published_targets().unwrap();
+    assert_eq!(publications.len(), native.branches.len());
+    for item in &publications {
+        assert_eq!(item.artifact.metadata["renderflow.composition"]["review_required"], true);
+        assert!(!item.execution.source_identity);
+        assert!(item.producing_step.is_some());
+    }
+    assert_eq!(publications.iter().map(|item| &item.artifact.locator).collect::<Vec<_>>(),
+        native_common.published_targets().unwrap().iter().map(|item| &item.artifact.locator).collect::<Vec<_>>());
     let forest = build.artifact_forest.as_ref().unwrap();
     let native_forest = native_common.artifact_forest.as_ref().unwrap();
     assert_eq!(forest.branches, native_forest.branches);

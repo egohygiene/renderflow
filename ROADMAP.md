@@ -3,7 +3,7 @@ schema: aether.architecture-document/v1
 id: renderflow-roadmap
 title: Renderflow Roadmap
 kind: architecture-document
-version: 0.1.15
+version: 0.1.16
 status: draft
 owners:
   - egohygiene
@@ -25,6 +25,23 @@ supersedes: []
 ---
 
 # Renderflow Roadmap
+
+## 2026-10-28 artifact-forest publication selection checkpoint
+
+[PR #464](https://github.com/egohygiene/renderflow/pull/464) merged at
+`c551f87329b5f040ac597530d893a3e2765437b3`. The following #430 checkpoint adds
+`RunManifest::published_targets()` so SDK callers can select recorded publications
+without manually joining planning rows, execution outcomes and inventory indices.
+Borrowed views preserve native evidence and distinct destinations for equal
+content. Missing legacy publication evidence and contradictory joins return
+typed errors; files and receipt authenticity still require consumer checks.
+
+The creative fixture also uses observed source IDs/digests rather than route
+intent when classifying an output after publication hygiene. The public wire
+contracts, conversion engine and Flow-wide inventory projection stay unchanged.
+Regression cases are authored and unrun; tests, builds, lint, validators,
+CLI/provider execution and CI remain deferred. #430/#421 remain open for actual
+integration, native fidelity, release and downstream-consumer evidence.
 
 ## 2026-10-28 selectable artifact-forest demonstration
 

@@ -16,6 +16,9 @@ use crate::artifact::{Artifact, ArtifactStorageClass};
 use crate::hygiene::HygieneEvidence;
 use crate::toolchain::ToolchainSnapshot;
 
+mod publications;
+pub use publications::{PublishedTarget, PublishedTargetsError};
+
 pub const RUN_MANIFEST_SCHEMA_V1: &str = "renderflow.run/v1";
 pub const ARTIFACT_MANIFEST_SCHEMA_V1: &str = "renderflow.artifact-manifest/v1";
 pub const FLOW_ARTIFACT_SCHEMA_V1: &str = "flow.artifact/v1";
@@ -316,6 +319,22 @@ pub struct RunManifest {
 }
 
 impl RunManifest {
+    /// Join explicitly published forest targets to this run's exact native records.
+    ///
+    /// Returns borrowed views in planning order, retaining separate destinations
+    /// even when their content IDs match. Missing legacy publication evidence or
+    /// contradictory references are errors, not an empty successful result.
+    /// Planned runs with explicit publication evidence return an empty list.
+    /// Partial/failed/cancelled runs may retain publications; inspect `state` too.
+    ///
+    /// This is an in-memory receipt join, not payload/path verification, complete
+    /// manifest validation, native fidelity qualification or publication approval.
+    pub fn published_targets(&self) -> Result<Vec<PublishedTarget<'_>>, PublishedTargetsError> {
+        publications::published_targets(self)
+    }
+
+    /// Project the entire inventory, including sources and intermediates.
+    /// Use [`RunManifest::published_targets`] to select declared publications first.
     pub fn flow_artifacts_v1(&self) -> Vec<FlowArtifactV1> {
         self.artifact_manifest
             .artifacts

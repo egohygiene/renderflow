@@ -59,7 +59,7 @@ pub use dna::{
     DnaProtectedReferenceRule, DnaProviderLocality, DnaReviewState,
     ARTIFACT_DNA_COMPARISON_SCHEMA_V1, ARTIFACT_DNA_SCHEMA_V1,
 };
-pub use evidence::{ArtifactManifest, RunManifest};
+pub use evidence::{ArtifactManifest, PublishedTarget, PublishedTargetsError, RunManifest};
 pub use font::{
     FontAsset, FontDiagnostic, FontDiagnosticSeverity, FontEmbeddingPermission, FontFormat,
     FontLicense, FontProvenance, FontRedistributionStatus, FontRegistry, FontResolutionReport,

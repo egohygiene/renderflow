@@ -51,6 +51,15 @@ native metadata. This exact reference matters when two target identities
 publish equal bytes to different destinations. An artifact ID alone does not
 uniquely identify a publication record.
 
+Rust consumers can use `RunManifest::published_targets()` to perform this
+structural join. It returns borrowed target, branch, artifact and optional
+producing-step records, retaining every publication destination and its native
+loss/review metadata. Missing legacy execution evidence and contradictory joins
+are typed errors. See the [SDK example](../execution-evidence.md#select-publications-through-the-rust-sdk).
+This helper does not validate files, path confinement or the complete receipt;
+the host checks below still apply. Serialized consumers retain the same existing
+contracts, and no Flow adapter or released-consumer proof is added.
+
 `artifact_forest.produced_artifacts` lists unique published derivative IDs. It
 omits sources, unpublished candidates and intermediates. An explicitly requested
 unchanged source can have a `published` row with `source_identity: true`, but it

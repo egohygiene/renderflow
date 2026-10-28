@@ -305,6 +305,11 @@ fn publication_outcomes_keep_same_content_destinations_and_full_native_evidence(
         ["first.fountain", "second.fountain", "original.txt", "evidence.json"].into_iter()
             .map(|name| format!("dist/fixture/{name}")).collect(),
         artifacts.clone(), Vec::new(), Vec::new()).unwrap();
+    let publications = manifest.published_targets().unwrap();
+    assert_eq!(publications.iter().map(|item| item.artifact.locator.as_str()).collect::<Vec<_>>(),
+        ["bundle:first.fountain", "bundle:second.fountain", "bundle:original.txt"]);
+    assert!(publications[2].execution.source_identity);
+    assert_eq!(publications[0].artifact.metadata["renderflow.screenplay_recovery"]["review_required"], true);
     let forest = manifest.artifact_forest.as_ref().unwrap();
     assert_eq!(forest.produced_artifacts, ["artifact:same"]);
     assert_eq!(forest.branches, resolved.plan.artifact_forest.as_ref().unwrap().branches);
