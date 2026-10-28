@@ -225,7 +225,13 @@ def published_artifacts(manifest, bundle, report_root):
         metadata = record.get("metadata", {})
         if branch["state"] != "selected" or record["lifecycle"] != "terminal" or metadata.get("renderflow.target.identity") != target["target_id"] or metadata.get("renderflow.target.published") is not True:
             raise ValueError("publication lacks a selected target and matching native terminal evidence")
-        if target["source_identity"] != branch["route"]["source_identity"]:
+        # Publication hygiene can derive a new artifact after a zero-edge source
+        # plan. Match the executor's observed identity rule, not route intent.
+        source_identity = any(source.get("lifecycle") == "source"
+                              and source.get("artifact_id") == record["artifact_id"]
+                              and source.get("digest") == record["digest"]
+                              for source in artifacts)
+        if type(target["source_identity"]) is not bool or target["source_identity"] != source_identity:
             raise ValueError("publication source/derivative identity mismatch")
         locator = target.get("locator", "")
         if not locator.startswith("bundle:") or locator != record["locator"]:

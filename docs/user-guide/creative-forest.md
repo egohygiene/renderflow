@@ -43,7 +43,7 @@ The run report will be `dist/creative-forest-run/result.json`. The five intended
 payloads live under `jobs/original-body/bundle/source.fixture/` with names
 `target.screenplay_json.screenplay.json`, `target.fdx.fdx`,
 `target.fadein.fadein`, `target.osf.osf`, and `target.trelby.trelby`.
-The native `bundle/renderflow-run.json` records what was actually published;
+The native `jobs/original-body/bundle/renderflow-run.json` records what was actually published;
 these expected filenames alone do not establish success. Keep the whole
 directory, including the canonical JSON companion and native evidence.
 
@@ -152,6 +152,14 @@ a candidate while still requiring review. This is a different outcome from a
 malformed source being refused.
 
 ## Read the evidence without overstating it
+
+For Rust integration, `RunManifest::published_targets()` exposes the native
+publication joins without making each caller reconstruct them. It retains
+separate destinations, optional producing steps and loss/review evidence.
+See the [SDK usage and limits](../execution-evidence.md#select-publications-through-the-rust-sdk).
+The fixture reader independently checks actual payload digests. Both use observed
+source/output identity to distinguish original exports from derivatives after
+publication hygiene; a source-format route alone does not establish that distinction.
 
 The suite uses `renderflow.creative-fixture/v1` for declarations and
 `renderflow.creative-fixture-result/v1` for its aggregate report. It records job

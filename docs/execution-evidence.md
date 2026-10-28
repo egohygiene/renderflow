@@ -59,6 +59,52 @@ outputs. An explicit unchanged source export is separately marked
 `source_identity: true`. A published derivative can still require human review;
 publication is not creative approval or runtime qualification.
 
+### Select publications through the Rust SDK
+
+`RunManifest::published_targets()` joins the existing forest execution rows to
+their exact native artifact records. Each borrowed `PublishedTarget` exposes
+`branch`, `execution`, `artifact`, and the optional `producing_step`. The helper
+keeps planning order and separate destinations even when content IDs are equal.
+It preserves all native metadata and leaves the inventory-wide
+`flow_artifacts_v1()` projection unchanged.
+
+```rust
+use renderflow::{PublishedTargetsError, RunManifest};
+
+fn list_publications(run: &RunManifest) -> Result<(), PublishedTargetsError> {
+    println!("Run state: {:?}", run.state);
+    for item in run.published_targets()? {
+        println!("{} -> {} ({}, source identity: {})",
+            item.branch.target_id, item.artifact.locator, item.artifact.format,
+            item.execution.source_identity);
+        // Retain item.artifact.metadata, fidelity, validation and hygiene.
+        // Resolve and verify the payload separately before consuming it.
+    }
+    Ok(())
+}
+```
+
+Legacy records without forest/execution evidence return a typed error rather
+than an empty success. A dry run with explicit planned outcomes returns an
+empty list. Unsuccessful runs can retain publications; the helper never turns
+`partial`, `failed` or `cancelled` into `complete`. An unpublished candidate's
+inventory index is not a deliverable.
+
+The join checks contract versions, run/inventory identity, exact target
+membership and order, unique record/destination references, terminal format
+and locator agreement, contradictory publication markers, source identity,
+producing-step references and the derivative-ID summary. Source identity uses
+observed source IDs and digests: a hygiene-derived record remains a derivative
+even after a zero-edge source plan and even when its bytes are unchanged.
+
+This helper performs no I/O and introduces no serialized contract. It does not
+validate the complete manifest, recompute plan/artifact identities, check output
+path membership or confinement, hash actual payloads, or interpret family-specific
+review/qualification evidence. For copied or untrusted receipts, retain the
+native evidence and perform those checks at the consuming boundary described
+in the [Flow handoff](architecture/flow-artifact-forest.md). A returned locator
+is a declaration, not a safe path to open automatically.
+
 ## Sensitive data boundary
 
 Run manifests contain digests of the resolved plan and source spec, not serialized configuration or environment variables. Step configuration is represented only by a SHA-256 digest. Artifact locators are relative `artifact-store:` or `bundle:` locators. Provider diagnostics are retained for operability, so provider implementations must not place credentials or secret values in error messages. Hygiene secret findings identify only a safe credential class; the matched value is never written to evidence.

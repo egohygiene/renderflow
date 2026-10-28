@@ -178,6 +178,9 @@ class PublicationEvidenceTests(unittest.TestCase):
         self.assertEqual([item["target_id"] for item in self.publications()], [self.target_id])
 
     def test_source_identity_is_published_without_becoming_a_derivative(self):
+        source = copy.deepcopy(self.manifest["artifact_manifest"]["artifacts"][0])
+        source.update(lifecycle="source", locator="artifact-store:original", metadata={})
+        self.manifest["artifact_manifest"]["artifacts"].append(source)
         forest = self.manifest["artifact_forest"]
         forest["branches"][0]["route"] = {"source_identity": True, "steps": []}
         forest["execution"]["targets"][0]["source_identity"] = True
@@ -185,6 +188,29 @@ class PublicationEvidenceTests(unittest.TestCase):
         self.assertTrue(self.publications()[0]["source_identity"])
         forest["produced_artifacts"] = [self.artifact_id]
         with self.assertRaisesRegex(ValueError, "derivative membership"):
+            self.publications()
+
+    def test_zero_edge_hygiene_output_remains_a_derivative_even_with_unchanged_bytes(self):
+        source = copy.deepcopy(self.manifest["artifact_manifest"]["artifacts"][0])
+        source.update(artifact_id="synthetic-original-record", lifecycle="source",
+                      locator="artifact-store:original", metadata={})
+        self.manifest["artifact_manifest"]["artifacts"].append(source)
+        self.manifest["artifact_forest"]["branches"][0]["route"] = {"source_identity": True, "steps": []}
+        self.assertFalse(self.publications()[0]["source_identity"])
+        self.manifest["artifact_forest"]["execution"]["targets"][0]["source_identity"] = True
+        with self.assertRaisesRegex(ValueError, "source/derivative identity mismatch"):
+            self.publications()
+
+    def test_original_claim_requires_observed_source_identity_and_digest(self):
+        source = copy.deepcopy(self.manifest["artifact_manifest"]["artifacts"][0])
+        source.update(lifecycle="source", locator="artifact-store:original", metadata={})
+        source["digest"] = {"algorithm": "sha256", "value": "0" * 64}
+        self.manifest["artifact_manifest"]["artifacts"].append(source)
+        forest = self.manifest["artifact_forest"]
+        forest["branches"][0]["route"] = {"source_identity": True, "steps": []}
+        forest["execution"]["targets"][0]["source_identity"] = True
+        forest["produced_artifacts"] = []
+        with self.assertRaisesRegex(ValueError, "source/derivative identity mismatch"):
             self.publications()
 
     def test_derivative_claim_cannot_exist_without_publication(self):

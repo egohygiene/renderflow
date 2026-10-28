@@ -1,5 +1,37 @@
 # #430 — multi-family forest integration checkpoint
 
+## Publication selection checkpoint — October 28, 2026
+
+The maintainer authorized merge and continuation. PR #464 merged at
+`c551f87329b5f040ac597530d893a3e2765437b3`; its earlier draft instructions below
+are historical. Branch `feat/430-published-target-sdk` starts at that merge.
+
+- `RunManifest::published_targets()` returns borrowed `PublishedTarget` views
+  joining each explicit publication to its planning branch, execution row,
+  exact artifact inventory record and optional producing step. Metadata, loss,
+  review state, unchanged source exports and same-content destinations survive.
+- `PublishedTargetsError` distinguishes absent legacy evidence, unsupported
+  schemas and inconsistent manifest/target joins. Explicit dry-run evidence
+  returns no publications; partial/failed/cancelled states remain independent
+  from any retained published targets. No fallback uses the planned target list.
+- The helper has no I/O or new wire schema and does not certify the complete
+  receipt, output-tree membership, path confinement, actual bytes or fidelity.
+  CLI serialized evidence and `flow_artifacts_v1()` inventory behavior remain
+  unchanged. Existing graph and composition producers are both in scope.
+- Source review exposed a fixture-reader mismatch: it compared source identity
+  to route intent even though hygiene may derive a new record afterward. It now
+  matches observed source ID/digest evidence, as the executor does. The original
+  source-export regression now supplies an actual synthetic source record.
+- Ten Rust receipt-join cases and two Python regressions are authored; existing
+  graph-publication and composition-build tests also exercise the public helper.
+  All are unrun. SDK/CLI native parity and file validation are not established by
+  the source-only coverage or by the examples in the documentation.
+
+No tests, compiler/build/Cargo resolution, lint/format, validators, CLI/fixture/
+native/provider execution or CI ran. Source review and Git identities are the
+checkpoint evidence. #430/#421 retain all original outstanding qualification and
+release scope; do not close them for this helper or claim released Flow support.
+
 ## Selectable demonstration checkpoint — October 28, 2026
 
 The maintainer switched back to the artifact forest after the suite merge and
