@@ -1,0 +1,11 @@
+schema: renderflow/v2
+sources:
+  - id: article
+    role: editorial-source
+    path: article.md
+    format: markdown
+targets:
+  profiles: [editorial]
+output:
+  bundle_root: output
+  naming_template: "{source.id}/{target.role}.{ext}"
