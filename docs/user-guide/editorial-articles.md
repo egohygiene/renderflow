@@ -138,7 +138,9 @@ embedded presentation bundle. Source lineage, provider inventory, target identit
 branch outcomes and format validation remain normal run evidence. Source-adjacent
 images and user font registries are not frozen at plan time, so editorial render
 cache/checkpoint reuse is disabled. This avoids reusing stale external assets;
-it does not claim complete external-asset attestation.
+it does not claim complete external-asset attestation. A changed user font
+resolution is refused immediately before rendering; this is a drift check, not
+an immutable snapshot or protection against concurrent host-file replacement.
 
 | Output | Retained behavior and limits |
 | --- | --- |

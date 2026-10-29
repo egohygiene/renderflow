@@ -199,6 +199,11 @@ impl ArtifactTransform for StrategyArtifactTransform {
             .context("strategy output path contains non-UTF8 characters")?;
         let mut variables = self.variables.clone();
         if self.profile.as_deref() == Some(EDITORIAL_PRESET) {
+            if let Some(planned) = &self.font_resolution {
+                let current = resolve_from_variables(&variables, planned.target)?.context("editorial.fonts.missing")?;
+                anyhow::ensure!(current.fingerprint()? == planned.fingerprint()?,
+                    "editorial.fonts.changed: font registry/assets changed after planning; create a new plan");
+            }
             if let Some(root) = &self.source_asset_root {
                 variables.insert(editorial::ASSET_ROOT_VARIABLE.to_string(), fs::canonicalize(root)?.to_string_lossy().into_owned());
             }

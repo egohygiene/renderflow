@@ -68,10 +68,36 @@ fn copy_fixture(root: &Path) {
 }
 
 #[test]
+fn a_user_font_registry_change_is_refused_before_provider_execution() {
+    let root = tempfile::tempdir().unwrap();
+    let bundled = Path::new(env!("CARGO_MANIFEST_DIR")).join("data/editorial/fonts");
+    for name in ["registry.json", "LICENSE.txt", "DejaVuSerif.ttf", "DejaVuSans.ttf", "DejaVuSansMono.ttf"] {
+        fs::copy(bundled.join(name), root.path().join(name)).unwrap();
+    }
+    let registry = root.path().join("registry.json");
+    let transform = StrategyArtifactTransform::new(Format::Markdown, Format::Html, None,
+        Some(EDITORIAL_PRESET.to_string()), BTreeMap::from([("renderflow-font-registry".to_string(), registry.to_string_lossy().into_owned())]), None).unwrap();
+    let mut changed: serde_json::Value = serde_json::from_slice(&fs::read(&registry).unwrap()).unwrap();
+    changed["version"] = serde_json::json!("2.0.0");
+    fs::write(registry, serde_json::to_vec(&changed).unwrap()).unwrap();
+    let store = ArtifactStore::new(root.path().join("store")).unwrap();
+    let text = b"---\narticle-schema: renderflow.editorial/v1\ntitle: Example\nlang: en-US\n---\n## Body\n";
+    let source = store.put_bytes(text, ArtifactDescriptor::for_format(Format::Markdown, ArtifactStorageClass::Source)).unwrap();
+    let error = transform.apply(&source, Format::Html, &store).unwrap_err();
+    assert!(error.to_string().contains("editorial.fonts.changed"));
+    assert_eq!(store.read_bytes(&source).unwrap(), text);
+}
+
+#[test]
 #[ignore = "requires explicitly resumed qualification and local Pandoc >=3.6.1"]
 fn public_sdk_publishes_a_self_contained_article_and_preserves_source() {
     let root = tempfile::tempdir().unwrap();
     copy_fixture(root.path());
+    let path = root.path().join("article.md");
+    let article = fs::read_to_string(&path).unwrap().replace(
+        "https://example.invalid/articles/small-observations",
+        "https://example.invalid/articles/small-observations?view=article&lang=en-US");
+    fs::write(&path, article).unwrap();
     let source = fs::read(root.path().join("article.md")).unwrap();
     let config = spec("targets:\n  exact:\n    - id: article.web\n      role: web/article\n      format: html\n      transform: builtin.markdown.html\n      preset: editorial-v1");
     fs::write(root.path().join("renderflow.yaml"), config).unwrap();
@@ -82,6 +108,8 @@ fn public_sdk_publishes_a_self_contained_article_and_preserves_source() {
     assert!(html.contains("article-title") && html.contains("<figcaption") && html.contains("<nav"));
     assert!(html.contains("data:image/png") && html.contains("@font-face") && html.contains("DejaVu Serif"));
     assert!(html.contains("{{ observation }}"));
+    assert!(html.contains("href=\"https://example.invalid/articles/small-observations?view=article&amp;lang=en-US\""));
+    assert!(!html.contains("&amp;amp;"));
     assert!(!html.contains("file://") && !html.contains("assets/garden.png"));
     assert_eq!(fs::read(root.path().join("article.md")).unwrap(), source);
 }

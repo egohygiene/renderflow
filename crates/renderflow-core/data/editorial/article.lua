@@ -59,8 +59,10 @@ local function metadata(meta)
   end
   if meta["canonical-url"] then
     local url = plain(meta["canonical-url"], "canonical-url")
-    require_value(url:match("^https?://[^/]+") and not url:match("[%s<>\"'\\]"), "metadata.canonical-url: expected an explicit HTTP(S) URL")
+    require_value(url:match("^https?://[^/]+") and not url:match("[%s<>\"'\\{}|^`]"), "metadata.canonical-url: expected an explicit HTTP(S) URL")
     meta["canonical-url"] = pandoc.MetaString(url)
+    -- Pandoc's writer escapes MetaString through its inline writer. Do not
+    -- pre-escape ampersands here or HTML would change the canonical URL.
   end
   require_value(meta.toc == nil or type(meta.toc) == "boolean", "metadata.toc: expected a boolean")
   return meta
@@ -146,7 +148,7 @@ function Pandoc(doc)
   body = body:walk({Div = div})
   doc.blocks = body.blocks
   if FORMAT == "docx" or FORMAT:match("^epub") then
-    for _, field in ipairs({"updated", "keywords", "contributors", "canonical-url"}) do
+    for _, field in ipairs({"updated", "keywords", "contributors"}) do
       if doc.meta[field] then
         local values = doc.meta[field]
         local text = pandoc.utils.stringify(values)
@@ -155,10 +157,14 @@ function Pandoc(doc)
           for _, value in ipairs(values) do table.insert(parts, pandoc.utils.stringify(value)) end
           text = table.concat(parts, "; ")
         end
-        local label = ({updated = "Updated", keywords = "Topics", contributors = "Contributors", ["canonical-url"] = "Canonical URL"})[field]
+        local label = ({updated = "Updated", keywords = "Topics", contributors = "Contributors"})[field]
         doc.blocks:insert(pandoc.Para({pandoc.Str(label .. ": " .. text)}))
       end
     end
+  end
+  if doc.meta["canonical-url"] and FORMAT ~= "html5" then
+    local url = pandoc.utils.stringify(doc.meta["canonical-url"])
+    doc.blocks:insert(pandoc.Para({pandoc.Str("Canonical URL: "), pandoc.Link({pandoc.Str(url)}, url)}))
   end
   return doc
 end

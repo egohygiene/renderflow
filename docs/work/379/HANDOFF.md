@@ -21,11 +21,13 @@ The maintainer authorized merging #467 and implementing #379. #467 is merged;
 - The selected run requires Pandoc >=3.6.1; PDF requires cached-only Tectonic.
   Source/template/config identities remain distinct from provider qualification.
 - External source images/font registries are not snapshotted at planning, so
-  editorial rendering does not reuse cache/checkpoints.
+  editorial rendering does not reuse cache/checkpoints. User font resolution is
+  compared again immediately before rendering to reject observed planning drift.
 
 ## Review and qualification status
 
-Source review only; regression cases are authored and unrun. The deterministic
+Source review only; nine regression cases are authored and unrun (including
+three explicit native opt-ins). The deterministic
 fixture authoring recipe was used to create the checked-in synthetic PNG. Local
 font files were copied with their observed package version and license notice;
 source asset hashes are records, not native-render verification.
