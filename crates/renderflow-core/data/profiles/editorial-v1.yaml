@@ -1,0 +1,35 @@
+schema: renderflow.profile/v1
+description: Local long-form article presentation from renderflow.editorial/v1 Markdown
+targets:
+  - id: article.web
+    role: web/article
+    format: html
+    transform: builtin.markdown.html
+    preset: editorial-v1
+  - id: article.print
+    role: print/article
+    format: pdf
+    transform: builtin.markdown.pdf
+    preset: editorial-v1
+  - id: article.source
+    role: source/article
+    format: markdown
+  - id: article.editable
+    role: editorial/article
+    format: docx
+    transform: builtin.markdown.docx
+    preset: editorial-v1
+    requirement: optional
+  - id: article.ebook
+    role: ebook/article
+    format: epub
+    transform: builtin.markdown.epub
+    preset: editorial-v1
+    requirement: optional
+policy:
+  validation:
+    required: true
+    failure_mode: branch_local
+    allow_unavailable: false
+  network: deny
+  ai: deny

@@ -16,6 +16,7 @@ use crate::graph::Format;
 use crate::input_format::InputFormat;
 use crate::pipeline::Pipeline;
 use crate::strategies::{select_strategy, RenderContext};
+use crate::strategies::editorial::{self, EDITORIAL_PRESET};
 
 /// Artifact-native compatibility adapter for the mature document/image/audio
 /// output strategies. The application planner registers this adapter as a graph
@@ -41,6 +42,13 @@ impl StrategyArtifactTransform {
         variables: BTreeMap<String, String>,
         source_asset_root: Option<PathBuf>,
     ) -> Result<Self> {
+        if profile.as_deref() == Some(EDITORIAL_PRESET) {
+            anyhow::ensure!(from == Format::Markdown && matches!(to, Format::Html | Format::Pdf | Format::Docx | Format::Epub),
+                "editorial.route: select direct Markdown to HTML/PDF/DOCX/EPUB");
+            anyhow::ensure!(template.is_none(), "editorial.template: the preset owns its bundled presentation");
+            anyhow::ensure!(variables.keys().all(|key| key == FONT_REGISTRY_VARIABLE),
+                "editorial.variables: keep article metadata in Markdown; only renderflow-font-registry is configurable");
+        }
         let output_type = output_type_for_format(to).ok_or_else(|| {
             anyhow::anyhow!(
                 "format '{}' is not implemented by a built-in output strategy",
@@ -68,10 +76,13 @@ impl StrategyArtifactTransform {
             .filter(|(key, _)| key.as_str() != FONT_REGISTRY_VARIABLE)
             .collect();
         identity_variables.sort_by(|left, right| left.0.cmp(right.0));
-        let cache_identity = format!(
+        let mut cache_identity = format!(
             "renderflow.strategy-adapter/v1;from={from};to={to};template={template:?};profile={profile:?};source_root={:?};font_resolution={font_identity:?};variables={identity_variables:?}",
             source_asset_root,
         );
+        if profile.as_deref() == Some(EDITORIAL_PRESET) {
+            cache_identity.push_str(&format!(";editorial_bundle={}", editorial::bundle_fingerprint()));
+        }
         Ok(Self {
             from,
             to,
@@ -97,6 +108,13 @@ impl StrategyArtifactTransform {
                 self.from
             )
         })?;
+        if self.profile.as_deref() == Some(EDITORIAL_PRESET) {
+            // Pandoc parses images, metadata and code exactly once. Generic text
+            // substitutions would corrupt fenced code and bypass article semantics.
+            let path = work_dir.join("input.md");
+            fs::write(&path, text)?;
+            return Ok(path);
+        }
         let normalized = if let Some(root) = &self.source_asset_root {
             normalize_asset_paths(&text, root)?.into_owned()
         } else {
@@ -131,6 +149,12 @@ impl ArtifactTransform for StrategyArtifactTransform {
 
     fn cache_identity(&self) -> String {
         self.cache_identity.clone()
+    }
+
+    fn cacheable(&self) -> bool {
+        // Source-adjacent images and external font registries are not frozen by
+        // this adapter; a presentation hash alone cannot authorize their reuse.
+        self.profile.as_deref() != Some(EDITORIAL_PRESET)
     }
 
     fn apply(
@@ -173,11 +197,22 @@ impl ArtifactTransform for StrategyArtifactTransform {
         let output_path_string = output_path
             .to_str()
             .context("strategy output path contains non-UTF8 characters")?;
+        let mut variables = self.variables.clone();
+        if self.profile.as_deref() == Some(EDITORIAL_PRESET) {
+            if let Some(planned) = &self.font_resolution {
+                let current = resolve_from_variables(&variables, planned.target)?.context("editorial.fonts.missing")?;
+                anyhow::ensure!(current.fingerprint()? == planned.fingerprint()?,
+                    "editorial.fonts.changed: font registry/assets changed after planning; create a new plan");
+            }
+            if let Some(root) = &self.source_asset_root {
+                variables.insert(editorial::ASSET_ROOT_VARIABLE.to_string(), fs::canonicalize(root)?.to_string_lossy().into_owned());
+            }
+        }
         let context = RenderContext {
             input_path: input_path_string,
             input_format: document_input.unwrap_or_default(),
             output_path: output_path_string,
-            variables: &self.variables,
+            variables: &variables,
             dry_run: false,
         };
         strategy.render(&context).with_context(|| {
@@ -206,6 +241,18 @@ impl ArtifactTransform for StrategyArtifactTransform {
                 .with_metadata("renderflow.font.target", fonts.target.to_string())
                 .with_metadata("renderflow.font.resolution", fonts.fingerprint()?)
                 .with_metadata("renderflow.font.evidence", fonts.evidence());
+        }
+        if self.profile.as_deref() == Some(EDITORIAL_PRESET) {
+            descriptor = descriptor
+                .with_metadata("renderflow.editorial.schema", "renderflow.editorial/v1")
+                .with_metadata("renderflow.editorial.bundle_sha256", editorial::bundle_fingerprint())
+                .with_metadata("renderflow.editorial.external_assets_frozen", false)
+                .with_metadata("renderflow.editorial.presentation", match self.to {
+                    Format::Html => "responsive self-contained article; browser layout varies",
+                    Format::Pdf => "print article; no PDF/UA or visual qualification claim",
+                    Format::Docx => "semantic interchange; reference styling and installed fonts",
+                    _ => "reflow ebook; reader controls pagination and may override fonts",
+                });
         }
         store.import_path(&output_path, descriptor)
     }

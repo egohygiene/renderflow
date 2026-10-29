@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="$lang$">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="generator" content="Renderflow editorial-v1">
+  <title>$pagetitle$</title>
+$if(canonical-url)$
+  <link rel="canonical" href="$canonical-url$">
+$endif$
+$for(css)$
+  <link rel="stylesheet" href="$css$">
+$endfor$
+$if(highlighting-css)$
+  <style>$highlighting-css$</style>
+$endif$
+</head>
+<body>
+  <a class="skip-link" href="#article-content">Skip to article</a>
+  <main class="article-shell">
+    <article aria-labelledby="article-title">
+      <header class="article-header">
+        <p class="eyebrow">Article</p>
+        <h1 id="article-title">$title$</h1>
+$if(subtitle)$
+        <p class="dek">$subtitle$</p>
+$endif$
+$if(author)$
+        <p class="byline">By $for(author)$$author$$sep$ · $endfor$</p>
+$endif$
+$if(date)$
+        <p class="dateline">Published <time datetime="$date$">$date$</time>$if(updated)$ · Updated <time datetime="$updated$">$updated$</time>$endif$</p>
+$else$
+$if(updated)$
+        <p class="dateline">Updated <time datetime="$updated$">$updated$</time></p>
+$endif$
+$endif$
+$if(keywords)$
+        <ul class="topics" aria-label="Topics">$for(keywords)$<li>$keywords$</li>$endfor$</ul>
+$endif$
+      </header>
+$if(toc)$
+      <nav class="article-toc" aria-label="Table of contents">
+        <p class="toc-label">In this article</p>
+$table-of-contents$
+      </nav>
+$endif$
+      <div id="article-content" class="article-body">
+$body$
+      </div>
+$if(contributors)$
+      <footer class="article-footer"><p>Contributors: $for(contributors)$$contributors$$sep$; $endfor$</p></footer>
+$endif$
+    </article>
+  </main>
+</body>
+</html>

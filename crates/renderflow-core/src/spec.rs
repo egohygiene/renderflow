@@ -242,6 +242,32 @@ fn default_profile_schema() -> String {
     "renderflow.profile/v1".to_string()
 }
 
+/// Bundled profiles use the same contract as profiles declared in a spec.
+pub(crate) fn bundled_profile(name: &str) -> Result<Option<DerivativeProfile>> {
+    let source = match name {
+        "editorial" => include_str!("../data/profiles/editorial-v1.yaml"),
+        "magazine" => include_str!("../data/profiles/magazine-v1.yaml"),
+        "coloring-book" => include_str!("../data/profiles/coloring-book-v1.yaml"),
+        "everything" => include_str!("../data/profiles/everything-v1.yaml"),
+        _ => return Ok(None),
+    };
+    Ok(Some(serde_yaml_ng::from_str(source).with_context(|| format!("invalid bundled profile '{name}'"))?))
+}
+
+fn expand_bundled_profiles(spec: &mut SpecV2) -> Result<()> {
+    let mut pending = spec.targets.profiles.clone();
+    pending.extend(spec.profiles.values().flat_map(|profile| profile.extends.clone()));
+    let mut seen = std::collections::BTreeSet::new();
+    while let Some(name) = pending.pop() {
+        if !seen.insert(name.clone()) { continue; }
+        if !spec.profiles.contains_key(&name) {
+            if let Some(profile) = bundled_profile(&name)? { spec.profiles.insert(name.clone(), profile); }
+        }
+        if let Some(profile) = spec.profiles.get(&name) { pending.extend(profile.extends.clone()); }
+    }
+    Ok(())
+}
+
 impl Default for DerivativeProfile {
     fn default() -> Self {
         Self {
@@ -1631,7 +1657,13 @@ fn validate_v1_compat(content: &str) -> SpecValidationReport {
 
 fn validate_v2(content: &str) -> SpecValidationReport {
     match serde_yaml_ng::from_str::<SpecV2>(content) {
-        Ok(spec) => {
+        Ok(mut spec) => {
+            if let Err(error) = expand_bundled_profiles(&mut spec) {
+                return SpecValidationReport {
+                    valid: false, source_version: Some(SourceSpecVersion::V2), schema: Some(SPEC_V2_ID.to_string()),
+                    diagnostics: vec![SpecDiagnostic::new("$.profiles", "profile.bundle.invalid", error.to_string())],
+                };
+            }
             let diagnostics = spec.validate();
             SpecValidationReport {
                 valid: diagnostics.is_empty(),
@@ -1662,10 +1694,11 @@ pub fn load_spec_str(content: &str) -> Result<LoadedSpec> {
     }
 
     match report.source_version {
-        Some(SourceSpecVersion::V2) => Ok(LoadedSpec {
-            source_version: SourceSpecVersion::V2,
-            spec: serde_yaml_ng::from_str(content).context("failed to parse validated v2 spec")?,
-        }),
+        Some(SourceSpecVersion::V2) => {
+            let mut spec = serde_yaml_ng::from_str(content).context("failed to parse validated v2 spec")?;
+            expand_bundled_profiles(&mut spec)?;
+            Ok(LoadedSpec { source_version: SourceSpecVersion::V2, spec })
+        }
         Some(SourceSpecVersion::V1) => {
             let config: Config =
                 serde_yaml_ng::from_str(content).context("failed to parse validated v1 config")?;
