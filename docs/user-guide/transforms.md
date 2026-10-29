@@ -70,4 +70,7 @@ Setting `input_kind: collection` marks a transform as an aggregation edge. Those
 - `ContinueOnError` — log the failure and pass the unmodified input to the next transform
 
 !!! warning
-    A transform YAML entry must supply exactly one of `program`, `plugin`, or `ai` from a schema perspective. In practice, graph execution currently materializes command and AI transforms directly; plugin-backed graph edges are not yet wired by the graph builder.
+    A transform YAML entry must supply exactly one of `program`, `plugin`, or `ai`.
+    Graph mode resolves `plugin:` against explicit local command declarations in
+    the same registry. See [configured plugins](../plugin-guide/command-plugins.md).
+    The older text loader uses host-registered legacy plugins instead.

@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 
 use anyhow::{Context, Result};
 
@@ -51,6 +52,19 @@ pub trait ArtifactTransform: Send + Sync {
         output_format: Format,
         store: &ArtifactStore,
     ) -> Result<Artifact>;
+
+    /// Execute with the DAG's cooperative cancellation signal when supported.
+    /// Existing adapters keep their behavior; command plugins forward the flag
+    /// to the shared process service so cancellation can interrupt a running child.
+    fn apply_with_cancellation(
+        &self,
+        input: &Artifact,
+        output_format: Format,
+        store: &ArtifactStore,
+        _cancellation: Option<Arc<AtomicBool>>,
+    ) -> Result<Artifact> {
+        self.apply(input, output_format, store)
+    }
 }
 
 /// Artifact-native transform that consumes an ordered collection.

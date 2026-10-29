@@ -28,7 +28,10 @@ renderflow inspect --all
 
 ## How do plugins work with the CLI?
 
-The CLI itself starts with an empty plugin registry. Plugins are most useful when Renderflow is embedded as a library and a host application registers executors and metadata first.
+Declare local command plugins in a transform registry, reference it from the build
+configuration, and inspect it with `renderflow plugin list --transforms FILE`.
+See the [guide](../plugin-guide/command-plugins.md) for the source-authored, unqualified
+adapter. Direct Rust plugins still use host registration; no package auto-discovery occurs.
 
 ## How should I store AI credentials?
 

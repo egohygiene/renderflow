@@ -1,0 +1,54 @@
+plugins:
+  - protocol: renderflow.command-plugin/v1
+    descriptor:
+      contract: renderflow.plugin/v2alpha1
+      id: example.names
+      version: "1.0.0"
+      capability_id: extract.names.exact
+      input_kind: single
+      input_formats: [text]
+      output_formats: [json]
+      determinism: environment_dependent
+      cache_policy: disabled
+      loss_profile: lossy
+      required_provider_ids: []
+    program: python3
+    args: ["{registry_dir}/names.py", "names", "--input", "{input}", "--output", "{output}", "--config", "{config}"]
+    timeout_seconds: 30
+    max_input_bytes: 1048576
+    max_output_bytes: 4194304
+  - protocol: renderflow.command-plugin/v1
+    descriptor:
+      contract: renderflow.plugin/v2alpha1
+      id: example.names-csv
+      version: "1.0.0"
+      capability_id: export.names.csv
+      input_kind: single
+      input_formats: [json]
+      output_formats: [csv]
+      determinism: environment_dependent
+      cache_policy: disabled
+      loss_profile: lossy
+      required_provider_ids: []
+    program: python3
+    args: ["{registry_dir}/names.py", "csv", "--input", "{input}", "--output", "{output}", "--config", "{config}"]
+    timeout_seconds: 30
+    max_input_bytes: 4194304
+    max_output_bytes: 1048576
+
+transforms:
+  - name: count-names
+    plugin: example.names
+    config:
+      names: ["Ada", "Lin"]
+      max_matches: 10000
+    from: text
+    to: json
+    cost: 1.0
+    quality: 1.0
+  - name: names-to-csv
+    plugin: example.names-csv
+    from: json
+    to: csv
+    cost: 1.0
+    quality: 1.0

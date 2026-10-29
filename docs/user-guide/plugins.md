@@ -1,20 +1,29 @@
 # Plugins
 
-Renderflow exposes a runtime plugin API through `PluginExecutor`, `PluginRegistry`, and `PluginMetadata`.
+Renderflow exposes the artifact-native `PluginTransformV2` API. The older
+`PluginExecutor`, `PluginRegistry` and `PluginMetadata` API remains for compatibility.
 
 ## What plugins are for
 
-Plugins let an embedding application register custom transforms without modifying Renderflow core.
+Plugins provide custom transforms without modifying Renderflow core. An embedding
+application can register Rust implementations, while an explicit local command
+declaration can connect a program to the CLI's artifact forest.
 
 ## CLI behavior
 
-The standalone CLI creates an empty `PluginRegistry` in `main.rs`. That means:
+For configured command plugins, pass the transform registry:
 
-- `renderflow plugin list` may show no plugins,
-- `renderflow plugin info ...` only works if a host application has already registered plugins,
-- the CLI commands are most useful when Renderflow is embedded as a library.
+```bash
+renderflow plugin list --transforms "examples/plugins/names/transforms.yaml"
+renderflow plugin validate --transforms "examples/plugins/names/transforms.yaml"
+```
 
-## Metadata fields
+The ordinary build configuration references that same registry with `transforms`.
+See the [command plugin guide](../plugin-guide/command-plugins.md) for the complete
+contract, example and qualification limits. This source checkpoint remains unrun.
+Commands without `--transforms` retain the empty standalone legacy registry.
+
+## Legacy metadata fields
 
 Plugins can declare:
 
@@ -29,9 +38,12 @@ Plugins can declare:
 
 ## Diagnostics
 
-`renderflow plugin doctor` validates metadata and checks required tools on `PATH`. It prints issues but still returns success so the output can be used as advisory diagnostics.
+Configured-plugin commands validate declarations without executing plugin code.
+`doctor --transforms FILE` reports this metadata-only boundary; use the explicit
+tools commands for provider probes. The legacy host-registry `doctor` checks tools
+on PATH and remains advisory.
 
-## Validation rules
+## Legacy validation rules
 
 Current validation is intentionally small:
 

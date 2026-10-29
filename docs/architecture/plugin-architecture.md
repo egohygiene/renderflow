@@ -45,4 +45,10 @@ V2 plugins declare:
 
 ## Current CLI scope
 
-The core CLI does not auto-discover plugin binaries or dynamic libraries. Plugin registration is a library concern today.
+The core CLI does not auto-discover plugin binaries or dynamic libraries. It now
+accepts explicit local command declarations in the transform YAML registry and
+binds them through `PluginTransformV2` to exact graph edges. Direct Rust registration
+remains a library concern. The [command adapter](../plugin-guide/command-plugins.md)
+uses the existing artifact store/process service, disables unattested command
+reuse and forwards execution cancellation. Source implementation remains unqualified
+under #466.

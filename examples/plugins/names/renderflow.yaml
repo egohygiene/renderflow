@@ -1,0 +1,32 @@
+# Source-authored example; execution qualification is deferred under #466.
+schema: renderflow/v2
+sources:
+  - id: source.notes
+    path: notes.txt
+    format: text
+    role: source
+targets:
+  exact:
+    - id: target.names
+      role: names
+      format: json
+    - id: target.counts
+      role: counts
+      format: csv
+execution:
+  transforms:
+    allow: [count-names, names-to-csv]
+  requirements:
+    local_only: true
+    offline: true
+  network: deny
+  ai: deny
+  validation:
+    required: true
+    failure_mode: branch_local
+    allow_unavailable: false
+output:
+  bundle_root: output
+  naming_template: "{source.id}/{target.role}.{ext}"
+  collision: error
+transforms: transforms.yaml

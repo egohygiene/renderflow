@@ -64,6 +64,8 @@ Prefer environment-based secrets:
 
 ## Plugin commands show an empty registry
 
-The standalone CLI initializes an empty `PluginRegistry`. Plugin commands only show data when an embedding host registers plugins before invoking Renderflow APIs.
+Without `--transforms FILE`, the standalone CLI initializes an empty legacy
+`PluginRegistry`. Supply the explicit transform registry for configured local
+command plugins. Its `plugins` declarations and `plugin:` references must agree.
 
 See the [Plugin Guide](../plugin-guide/overview.md) for the registration flow.
