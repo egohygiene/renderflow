@@ -49,7 +49,10 @@ flowchart LR
 Graph mode is best when conversion paths are dynamic or multi-hop, for example `markdown -> html -> pdf`.
 
 !!! note
-    Graph execution currently builds its `DagExecutor` from YAML command transforms and AI transforms. The standalone plugin API exists, but graph construction does not currently wire plugin-backed edges in `build_graph_and_executor_from_yaml`.
+    Graph execution materializes YAML command transforms, AI transforms and explicit
+    [local command plugins](../plugin-guide/command-plugins.md). Configured plugins
+    use the artifact-native SDK and exact graph edge identity. Direct Rust plugins
+    require host registration. The new command adapter remains runtime-unqualified.
 
 ## Failure behavior
 

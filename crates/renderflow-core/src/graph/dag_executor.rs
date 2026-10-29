@@ -1207,7 +1207,7 @@ impl DagExecutor {
             transform = %transform.name(),
             "Executing artifact transform"
         );
-        let output = transform.apply(input, edge.to, store).with_context(|| {
+        let output = transform.apply_with_cancellation(input, edge.to, store, self.cancellation.clone()).with_context(|| {
             format!(
                 "Artifact transform {:?} → {:?} ({}) failed",
                 edge.from,

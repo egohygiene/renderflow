@@ -211,12 +211,18 @@ pub enum Commands {
         subcommand_required = true,
         arg_required_else_help = true,
         after_help = "Examples:\n  \
-            renderflow plugin list              List all registered plugins\n  \
-            renderflow plugin info my-plugin    Show details for 'my-plugin'\n  \
-            renderflow plugin validate          Validate all plugin metadata\n  \
-            renderflow plugin doctor            Run diagnostics on all plugins"
+            renderflow plugin list --transforms transforms.yaml              List declared local plugins\n  \
+            renderflow plugin info my-plugin --transforms transforms.yaml    Inspect one declaration\n  \
+            renderflow plugin validate --transforms transforms.yaml          Validate declarations without running code\n  \
+            renderflow plugin doctor --transforms transforms.yaml            Report metadata and qualification limits"
     )]
     Plugin {
+        /// Explicit transform registry containing local command plugin declarations
+        #[arg(long, global = true, value_name = "FILE")]
+        transforms: Option<String>,
+        /// Metadata output format for configured plugins
+        #[arg(long, global = true, default_value = "text", value_parser = ["text", "json"])]
+        format: String,
         #[command(subcommand)]
         subcommand: PluginCommands,
     },
@@ -1011,10 +1017,10 @@ pub enum PluginCommands {
     #[command(after_help = "Examples:\n  renderflow plugin validate")]
     Validate,
 
-    /// Run diagnostics on all registered plugins
+    /// Inspect configured declarations, or diagnose a legacy host registry
     ///
-    /// Checks required external tools, validates metadata, and reports
-    /// actionable issues.
+    /// With --transforms, never runs plugin code or probes programs. Legacy
+    /// host registries retain their existing required-tool diagnostics.
     #[command(after_help = "Examples:\n  renderflow plugin doctor")]
     Doctor,
 }

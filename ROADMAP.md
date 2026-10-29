@@ -3,12 +3,12 @@ schema: aether.architecture-document/v1
 id: renderflow-roadmap
 title: Renderflow Roadmap
 kind: architecture-document
-version: 0.1.16
+version: 0.1.17
 status: draft
 owners:
   - egohygiene
 created: 2026-08-19
-updated: 2026-10-28
+updated: 2026-10-29
 governed_by:
   - architecture-roadmap
 depends_on:
@@ -25,6 +25,27 @@ supersedes: []
 ---
 
 # Renderflow Roadmap
+
+## 2026-10-29 configured plugin checkpoint
+
+[#466](https://github.com/egohygiene/renderflow/issues/466) follows the maintainer's
+decision to make the existing plugin SDK convenient from normal CLI configuration.
+Explicit local command declarations bind through the v2 artifact adapter to exact
+graph edges. The adapter stages immutable inputs, bounded configuration and new
+outputs, delegates process controls/cancellation, and disables command cache/checkpoint
+reuse while executable dependencies remain unattested.
+
+The [small names example](examples/plugins/names/README.md) produces configured
+literal-name counts/locations as JSON and a separate CSV derivative. CLI metadata
+commands inspect declarations without executing plugins. #379 remains the optional
+editorial presentation profile; this does not create another parser framework or
+implement generic PDF/OCR/XLSX support. Full scope and boundaries are in the
+[handoff](docs/work/466/HANDOFF.md).
+
+Source and regression cases are authored, unrun and not release-qualified.
+Tests/build/Cargo/lint/validators/CLI/native execution and CI remain deferred.
+#466 stays open pending executable evidence; #458/#419 retain baseline/release
+ownership and the existing forest qualification work is unchanged.
 
 ## 2026-10-28 artifact-forest publication selection checkpoint
 

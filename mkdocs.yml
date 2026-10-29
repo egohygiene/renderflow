@@ -168,7 +168,7 @@ nav:
       - Overview: plugin-guide/overview.md
       - Developing: plugin-guide/developing.md
       - Transform v2 SDK: plugin-guide/v2-sdk.md
-      - Transform v2 SDK: plugin-guide/v2-sdk.md
+      - Local Command Plugins: plugin-guide/command-plugins.md
   - AI Guide:
       - Overview: ai-guide/overview.md
       - Configuration: ai-guide/configuration.md

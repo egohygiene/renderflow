@@ -664,6 +664,12 @@ Renderflow is organized as a Rust workspace:
 
 The CLI does not reimplement planning or execution logic; it delegates to the core crate.
 
+Explicit [local command plugins](docs/plugin-guide/command-plugins.md) can use that
+same artifact-native SDK through a transform registry. The
+[names-to-JSON/CSV example](examples/plugins/names/README.md) demonstrates the
+configuration contract. This #466 implementation is source-authored and unqualified;
+it does not add plugin auto-installation or a stable dynamic-library ABI.
+
 ### Compatibility policy
 
 - The first integration candidate is a `0.3.0-rc.1` prerelease. Flow must pin

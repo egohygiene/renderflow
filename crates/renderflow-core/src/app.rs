@@ -103,13 +103,18 @@ pub fn run_cli(cli: Cli) -> Result<()> {
                 )?;
             }
         }
-        Some(Commands::Plugin { subcommand }) => {
-            let registry = transforms::plugin::PluginRegistry::new();
-            match subcommand {
-                PluginCommands::List => commands::plugin::run_list(&registry)?,
-                PluginCommands::Info { name } => commands::plugin::run_info(&registry, &name)?,
-                PluginCommands::Validate => commands::plugin::run_validate(&registry)?,
-                PluginCommands::Doctor => commands::plugin::run_doctor(&registry)?,
+        Some(Commands::Plugin { subcommand, transforms: registry_path, format }) => {
+            if let Some(path) = registry_path {
+                commands::plugin::run_configured(&subcommand, &path, &format)?;
+            } else {
+                anyhow::ensure!(format == "text", "plugin --format json requires --transforms FILE");
+                let registry = transforms::plugin::PluginRegistry::new();
+                match subcommand {
+                    PluginCommands::List => commands::plugin::run_list(&registry)?,
+                    PluginCommands::Info { name } => commands::plugin::run_info(&registry, &name)?,
+                    PluginCommands::Validate => commands::plugin::run_validate(&registry)?,
+                    PluginCommands::Doctor => commands::plugin::run_doctor(&registry)?,
+                }
             }
         }
         Some(Commands::Ai { subcommand }) => match subcommand {

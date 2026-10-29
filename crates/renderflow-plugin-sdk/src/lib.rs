@@ -11,6 +11,9 @@ pub use renderflow::artifact::{
     Artifact, ArtifactCollection, ArtifactId, ArtifactStore, CanonicalFormat, MediaType,
 };
 pub use renderflow::graph::Format;
+pub use renderflow::transforms::command_plugin::{
+    CommandPlugin, CommandPluginDefinition, ConfiguredCommandPlugin, COMMAND_PLUGIN_PROTOCOL,
+};
 pub use renderflow::process::{
     ProcessCancellationToken, ProcessEnvironment, ProcessError, ProcessExecutor,
     ProcessExpectedOutput, ProcessInput, ProcessNetworkPolicy, ProcessOutputMode, ProcessRequest,

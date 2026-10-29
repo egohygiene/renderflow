@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-command-plugin-v1.schema.json",
+  "title": "Explicit local command plugin declaration",
+  "description": "One plugins entry in a transform registry. Runtime validation additionally checks canonical formats, route compatibility, direct invocation and standalone placeholders.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["protocol", "descriptor", "program", "args"],
+  "properties": {
+    "protocol": {"const": "renderflow.command-plugin/v1"},
+    "descriptor": {
+      "allOf": [
+        {"$ref": "renderflow-plugin-v2alpha1.schema.json"},
+        {"properties": {
+          "input_kind": {"const": "single"},
+          "cache_policy": {"const": "disabled"},
+          "required_provider_ids": {"type": "array", "maxItems": 0}
+        }}
+      ]
+    },
+    "program": {"type": "string", "minLength": 1, "maxLength": 4096},
+    "args": {
+      "type": "array", "maxItems": 128,
+      "items": {"type": "string", "maxLength": 4096},
+      "allOf": [
+        {"contains": {"const": "{input}"}},
+        {"contains": {"const": "{output}"}},
+        {"contains": {"const": "{config}"}}
+      ]
+    },
+    "timeout_seconds": {"type": "integer", "minimum": 1, "maximum": 1800, "default": 30},
+    "max_input_bytes": {"type": "integer", "minimum": 1, "maximum": 67108864, "default": 8388608},
+    "max_output_bytes": {"type": "integer", "minimum": 1, "maximum": 67108864, "default": 8388608}
+  }
+}

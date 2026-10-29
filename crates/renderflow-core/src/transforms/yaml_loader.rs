@@ -1,4 +1,7 @@
 use std::fs;
+use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use anyhow::{Context, Result};
 use serde::Deserialize;
@@ -8,11 +11,12 @@ use super::{
     aggregation::{AggregationRegistry, CommandAggregationTransform},
     ai::{AiBackend, AiTransform},
     command::CommandTransform,
+    command_plugin::{CommandPlugin, CommandPluginDefinition, validate_command_config},
     plugin::{PluginRegistry, PluginTransform},
     Transform, TransformRegistry,
 };
 use crate::ai::providers::{OllamaProvider, OpenAiProvider};
-use crate::toolchain::{transform_capability_id, ToolId, ToolRegistry};
+use crate::toolchain::{transform_capability_id, CapabilityId, ToolDiscovery, ToolId, ToolRegistry};
 
 /// Top-level structure of a YAML transform configuration file.
 ///
@@ -35,7 +39,11 @@ use crate::toolchain::{transform_capability_id, ToolId, ToolRegistry};
 ///     quality: 0.9
 /// ```
 #[derive(Debug, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
 pub struct YamlTransformConfig {
+    /// Explicit local command plugins; no package discovery or code execution.
+    #[serde(default)]
+    pub plugins: Vec<CommandPluginDefinition>,
     /// The list of transform definitions.
     pub transforms: Vec<YamlTransformDef>,
 }
@@ -49,18 +57,18 @@ pub struct YamlTransformConfig {
 /// Exactly one of `program`, `plugin`, or `ai` must be provided:
 ///
 /// * Set `program` to invoke an external binary (see [`CommandTransform`]).
-/// * Set `plugin` to reference a [`PluginExecutor`](super::plugin::PluginExecutor)
-///   that has been registered in a [`PluginRegistry`].
+/// * Set `plugin` to reference an explicit local command plugin in graph mode,
+///   or a host [`PluginRegistry`] executor in the legacy text loader.
 /// * Set `ai` to the backend name (`"ollama"` or `"openai"`) to use an
 ///   AI-powered transform (see [`AiTransform`]).
 #[derive(Debug, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
 pub struct YamlTransformDef {
     /// Unique human-readable name; used in log messages and error context.
     pub name: String,
     /// External program to invoke (looked up on `PATH`).
     ///
-    /// Required when `plugin` and `ai` are not set.  Ignored when either of
-    /// those fields is set.
+    /// Exactly one backend is allowed; mixed backend declarations are rejected.
     #[serde(default)]
     pub program: Option<String>,
     /// Optional stable provider ID. When omitted, Renderflow infers one from program/plugin/AI.
@@ -75,19 +83,19 @@ pub struct YamlTransformDef {
     /// and the output is read from `stdout`.
     #[serde(default)]
     pub args: Vec<String>,
-    /// Name of a [`PluginExecutor`](super::plugin::PluginExecutor) registered
-    /// in the [`PluginRegistry`] that should be used to execute this transform.
-    ///
-    /// Required when `program` and `ai` are not set.  When both `plugin` and
-    /// `program` are provided, `plugin` takes precedence.
+    /// A local command plugin declared under `plugins` in graph mode, or a
+    /// legacy host-registered executor when using the legacy text loader.
     #[serde(default)]
     pub plugin: Option<String>,
+    /// Object passed to a configured local plugin as a separate JSON file.
+    /// The host validates the envelope; the plugin validates its own fields.
+    #[serde(default)]
+    pub config: Option<serde_json::Value>,
     /// AI backend name (`"ollama"` or `"openai"`).
     ///
     /// When set, an [`AiTransform`] is built using the associated `model`,
     /// `prompt`, `endpoint`, `api_key`, and `artifact_path` fields.
-    /// Takes precedence over `plugin` and `program` when all three are
-    /// present.
+    /// Cannot be combined with `plugin` or `program`.
     #[serde(default)]
     pub ai: Option<String>,
     /// Model identifier for AI transforms (e.g. `"mistral"`, `"llava"`).
@@ -177,6 +185,24 @@ impl YamlTransformDef {
     ///
     /// [`Format`]: crate::graph::Format
     pub fn validate(&self) -> Result<()> {
+        anyhow::ensure!(usize::from(self.program.is_some()) + usize::from(self.plugin.is_some())
+            + usize::from(self.ai.is_some()) == 1,
+            "transform '{}': exactly one of 'program', 'plugin', or 'ai' must be provided", self.name);
+        if self.plugin.is_some() {
+            anyhow::ensure!(self.args.is_empty(), "transform '{}': plugin arguments belong in the plugin declaration", self.name);
+            anyhow::ensure!(self.model.is_none() && self.prompt.is_none() && self.endpoint.is_none()
+                && self.api_key.is_none() && self.api_key_env.is_none() && self.artifact_path.is_none()
+                && self.cache_path.is_none() && self.prompt_version.is_none(),
+                "transform '{}': plugin settings belong in config, not AI backend fields", self.name);
+        }
+        if let Some(config) = &self.config {
+            anyhow::ensure!(self.plugin.is_some(), "transform '{}': config is only supported for plugins", self.name);
+            validate_command_config(config)?;
+        }
+        if let Some(kind) = &self.input_kind {
+            anyhow::ensure!(matches!(kind.as_str(), "single" | "collection"),
+                "transform '{}': input_kind must be single or collection", self.name);
+        }
         if self.name.trim().is_empty() {
             anyhow::bail!("transform 'name' must not be empty");
         }
@@ -186,7 +212,7 @@ impl YamlTransformDef {
             })?;
         }
         match (&self.ai, &self.plugin, &self.program) {
-            // ai takes precedence – validate the backend name.
+            // The exclusive backend selection was checked above.
             (Some(backend), _, _) if backend.trim().is_empty() => {
                 anyhow::bail!(
                     "transform '{}': 'ai' must not be empty when provided",
@@ -198,7 +224,6 @@ impl YamlTransformDef {
                     .parse::<AiBackend>()
                     .with_context(|| format!("transform '{}': invalid 'ai' backend", self.name))?;
             }
-            // plugin next.
             (None, Some(p), _) if p.trim().is_empty() => {
                 anyhow::bail!(
                     "transform '{}': 'plugin' must not be empty when provided",
@@ -489,6 +514,8 @@ pub fn parse_transforms_from_str_with_plugins(
 ) -> Result<TransformRegistry> {
     let config: YamlTransformConfig =
         serde_yaml_ng::from_str(yaml).context("Failed to parse YAML transform config")?;
+    anyhow::ensure!(config.plugins.is_empty() && config.transforms.iter().all(|def| def.config.is_none()),
+        "configured command plugins require the artifact graph loader, not the legacy text loader");
 
     let mut registry = TransformRegistry::new();
     for def in &config.transforms {
@@ -526,6 +553,7 @@ pub fn parse_transforms_from_str_with_plugins(
 pub fn parse_aggregation_transforms_from_str(yaml: &str) -> Result<AggregationRegistry> {
     let config: YamlTransformConfig =
         serde_yaml_ng::from_str(yaml).context("Failed to parse YAML transform config")?;
+    anyhow::ensure!(config.plugins.is_empty(), "configured command plugins require the artifact graph loader");
 
     let mut registry = AggregationRegistry::new();
     for def in &config.transforms {
@@ -582,24 +610,39 @@ pub fn load_aggregation_transforms_from_yaml(path: &str) -> Result<AggregationRe
 pub fn load_tool_registry_from_yaml(path: &str) -> Result<ToolRegistry> {
     let content = fs::read_to_string(path)
         .with_context(|| format!("Failed to read transform config: {}", path))?;
-    parse_tool_registry_from_str(&content)
+    let config = parse_graph_config(&content)?;
+    tool_registry_for_config(&config, &registry_directory(path)?)
         .with_context(|| format!("Failed to load tool registry from: {}", path))
 }
 
 /// Build the runtime provider registry implied by a transform YAML document.
 pub fn parse_tool_registry_from_str(yaml: &str) -> Result<ToolRegistry> {
-    let config: YamlTransformConfig =
-        serde_yaml_ng::from_str(yaml).context("Failed to parse YAML transform config")?;
+    tool_registry_for_config(&parse_graph_config(yaml)?, &std::env::current_dir()?)
+}
+
+fn tool_registry_for_config(config: &YamlTransformConfig, registry_dir: &Path) -> Result<ToolRegistry> {
     let mut registry = ToolRegistry::builtins();
 
     for def in &config.transforms {
         def.validate()?;
         let from: crate::graph::Format = def.from.parse()?;
         let to: crate::graph::Format = def.to.parse()?;
-        let capability = transform_capability_id(from, to);
+        let plugin = referenced_command_plugin(config, def)?;
+        let capability = match plugin {
+            Some(plugin) => CapabilityId::new(plugin.descriptor.capability_id.clone())?,
+            None => transform_capability_id(from, to),
+        };
         let provider = def.provider_id(&registry)?;
 
-        if let Some(program) = &def.program {
+        if let Some(plugin) = plugin {
+            let program = plugin.resolved_program(registry_dir)?;
+            if let Some(existing) = registry.get(provider.as_str()) {
+                anyhow::ensure!(matches!(&existing.discovery,
+                    ToolDiscovery::Executable { candidates, .. } if candidates == &vec![program.clone()]),
+                    "command plugin provider '{}' conflicts with an existing provider", provider);
+            }
+            registry.ensure_command_provider(provider, program, capability)?;
+        } else if let Some(program) = &def.program {
             registry.ensure_command_provider(provider, program.clone(), capability)?;
         } else {
             let provider_name = def
@@ -624,7 +667,7 @@ pub fn build_graph_executor_and_tools_from_yaml(
 )> {
     let content = fs::read_to_string(path)
         .with_context(|| format!("Failed to read transform config: {}", path))?;
-    build_graph_executor_and_tools_from_str(&content)
+    build_graph_executor_and_tools_at(&content, &registry_directory(path)?)
         .with_context(|| format!("Failed to build graph/executor/tools from: {}", path))
 }
 
@@ -636,17 +679,25 @@ pub fn build_graph_executor_and_tools_from_str(
     crate::graph::DagExecutor,
     ToolRegistry,
 )> {
-    use std::sync::Arc;
+    build_graph_executor_and_tools_at(yaml, &std::env::current_dir()?)
+}
+
+fn build_graph_executor_and_tools_at(yaml: &str, registry_dir: &Path) -> Result<(
+    crate::graph::TransformGraph, crate::graph::DagExecutor, ToolRegistry,
+)> {
 
     use crate::graph::{DagExecutor, Format, InputKind, TransformEdge, TransformGraph};
 
-    let config: YamlTransformConfig =
-        serde_yaml_ng::from_str(yaml).context("Failed to parse YAML transform config")?;
+    let config = parse_graph_config(yaml)?;
     // Bind the complete registry configuration, including argv and provider
     // choices, into canonical plan and checkpoint identity without exposing
     // potentially sensitive transform settings in public evidence.
     let registry_digest = crate::evidence::sha256_text(yaml).value;
-    let tool_registry = parse_tool_registry_from_str(yaml)?;
+    let tool_registry = tool_registry_for_config(&config, registry_dir)?;
+    let plugins = config.plugins.iter().map(|definition| {
+        Ok((definition.descriptor.id.clone(),
+            Arc::new(CommandPlugin::new(definition.clone(), registry_dir)?)))
+    }).collect::<Result<BTreeMap<_, _>>>()?;
     let mut graph = TransformGraph::new();
     let mut executor = DagExecutor::new();
     let mut transform_ids = std::collections::HashSet::new();
@@ -672,22 +723,30 @@ pub fn build_graph_executor_and_tools_from_str(
             InputKind::Single
         };
         let provider = def.provider_id(&tool_registry)?;
-        let capability = transform_capability_id(from, to);
+        let definition = referenced_command_plugin(&config, def)?;
+        let capability = match definition {
+            Some(plugin) => CapabilityId::new(plugin.descriptor.capability_id.clone())?,
+            None => transform_capability_id(from, to),
+        };
 
-        let edge = TransformEdge::with_input_kind(from, to, def.cost, def.quality, input_kind)
+        let mut edge = TransformEdge::with_input_kind(from, to, def.cost, def.quality, input_kind)
             .with_provider(provider.to_string(), capability.to_string())
             .with_evidence("transform_id", def.name.clone())
             .with_evidence("registry_sha256", registry_digest.clone());
+        if let Some(plugin) = definition {
+            edge = edge.with_evidence("plugin_id", plugin.descriptor.id.clone())
+                .with_evidence("plugin_version", plugin.descriptor.version.clone())
+                .with_evidence("plugin_protocol", plugin.protocol.clone());
+        }
         graph.add_transform(edge.clone());
 
-        if def.is_collection() {
+        if let Some(plugin) = definition {
+            let transform = plugins.get(&plugin.descriptor.id).expect("validated plugin declaration")
+                .clone().configured(def.config.clone().unwrap_or_else(|| serde_json::json!({})))?;
+            executor.register_artifact_for_edge(&edge, Arc::new(transform));
+        } else if def.is_collection() {
             let agg = Arc::new(def.to_aggregation_transform()?);
             executor.register_aggregation_for_edge(&edge, agg);
-        } else if def.plugin.is_some() {
-            anyhow::bail!(
-                "transform '{}': graph execution requires plugin registration through an embedding registry",
-                def.name
-            );
         } else {
             let transform: Arc<dyn Transform + Send + Sync> = if def.ai.is_some() {
                 Arc::new(def.to_ai_transform()?)
@@ -699,6 +758,52 @@ pub fn build_graph_executor_and_tools_from_str(
     }
 
     Ok((graph, executor, tool_registry))
+}
+
+fn registry_directory(path: &str) -> Result<PathBuf> {
+    let path = fs::canonicalize(path).context("cannot resolve transform registry path")?;
+    Ok(path.parent().context("transform registry has no parent directory")?.to_path_buf())
+}
+
+fn parse_graph_config(yaml: &str) -> Result<YamlTransformConfig> {
+    let config: YamlTransformConfig = serde_yaml_ng::from_str(yaml)
+        .context("Failed to parse YAML transform config")?;
+    anyhow::ensure!(config.plugins.len() <= 128, "at most 128 command plugins may be declared");
+    let mut ids = std::collections::HashSet::new();
+    for plugin in &config.plugins {
+        plugin.validate()?;
+        CapabilityId::new(plugin.descriptor.capability_id.clone())?;
+        anyhow::ensure!(ids.insert(&plugin.descriptor.id), "duplicate command plugin '{}'", plugin.descriptor.id);
+    }
+    let mut transform_ids = std::collections::HashSet::new();
+    for def in &config.transforms {
+        def.validate()?;
+        anyhow::ensure!(transform_ids.insert(&def.name), "duplicate transform identity '{}'", def.name);
+        referenced_command_plugin(&config, def)?;
+    }
+    Ok(config)
+}
+
+fn referenced_command_plugin<'a>(config: &'a YamlTransformConfig, def: &YamlTransformDef)
+    -> Result<Option<&'a CommandPluginDefinition>> {
+    let Some(id) = &def.plugin else { return Ok(None); };
+    let plugin = config.plugins.iter().find(|plugin| &plugin.descriptor.id == id)
+        .with_context(|| format!("transform '{}': plugin '{id}' is not declared in this registry; register it under plugins", def.name))?;
+    anyhow::ensure!(!def.is_collection(), "command plugin '{id}' supports single input only");
+    let from = def.from.parse::<crate::graph::Format>()?.to_string();
+    let to = def.to.parse::<crate::graph::Format>()?.to_string();
+    anyhow::ensure!(plugin.descriptor.input_formats.contains(&from)
+        && plugin.descriptor.output_formats.contains(&to),
+        "transform '{}': plugin '{id}' does not declare route {from} -> {to}", def.name);
+    Ok(Some(plugin))
+}
+
+/// Read and validate configured plugin declarations without executing any code.
+pub fn load_command_plugin_definitions(path: &str) -> Result<Vec<CommandPluginDefinition>> {
+    let content = fs::read_to_string(path).context("cannot read plugin transform registry")?;
+    let config = parse_graph_config(&content)?;
+    tool_registry_for_config(&config, &registry_directory(path)?)?;
+    Ok(config.plugins)
 }
 
 /// Compatibility wrapper returning only graph and executor.
@@ -1223,7 +1328,7 @@ transforms:
     }
 
     #[test]
-    fn test_plugin_takes_precedence_over_program_when_both_set() {
+    fn test_plugin_and_program_are_rejected_when_both_set() {
         use crate::transforms::plugin::{PluginExecutor, PluginRegistry};
         use std::sync::Arc;
 
@@ -1240,7 +1345,7 @@ transforms:
         let mut plugins = PluginRegistry::new();
         plugins.register(Arc::new(AppendBangPlugin));
 
-        // Both plugin and program are set; plugin must win.
+        // Ambiguous execution authority must not silently choose a backend.
         let yaml = r#"
 transforms:
   - name: plugin-wins
@@ -1251,10 +1356,8 @@ transforms:
     cost: 0.5
     quality: 1.0
 "#;
-        let registry =
-            parse_transforms_from_str_with_plugins(yaml, &plugins).expect("should parse");
-        let result = registry.apply_all("hello".to_string()).unwrap();
-        assert_eq!(result, "hello!");
+        let error = parse_transforms_from_str_with_plugins(yaml, &plugins).err().unwrap();
+        assert!(error.to_string().contains("exactly one"));
     }
 
     #[test]
@@ -1443,13 +1546,7 @@ transforms:
     }
 
     #[test]
-    fn test_ai_field_takes_precedence_over_program_and_plugin() {
-        // When `ai` is set together with `program` and `plugin`, the AI
-        // transform must be built (ai > plugin > program priority).
-        // We can't run the AI backend in tests, but we can verify the
-        // transform's name via the built registry (name() is accessible
-        // through the Transform trait object before calling apply).
-        // Instead, test that validation passes and the def builds correctly.
+    fn test_ai_and_other_backends_are_rejected() {
         let yaml = r#"
 transforms:
   - name: ai-wins
@@ -1463,10 +1560,7 @@ transforms:
     quality: 1.0
 "#;
         let config: YamlTransformConfig = serde_yaml_ng::from_str(yaml).expect("should parse");
-        let def = &config.transforms[0];
-        // The AI transform should build without looking up the plugin.
-        let t = def.to_ai_transform().expect("ai transform should build");
-        assert_eq!(t.name(), "ai-wins");
+        assert!(config.transforms[0].validate().unwrap_err().to_string().contains("exactly one"));
     }
 
     #[test]

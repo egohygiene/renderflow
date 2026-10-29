@@ -1,6 +1,7 @@
 pub mod aggregation;
 pub mod ai;
 mod command;
+pub mod command_plugin;
 mod emoji;
 pub mod plugin;
 pub mod plugin_v2;
