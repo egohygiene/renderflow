@@ -45,6 +45,22 @@ unrun. No tests/build/Cargo/lint/format/schema/docs, product CLI/provider/model
 execution or CI ran. #469 remains open for actual acceptance; #427/#430/#440 and
 #458/#419 retain their existing wider qualification and release work.
 
+## 2026-11-03 presentation publication profile
+
+#350 now has an authored standalone `renderflow.presentation/v1` literal-text
+model and shared CLI/SDK inspect/plan/build surface. Deterministic source
+assembly retains citations, source revision/freshness, rights and declared review
+state. Notes are omitted from downloadable source unless explicitly included.
+The local Slidev 53.0.0 adapter uses exact Node/installation/browser pins, the
+existing shared process/package services and observed web/PDF output inspection.
+No general v2 artifact-forest admission or released support is claimed.
+
+The [guide](docs/user-guide/presentations.md), original synthetic fixture and
+source-pinned product-summary draft record limits. Seven meaningful regression
+cases are authored and unrun. Tests, builds/Cargo, lint/format/schema/docs,
+native/provider/browser execution and CI remain deferred. The product example
+still needs human review; #350, #458 and #419 retain their acceptance criteria.
+
 ## 2026-10-29 editorial article implementation checkpoint
 
 The configured plugin source checkpoint #467 is merged at

@@ -1,15 +1,18 @@
 # #469 — manual timed-lyrics derivatives
 
 Date: November 3, 2026 (UTC). Branch: `codex/469-manual-timed-lyrics`.
-Base: #379's editorial branch at `c5ee9b0e2bed8f6ec00bbf0b88a6b6ab3f0a98cb`;
-its bundled-profile loader and reviewed SDK-test setup correction are reused. This is
-separate from #378's agent and #350's standalone presentation implementation.
+Implementation base: #379 at `c5ee9b0e2bed8f6ec00bbf0b88a6b6ab3f0a98cb`;
+its bundled-profile loader and reviewed SDK-test setup correction are reused.
+Review-stack parent: #471 at `76fa7bb6b506b1fe8faed78ecb8f1c4649df1569`,
+including #470/#468. Feature source remains separately scoped. Shared CLI/module
+registration and documentation conflicts were reconciled on draft branches;
+no default branch was merged and no executable qualification was run.
 
 The maintainer approved the Renderflow batch and clarified this issue's current
 scope: manually prepare/review SRT or another supported timed file, then derive
 the other eligible representations. Automatic detection/transcription/alignment
 and a speculative future stub/issue are excluded. Testing/CI remains deferred.
-This does not authorize a merge, release, upload or provider submission.
+This does not authorize a default-branch merge, release, upload or provider submission.
 
 ## Delivered source
 

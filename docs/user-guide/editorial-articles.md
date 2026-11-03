@@ -83,9 +83,10 @@ HTML/TeX is rejected; arbitrary style/event attributes are removed. The initial
 profile uses English presentation labels. The declared body language does not
 claim full localized typography or bidirectional-script qualification.
 
-The proposed writing agent in [#378](https://github.com/egohygiene/renderflow/issues/378)
-should emit this same header and Markdown structure. Renderflow does not invoke
-Copilot or another model at runtime. Manual articles use the identical path.
+The optional [editorial writing agent](editorial-agent.md) in #378 targets this
+same header and Markdown structure. Renderflow does not invoke Copilot or another
+model at runtime. Manual articles use the identical path. Agent behavior remains
+unevaluated until the deferred qualification pass.
 
 ## Images, styles and fonts
 

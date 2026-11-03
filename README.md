@@ -32,6 +32,12 @@ derivatives through the existing graph/forest build path. It performs no lyric
 recognition or alignment. Format/player and whole-workflow qualification remain
 deferred under #469.
 
+The [presentation profile](docs/user-guide/presentations.md) authors a
+renderer-neutral literal-text slide model, downloadable source, readable
+companion and an explicitly pinned local Slidev web/PDF adapter. It is a
+standalone, unqualified source implementation; provider execution, visual and
+accessibility acceptance remain deferred under #350.
+
 The official documentation site is published at <https://egohygiene.github.io/renderflow/> and includes versioned guides, architecture references, generated format support tables, examples, troubleshooting, and FAQ content.
 
 The creative workflows are **authored and unqualified**: screenplay imports,
