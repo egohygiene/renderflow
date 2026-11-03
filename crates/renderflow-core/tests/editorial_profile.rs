@@ -101,7 +101,7 @@ fn public_sdk_publishes_a_self_contained_article_and_preserves_source() {
     let source = fs::read(root.path().join("article.md")).unwrap();
     let config = spec("targets:\n  exact:\n    - id: article.web\n      role: web/article\n      format: html\n      transform: builtin.markdown.html\n      preset: editorial-v1");
     fs::write(root.path().join("renderflow.yaml"), config).unwrap();
-    let result = EngineBuilder::new().build().execute(ExecutionRequest::from_path(root.path().join("renderflow.yaml"))).unwrap();
+    let result = EngineBuilder::new().build().unwrap().execute(ExecutionRequest::from_path(root.path().join("renderflow.yaml"))).unwrap();
     assert_eq!(result.run_manifest.state, RunState::Complete);
     assert_eq!(result.run_manifest.published_targets().unwrap().len(), 1);
     let html = fs::read_to_string(root.path().join("output/article/web/article.html")).unwrap();
@@ -143,7 +143,7 @@ fn full_profile_publishes_real_derivatives_and_the_exact_original() {
     copy_fixture(root.path());
     fs::copy(example().join("renderflow.yaml"), root.path().join("renderflow.yaml")).unwrap();
     let source = fs::read(root.path().join("article.md")).unwrap();
-    let result = EngineBuilder::new().build().execute(ExecutionRequest::from_path(root.path().join("renderflow.yaml"))).unwrap();
+    let result = EngineBuilder::new().build().unwrap().execute(ExecutionRequest::from_path(root.path().join("renderflow.yaml"))).unwrap();
     assert_eq!(result.run_manifest.state, RunState::Complete);
     assert_eq!(result.run_manifest.published_targets().unwrap().len(), 5);
     assert!(fs::read(root.path().join("output/article/print/article.pdf")).unwrap().starts_with(b"%PDF-"));

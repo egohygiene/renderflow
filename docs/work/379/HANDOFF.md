@@ -1,5 +1,22 @@
 # #379 editorial profile checkpoint
 
+## November 3, 2026 source review
+
+The maintainer authorized review of this existing draft as the first item in the
+Renderflow publishing batch. Source inspection of the public SDK found that
+`EngineBuilder::build` returns a `Result`; two authored native tests called
+`execute` on that result directly. Both now unwrap the builder result before
+execution. This corrects the source-level API mismatch, including for ignored
+tests that Rust would still type-check. No compiler or test was run.
+
+The review also covered profile selection, planner/strategy integration, bundled
+assets/fonts, metadata/local-image handling, provider arguments and cache
+boundaries. Runtime, native, visual and accessibility acceptance remains
+deferred. #378's paired agent is in draft PR #470; its content contract is
+unchanged by this correction. No merge or release was performed.
+
+## Original implementation checkpoint
+
 Date: October 29, 2026. Base: `1a193eb3924ad20ee5add77c2c495bb32e9bb900`.
 The maintainer authorized merging #467 and implementing #379. #467 is merged;
 #466 remains open for executable acceptance. No release or tag is authorized here.
