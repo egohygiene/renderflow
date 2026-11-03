@@ -1,0 +1,16 @@
+{
+  "schema_version": "renderflow.slidev-provider/v1",
+  "node": {
+    "path": "/absolute/path/to/node",
+    "sha256": "REPLACE_WITH_OBSERVED_NODE_SHA256",
+    "version": "v22.12.0"
+  },
+  "installation_root": "/absolute/path/to/prepared-slidev-project",
+  "installation_sha256": "REPLACE_WITH_OBSERVED_INSTALLATION_TREE_SHA256",
+  "browser": {
+    "path": "/absolute/path/to/chromium",
+    "sha256": "REPLACE_WITH_OBSERVED_BROWSER_SHA256",
+    "version": "REPLACE_WITH_EXACT_BROWSER_VERSION_LINE"
+  },
+  "timeout_seconds": 300
+}

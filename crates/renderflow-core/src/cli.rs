@@ -347,6 +347,13 @@ pub enum Commands {
         subcommand: VideoCommands,
     },
 
+    /// Inspect, plan, and package a renderer-neutral presentation with optional local Slidev outputs.
+    #[command(subcommand_required = true, arg_required_else_help = true)]
+    Presentation {
+        #[command(subcommand)]
+        subcommand: PresentationCommands,
+    },
+
     /// Inspect local subtitle streams and convert the supported plain-text profile.
     #[command(subcommand_required = true, arg_required_else_help = true)]
     Subtitles {
@@ -943,6 +950,44 @@ pub enum LuluCommands {
         #[arg(long)]
         epubcheck: bool,
     },
+}
+
+/// Standalone presentation publication profile. Native rendering is opt-in.
+#[derive(Subcommand)]
+pub enum PresentationCommands {
+    /// Fingerprint a prepared local npm-style installation; never resolve packages.
+    Fingerprint {
+        #[arg(long, value_name = "DIRECTORY")]
+        installation_root: String,
+    },
+    /// Inspect the literal-text model without providers or output creation.
+    Inspect {
+        #[arg(long, value_name = "FILE")]
+        input: String,
+    },
+    /// Capture source/assets and report requested targets without executing providers.
+    Plan(PresentationArguments),
+    /// Publish a new evidence bundle; never overwrite a prior destination.
+    Build(PresentationArguments),
+}
+
+#[derive(clap::Args)]
+pub struct PresentationArguments {
+    #[arg(long, value_name = "FILE")]
+    pub input: String,
+    #[arg(long, value_name = "DIRECTORY")]
+    pub output_dir: String,
+    /// source, web, pdf; repeat or comma-separate. Default: source only.
+    #[arg(long, value_delimiter = ',', default_value = "source", value_parser = ["source", "web", "pdf"])]
+    pub target: Vec<String>,
+    /// Explicit local Node/Slidev/browser pins. No tools are installed.
+    #[arg(long, value_name = "FILE")]
+    pub provider: Option<String>,
+    /// Include speaker notes in the downloadable source package.
+    #[arg(long)]
+    pub include_speaker_notes: bool,
+    #[arg(long)]
+    pub allow_unqualified: bool,
 }
 
 /// Subcommands for provider-neutral e-book derivatives.

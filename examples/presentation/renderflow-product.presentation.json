@@ -1,0 +1,32 @@
+{
+  "schema_version": "renderflow.presentation/v1",
+  "id": "renderflow-source-overview",
+  "title": "Renderflow: source overview",
+  "language": "en",
+  "source": {
+    "repository": "https://github.com/egohygiene/renderflow",
+    "revision": "1a193eb3924ad20ee5add77c2c495bb32e9bb900",
+    "path": "README.md",
+    "sha256": "29e2c6a4e2b3efd79df0ffe8efd3dec8409e9e709b88cdd96d1b125c3d40431d"
+  },
+  "as_of": "Source snapshot at 1a193eb; November 3, 2026 review draft",
+  "rights": "Repository source summary; no third-party brand or Identity asset is included.",
+  "review_state": "draft",
+  "theme": "night",
+  "transition": "none",
+  "slides": [
+    {
+      "id": "purpose",
+      "title": "One rendering specification, multiple derivatives",
+      "paragraphs": ["Renderflow is a specification-driven rendering engine with CLI and library interfaces."],
+      "citations": [{"label": "README at the recorded revision", "url": "https://github.com/egohygiene/renderflow/blob/1a193eb3924ad20ee5add77c2c495bb32e9bb900/README.md"}]
+    },
+    {
+      "id": "evidence",
+      "title": "Source implementation and release readiness",
+      "paragraphs": ["Creative workflows and layered composition have authored source with deferred runtime and visual qualification."],
+      "bullets": ["The first immutable integration candidate is tracked separately.", "A configured provider does not establish successful output or publication approval."],
+      "citations": [{"label": "Integration candidate scope at this source revision", "url": "https://github.com/egohygiene/renderflow/blob/1a193eb3924ad20ee5add77c2c495bb32e9bb900/docs/release-candidate.md"}]
+    }
+  ]
+}
