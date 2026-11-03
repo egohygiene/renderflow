@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-lyrics-v1.schema.json",
+  "title": "Renderflow manual timed lyrics v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "source_format", "policy", "transcript"],
+  "properties": {
+    "schema_version": {"const": "renderflow.lyrics/v1"},
+    "source_format": {"enum": ["srt", "vtt", "timed_transcript_json"]},
+    "policy": {"$ref": "renderflow-v2.schema.json#/$defs/lyricsPolicy"},
+    "transcript": {"$ref": "renderflow-timed-transcript-v1.schema.json"}
+  },
+  "$comment": "The wrapper reuses the existing transcript clock/text schema. Runtime also checks source/policy/language/cue bindings and bounded byte sizes. Review is an explicit declaration, never inferred approval."
+}

@@ -26,6 +26,12 @@
 
 ## Documentation
 
+The [manual timed-lyrics profile](docs/user-guide/manual-lyrics.md) accepts your
+supplied SRT, WebVTT or timed-transcript JSON and authors explicit lyric
+derivatives through the existing graph/forest build path. It performs no lyric
+recognition or alignment. Format/player and whole-workflow qualification remain
+deferred under #469.
+
 The official documentation site is published at <https://egohygiene.github.io/renderflow/> and includes versioned guides, architecture references, generated format support tables, examples, troubleshooting, and FAQ content.
 
 The creative workflows are **authored and unqualified**: screenplay imports,

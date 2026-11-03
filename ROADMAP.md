@@ -26,6 +26,25 @@ supersedes: []
 
 # Renderflow Roadmap
 
+## 2026-11-03 manual timed-lyrics profile
+
+#469 now has an authored `lyrics` selector and explicit source-digest-bound
+`execution.lyrics` policy in the ordinary CLI/SDK planner. Manual SRT, WebVTT or
+timed-transcript JSON feeds a `renderflow.lyrics/v1` wrapper around the existing
+timed-text model. Canonical JSON/YAML, SRT/WebVTT, plain text, literal Markdown,
+millisecond LRC and narrow TTML are the implemented output candidates.
+Source-equivalent outputs retain original bytes; losses and unsupported
+ChordPro/MusicXML remain explicit. No recognition, alignment, inferred timing,
+future stub or speculative issue is added.
+
+The [guide](docs/user-guide/manual-lyrics.md) and [synthetic example](examples/lyrics/README.md)
+describe the selected manual workflow and runtime limits. Normal graph/forest
+execution owns target identities, and publication freshly checks source,
+derivative bytes, policy and lineage. Ten regression cases are authored and
+unrun. No tests/build/Cargo/lint/format/schema/docs, product CLI/provider/model
+execution or CI ran. #469 remains open for actual acceptance; #427/#430/#440 and
+#458/#419 retain their existing wider qualification and release work.
+
 ## 2026-10-29 editorial article implementation checkpoint
 
 The configured plugin source checkpoint #467 is merged at

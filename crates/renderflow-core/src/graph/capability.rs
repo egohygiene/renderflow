@@ -1469,6 +1469,22 @@ impl FormatCapabilityRegistry {
                 &["application/vnd.renderflow.timed-transcript+json"][..],
                 &[Subtitle, Data][..],
             ),
+            (
+                Format::LyricsJson,
+                "lyrics_json",
+                "Renderflow manual timed lyrics JSON",
+                &["lyrics.json"][..],
+                &["application/vnd.renderflow.lyrics+json"][..],
+                &[Subtitle, Data][..],
+            ),
+            (
+                Format::Lrc,
+                "lrc",
+                "Line-synchronized lyrics",
+                &["lrc"][..],
+                &["text/plain"][..],
+                &[Subtitle][..],
+            ),
         ] {
             self.register(
                 format,

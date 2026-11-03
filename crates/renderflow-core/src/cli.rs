@@ -347,6 +347,13 @@ pub enum Commands {
         subcommand: VideoCommands,
     },
 
+    /// Inspect explicitly supplied manual timed lyrics and eligible derivatives.
+    #[command(subcommand_required = true, arg_required_else_help = true)]
+    Lyrics {
+        #[command(subcommand)]
+        subcommand: LyricsCommands,
+    },
+
     /// Inspect local subtitle streams and convert the supported plain-text profile.
     #[command(subcommand_required = true, arg_required_else_help = true)]
     Subtitles {
@@ -942,6 +949,26 @@ pub enum LuluCommands {
         /// Run the optional local EPUBCheck v5 provider.
         #[arg(long)]
         epubcheck: bool,
+    },
+}
+
+/// Manual lyrics inspection; execution uses the normal build/graph/SDK surface.
+#[derive(Subcommand)]
+pub enum LyricsCommands {
+    /// Parse a supplied timed file without tools, output creation or inferred review.
+    Inspect {
+        #[arg(long, value_name = "FILE")]
+        input: String,
+        /// srt, vtt or timed_transcript_json. Otherwise use the dedicated suffix.
+        #[arg(long, value_name = "FORMAT")]
+        input_format: Option<String>,
+        #[arg(long, value_name = "LANGUAGE")]
+        language: Option<String>,
+        #[arg(long, value_name = "REVISION")]
+        revision: Option<String>,
+        /// Explicit operator declaration for these exact observed bytes.
+        #[arg(long)]
+        reviewed: bool,
     },
 }
 

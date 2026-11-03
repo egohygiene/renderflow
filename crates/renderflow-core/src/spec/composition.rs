@@ -143,6 +143,7 @@ pub(super) fn validate(spec: &SpecV2, diagnostics: &mut Vec<SpecDiagnostic>) {
         ("redaction_policy", policy.redaction_policy.is_some()), ("hygiene_policy", policy.hygiene_policy.is_some()),
         ("print_pdf_interior", policy.print_pdf_interior.is_some()),
         ("fixed_layout_epub", policy.fixed_layout_epub.is_some()), ("subtitles", policy.subtitles.is_some()),
+        ("lyrics", policy.lyrics.is_some()),
         ("speech", policy.speech.is_some()), ("screenplay", policy.screenplay.is_some()),
         ("screenplay_body", policy.screenplay_body.is_some()),
         ("screenplay_pdf", policy.screenplay_pdf.is_some()), ("screenplay_recovery", policy.screenplay_recovery.is_some()),
@@ -254,7 +255,7 @@ pub(super) fn extend_schema(schema: &mut Value) {
                     "minimum_fidelity": {"type": "null"}, "reject_loss_classes": {"maxItems": 0},
                     "publication_policy": {"type": "null"}, "redaction_policy": {"type": "null"}, "hygiene_policy": {"type": "null"},
                     "print_pdf_interior": {"type": "null"}, "fixed_layout_epub": {"type": "null"}, "subtitles": {"type": "null"},
-                    "speech": {"type": "null"}, "screenplay": {"type": "null"}, "screenplay_body": {"type": "null"}, "screenplay_pdf": {"type": "null"}, "screenplay_recovery": {"type": "null"}
+                    "lyrics": {"type": "null"}, "speech": {"type": "null"}, "screenplay": {"type": "null"}, "screenplay_body": {"type": "null"}, "screenplay_pdf": {"type": "null"}, "screenplay_recovery": {"type": "null"}
                 }
             }
         },
