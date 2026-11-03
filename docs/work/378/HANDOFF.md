@@ -1,7 +1,9 @@
 # #378 — editorial writing agent
 
 Date: November 3, 2026 (UTC). Branch: `codex/378-editorial-agent`.
-Base: #379 draft PR #468, commit `256b0e88884db3d6dd768d7acca89d143b8f119d`.
+Implementation base: #379 draft PR #468 at `256b0e88884db3d6dd768d7acca89d143b8f119d`.
+The review stack now includes its SDK-test setup correction at
+`c5ee9b0e2bed8f6ec00bbf0b88a6b6ab3f0a98cb`.
 
 The maintainer authorized the Renderflow implementation batch on separate draft
 branches, with testing/CI deferred and a sync after the batch. This branch is
@@ -26,8 +28,9 @@ contracts can be reviewed together. No merge or release is performed here.
 
 Source review covered bundled profile selection, ordinary planner/strategy
 integration, font identity/cache refusal, provider arguments, Pandoc filter,
-metadata and local-image rules, and the existing synthetic article. No additional
-source blocker was identified in that review. PR #468 is still draft; review is
+metadata and local-image rules, and the existing synthetic article. Subsequent
+SDK inspection found two existing native cases calling `execute` on the fallible
+builder result; #468 now corrects that setup. PR #468 is still draft; review is
 not compilation, provider, runtime, visual, or accessibility evidence.
 
 ## Deferred acceptance
