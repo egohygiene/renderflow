@@ -1,0 +1,118 @@
+{
+  "schema": "renderflow.font-registry/v1",
+  "registry_id": "renderflow.editorial.fonts",
+  "version": "1.0.0",
+  "assets": [
+    {
+      "id": "font.dejavuserif",
+      "family": "DejaVu Serif",
+      "style": "normal",
+      "weight": 400,
+      "stretch": "normal",
+      "path": "DejaVuSerif.ttf",
+      "format": "ttf",
+      "digest": {
+        "algorithm": "sha256",
+        "value": "8f2c103bfa3fd5de71f1b92b18f21906b5a26871fb7e19a9a4c9af539c3cc7ab"
+      },
+      "provenance": {
+        "source_url": "https://dejavu-fonts.github.io/",
+        "source_version": "fonts-dejavu-core-2.37-8-local-package",
+        "project_url": "https://dejavu-fonts.github.io/"
+      },
+      "license": {
+        "spdx_id": "Bitstream-Vera",
+        "license_file": "LICENSE.txt",
+        "redistribution": "allowed",
+        "embedding": "allowed"
+      },
+      "unicode_ranges": [],
+      "intended_roles": [
+        "body"
+      ]
+    },
+    {
+      "id": "font.dejavusans",
+      "family": "DejaVu Sans",
+      "style": "normal",
+      "weight": 400,
+      "stretch": "normal",
+      "path": "DejaVuSans.ttf",
+      "format": "ttf",
+      "digest": {
+        "algorithm": "sha256",
+        "value": "ae7b7855e115a5966d8b1b3f80f254ccc117ec86f9965e202ee2940453837280"
+      },
+      "provenance": {
+        "source_url": "https://dejavu-fonts.github.io/",
+        "source_version": "fonts-dejavu-core-2.37-8-local-package",
+        "project_url": "https://dejavu-fonts.github.io/"
+      },
+      "license": {
+        "spdx_id": "Bitstream-Vera",
+        "license_file": "LICENSE.txt",
+        "redistribution": "allowed",
+        "embedding": "allowed"
+      },
+      "unicode_ranges": [],
+      "intended_roles": [
+        "heading",
+        "caption"
+      ]
+    },
+    {
+      "id": "font.dejavusansmono",
+      "family": "DejaVu Sans Mono",
+      "style": "normal",
+      "weight": 400,
+      "stretch": "normal",
+      "path": "DejaVuSansMono.ttf",
+      "format": "ttf",
+      "digest": {
+        "algorithm": "sha256",
+        "value": "c805f9436dbc268644c1d9584f01a601a653e028e08fd74b9b949f6cf8304d88"
+      },
+      "provenance": {
+        "source_url": "https://dejavu-fonts.github.io/",
+        "source_version": "fonts-dejavu-core-2.37-8-local-package",
+        "project_url": "https://dejavu-fonts.github.io/"
+      },
+      "license": {
+        "spdx_id": "Bitstream-Vera",
+        "license_file": "LICENSE.txt",
+        "redistribution": "allowed",
+        "embedding": "allowed"
+      },
+      "unicode_ranges": [],
+      "intended_roles": [
+        "monospace"
+      ]
+    }
+  ],
+  "roles": {
+    "body": {
+      "primary": "font.dejavuserif",
+      "fallbacks": [],
+      "style": "normal",
+      "weight": 400
+    },
+    "heading": {
+      "primary": "font.dejavusans",
+      "fallbacks": [],
+      "style": "normal",
+      "weight": 400
+    },
+    "caption": {
+      "primary": "font.dejavusans",
+      "fallbacks": [],
+      "style": "normal",
+      "weight": 400
+    },
+    "monospace": {
+      "primary": "font.dejavusansmono",
+      "fallbacks": [],
+      "style": "normal",
+      "weight": 400
+    }
+  }
+}

@@ -1,0 +1,60 @@
+%% Renderflow editorial-v1. Reuses the shared LaTeX presentation components.
+\documentclass[11pt,a4paper]{article}
+\edef\RenderflowStyleRoot{\detokenize{$renderflow-style-root$}}
+\def\RenderflowColorInk{202A2B}
+\def\RenderflowColorMuted{526165}
+\def\RenderflowColorAccent{165A50}
+\def\RenderflowColorRule{CAD3D1}
+\def\RenderflowColorSurface{F1F5F2}
+\def\RenderflowMarginTop{24mm}
+\def\RenderflowMarginBottom{24mm}
+\def\RenderflowMarginInner{30mm}
+\def\RenderflowMarginOuter{30mm}
+\edef\RenderflowMainFontFile{\detokenize{$renderflow-main-font-file$}}
+\edef\RenderflowSansFontFile{\detokenize{$renderflow-sans-font-file$}}
+\edef\RenderflowMonoFontFile{\detokenize{$renderflow-mono-font-file$}}
+\input{\RenderflowStyleRoot/renderflow-core.sty}
+\RequirePackage{amsmath,amssymb}
+\providecommand{\pandocbounded}[1]{#1}
+\setcounter{secnumdepth}{-1}
+\widowpenalty=10000
+\clubpenalty=10000
+\titleformat{\section}{\Large\sffamily\bfseries\color{RenderflowInk}}{}{0em}{}
+\fancyhead[L]{}
+\fancyhead[R]{}
+\renewcommand{\headrulewidth}{0pt}
+$if(highlighting-macros)$
+$highlighting-macros$
+\renewenvironment{Shaded}{\begin{RenderflowShaded}}{\end{RenderflowShaded}}
+$endif$
+\hypersetup{pdftitle={$title-meta$},pdfauthor={$author-meta$},pdflang={$lang$},pdfcreator={Renderflow editorial-v1}}
+\begin{document}
+{\small\sffamily\color{RenderflowAccent}ARTICLE\par}
+\vspace{0.6em}
+{\Huge\sffamily\bfseries $title$\par}
+$if(subtitle)$
+\vspace{0.7em}{\large\color{RenderflowMuted}$subtitle$\par}
+$endif$
+$if(author)$
+\vspace{1em}{\sffamily By $for(author)$$author$$sep$; $endfor$\par}
+$endif$
+$if(date)$
+\vspace{0.4em}{\small\sffamily Published $date$\par}
+$endif$
+$if(updated)$
+{\small\sffamily Updated $updated$\par}
+$endif$
+$if(keywords)$
+\vspace{0.5em}{\small\sffamily Topics: $for(keywords)$$keywords$$sep$; $endfor$\par}
+$endif$
+\vspace{1em}{\color{RenderflowRule}\hrule}\vspace{1em}
+$if(toc)$
+\setcounter{tocdepth}{2}
+\tableofcontents
+\vspace{1em}
+$endif$
+$body$
+$if(contributors)$
+\vspace{2em}{\small\sffamily Contributors: $for(contributors)$$contributors$$sep$; $endfor$\par}
+$endif$
+\end{document}

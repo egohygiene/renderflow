@@ -99,6 +99,7 @@ impl PandocArgs {
     /// that pandoc template variables are set correctly.
     pub fn with_variables(mut self, vars: &std::collections::HashMap<String, String>) -> Self {
         self.variables = vars.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
+        self.variables.sort_by(|left, right| left.0.cmp(&right.0));
         self
     }
 

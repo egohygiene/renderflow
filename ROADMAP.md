@@ -3,7 +3,7 @@ schema: aether.architecture-document/v1
 id: renderflow-roadmap
 title: Renderflow Roadmap
 kind: architecture-document
-version: 0.1.17
+version: 0.1.18
 status: draft
 owners:
   - egohygiene
@@ -41,6 +41,22 @@ source-pinned product-summary draft record limits. Seven meaningful regression
 cases are authored and unrun. Tests, builds/Cargo, lint/format/schema/docs,
 native/provider/browser execution and CI remain deferred. The product example
 still needs human review; #350, #458 and #419 retain their acceptance criteria.
+
+## 2026-10-29 editorial article implementation checkpoint
+
+The configured plugin source checkpoint #467 is merged at
+`1a193eb3924ad20ee5add77c2c495bb32e9bb900`; #466 retains its executable acceptance.
+The next [#379](https://github.com/egohygiene/renderflow/issues/379) checkpoint adds
+the bundled `editorial` profile and `editorial-v1` presentation through the
+ordinary planner/strategy adapter. The shared Markdown contract, local font and
+template bundle, HTML/PDF presentation, optional DOCX/EPUB semantics and exact
+source export are described in the [article guide](docs/user-guide/editorial-articles.md)
+and [synthetic example](examples/editorial/README.md).
+
+Source and regression cases are authored, unrun and not visually/provider/release
+qualified. The maintained testing/build/lint/CI pause remains; #379 stays open.
+#378 can now target the concrete article metadata contract. This does not add
+the writing agent, perform content generation or change #458/#419 release gates.
 
 ## 2026-10-29 configured plugin checkpoint
 

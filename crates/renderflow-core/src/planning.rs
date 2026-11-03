@@ -694,6 +694,13 @@ fn resolve_loaded(request: PlanningRequest, loaded: crate::spec::LoadedSpec) -> 
         policy_graph
     };
     let requested_targets = resolve_target_intent(&spec, &graph, source_format)?;
+    if requested_targets.iter().any(|target| target.preset.as_deref() == Some(crate::strategies::editorial::EDITORIAL_PRESET)) {
+        anyhow::ensure!(!collection && source_format == Format::Markdown,
+            "editorial.source: select one canonical Markdown article");
+        let mut pandoc = tool_registry.get("tool.pandoc").context("editorial.provider.missing")?.clone();
+        pandoc.version.min_inclusive = Some(crate::strategies::editorial::MIN_PANDOC_VERSION.to_string());
+        tool_registry.register(pandoc)?;
+    }
     if spec.execution.screenplay_body.is_some() {
         validate_body_targets(&requested_targets)?;
     }
@@ -2547,28 +2554,10 @@ fn apply_request_overrides(spec: &mut SpecV2, request: &PlanningRequest) -> Resu
             ..TargetSelection::default()
         };
     } else if let Some(profile) = &request.profile {
-        if matches!(
-            profile.as_str(),
-            "everything" | "magazine" | "coloring-book"
-        ) && !spec.profiles.contains_key(profile)
-        {
-            let (source, label) = match profile.as_str() {
-                "magazine" => (
-                    include_str!("../data/profiles/magazine-v1.yaml"),
-                    "magazine",
-                ),
-                "coloring-book" => (
-                    include_str!("../data/profiles/coloring-book-v1.yaml"),
-                    "coloring-book",
-                ),
-                _ => (
-                    include_str!("../data/profiles/everything-v1.yaml"),
-                    "everything",
-                ),
-            };
-            let bundled: DerivativeProfile = serde_yaml_ng::from_str(source)
-                .with_context(|| format!("bundled {label} profile is invalid"))?;
-            spec.profiles.insert(profile.clone(), bundled);
+        if !spec.profiles.contains_key(profile) {
+            if let Some(bundled) = crate::spec::bundled_profile(profile)? {
+                spec.profiles.insert(profile.clone(), bundled);
+            }
         }
         if !spec.profiles.contains_key(profile) {
             anyhow::bail!("target profile '{profile}' is not defined");

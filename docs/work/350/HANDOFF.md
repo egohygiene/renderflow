@@ -1,11 +1,14 @@
 # #350 — presentation publication profile
 
 Date: November 3, 2026 (UTC). Branch: `codex/350-presentation-profile`.
-Base: `1a193eb3924ad20ee5add77c2c495bb32e9bb900` (main).
+Implementation base: `1a193eb3924ad20ee5add77c2c495bb32e9bb900` (main).
+Review-stack parent: #470 at `79dd62b3fd35f90f048703c6dc2fde1435005ca5`.
 
 The maintainer authorized the Renderflow feature batch on separate draft
 branches and retained the implementation-first testing/CI deferral. This PR is
-independent of #379/#378. No merge, tag, release or deployment is performed.
+feature-independent of #379/#378. The source branches are stacked in the approved
+review order to reconcile shared documentation/CLI changes. Only draft branches
+are integrated; no default-branch merge, tag, release or deployment is performed.
 
 ## Implementation
 
