@@ -5,9 +5,9 @@ use std::fs;
 use std::path::PathBuf;
 use serde_json::json;
 
-struct Fixture { _directory:tempfile::TempDir,root:PathBuf,config:ServiceConfig }
+pub(crate) struct Fixture { _directory:tempfile::TempDir,root:PathBuf,config:ServiceConfig }
 impl Fixture {
-    fn new(formats:&[&str])->Self {
+    pub(crate) fn new(formats:&[&str])->Self {
         let directory=tempfile::tempdir().unwrap();let root=directory.path().canonicalize().unwrap();
         let source=root.join("source");fs::create_dir(&source).unwrap();fs::create_dir(root.join("work")).unwrap();
         let original=Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/page-composition/raster-composition");
@@ -24,7 +24,7 @@ impl Fixture {
                 files:files.into_iter().chain(std::iter::once("renderflow.json")).map(str::to_string).collect()}],limits:Limits::default()};
         Self {_directory:directory,root,config}
     }
-    fn service(&self)->Service {Service::new(self.config.clone(),&self.root).unwrap()}
+    pub(crate) fn service(&self)->Service {Service::new(self.config.clone(),&self.root).unwrap()}
     fn submit(&self,service:&Service,operation:Operation,dry_run:bool)->JobView {
         service.submit(operation,SubmitRequest{pipeline_id:"page".into(),dry_run}).unwrap()
     }
@@ -140,4 +140,14 @@ fn terminal_retention_expires_without_deleting_active_work() {
         assert!(Instant::now()<deadline,"terminal job did not expire");std::thread::sleep(Duration::from_millis(20));
     }
     assert_eq!(service.active_jobs().unwrap(),0);
+}
+
+#[test]
+fn a_dropped_native_event_at_the_tail_reports_a_replay_gap() {
+    let fixture=Fixture::new(&["transcript_json"]);let service=fixture.service();let job=fixture.submit(&service,Operation::Inspect,false);wait(&service,&job.job_id);
+    let after=service.events(&job.job_id,0).unwrap().last_event_id;
+    let reporter=Reporter{book:Arc::downgrade(&service.book),id:job.job_id.clone()};
+    reporter.on_event(&ProgressEvent{schema_version:renderflow::sdk::PROGRESS_EVENT_V1.into(),stage:renderflow::ProgressStage::Executing,
+        message:"x".repeat(service.limits().progress_bytes+1),run_id:None,step_id:None,artifact_ids:Vec::new(),state:None,diagnostics:Vec::new()});
+    let replay=service.events(&job.job_id,after).unwrap();assert!(replay.events.is_empty() && replay.cursor_gap && replay.dropped_events>0);
 }

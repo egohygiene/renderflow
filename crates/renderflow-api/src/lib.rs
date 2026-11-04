@@ -2,6 +2,7 @@
 //! Authored, unqualified #420 checkpoint. No listener is started by this crate.
 
 pub mod model;
+pub mod http;
 mod package;
 mod service;
 

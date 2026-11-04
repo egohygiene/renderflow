@@ -1,0 +1,261 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-api-service-v1.schema.json",
+  "title": "Renderflow local API operator configuration",
+  "description": "Authored source envelope only. Code also enforces cross-field limits, confined regular packages and core composition admission; no validator was run.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/service"
+    },
+    {
+      "$ref": "#/$defs/transport"
+    }
+  ],
+  "$defs": {
+    "pipeline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "root",
+        "config",
+        "files"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._-]{1,64}$"
+        },
+        "root": {
+          "type": "string"
+        },
+        "config": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024
+          },
+          "minItems": 1,
+          "maxItems": 512,
+          "uniqueItems": true
+        }
+      }
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [],
+      "properties": {
+        "workers": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8,
+          "default": 2
+        },
+        "queued_jobs": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 64,
+          "default": 4
+        },
+        "retained_jobs": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 256,
+          "default": 32
+        },
+        "package_files": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 512,
+          "default": 256
+        },
+        "package_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 67108864,
+          "default": 33554432
+        },
+        "all_package_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 134217728,
+          "default": 67108864
+        },
+        "result_bytes": {
+          "type": "integer",
+          "minimum": 1024,
+          "maximum": 4194304,
+          "default": 2097152
+        },
+        "progress_events": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 256,
+          "default": 64
+        },
+        "progress_bytes": {
+          "type": "integer",
+          "minimum": 1024,
+          "maximum": 262144,
+          "default": 65536
+        },
+        "download_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 33554432,
+          "default": 8388608
+        },
+        "job_storage_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 536870912,
+          "default": 268435456
+        },
+        "workspace_storage_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483648,
+          "default": 536870912
+        },
+        "job_timeout_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 600,
+          "default": 120
+        },
+        "retention_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 86400,
+          "default": 900
+        }
+      }
+    },
+    "http": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [],
+      "properties": {
+        "workers": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 16,
+          "default": 4
+        },
+        "connections": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 64,
+          "default": 8
+        },
+        "header_bytes": {
+          "type": "integer",
+          "minimum": 1024,
+          "maximum": 16384,
+          "default": 8192
+        },
+        "headers": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 64,
+          "default": 32
+        },
+        "body_bytes": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 65536,
+          "default": 16384
+        },
+        "json_response_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8388608,
+          "default": 4194304
+        },
+        "read_idle_ms": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 5000,
+          "default": 1000
+        },
+        "read_deadline_ms": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 30000,
+          "default": 5000
+        },
+        "write_deadline_ms": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 30000,
+          "default": 5000
+        },
+        "shutdown_grace_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 30000,
+          "default": 5000
+        }
+      }
+    },
+    "service": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "workspace_parent",
+        "pipelines"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "renderflow.api-service/v1"
+        },
+        "workspace_parent": {
+          "type": "string"
+        },
+        "pipelines": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/pipeline"
+          },
+          "minItems": 1,
+          "maxItems": 16
+        },
+        "limits": {
+          "$ref": "#/$defs/limits"
+        }
+      }
+    },
+    "transport": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "bind",
+        "service"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "renderflow.http-service/v1"
+        },
+        "bind": {
+          "type": "string",
+          "description": "Parsed SocketAddr must be loopback; no public bind or hostname resolution."
+        },
+        "http": {
+          "$ref": "#/$defs/http"
+        },
+        "service": {
+          "$ref": "#/$defs/service"
+        }
+      }
+    }
+  }
+}

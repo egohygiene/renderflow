@@ -151,6 +151,7 @@ nav:
           - Artifact Validation: user-guide/artifact-validation.md
           - Golden Conformance Corpus: conformance-corpus.md
           - Document Fixture Packs: document-fixture-packs.md
+          - Local HTTP and Jobs: http-api.md
           - Inspectable Artifact Gallery: artifact-gallery.md
           - Plugin Architecture: architecture/plugin-architecture.md
           - Execution Plans: architecture/execution-plans.md

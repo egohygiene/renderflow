@@ -208,9 +208,10 @@ impl Service {
     pub fn events(&self,id:&str,after:u64) -> ApiResult<EventsView> {
         let jobs=self.book.jobs.lock().map_err(|_|ApiError::internal())?; let entry=jobs.get(id).ok_or_else(not_found)?;
         if after > entry.sequence { return Err(ApiError::new("invalid_cursor","Event cursor is ahead of the retained sequence",400)); }
-        let cursor_gap=entry.events.front().map(|event|after.saturating_add(1)<event.id).unwrap_or(entry.dropped>0 && after<entry.sequence);
+        let events=entry.events.iter().filter(|event|event.id>after).cloned().collect::<Vec<_>>();
+        let cursor_gap=entry.sequence-after>events.len() as u64;
         Ok(EventsView { schema_version:API_SCHEMA,job_id:id.into(),state:entry.state,
-            events:entry.events.iter().filter(|event|event.id>after).cloned().collect(),last_event_id:entry.sequence,dropped_events:entry.dropped,cursor_gap })
+            events,last_event_id:entry.sequence,dropped_events:entry.dropped,cursor_gap })
     }
     fn execution(&self,id:&str) -> ApiResult<(renderflow::ExecutionResult,Arc<Workspace>)> {
         let jobs=self.book.jobs.lock().map_err(|_|ApiError::internal())?; let entry=jobs.get(id).ok_or_else(not_found)?;
@@ -313,4 +314,4 @@ fn now() -> u64 { SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default
 
 #[cfg(test)]
 #[path="service_tests.rs"]
-mod tests;
+pub(crate) mod tests;
