@@ -30,6 +30,9 @@ use renderflow::{IntakeBudgets, IntakeEngine, IntakeRequest};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
+#[path = "common/golden_contract.rs"]
+mod contract;
+
 const CORPUS_SCHEMA: &str = "renderflow.golden-corpus/v1";
 const REPORT_SCHEMA: &str = "renderflow.conformance-report/v1";
 
@@ -43,6 +46,9 @@ struct Corpus {
     fixtures: Vec<Fixture>,
     collections: Vec<FixtureCollection>,
     scenarios: Vec<Scenario>,
+    #[serde(default)]
+    limits: contract::Limits,
+    coverage: Option<contract::Coverage>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -58,6 +64,9 @@ struct Fixture {
     family: String,
     expected_outcome: String,
     expected_diagnostic: Option<String>,
+    taxonomy: Option<contract::Taxonomy>,
+    extraction_limits: Option<IntakeBudgets>,
+    expected_discovered: Option<usize>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -75,6 +84,10 @@ struct Scenario {
     fixtures: Vec<String>,
     #[serde(default)]
     expected_artifacts: Vec<ExpectedArtifact>,
+    #[serde(default)]
+    coverage: Vec<String>,
+    #[serde(default = "contract::default_assertion_scope")]
+    assertion_scope: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -100,6 +113,8 @@ struct ConformanceReport {
     status: &'static str,
     fixtures: Vec<FixtureEvidence>,
     scenarios: Vec<ScenarioEvidence>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    coverage: Option<contract::CoverageReport>,
 }
 
 #[derive(Debug, Serialize)]
@@ -325,11 +340,13 @@ fn tool_version(program: &str) -> Option<String> {
 
 #[test]
 fn golden_artifact_forest_conformance() -> Result<()> {
+    let started = std::time::Instant::now();
     let corpus_bytes = fs::read(corpus_path())?;
     let corpus: Corpus = serde_json::from_slice(&corpus_bytes)?;
     assert_eq!(corpus.schema_version, CORPUS_SCHEMA);
     assert_eq!(corpus.license, "CC0-1.0");
     assert!(corpus.redistribution.contains("Synthetic"));
+    contract::check(&corpus)?;
 
     let fixture_ids = corpus
         .fixtures
@@ -337,8 +354,7 @@ fn golden_artifact_forest_conformance() -> Result<()> {
         .map(|fixture| fixture.id.as_str())
         .collect::<BTreeSet<_>>();
     assert_eq!(fixture_ids.len(), corpus.fixtures.len());
-    assert_eq!(corpus.fixtures.len(), 14);
-    assert_eq!(corpus.collections.len(), 2);
+    assert!(!corpus.fixtures.is_empty());
     for collection in &corpus.collections {
         assert!(collection.id.starts_with("fixture.collection."));
         assert!(collection
@@ -452,15 +468,17 @@ fn golden_artifact_forest_conformance() -> Result<()> {
     let mut fixture_evidence = Vec::new();
     let mut observed_families = BTreeSet::new();
     for fixture in &corpus.fixtures {
+        corpus.limits.deadline(started)?;
         let path = materialize_fixture(&fixture_root, fixture)?;
+        let before = fs::read(&path)?;
         let request = IntakeRequest::from_path(&path)
             .with_extraction(true)
-            .with_budgets(IntakeBudgets {
+            .with_budgets(fixture.extraction_limits.clone().unwrap_or(IntakeBudgets {
                 max_depth: 1,
                 max_artifacts: 8,
                 max_extracted_bytes: 64 * 1024,
                 max_expansion_ratio: 16.0,
-            });
+            }));
         let report = IntakeEngine::new().intake(&request, &intake_store)?;
         assert_eq!(report.profile.format, fixture.expected_format);
         assert_eq!(report.profile.media_type, fixture.expected_media_type);
@@ -477,11 +495,26 @@ fn golden_artifact_forest_conformance() -> Result<()> {
                     .expected_diagnostic
                     .as_deref()
                     .context("rejected fixture must name its diagnostic")?;
-                assert!(report.diagnostics.iter().any(|item| item.code == code));
+                assert!(report.diagnostics.iter().any(|item| item.code == code
+                    && item.severity == renderflow::intake::IntakeDiagnosticSeverity::Rejected));
             }
             other => anyhow::bail!("unknown expected fixture outcome '{other}'"),
         }
         intake_store.verify(&report.source)?;
+        assert_eq!(fs::read(&path)?, before, "intake must not mutate source {}", fixture.id);
+        if let Some(expected) = fixture.expected_discovered {
+            assert_eq!(report.discovered.len(), expected, "unexpected extraction for {}", fixture.id);
+        }
+        if let Some(limits) = &fixture.extraction_limits {
+            assert!(report.budget_usage.artifacts <= limits.max_artifacts);
+            assert!(report.budget_usage.extracted_bytes <= limits.max_extracted_bytes);
+            assert!(report.budget_usage.deepest_level <= limits.max_depth);
+        }
+        for child in &report.discovered {
+            assert!(child.parent_artifact_id == report.source.id().as_str()
+                || report.discovered.iter().any(|parent| parent.artifact.id().as_str() == child.parent_artifact_id));
+            intake_store.verify(&child.artifact)?;
+        }
         observed_families.insert(fixture.family.as_str());
         fixture_evidence.push(FixtureEvidence {
             id: fixture.id.clone(),
@@ -496,6 +529,8 @@ fn golden_artifact_forest_conformance() -> Result<()> {
         });
         paths.insert(fixture.id.clone(), path);
     }
+    assert_eq!(fs::read_dir(&fixture_root)?.count(), corpus.fixtures.len(), "intake must not add source files");
+    assert!(!work.path().join("escaped.txt").exists(), "archive path may not escape the source root");
     assert_eq!(
         observed_families,
         BTreeSet::from([
@@ -508,6 +543,11 @@ fn golden_artifact_forest_conformance() -> Result<()> {
         "inspect_only",
         &["all fixture identities, formats, media types, conflicts, and diagnostics matched"],
         &["provider.renderflow.native-inspection"],
+    ));
+    results.insert(scenario(
+        "adversarial_intake",
+        &["classified bounded literal recipes matched intake identities/diagnostics/extracted membership; source bytes stayed unchanged; format identification does not imply format validity"],
+        &["provider.renderflow.native-inspection", "provider.renderflow.zip"],
     ));
 
     let execution_store = ArtifactStore::new(work.path().join("execution-store"))?;
@@ -1047,6 +1087,7 @@ fn golden_artifact_forest_conformance() -> Result<()> {
     let tools = ["pandoc", "ffmpeg"];
     let available_tools = tools
         .iter()
+        .filter(|_| requested_rank > 0)
         .filter_map(|tool| tool_version(tool).map(|version| format!("tool.{tool}@{version}")))
         .collect::<Vec<_>>();
     let all_tools_available = available_tools.len() == tools.len();
@@ -1066,8 +1107,11 @@ fn golden_artifact_forest_conformance() -> Result<()> {
                 "optional provider availability is explicit and never a silent pass".to_string(),
             ],
             providers: available_tools,
-            reason: (!all_tools_available)
-                .then(|| "one or more optional tool providers were not installed".to_string()),
+            reason: if requested_rank == 0 {
+                Some("tool-backed probing was not requested".to_string())
+            } else {
+                (!all_tools_available).then(|| "one or more optional tool providers were not installed".to_string())
+            },
         },
     ));
     results.insert((
@@ -1118,6 +1162,9 @@ fn golden_artifact_forest_conformance() -> Result<()> {
     let observed_scenarios = results.keys().map(String::as_str).collect::<BTreeSet<_>>();
     assert_eq!(observed_scenarios, declared_scenarios);
     let scenarios = results.into_values().collect::<Vec<_>>();
+    let coverage = contract::report(&corpus, &scenarios)?;
+    corpus.limits.deadline(started)?;
+    let fixture_count = corpus.fixtures.len();
     let report = ConformanceReport {
         schema_version: REPORT_SCHEMA,
         corpus_version: corpus.corpus_version,
@@ -1130,11 +1177,12 @@ fn golden_artifact_forest_conformance() -> Result<()> {
         status: "passed",
         fixtures: fixture_evidence,
         scenarios,
+        coverage,
     };
     let encoded = serde_json::to_vec_pretty(&report)?;
     let decoded: serde_json::Value = serde_json::from_slice(&encoded)?;
     assert_eq!(decoded["schema_version"], REPORT_SCHEMA);
-    assert_eq!(decoded["fixtures"].as_array().map(Vec::len), Some(14));
+    assert_eq!(decoded["fixtures"].as_array().map(Vec::len), Some(fixture_count));
     if let Some(path) = std::env::var_os("RENDERFLOW_CONFORMANCE_REPORT") {
         fs::write(path, encoded)?;
     }

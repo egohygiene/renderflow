@@ -1,6 +1,6 @@
 {
   "schema_version": "renderflow.golden-corpus/v1",
-  "corpus_version": "1.1.0",
+  "corpus_version": "1.2.0",
   "license": "CC0-1.0",
   "redistribution": "Synthetic fixtures created for Renderflow conformance; no publication or third-party content.",
   "fixtures": [
@@ -13,7 +13,15 @@
       "expected_format": "markdown",
       "expected_media_type": "text/markdown",
       "family": "document",
-      "expected_outcome": "accepted"
+      "expected_outcome": "accepted",
+      "taxonomy": {
+        "class": "valid",
+        "assertion_scope": "intake",
+        "construction": "Exact inline utf8 bytes; no external generator, random state or network.",
+        "seed": 0,
+        "generator": "renderflow.golden.inline/v1",
+        "residual": "Intake identification/diagnostics only; header fixtures do not prove decoding, semantic or provider validity."
+      }
     },
     {
       "id": "fixture.document.pdf",
@@ -23,7 +31,16 @@
       "expected_format": "pdf",
       "expected_media_type": "application/pdf",
       "family": "document",
-      "expected_outcome": "accepted"
+      "expected_outcome": "accepted",
+      "sha256": "cfa3181c1ee36e8bce5e39f84959f4558ea7ba32c0e4539a8ab3c8ce8c716ec6",
+      "taxonomy": {
+        "class": "boundary",
+        "assertion_scope": "intake",
+        "construction": "Exact inline utf8 bytes; no external generator, random state or network.",
+        "seed": 0,
+        "generator": "renderflow.golden.inline/v1",
+        "residual": "Intake identification/diagnostics only; header fixtures do not prove decoding, semantic or provider validity."
+      }
     },
     {
       "id": "fixture.image.png",
@@ -33,7 +50,16 @@
       "expected_format": "png",
       "expected_media_type": "image/png",
       "family": "image",
-      "expected_outcome": "accepted"
+      "expected_outcome": "accepted",
+      "sha256": "79037237bbb0ed667ec607470fe1b9f0a2639168d86899a85131f24839af6af9",
+      "taxonomy": {
+        "class": "valid",
+        "assertion_scope": "intake",
+        "construction": "Exact inline hex bytes; no external generator, random state or network.",
+        "seed": 0,
+        "generator": "renderflow.golden.inline/v1",
+        "residual": "Intake identification/diagnostics only; header fixtures do not prove decoding, semantic or provider validity."
+      }
     },
     {
       "id": "fixture.image.print-page001",
@@ -44,7 +70,15 @@
       "expected_format": "png",
       "expected_media_type": "image/png",
       "family": "image",
-      "expected_outcome": "accepted"
+      "expected_outcome": "accepted",
+      "taxonomy": {
+        "class": "valid",
+        "assertion_scope": "intake",
+        "construction": "Exact inline hex bytes; no external generator, random state or network.",
+        "seed": 0,
+        "generator": "renderflow.golden.inline/v1",
+        "residual": "Intake identification/diagnostics only; header fixtures do not prove decoding, semantic or provider validity."
+      }
     },
     {
       "id": "fixture.image.print-page002",
@@ -55,7 +89,15 @@
       "expected_format": "png",
       "expected_media_type": "image/png",
       "family": "image",
-      "expected_outcome": "accepted"
+      "expected_outcome": "accepted",
+      "taxonomy": {
+        "class": "valid",
+        "assertion_scope": "intake",
+        "construction": "Exact inline hex bytes; no external generator, random state or network.",
+        "seed": 0,
+        "generator": "renderflow.golden.inline/v1",
+        "residual": "Intake identification/diagnostics only; header fixtures do not prove decoding, semantic or provider validity."
+      }
     },
     {
       "id": "fixture.image.svg",
@@ -65,7 +107,16 @@
       "expected_format": "svg",
       "expected_media_type": "image/svg+xml",
       "family": "image",
-      "expected_outcome": "accepted"
+      "expected_outcome": "accepted",
+      "sha256": "af47ef668c5b6aec6a52a9ae697cce5a5ab9ac33a884af4a35ffbc454100ea01",
+      "taxonomy": {
+        "class": "valid",
+        "assertion_scope": "intake",
+        "construction": "Exact inline utf8 bytes; no external generator, random state or network.",
+        "seed": 0,
+        "generator": "renderflow.golden.inline/v1",
+        "residual": "Intake identification/diagnostics only; header fixtures do not prove decoding, semantic or provider validity."
+      }
     },
     {
       "id": "fixture.audio.wav",
@@ -75,7 +126,16 @@
       "expected_format": "wav",
       "expected_media_type": "audio/wav",
       "family": "audio",
-      "expected_outcome": "accepted"
+      "expected_outcome": "accepted",
+      "sha256": "4f8734c5e13ac599e168cf247a51c1dd0758537ce00bf16d7fed1a3d14d07041",
+      "taxonomy": {
+        "class": "boundary",
+        "assertion_scope": "intake",
+        "construction": "Exact inline hex bytes; no external generator, random state or network.",
+        "seed": 0,
+        "generator": "renderflow.golden.inline/v1",
+        "residual": "Intake identification/diagnostics only; header fixtures do not prove decoding, semantic or provider validity."
+      }
     },
     {
       "id": "fixture.video.mp4",
@@ -85,7 +145,16 @@
       "expected_format": "mp4",
       "expected_media_type": "video/mp4",
       "family": "video",
-      "expected_outcome": "accepted"
+      "expected_outcome": "accepted",
+      "sha256": "9f76e24fc8542b7fd66f70148f1d785be47486fb0a7ca3f5d2fb16f05e408d88",
+      "taxonomy": {
+        "class": "boundary",
+        "assertion_scope": "intake",
+        "construction": "Exact inline hex bytes; no external generator, random state or network.",
+        "seed": 0,
+        "generator": "renderflow.golden.inline/v1",
+        "residual": "Intake identification/diagnostics only; header fixtures do not prove decoding, semantic or provider validity."
+      }
     },
     {
       "id": "fixture.archive.zip",
@@ -95,7 +164,16 @@
       "expected_format": "zip",
       "expected_media_type": "application/zip",
       "family": "archive",
-      "expected_outcome": "accepted"
+      "expected_outcome": "accepted",
+      "sha256": "8739c76e681f900923b900c9df0ef75cf421d39cabb54650c4b9ad19b6a76d85",
+      "taxonomy": {
+        "class": "valid",
+        "assertion_scope": "intake",
+        "construction": "Exact inline hex bytes; no external generator, random state or network.",
+        "seed": 0,
+        "generator": "renderflow.golden.inline/v1",
+        "residual": "Intake identification/diagnostics only; header fixtures do not prove decoding, semantic or provider validity."
+      }
     },
     {
       "id": "fixture.data.json",
@@ -105,7 +183,16 @@
       "expected_format": "json",
       "expected_media_type": "application/json",
       "family": "data",
-      "expected_outcome": "accepted"
+      "expected_outcome": "accepted",
+      "sha256": "b1e84587210e46092dfd9105d64158635d5be533dcc06339b8af4bac9e76b111",
+      "taxonomy": {
+        "class": "valid",
+        "assertion_scope": "intake",
+        "construction": "Exact inline utf8 bytes; no external generator, random state or network.",
+        "seed": 0,
+        "generator": "renderflow.golden.inline/v1",
+        "residual": "Intake identification/diagnostics only; header fixtures do not prove decoding, semantic or provider validity."
+      }
     },
     {
       "id": "fixture.subtitle.srt",
@@ -115,7 +202,16 @@
       "expected_format": "srt",
       "expected_media_type": "application/x-subrip",
       "family": "subtitle",
-      "expected_outcome": "accepted"
+      "expected_outcome": "accepted",
+      "sha256": "bcc799f7580cdfdb2640a53fac367703019aca26cc281495be9c24476ac5b6cd",
+      "taxonomy": {
+        "class": "valid",
+        "assertion_scope": "intake",
+        "construction": "Exact inline utf8 bytes; no external generator, random state or network.",
+        "seed": 0,
+        "generator": "renderflow.golden.inline/v1",
+        "residual": "Intake identification/diagnostics only; header fixtures do not prove decoding, semantic or provider validity."
+      }
     },
     {
       "id": "fixture.corrupt.zip",
@@ -126,7 +222,16 @@
       "expected_media_type": "application/zip",
       "family": "archive",
       "expected_outcome": "rejected",
-      "expected_diagnostic": "intake.archive.malformed"
+      "expected_diagnostic": "intake.archive.malformed",
+      "sha256": "43590a67dc6fd1bdd55ade65ad3bb2261aea3aaca0d93111e2e34fe577bf43eb",
+      "taxonomy": {
+        "class": "malformed",
+        "assertion_scope": "intake",
+        "construction": "Exact inline hex bytes; no external generator, random state or network.",
+        "seed": 0,
+        "generator": "renderflow.golden.inline/v1",
+        "residual": "Intake identification/diagnostics only; header fixtures do not prove decoding, semantic or provider validity."
+      }
     },
     {
       "id": "fixture.mismatch.jpeg-png",
@@ -136,7 +241,16 @@
       "expected_format": "png",
       "expected_media_type": "image/png",
       "family": "image",
-      "expected_outcome": "conflict"
+      "expected_outcome": "conflict",
+      "sha256": "79037237bbb0ed667ec607470fe1b9f0a2639168d86899a85131f24839af6af9",
+      "taxonomy": {
+        "class": "valid",
+        "assertion_scope": "intake",
+        "construction": "Exact inline hex bytes; no external generator, random state or network.",
+        "seed": 0,
+        "generator": "renderflow.golden.inline/v1",
+        "residual": "Intake identification/diagnostics only; header fixtures do not prove decoding, semantic or provider validity."
+      }
     },
     {
       "id": "fixture.unknown.binary",
@@ -145,42 +259,559 @@
       "payload": "deadbeef001337ff",
       "expected_media_type": "application/octet-stream",
       "family": "unknown",
-      "expected_outcome": "accepted"
+      "expected_outcome": "accepted",
+      "sha256": "a07f600d91689b339250484c0adcafca95b1f7af45dde116b24efa99b05d980e",
+      "taxonomy": {
+        "class": "boundary",
+        "assertion_scope": "intake",
+        "construction": "Exact inline hex bytes; no external generator, random state or network.",
+        "seed": 0,
+        "generator": "renderflow.golden.inline/v1",
+        "residual": "Intake identification/diagnostics only; header fixtures do not prove decoding, semantic or provider validity."
+      }
+    },
+    {
+      "id": "fixture.document.empty-markdown",
+      "filename": "empty.md",
+      "encoding": "utf8",
+      "payload": "",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "expected_format": "markdown",
+      "expected_media_type": "text/markdown",
+      "family": "document",
+      "expected_outcome": "accepted",
+      "taxonomy": {
+        "class": "boundary",
+        "assertion_scope": "intake",
+        "construction": "Empty UTF-8 document; extension-only intake is intentional.",
+        "seed": 0,
+        "generator": "renderflow.golden.inline/v1",
+        "residual": "Only bounded intake evidence is asserted. Format decoding/rendering/accessibility and native-provider acceptance remain unobserved."
+      }
+    },
+    {
+      "id": "fixture.document.bom-crlf",
+      "filename": "bom-crlf.md",
+      "encoding": "utf8",
+      "payload": "﻿# Harbor\r\n\r\nA literal line.\r\n",
+      "sha256": "a1b8170ceabdcd1b22ca2bf713ddade611346e1ba1462cb73e39ec439866d44f",
+      "expected_format": "markdown",
+      "expected_media_type": "text/markdown",
+      "family": "document",
+      "expected_outcome": "accepted",
+      "taxonomy": {
+        "class": "boundary",
+        "assertion_scope": "intake",
+        "construction": "BOM, CRLF and a final newline; no normalization before hashing.",
+        "seed": 0,
+        "generator": "renderflow.golden.inline/v1",
+        "residual": "Only bounded intake evidence is asserted. Format decoding/rendering/accessibility and native-provider acceptance remain unobserved."
+      }
+    },
+    {
+      "id": "fixture.data.empty-object",
+      "filename": "empty-object.json",
+      "encoding": "utf8",
+      "payload": "{}\n",
+      "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      "expected_format": "json",
+      "expected_media_type": "application/json",
+      "family": "data",
+      "expected_outcome": "accepted",
+      "taxonomy": {
+        "class": "valid",
+        "assertion_scope": "intake",
+        "construction": "Minimal JSON object.",
+        "seed": 0,
+        "generator": "renderflow.golden.inline/v1",
+        "residual": "Only bounded intake evidence is asserted. Format decoding/rendering/accessibility and native-provider acceptance remain unobserved."
+      }
+    },
+    {
+      "id": "fixture.data.nested",
+      "filename": "nested.json",
+      "encoding": "utf8",
+      "payload": "[[[[[[[[[[[[[[[[[[[[[[[[0]]]]]]]]]]]]]]]]]]]]]]]]\n",
+      "sha256": "ab1e05e11c816d675c4187f9af3563531860757fc9b6f3810c7a4aa44215a36e",
+      "expected_format": "json",
+      "expected_media_type": "application/json",
+      "family": "data",
+      "expected_outcome": "accepted",
+      "taxonomy": {
+        "class": "boundary",
+        "assertion_scope": "intake",
+        "construction": "Exactly 24 JSON array levels; deliberately finite.",
+        "seed": 0,
+        "generator": "renderflow.golden.inline/v1",
+        "residual": "Only bounded intake evidence is asserted. Format decoding/rendering/accessibility and native-provider acceptance remain unobserved."
+      }
+    },
+    {
+      "id": "fixture.data.malformed",
+      "filename": "malformed.json",
+      "encoding": "utf8",
+      "payload": "{\"unfinished\":",
+      "sha256": "7ad04e56a19a698dda3144a981483a70f3ce3ed9748017de148b34a1147e3782",
+      "expected_format": "json",
+      "expected_media_type": "application/json",
+      "family": "data",
+      "expected_outcome": "accepted",
+      "taxonomy": {
+        "class": "malformed",
+        "assertion_scope": "intake",
+        "construction": "Truncated JSON; intake may identify the extension without parsing it successfully.",
+        "seed": 0,
+        "generator": "renderflow.golden.inline/v1",
+        "residual": "Only bounded intake evidence is asserted. Format decoding/rendering/accessibility and native-provider acceptance remain unobserved."
+      }
+    },
+    {
+      "id": "fixture.document.truncated-pdf",
+      "filename": "truncated.pdf",
+      "encoding": "utf8",
+      "payload": "%PDF-1.7\n",
+      "sha256": "0716f9264c9fe19f5d7455276107f3ddcc1d3497f63d60689a73558ae8a1bf5e",
+      "expected_format": "pdf",
+      "expected_media_type": "application/pdf",
+      "family": "document",
+      "expected_outcome": "accepted",
+      "taxonomy": {
+        "class": "malformed",
+        "assertion_scope": "intake",
+        "construction": "PDF header only, deliberately missing objects/xref/EOF; this is a recognition test.",
+        "seed": 0,
+        "generator": "renderflow.golden.inline/v1",
+        "residual": "Only bounded intake evidence is asserted. Format decoding/rendering/accessibility and native-provider acceptance remain unobserved."
+      }
+    },
+    {
+      "id": "fixture.image.zero-png",
+      "filename": "zero-dimensions.png",
+      "encoding": "hex",
+      "payload": "89504e470d0a1a0a0000000d4948445200000000000000000806000000",
+      "sha256": "423fb48f4cde6a92fb47b4b90eee8ee47469aa526abf3e515b810f76b81d83f0",
+      "expected_format": "png",
+      "expected_media_type": "image/png",
+      "family": "image",
+      "expected_outcome": "accepted",
+      "taxonomy": {
+        "class": "malformed",
+        "assertion_scope": "intake",
+        "construction": "PNG signature and incomplete zero-dimension IHDR, no pixel data; no decoder acceptance expected.",
+        "seed": 0,
+        "generator": "renderflow.golden.inline/v1",
+        "residual": "Only bounded intake evidence is asserted. Format decoding/rendering/accessibility and native-provider acceptance remain unobserved."
+      }
+    },
+    {
+      "id": "fixture.image.external-svg",
+      "filename": "external-resource.svg",
+      "encoding": "utf8",
+      "payload": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"8\" height=\"8\"><image href=\"https://example.invalid/fixture.png\" width=\"8\" height=\"8\"/></svg>\n",
+      "sha256": "459786e7698a279ba27e5b901c00051386ad248ce3fa24da8fa92e90612f807e",
+      "expected_format": "svg",
+      "expected_media_type": "image/svg+xml",
+      "family": "image",
+      "expected_outcome": "accepted",
+      "taxonomy": {
+        "class": "unsupported",
+        "assertion_scope": "intake",
+        "construction": "One inert text reference to reserved example.invalid; intake must not fetch it. Renderer refusal is a separate pending boundary.",
+        "seed": 0,
+        "generator": "renderflow.golden.inline/v1",
+        "residual": "Only bounded intake evidence is asserted. Format decoding/rendering/accessibility and native-provider acceptance remain unobserved."
+      }
+    },
+    {
+      "id": "fixture.audio.truncated-riff",
+      "filename": "truncated.wav",
+      "encoding": "hex",
+      "payload": "524946466400000057415645",
+      "sha256": "5940ac260429f7b4e5353b5ce007e42732c325459415be070f27912eb7ebccf2",
+      "expected_format": "wav",
+      "expected_media_type": "audio/wav",
+      "family": "audio",
+      "expected_outcome": "accepted",
+      "taxonomy": {
+        "class": "malformed",
+        "assertion_scope": "intake",
+        "construction": "RIFF/WAVE marker with no fmt/data; identification only, not speech/Sonic admission.",
+        "seed": 0,
+        "generator": "renderflow.golden.inline/v1",
+        "residual": "Only bounded intake evidence is asserted. Format decoding/rendering/accessibility and native-provider acceptance remain unobserved."
+      }
+    },
+    {
+      "id": "fixture.archive.safe",
+      "filename": "safe.zip",
+      "encoding": "hex",
+      "payload": "504b030414000000000000002100b9c725791100000011000000080000006e6f74652e7478746f726967696e616c20666978747572650a504b0102140314000000000000002100b9c725791100000011000000080000000000000000000000a481000000006e6f74652e747874504b0506000000000100010036000000370000000000",
+      "sha256": "6dae62c0fe9dafa2681accff31f9727d66984dcfec4d205a840ae045e0966478",
+      "expected_format": "zip",
+      "expected_media_type": "application/zip",
+      "family": "archive",
+      "expected_outcome": "accepted",
+      "taxonomy": {
+        "class": "valid",
+        "assertion_scope": "intake",
+        "construction": "ZIP_STORED, DOS epoch, Unix 0100644, no extras/comment; one safe UTF-8 entry.",
+        "seed": 0,
+        "generator": "renderflow.golden.inline/v1",
+        "residual": "Only bounded intake evidence is asserted. Format decoding/rendering/accessibility and native-provider acceptance remain unobserved."
+      },
+      "expected_discovered": 1
+    },
+    {
+      "id": "fixture.archive.traversal",
+      "filename": "traversal.zip",
+      "encoding": "hex",
+      "payload": "504b0304140000000000000021005702c44109000000090000000e0000002e2e2f657363617065642e74787473796e746865746963504b0304140000000000000021008f28a41f040000000400000008000000736166652e74787473616665504b01021403140000000000000021005702c44109000000090000000e0000000000000000000000a481000000002e2e2f657363617065642e747874504b01021403140000000000000021008f28a41f0400000004000000080000000000000000000000a48135000000736166652e747874504b05060000000002000200720000005f0000000000",
+      "sha256": "8c6ca43095ec680c3af896017e4920030cc0fa0682b54f05c9a08a967777ec6f",
+      "expected_format": "zip",
+      "expected_media_type": "application/zip",
+      "family": "archive",
+      "expected_outcome": "rejected",
+      "taxonomy": {
+        "class": "malformed",
+        "assertion_scope": "intake",
+        "construction": "Same stored ZIP construction; unsafe ../ entry plus one allowed sibling. No executable content.",
+        "seed": 0,
+        "generator": "renderflow.golden.inline/v1",
+        "residual": "Only bounded intake evidence is asserted. Format decoding/rendering/accessibility and native-provider acceptance remain unobserved."
+      },
+      "expected_diagnostic": "intake.archive.path_traversal",
+      "expected_discovered": 1
+    },
+    {
+      "id": "fixture.archive.symlink",
+      "filename": "symlink.zip",
+      "encoding": "hex",
+      "payload": "504b03041400000000000000210049baa4000a0000000a000000080000006c696e6b2e7478747461726765742e747874504b010214031400000000000000210049baa4000a0000000a000000080000000000000000000000ffa1000000006c696e6b2e747874504b0506000000000100010036000000300000000000",
+      "sha256": "6d353625882c07e510dab8bd9192b246a7fe614e17c8be1a9798f1e9e1a17e8e",
+      "expected_format": "zip",
+      "expected_media_type": "application/zip",
+      "family": "archive",
+      "expected_outcome": "rejected",
+      "taxonomy": {
+        "class": "unsupported",
+        "assertion_scope": "intake",
+        "construction": "One inert Unix symlink declaration, never a real filesystem symlink.",
+        "seed": 0,
+        "generator": "renderflow.golden.inline/v1",
+        "residual": "Only bounded intake evidence is asserted. Format decoding/rendering/accessibility and native-provider acceptance remain unobserved."
+      },
+      "expected_diagnostic": "intake.archive.unsafe_link",
+      "expected_discovered": 0
+    },
+    {
+      "id": "fixture.archive.artifact-budget",
+      "filename": "artifact-budget.zip",
+      "encoding": "hex",
+      "payload": "504b0304140000000000000021008316dc8c01000000010000000a0000006e6f74652d302e74787478504b0304140000000000000021008316dc8c01000000010000000a0000006e6f74652d312e74787478504b0304140000000000000021008316dc8c01000000010000000a0000006e6f74652d322e74787478504b0304140000000000000021008316dc8c01000000010000000a0000006e6f74652d332e74787478504b01021403140000000000000021008316dc8c01000000010000000a0000000000000000000000a481000000006e6f74652d302e747874504b01021403140000000000000021008316dc8c01000000010000000a0000000000000000000000a481290000006e6f74652d312e747874504b01021403140000000000000021008316dc8c01000000010000000a0000000000000000000000a481520000006e6f74652d322e747874504b01021403140000000000000021008316dc8c01000000010000000a0000000000000000000000a4817b0000006e6f74652d332e747874504b05060000000004000400e0000000a40000000000",
+      "sha256": "0eb8809741f8bc424055a925a9e3990de664f7b6900c0280427991856432a27f",
+      "expected_format": "zip",
+      "expected_media_type": "application/zip",
+      "family": "archive",
+      "expected_outcome": "rejected",
+      "taxonomy": {
+        "class": "resource_stress",
+        "assertion_scope": "intake",
+        "construction": "Four one-byte entries; max_artifacts=3 includes the source, so exactly two children may be retained.",
+        "seed": 0,
+        "generator": "renderflow.golden.inline/v1",
+        "residual": "Only bounded intake evidence is asserted. Format decoding/rendering/accessibility and native-provider acceptance remain unobserved."
+      },
+      "expected_diagnostic": "intake.budget.artifacts",
+      "expected_discovered": 2,
+      "extraction_limits": {
+        "max_depth": 1,
+        "max_artifacts": 3,
+        "max_extracted_bytes": 65536,
+        "max_expansion_ratio": 16.0
+      }
+    },
+    {
+      "id": "fixture.archive.byte-budget",
+      "filename": "byte-budget.zip",
+      "encoding": "hex",
+      "payload": "504b03041400000000000000210012acd23a40000000400000000b000000626f756e6465642e74787478787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878504b010214031400000000000000210012acd23a40000000400000000b0000000000000000000000a48100000000626f756e6465642e747874504b0506000000000100010039000000690000000000",
+      "sha256": "de0dc73ac3af8cdd824311d2402baef6bdbcc1207893fa54dba70c2824417851",
+      "expected_format": "zip",
+      "expected_media_type": "application/zip",
+      "family": "archive",
+      "expected_outcome": "rejected",
+      "taxonomy": {
+        "class": "resource_stress",
+        "assertion_scope": "intake",
+        "construction": "Only 64 stored source bytes; declared extraction budget is 32. No large allocation recipe.",
+        "seed": 0,
+        "generator": "renderflow.golden.inline/v1",
+        "residual": "Only bounded intake evidence is asserted. Format decoding/rendering/accessibility and native-provider acceptance remain unobserved."
+      },
+      "expected_diagnostic": "intake.budget.bytes",
+      "expected_discovered": 0,
+      "extraction_limits": {
+        "max_depth": 1,
+        "max_artifacts": 8,
+        "max_extracted_bytes": 32,
+        "max_expansion_ratio": 16.0
+      }
+    },
+    {
+      "id": "fixture.archive.ratio-budget",
+      "filename": "ratio-budget.zip",
+      "encoding": "hex",
+      "payload": "504b030414000000080000002100c177103e14000000001000000b000000626f756e6465642e747874edc1010d000000c2a0da8f6f0f0714000000f06e504b0102140314000000080000002100c177103e14000000001000000b0000000000000000000000a48100000000626f756e6465642e747874504b05060000000001000100390000003d0000000000",
+      "sha256": "2a49bb093f06831caf683335e931da346bdb642ac399feb0d28dc5fe39ca76bb",
+      "expected_format": "zip",
+      "expected_media_type": "application/zip",
+      "family": "archive",
+      "expected_outcome": "rejected",
+      "taxonomy": {
+        "class": "resource_stress",
+        "assertion_scope": "intake",
+        "construction": "A finite 4096-byte repeated-text entry; ratio exceeds 16. Stored reviewed hex is authoritative, not zlib byte stability.",
+        "seed": 0,
+        "generator": "renderflow.golden.inline/v1",
+        "residual": "Only bounded intake evidence is asserted. Format decoding/rendering/accessibility and native-provider acceptance remain unobserved."
+      },
+      "expected_diagnostic": "intake.budget.expansion_ratio",
+      "expected_discovered": 0
+    },
+    {
+      "id": "fixture.archive.depth-budget",
+      "filename": "depth-budget.zip",
+      "encoding": "hex",
+      "payload": "504b030414000000000000002100da971d26770000007700000009000000696e6e65722e7a6970504b0304140000000000000021008316dc8c01000000010000000a000000696e736964652e74787478504b01021403140000000000000021008316dc8c01000000010000000a0000000000000000000000a48100000000696e736964652e747874504b0506000000000100010038000000290000000000504b0102140314000000000000002100da971d267700000077000000090000000000000000000000a48100000000696e6e65722e7a6970504b05060000000001000100370000009e0000000000",
+      "sha256": "30be68671c920f7ed39ca9a078d000a4caddc2e0869f5d349e55981bb9b88a5b",
+      "expected_format": "zip",
+      "expected_media_type": "application/zip",
+      "family": "archive",
+      "expected_outcome": "rejected",
+      "taxonomy": {
+        "class": "resource_stress",
+        "assertion_scope": "intake",
+        "construction": "Exactly one nested stored ZIP; max_depth=1 permits inner container capture but blocks its child.",
+        "seed": 0,
+        "generator": "renderflow.golden.inline/v1",
+        "residual": "Only bounded intake evidence is asserted. Format decoding/rendering/accessibility and native-provider acceptance remain unobserved."
+      },
+      "expected_diagnostic": "intake.budget.depth",
+      "expected_discovered": 1
     }
   ],
   "collections": [
     {
       "id": "fixture.collection.ordered-pages",
-      "members": ["fixture.document.markdown", "fixture.data.json"]
+      "members": [
+        "fixture.document.markdown",
+        "fixture.data.json"
+      ]
     },
     {
       "id": "fixture.collection.print-pages",
-      "members": ["fixture.image.print-page001", "fixture.image.print-page002"]
+      "members": [
+        "fixture.image.print-page001",
+        "fixture.image.print-page002"
+      ]
     }
   ],
   "scenarios": [
-    { "id": "inspect_only", "tier": "fast", "fixtures": ["fixture.document.markdown", "fixture.document.pdf", "fixture.image.png", "fixture.image.svg", "fixture.audio.wav", "fixture.video.mp4", "fixture.archive.zip", "fixture.data.json", "fixture.subtitle.srt", "fixture.corrupt.zip", "fixture.mismatch.jpeg-png", "fixture.unknown.binary"] },
-    { "id": "direct_deterministic_conversion", "tier": "fast", "fixtures": ["fixture.document.markdown"] },
-    { "id": "multi_step_conversion", "tier": "fast", "fixtures": ["fixture.document.markdown"] },
-    { "id": "multi_target_shared_intermediate", "tier": "fast", "fixtures": ["fixture.document.markdown"] },
-    { "id": "cross_family_derivative", "tier": "fast", "fixtures": ["fixture.document.markdown", "fixture.data.json"] },
-    { "id": "collection_aggregation", "tier": "fast", "fixtures": ["fixture.collection.ordered-pages"] },
-    { "id": "cache_cold_warm_partial_invalidation", "tier": "fast", "fixtures": ["fixture.document.markdown"] },
-    { "id": "missing_provider_fallback", "tier": "fast", "fixtures": ["fixture.document.markdown"] },
-    { "id": "validation_failure", "tier": "fast", "fixtures": ["fixture.corrupt.zip"] },
-    { "id": "branch_local_failure_partial_result", "tier": "fast", "fixtures": ["fixture.document.markdown"] },
-    { "id": "cancellation", "tier": "fast", "fixtures": ["fixture.document.markdown"] },
-    { "id": "checkpoint_resume", "tier": "fast", "fixtures": ["fixture.document.markdown"] },
-    { "id": "version_invalidation", "tier": "fast", "fixtures": ["fixture.document.markdown"] },
-    { "id": "privacy_redaction_gate", "tier": "fast", "fixtures": ["fixture.document.markdown"] },
-    { "id": "bounded_recursive_extraction", "tier": "fast", "fixtures": ["fixture.archive.zip", "fixture.corrupt.zip"] },
-    { "id": "everything_profile", "tier": "fast", "fixtures": ["fixture.document.markdown"] },
-    { "id": "magazine_release_bundle", "tier": "fast", "fixtures": ["fixture.document.markdown", "fixture.image.png"] },
-    { "id": "optional_tool_providers", "tier": "tool_backed", "fixtures": ["fixture.document.markdown", "fixture.video.mp4"] },
+    {
+      "id": "inspect_only",
+      "tier": "fast",
+      "fixtures": [
+        "fixture.document.markdown",
+        "fixture.document.pdf",
+        "fixture.image.png",
+        "fixture.image.svg",
+        "fixture.audio.wav",
+        "fixture.video.mp4",
+        "fixture.archive.zip",
+        "fixture.data.json",
+        "fixture.subtitle.srt",
+        "fixture.corrupt.zip",
+        "fixture.mismatch.jpeg-png",
+        "fixture.unknown.binary"
+      ],
+      "assertion_scope": "intake",
+      "coverage": [
+        "input.archive",
+        "input.audio",
+        "input.data",
+        "input.document",
+        "input.image",
+        "input.subtitle",
+        "input.unknown",
+        "input.video",
+        "failure.malformed",
+        "failure.detection_conflict"
+      ]
+    },
+    {
+      "id": "direct_deterministic_conversion",
+      "tier": "fast",
+      "fixtures": [
+        "fixture.document.markdown"
+      ],
+      "assertion_scope": "synthetic_contract",
+      "coverage": []
+    },
+    {
+      "id": "multi_step_conversion",
+      "tier": "fast",
+      "fixtures": [
+        "fixture.document.markdown"
+      ],
+      "assertion_scope": "synthetic_contract",
+      "coverage": []
+    },
+    {
+      "id": "multi_target_shared_intermediate",
+      "tier": "fast",
+      "fixtures": [
+        "fixture.document.markdown"
+      ],
+      "assertion_scope": "synthetic_contract",
+      "coverage": []
+    },
+    {
+      "id": "cross_family_derivative",
+      "tier": "fast",
+      "fixtures": [
+        "fixture.document.markdown",
+        "fixture.data.json"
+      ],
+      "assertion_scope": "synthetic_contract",
+      "coverage": []
+    },
+    {
+      "id": "collection_aggregation",
+      "tier": "fast",
+      "fixtures": [
+        "fixture.collection.ordered-pages"
+      ],
+      "assertion_scope": "synthetic_contract",
+      "coverage": []
+    },
+    {
+      "id": "cache_cold_warm_partial_invalidation",
+      "tier": "fast",
+      "fixtures": [
+        "fixture.document.markdown"
+      ],
+      "assertion_scope": "synthetic_contract",
+      "coverage": []
+    },
+    {
+      "id": "missing_provider_fallback",
+      "tier": "fast",
+      "fixtures": [
+        "fixture.document.markdown"
+      ],
+      "assertion_scope": "synthetic_contract",
+      "coverage": []
+    },
+    {
+      "id": "validation_failure",
+      "tier": "fast",
+      "fixtures": [
+        "fixture.corrupt.zip"
+      ],
+      "assertion_scope": "synthetic_contract",
+      "coverage": []
+    },
+    {
+      "id": "branch_local_failure_partial_result",
+      "tier": "fast",
+      "fixtures": [
+        "fixture.document.markdown"
+      ],
+      "assertion_scope": "synthetic_contract",
+      "coverage": []
+    },
+    {
+      "id": "cancellation",
+      "tier": "fast",
+      "fixtures": [
+        "fixture.document.markdown"
+      ],
+      "assertion_scope": "synthetic_contract",
+      "coverage": []
+    },
+    {
+      "id": "checkpoint_resume",
+      "tier": "fast",
+      "fixtures": [
+        "fixture.document.markdown"
+      ],
+      "assertion_scope": "synthetic_contract",
+      "coverage": []
+    },
+    {
+      "id": "version_invalidation",
+      "tier": "fast",
+      "fixtures": [
+        "fixture.document.markdown"
+      ],
+      "assertion_scope": "synthetic_contract",
+      "coverage": []
+    },
+    {
+      "id": "privacy_redaction_gate",
+      "tier": "fast",
+      "fixtures": [
+        "fixture.document.markdown"
+      ],
+      "assertion_scope": "synthetic_contract",
+      "coverage": []
+    },
+    {
+      "id": "bounded_recursive_extraction",
+      "tier": "fast",
+      "fixtures": [
+        "fixture.archive.zip",
+        "fixture.corrupt.zip"
+      ],
+      "assertion_scope": "synthetic_contract",
+      "coverage": []
+    },
+    {
+      "id": "everything_profile",
+      "tier": "fast",
+      "fixtures": [
+        "fixture.document.markdown"
+      ],
+      "assertion_scope": "synthetic_contract",
+      "coverage": []
+    },
+    {
+      "id": "magazine_release_bundle",
+      "tier": "fast",
+      "fixtures": [
+        "fixture.document.markdown",
+        "fixture.image.png"
+      ],
+      "assertion_scope": "synthetic_contract",
+      "coverage": []
+    },
+    {
+      "id": "optional_tool_providers",
+      "tier": "tool_backed",
+      "fixtures": [
+        "fixture.document.markdown",
+        "fixture.video.mp4"
+      ],
+      "assertion_scope": "availability",
+      "coverage": []
+    },
     {
       "id": "real_artifact_gallery",
       "tier": "tool_backed",
-      "fixtures": ["fixture.document.markdown", "fixture.collection.print-pages"],
+      "fixtures": [
+        "fixture.document.markdown",
+        "fixture.collection.print-pages"
+      ],
       "expected_artifacts": [
         {
           "case_id": "markdown_html",
@@ -189,7 +820,9 @@
           "media_type": "text/html",
           "provider_id": "tool.pandoc",
           "oracle_path": "expected/markdown.html",
-          "source_ids": ["fixture.document.markdown"]
+          "source_ids": [
+            "fixture.document.markdown"
+          ]
         },
         {
           "case_id": "ordered_print_pdf",
@@ -199,10 +832,285 @@
           "provider_id": "tool.img2pdf",
           "provider_version": "0.6.3",
           "oracle_path": "expected/print-interior.json",
-          "source_ids": ["fixture.image.print-page001", "fixture.image.print-page002"]
+          "source_ids": [
+            "fixture.image.print-page001",
+            "fixture.image.print-page002"
+          ]
         }
-      ]
+      ],
+      "assertion_scope": "inventory",
+      "coverage": []
     },
-    { "id": "maximal_release_matrix", "tier": "maximal", "fixtures": ["fixture.document.markdown", "fixture.image.png", "fixture.audio.wav", "fixture.video.mp4"] }
-  ]
+    {
+      "id": "maximal_release_matrix",
+      "tier": "maximal",
+      "fixtures": [
+        "fixture.document.markdown",
+        "fixture.image.png",
+        "fixture.audio.wav",
+        "fixture.video.mp4"
+      ],
+      "assertion_scope": "inventory",
+      "coverage": []
+    },
+    {
+      "id": "adversarial_intake",
+      "tier": "fast",
+      "fixtures": [
+        "fixture.document.empty-markdown",
+        "fixture.document.bom-crlf",
+        "fixture.data.empty-object",
+        "fixture.data.nested",
+        "fixture.data.malformed",
+        "fixture.document.truncated-pdf",
+        "fixture.image.zero-png",
+        "fixture.image.external-svg",
+        "fixture.audio.truncated-riff",
+        "fixture.archive.safe",
+        "fixture.archive.traversal",
+        "fixture.archive.symlink",
+        "fixture.archive.artifact-budget",
+        "fixture.archive.byte-budget",
+        "fixture.archive.ratio-budget",
+        "fixture.archive.depth-budget"
+      ],
+      "assertion_scope": "intake",
+      "coverage": [
+        "failure.malformed",
+        "failure.path_traversal",
+        "failure.unsafe_link",
+        "failure.artifact_budget",
+        "failure.byte_budget",
+        "failure.ratio_budget",
+        "failure.depth_budget"
+      ]
+    }
+  ],
+  "limits": {
+    "max_fixtures": 128,
+    "max_fixture_bytes": 65536,
+    "max_total_source_bytes": 1048576,
+    "cooperative_seconds": 120
+  },
+  "coverage": {
+    "catalog_path": "crates/renderflow-core/data/creative-routes.json",
+    "catalog_sha256": "ba2f29fcfdb63aea9f3d6d0e1a34de6d75af7c008488897a71bc009c1841d9c6",
+    "scopes": [
+      {
+        "id": "input.archive",
+        "category": "input_family",
+        "description": "Bounded archive intake identity, not full decoding or rendering."
+      },
+      {
+        "id": "input.audio",
+        "category": "input_family",
+        "description": "Bounded audio intake identity, not full decoding or rendering."
+      },
+      {
+        "id": "input.data",
+        "category": "input_family",
+        "description": "Bounded data intake identity, not full decoding or rendering."
+      },
+      {
+        "id": "input.document",
+        "category": "input_family",
+        "description": "Bounded document intake identity, not full decoding or rendering."
+      },
+      {
+        "id": "input.image",
+        "category": "input_family",
+        "description": "Bounded image intake identity, not full decoding or rendering."
+      },
+      {
+        "id": "input.subtitle",
+        "category": "input_family",
+        "description": "Bounded subtitle intake identity, not full decoding or rendering."
+      },
+      {
+        "id": "input.unknown",
+        "category": "input_family",
+        "description": "Bounded unknown intake identity, not full decoding or rendering."
+      },
+      {
+        "id": "input.video",
+        "category": "input_family",
+        "description": "Bounded video intake identity, not full decoding or rendering."
+      },
+      {
+        "id": "failure.malformed",
+        "category": "failure_class",
+        "description": "Finite corpus coverage obligation for malformed. Empty mapping remains an explicit gap."
+      },
+      {
+        "id": "failure.detection_conflict",
+        "category": "failure_class",
+        "description": "Finite corpus coverage obligation for detection conflict. Empty mapping remains an explicit gap."
+      },
+      {
+        "id": "failure.path_traversal",
+        "category": "failure_class",
+        "description": "Finite corpus coverage obligation for path traversal. Empty mapping remains an explicit gap."
+      },
+      {
+        "id": "failure.unsafe_link",
+        "category": "failure_class",
+        "description": "Finite corpus coverage obligation for unsafe link. Empty mapping remains an explicit gap."
+      },
+      {
+        "id": "failure.artifact_budget",
+        "category": "failure_class",
+        "description": "Finite corpus coverage obligation for artifact budget. Empty mapping remains an explicit gap."
+      },
+      {
+        "id": "failure.byte_budget",
+        "category": "failure_class",
+        "description": "Finite corpus coverage obligation for byte budget. Empty mapping remains an explicit gap."
+      },
+      {
+        "id": "failure.ratio_budget",
+        "category": "failure_class",
+        "description": "Finite corpus coverage obligation for ratio budget. Empty mapping remains an explicit gap."
+      },
+      {
+        "id": "failure.depth_budget",
+        "category": "failure_class",
+        "description": "Finite corpus coverage obligation for depth budget. Empty mapping remains an explicit gap."
+      },
+      {
+        "id": "failure.provider_unavailable",
+        "category": "failure_class",
+        "description": "Finite corpus coverage obligation for provider unavailable. Empty mapping remains an explicit gap."
+      },
+      {
+        "id": "failure.wrong_version",
+        "category": "failure_class",
+        "description": "Finite corpus coverage obligation for wrong version. Empty mapping remains an explicit gap."
+      },
+      {
+        "id": "failure.timeout",
+        "category": "failure_class",
+        "description": "Finite corpus coverage obligation for timeout. Empty mapping remains an explicit gap."
+      },
+      {
+        "id": "failure.cancellation",
+        "category": "failure_class",
+        "description": "Finite corpus coverage obligation for cancellation. Empty mapping remains an explicit gap."
+      },
+      {
+        "id": "failure.nonzero_exit",
+        "category": "failure_class",
+        "description": "Finite corpus coverage obligation for nonzero exit. Empty mapping remains an explicit gap."
+      },
+      {
+        "id": "failure.signal",
+        "category": "failure_class",
+        "description": "Finite corpus coverage obligation for signal. Empty mapping remains an explicit gap."
+      },
+      {
+        "id": "failure.stdout_limit",
+        "category": "failure_class",
+        "description": "Finite corpus coverage obligation for stdout limit. Empty mapping remains an explicit gap."
+      },
+      {
+        "id": "failure.stderr_limit",
+        "category": "failure_class",
+        "description": "Finite corpus coverage obligation for stderr limit. Empty mapping remains an explicit gap."
+      },
+      {
+        "id": "failure.partial_output",
+        "category": "failure_class",
+        "description": "Finite corpus coverage obligation for partial output. Empty mapping remains an explicit gap."
+      },
+      {
+        "id": "failure.invalid_output",
+        "category": "failure_class",
+        "description": "Finite corpus coverage obligation for invalid output. Empty mapping remains an explicit gap."
+      },
+      {
+        "id": "failure.wrong_format",
+        "category": "failure_class",
+        "description": "Finite corpus coverage obligation for wrong format. Empty mapping remains an explicit gap."
+      },
+      {
+        "id": "failure.wrong_page_count",
+        "category": "failure_class",
+        "description": "Finite corpus coverage obligation for wrong page count. Empty mapping remains an explicit gap."
+      },
+      {
+        "id": "failure.wrong_geometry",
+        "category": "failure_class",
+        "description": "Finite corpus coverage obligation for wrong geometry. Empty mapping remains an explicit gap."
+      },
+      {
+        "id": "failure.stale_output",
+        "category": "failure_class",
+        "description": "Finite corpus coverage obligation for stale output. Empty mapping remains an explicit gap."
+      },
+      {
+        "id": "failure.symlink_output",
+        "category": "failure_class",
+        "description": "Finite corpus coverage obligation for symlink output. Empty mapping remains an explicit gap."
+      },
+      {
+        "id": "failure.duplicate_output",
+        "category": "failure_class",
+        "description": "Finite corpus coverage obligation for duplicate output. Empty mapping remains an explicit gap."
+      },
+      {
+        "id": "failure.nondeterminism",
+        "category": "failure_class",
+        "description": "Finite corpus coverage obligation for nondeterminism. Empty mapping remains an explicit gap."
+      },
+      {
+        "id": "failure.digest_mismatch",
+        "category": "failure_class",
+        "description": "Finite corpus coverage obligation for digest mismatch. Empty mapping remains an explicit gap."
+      },
+      {
+        "id": "failure.schema_mismatch",
+        "category": "failure_class",
+        "description": "Finite corpus coverage obligation for schema mismatch. Empty mapping remains an explicit gap."
+      },
+      {
+        "id": "failure.missing_provenance",
+        "category": "failure_class",
+        "description": "Finite corpus coverage obligation for missing provenance. Empty mapping remains an explicit gap."
+      },
+      {
+        "id": "failure.interrupted_publication",
+        "category": "failure_class",
+        "description": "Finite corpus coverage obligation for interrupted publication. Empty mapping remains an explicit gap."
+      },
+      {
+        "id": "failure.resume",
+        "category": "failure_class",
+        "description": "Finite corpus coverage obligation for resume. Empty mapping remains an explicit gap."
+      },
+      {
+        "id": "failure.active_external_content",
+        "category": "failure_class",
+        "description": "Finite corpus coverage obligation for active external content. Empty mapping remains an explicit gap."
+      },
+      {
+        "id": "failure.font_missing",
+        "category": "failure_class",
+        "description": "Finite corpus coverage obligation for font missing. Empty mapping remains an explicit gap."
+      },
+      {
+        "id": "failure.font_corrupt",
+        "category": "failure_class",
+        "description": "Finite corpus coverage obligation for font corrupt. Empty mapping remains an explicit gap."
+      },
+      {
+        "id": "failure.overflow",
+        "category": "failure_class",
+        "description": "Finite corpus coverage obligation for overflow. Empty mapping remains an explicit gap."
+      },
+      {
+        "id": "failure.writing_mode",
+        "category": "failure_class",
+        "description": "Finite corpus coverage obligation for writing mode. Empty mapping remains an explicit gap."
+      }
+    ]
+  }
 }

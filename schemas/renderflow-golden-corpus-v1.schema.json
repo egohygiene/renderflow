@@ -4,86 +4,402 @@
   "title": "Renderflow golden artifact corpus v1",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "corpus_version", "license", "redistribution", "fixtures", "collections", "scenarios"],
+  "required": [
+    "schema_version",
+    "corpus_version",
+    "license",
+    "redistribution",
+    "fixtures",
+    "collections",
+    "scenarios"
+  ],
   "properties": {
-    "schema_version": { "const": "renderflow.golden-corpus/v1" },
-    "corpus_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
-    "license": { "const": "CC0-1.0" },
-    "redistribution": { "type": "string", "minLength": 1 },
+    "schema_version": {
+      "const": "renderflow.golden-corpus/v1"
+    },
+    "corpus_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "license": {
+      "const": "CC0-1.0"
+    },
+    "redistribution": {
+      "type": "string",
+      "minLength": 1
+    },
     "fixtures": {
       "type": "array",
       "minItems": 1,
-      "items": { "$ref": "#/$defs/fixture" }
+      "items": {
+        "$ref": "#/$defs/fixture"
+      }
     },
     "collections": {
       "type": "array",
-      "items": { "$ref": "#/$defs/collection" }
+      "items": {
+        "$ref": "#/$defs/collection"
+      }
     },
     "scenarios": {
       "type": "array",
       "minItems": 1,
-      "items": { "$ref": "#/$defs/scenario" }
+      "items": {
+        "$ref": "#/$defs/scenario"
+      }
+    },
+    "limits": {
+      "$ref": "#/$defs/limits"
+    },
+    "coverage": {
+      "$ref": "#/$defs/coverage"
     }
   },
   "$defs": {
     "fixture": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "filename", "encoding", "payload", "expected_media_type", "family", "expected_outcome"],
+      "required": [
+        "id",
+        "filename",
+        "encoding",
+        "payload",
+        "expected_media_type",
+        "family",
+        "expected_outcome"
+      ],
       "properties": {
-        "id": { "type": "string", "pattern": "^fixture\\.[a-z0-9.-]+$" },
-        "filename": { "type": "string", "minLength": 1 },
-        "encoding": { "enum": ["utf8", "hex"] },
-        "payload": { "type": "string" },
-        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
-        "expected_format": { "type": "string", "minLength": 1 },
-        "expected_media_type": { "type": "string", "pattern": "^[^/]+/[^/]+$" },
-        "family": { "type": "string", "minLength": 1 },
-        "expected_outcome": { "enum": ["accepted", "conflict", "rejected"] },
-        "expected_diagnostic": { "type": "string", "minLength": 1 }
+        "id": {
+          "type": "string",
+          "pattern": "^fixture\\.[a-z0-9.-]+$"
+        },
+        "filename": {
+          "type": "string",
+          "minLength": 1
+        },
+        "encoding": {
+          "enum": [
+            "utf8",
+            "hex"
+          ]
+        },
+        "payload": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "expected_format": {
+          "type": "string",
+          "minLength": 1
+        },
+        "expected_media_type": {
+          "type": "string",
+          "pattern": "^[^/]+/[^/]+$"
+        },
+        "family": {
+          "type": "string",
+          "minLength": 1
+        },
+        "expected_outcome": {
+          "enum": [
+            "accepted",
+            "conflict",
+            "rejected"
+          ]
+        },
+        "expected_diagnostic": {
+          "type": "string",
+          "minLength": 1
+        },
+        "taxonomy": {
+          "$ref": "#/$defs/taxonomy"
+        },
+        "extraction_limits": {
+          "$ref": "#/$defs/extractionLimits"
+        },
+        "expected_discovered": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 32
+        }
       }
     },
     "collection": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "members"],
+      "required": [
+        "id",
+        "members"
+      ],
       "properties": {
-        "id": { "type": "string", "pattern": "^fixture\\.collection\\.[a-z0-9.-]+$" },
-        "members": { "type": "array", "minItems": 1, "items": { "type": "string" } }
+        "id": {
+          "type": "string",
+          "pattern": "^fixture\\.collection\\.[a-z0-9.-]+$"
+        },
+        "members": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        }
       }
     },
     "scenario": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "tier", "fixtures"],
+      "required": [
+        "id",
+        "tier",
+        "fixtures"
+      ],
       "properties": {
-        "id": { "type": "string", "pattern": "^[a-z0-9_]+$" },
-        "tier": { "enum": ["fast", "tool_backed", "maximal"] },
-        "fixtures": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9_]+$"
+        },
+        "tier": {
+          "enum": [
+            "fast",
+            "tool_backed",
+            "maximal"
+          ]
+        },
+        "fixtures": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
         "expected_artifacts": {
           "type": "array",
           "minItems": 1,
-          "items": { "$ref": "#/$defs/expectedArtifact" }
+          "items": {
+            "$ref": "#/$defs/expectedArtifact"
+          }
+        },
+        "coverage": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "assertion_scope": {
+          "enum": [
+            "synthetic_contract",
+            "intake",
+            "native_output",
+            "availability",
+            "inventory"
+          ]
         }
       }
     },
     "expectedArtifact": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["case_id", "role", "format", "media_type", "provider_id", "oracle_path", "source_ids"],
+      "required": [
+        "case_id",
+        "role",
+        "format",
+        "media_type",
+        "provider_id",
+        "oracle_path",
+        "source_ids"
+      ],
       "properties": {
-        "case_id": { "type": "string", "pattern": "^[a-z0-9_]+$" },
-        "role": { "type": "string", "pattern": "^[a-z0-9_-]+$" },
-        "format": { "type": "string", "minLength": 1 },
-        "media_type": { "type": "string", "pattern": "^[^/]+/[^/]+$" },
-        "provider_id": { "type": "string", "pattern": "^tool\\.[a-z0-9.-]+$" },
-        "provider_version": { "type": "string", "minLength": 1 },
-        "oracle_path": { "type": "string", "pattern": "^expected/(?:[a-z0-9_-]+/)*[a-z0-9_-]+(?:\\.[a-z0-9_-]+)+$" },
+        "case_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9_]+$"
+        },
+        "role": {
+          "type": "string",
+          "pattern": "^[a-z0-9_-]+$"
+        },
+        "format": {
+          "type": "string",
+          "minLength": 1
+        },
+        "media_type": {
+          "type": "string",
+          "pattern": "^[^/]+/[^/]+$"
+        },
+        "provider_id": {
+          "type": "string",
+          "pattern": "^tool\\.[a-z0-9.-]+$"
+        },
+        "provider_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "oracle_path": {
+          "type": "string",
+          "pattern": "^expected/(?:[a-z0-9_-]+/)*[a-z0-9_-]+(?:\\.[a-z0-9_-]+)+$"
+        },
         "source_ids": {
           "type": "array",
           "minItems": 1,
           "uniqueItems": true,
-          "items": { "type": "string", "pattern": "^fixture\\.[a-z0-9.-]+$" }
+          "items": {
+            "type": "string",
+            "pattern": "^fixture\\.[a-z0-9.-]+$"
+          }
+        }
+      }
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "max_fixtures",
+        "max_fixture_bytes",
+        "max_total_source_bytes",
+        "cooperative_seconds"
+      ],
+      "properties": {
+        "max_fixtures": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1024
+        },
+        "max_fixture_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1048576
+        },
+        "max_total_source_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 16777216
+        },
+        "cooperative_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 600
+        }
+      }
+    },
+    "taxonomy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "class",
+        "assertion_scope",
+        "construction",
+        "seed",
+        "generator",
+        "residual"
+      ],
+      "properties": {
+        "class": {
+          "enum": [
+            "valid",
+            "boundary",
+            "malformed",
+            "unsupported",
+            "resource_stress"
+          ]
+        },
+        "assertion_scope": {
+          "const": "intake"
+        },
+        "construction": {
+          "type": "string",
+          "minLength": 1
+        },
+        "seed": {
+          "const": 0
+        },
+        "generator": {
+          "const": "renderflow.golden.inline/v1"
+        },
+        "residual": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "extractionLimits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "max_depth",
+        "max_artifacts",
+        "max_extracted_bytes",
+        "max_expansion_ratio"
+      ],
+      "properties": {
+        "max_depth": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4
+        },
+        "max_artifacts": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 32
+        },
+        "max_extracted_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65536
+        },
+        "max_expansion_ratio": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 16
+        }
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "catalog_path",
+        "catalog_sha256",
+        "scopes"
+      ],
+      "properties": {
+        "catalog_path": {
+          "const": "crates/renderflow-core/data/creative-routes.json"
+        },
+        "catalog_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "scopes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "category",
+              "description"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "category": {
+                "enum": [
+                  "input_family",
+                  "failure_class",
+                  "local_capability"
+                ]
+              },
+              "description": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
         }
       }
     }
