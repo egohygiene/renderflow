@@ -26,6 +26,22 @@ supersedes: []
 
 # Renderflow Roadmap
 
+## 2026-11-03 — bounded adversarial corpus source checkpoint
+
+#476–#478 are merged with explicit maintainer authorization. The next oldest
+local #412 checkpoint extends the existing golden corpus to 30 pinned literal
+sources with five taxonomy classes, low-budget archive failures, source
+immutability and explicit coverage gaps. Coverage derives from the current
+format registry and pinned shared creative catalog; identification, contract
+mocks and native output evidence remain distinct. Fast execution no longer
+probes optional tools. No workflow, provider or second harness is added.
+
+See [corpus guide](docs/conformance-corpus.md) and
+[handoff](docs/work/412/HANDOFF.md). Source, schema and harness changes are
+authored/unrun. All tests/build/Cargo/lint/format/schema/docs/corpus/native/
+provider/model/CI execution remains deferred; #412 stays open for its wider
+matrix and actual acceptance. Next source slice: focused comic child #413.
+
 ## 2026-11-03 — composition source reconciliation and next local queue
 
 The selected oldest-local lane is #349 briefings → #397 Sonic DNA → remaining
