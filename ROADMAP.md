@@ -26,6 +26,20 @@ supersedes: []
 
 # Renderflow Roadmap
 
+## 2026-11-03 — forest file verification
+
+The approved publishing stack #468/#470/#471/#472 is merged. #430's next
+source checkpoint adds common SDK/CLI publication file observations on top of
+the existing native receipt join. Exact selected receipt bytes, explicit bundle
+root, observed path/file identity, size/hash and cancellation/work bounds stay
+separate from original run/validation/fidelity/review state.
+
+See [bundle evidence](docs/user-guide/bundle-evidence.md) and
+[checkpoint handoff](docs/work/430/VERIFIED_PUBLICATIONS.md). Seven authored
+filesystem regressions remain unrun; tests/build/Cargo/lint/format/schema/docs,
+product CLI/native/provider execution and CI remain deferred. #430/#421 and
+#458/#419 keep all unobserved integration/portability/release acceptance open.
+
 ## 2026-11-03 manual timed-lyrics profile
 
 #469 now has an authored `lyrics` selector and explicit source-digest-bound

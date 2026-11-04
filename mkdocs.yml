@@ -66,6 +66,7 @@ nav:
       - Quick Start: getting-started/quickstart.md
       - CLI Overview: getting-started/cli-overview.md
   - User Guide:
+      - Bundle Evidence: user-guide/bundle-evidence.md
       - Manual Timed Lyrics: user-guide/manual-lyrics.md
 
       - Presentations: user-guide/presentations.md

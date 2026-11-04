@@ -60,6 +60,13 @@ This helper does not validate files, path confinement or the complete receipt;
 the host checks below still apply. Serialized consumers retain the same existing
 contracts, and no Flow adapter or released-consumer proof is added.
 
+The additive [bundle verification service](../user-guide/bundle-evidence.md)
+implements the published-file size/hash and observed-path checks for SDK/CLI
+consumers. `RunManifest::verify_published_targets()` preserves the borrowed native
+records, while `PinnedRunReceipt` also retains exact selected receipt bytes.
+This authored, unqualified layer does not authenticate the publisher, validate
+every receipt field, resolve every canonical sidecar or grant creative approval.
+
 `artifact_forest.produced_artifacts` lists unique published derivative IDs. It
 omits sources, unpublished candidates and intermediates. An explicitly requested
 unchanged source can have a `published` row with `source_identity: true`, but it

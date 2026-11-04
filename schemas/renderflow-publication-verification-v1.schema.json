@@ -1,0 +1,33 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://egohygiene.github.io/renderflow/schemas/renderflow-publication-verification-v1.schema.json",
+  "title":"Observed forest publication file bytes v1",
+  "type":"object","additionalProperties":false,
+  "required":["schema_version","run_id","run_state","receipt_sha256","verified_publication_count","has_publications","verified_publications","scope","runtime_qualified","publisher_authenticated","creative_approval_inferred","limits"],
+  "properties":{
+    "schema_version":{"const":"renderflow.publication-verification/v1"},
+    "run_id":{"type":"string","minLength":1},
+    "run_state":{"enum":["planned","complete","partial","failed","cancelled"]},
+    "receipt_sha256":{"type":["string","null"],"pattern":"^[a-f0-9]{64}$"},
+    "verified_publication_count":{"type":"integer","minimum":0},
+    "has_publications":{"type":"boolean"},
+    "verified_publications":{"type":"array","items":{
+      "type":"object","additionalProperties":false,
+      "required":["target_id","artifact_id","locator","sha256","size_bytes","validation","fidelity","source_identity"],
+      "properties":{
+        "target_id":{"type":"string","minLength":1},
+        "artifact_id":{"type":"string","minLength":1},
+        "locator":{"type":"string","pattern":"^bundle:"},
+        "sha256":{"type":"string","pattern":"^[a-f0-9]{64}$"},
+        "size_bytes":{"type":"integer","minimum":0},
+        "validation":{"type":"string"},
+        "fidelity":{"type":"string"},
+        "source_identity":{"type":"boolean"}
+      }
+    }},
+    "scope":{"type":"string"},"limits":{"type":"string"},
+    "runtime_qualified":{"const":false},"publisher_authenticated":{"const":false},
+    "creative_approval_inferred":{"const":false}
+  },
+  "$comment":"Counts and observed subjects are produced by the shared verifier; source validation/fidelity/review state is not promoted. This report is not the native run receipt or an authentication credential."
+}

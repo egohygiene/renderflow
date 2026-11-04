@@ -340,6 +340,13 @@ pub enum Commands {
         subcommand: PublicationCommands,
     },
 
+    /// Verify actual publication files named by a pinned native forest receipt.
+    #[command(subcommand_required = true, arg_required_else_help = true)]
+    Bundle {
+        #[command(subcommand)]
+        subcommand: BundleCommands,
+    },
+
     /// Plan and execute bounded whole-file video transforms.
     #[command(subcommand_required = true, arg_required_else_help = true)]
     Video {
@@ -957,6 +964,33 @@ pub enum LuluCommands {
         #[arg(long)]
         epubcheck: bool,
     },
+}
+
+/// Native forest-bundle operations; standalone presentation receipts are distinct.
+#[derive(Subcommand)]
+pub enum BundleCommands {
+    /// Read and hash declared files; no provider, upload or publication approval.
+    Verify(BundleVerifyArguments),
+}
+
+#[derive(clap::Args)]
+pub struct BundleVerifyArguments {
+    #[arg(long,value_name="FILE")]
+    pub manifest:String,
+    /// Exact selected receipt bytes. A digest is not a publisher signature.
+    #[arg(long,value_name="SHA256")]
+    pub manifest_sha256:String,
+    /// Explicit root; never inferred from receipt.output_dir or host paths.
+    #[arg(long,value_name="DIRECTORY")]
+    pub bundle_root:String,
+    #[arg(long,default_value_t=2147483648_u64)]
+    pub maximum_file_bytes:u64,
+    #[arg(long,default_value_t=8589934592_u64)]
+    pub maximum_total_bytes:u64,
+    #[arg(long,default_value_t=8192_usize)]
+    pub maximum_publications:usize,
+    #[arg(long,default_value_t=120_u64)]
+    pub timeout_seconds:u64,
 }
 
 /// Standalone presentation publication profile. Native rendering is opt-in.
