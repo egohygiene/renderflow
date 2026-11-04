@@ -360,6 +360,133 @@ def transcript_text_evidence(manifest, published, source_record):
             raise ValueError("transcript text publication omitted language-loss disclosure")
 
 
+def manual_lyrics_evidence(manifest, published, source_record, policy, root):
+    """Check declared manual provenance without duplicating the Rust codecs."""
+    records = manifest["artifact_manifest"]["artifacts"]
+    companions = [item for item in published if item["format"] == "lyrics_json"]
+    if len(companions) != 1 or policy.get("source_sha256") != source_record["sha256"]:
+        raise ValueError("manual lyrics requires its source-bound published canonical companion")
+    companion = companions[0]
+    document = read_json(within(root, companion["file"]["path"]))
+    if document.get("schema_version") != "renderflow.lyrics/v1" or document.get("policy") != policy:
+        raise ValueError("canonical lyrics changed the explicit manual classification/review policy")
+    for item in published:
+        record = records[item["artifact_evidence_index"]]
+        if item["source_identity"]:
+            if item["format"] != "srt" or item["file"]["sha256"] != source_record["sha256"]:
+                raise ValueError("source-equivalent lyrics export changed the manual input")
+            continue
+        metadata = record.get("metadata")
+        evidence = metadata.get("renderflow.lyrics") if isinstance(metadata, dict) else None
+        if not isinstance(evidence, dict) or evidence.get("schema_version") != "renderflow.lyrics-artifact/v1":
+            raise ValueError("generated lyric publication lacks its native evidence")
+        if evidence.get("source_sha256") != source_record["sha256"] or evidence.get("canonical_sha256") != companion["file"]["sha256"]:
+            raise ValueError("lyric derivative lost its original/canonical byte binding")
+        if evidence.get("review_state") != policy["review_state"] or evidence.get("review_is_declared") is not True or evidence.get("runtime_qualified") is not False:
+            raise ValueError("lyric derivative changed declared review or runtime qualification")
+        losses = evidence.get("losses")
+        if not isinstance(losses, list) or not all(isinstance(loss, str) for loss in losses):
+            raise ValueError("lyric derivative losses must remain explicit names")
+        if item["format"] == "lrc" and not {"cue_end_times_not_represented", "multiline_cue_grouping_not_represented"}.issubset(losses):
+            raise ValueError("LRC output omitted its timing/grouping limitations")
+
+
+def bundle_command(binary, arguments, operation, directory, root, timeout, result):
+    """Retain real shared-CLI observations and failures, never success placeholders."""
+    capture = directory / "bundle-evidence" / operation
+    capture.mkdir(parents=True)
+    process = run_child([str(binary), "bundle", *arguments], capture, timeout)
+    result["bundle_evidence"]["operations"].append({"operation": operation, "process": process})
+    if not process["captures_closed"]:
+        raise ValueError("bundle command captures remain open; no log digest claimed")
+    for name in ("stdout", "stderr"):
+        path = capture / (name + ".log")
+        if path.exists():
+            result["evidence"].append({"kind": "bundle_" + name, **file_reference(path, root, CAPTURE_BYTES)})
+    if process["termination"] != "exited" or process["exit_code"] != 0:
+        raise ValueError(operation + " failed; retained process/log evidence remains authoritative")
+    value = read_json(capture / "stdout.log")
+    if not isinstance(value, dict):
+        raise ValueError(operation + " did not return an object report")
+    return value
+
+
+def bundle_checkpoints(binary, manifest_path, manifest, directory, root, timeout, result):
+    """Use the public verifier/exporter, then verify a renamed portable handoff."""
+    checkpoint = result["bundle_evidence"]
+    checkpoint.update(status="failed", reason="Bundle checks started but have not completed.")
+    receipts = [item for item in result["evidence"] if item["kind"] == "run"]
+    if len(receipts) != 1 or receipts[0]["path"] != manifest_path.relative_to(root).as_posix():
+        raise ValueError("bundle checks require the exact previously observed native receipt")
+    selected = receipts[0]
+    common = ["--manifest", str(manifest_path), "--manifest-sha256", selected["sha256"],
+              "--bundle-root", str(directory / "bundle")]
+    limits = ["--maximum-file-bytes", str(MAX_FILE), "--maximum-total-bytes", str(2 * 1024 * 1024 * 1024),
+              "--timeout-seconds", str(min(timeout, 3600))]
+    native = bundle_command(binary, ["verify", *common, *limits], "verify-native", directory, root, timeout, result)
+    if native.get("schema_version") != "renderflow.publication-verification/v1" or native.get("receipt_sha256") != selected["sha256"]:
+        raise ValueError("native verification report differs from the selected receipt")
+    check_bundle_report(native, manifest, result["published_artifacts"], portable=False)
+    exported = directory / "portable-export"
+    export = bundle_command(binary, ["export", *common, *limits, "--artifact-store-root",
+                            str(directory / ".renderflow" / "artifacts"), "--output-dir", str(exported),
+                            "--include-sources"], "export-portable", directory, root, timeout, result)
+    if export.get("schema_version") != "renderflow.portable-forest-export/v1" or export.get("native_receipt_sha256") != selected["sha256"]:
+        raise ValueError("portable export report differs from the selected native receipt")
+    if export.get("run_id") != manifest["run_id"] or export.get("run_state") != manifest["state"] or export.get("include_sources") is not True:
+        raise ValueError("portable export changed native state or omitted requested originals")
+    index = file_reference(within(exported, "bundle.json"), root, MAX_JSON)
+    if export.get("index_sha256") != index["sha256"]:
+        raise ValueError("exported index differs from its reported digest")
+    moved = directory / "portable"
+    if moved.exists() or moved.is_symlink():
+        raise ValueError("moved handoff destination must not exist")
+    exported.rename(moved)
+    verified = bundle_command(binary, ["verify-portable", "--bundle-root", str(moved),
+                              "--index-sha256", index["sha256"], *limits],
+                              "verify-portable", directory, root, timeout, result)
+    if verified.get("schema_version") != "renderflow.portable-forest-verification/v1" or verified.get("index_sha256") != index["sha256"] or verified.get("native_receipt_sha256") != selected["sha256"]:
+        raise ValueError("moved portable verification changed pinned index/receipt identities")
+    if verified.get("include_sources") is not True or verified.get("external_source_records") != 0 or verified.get("observed_records") != len(manifest["artifact_manifest"]["artifacts"]):
+        raise ValueError("moved verification omitted retained inventory or requested originals")
+    check_bundle_report(verified, manifest, result["published_artifacts"], portable=True)
+    native_copy = file_reference(within(moved, "native/run.json"), root, MAX_JSON)
+    if native_copy["sha256"] != selected["sha256"] or native_copy["size_bytes"] != selected["size_bytes"]:
+        raise ValueError("portable copy changed original native receipt bytes")
+    index = file_reference(within(moved, "bundle.json"), root, MAX_JSON)
+    if index["sha256"] != export["index_sha256"]:
+        raise ValueError("portable index changed after verification")
+    result["evidence"].extend([{"kind": "portable_index", **index}, {"kind": "portable_receipt", **native_copy}])
+    checkpoint.update(status="verified", reason="Native publications and moved portable handoff were observed; native/creative qualification remains separate.",
+                      portable_directory=moved.relative_to(root).as_posix(), index_sha256=index["sha256"],
+                      native_receipt_sha256=selected["sha256"])
+
+
+def check_bundle_report(report, manifest, published, portable):
+    """Do not let transport success rewrite native run or publication facts."""
+    if report.get("run_id") != manifest["run_id"] or report.get("run_state") != manifest["state"]:
+        raise ValueError("bundle report changed native run identity/state")
+    if any(report.get(field) is not False for field in ("runtime_qualified", "publisher_authenticated", "creative_approval_inferred")):
+        raise ValueError("bundle report inferred qualification or approval")
+    observed = report.get("publications" if portable else "verified_publications")
+    if not isinstance(observed, list) or len(observed) != len(published):
+        raise ValueError("bundle report omitted or invented native publications")
+    expected = {item["target_id"]: item for item in published}
+    seen = set()
+    for item in observed:
+        if not isinstance(item, dict) or item.get("target_id") not in expected or item["target_id"] in seen:
+            raise ValueError("bundle report repeated or changed a native target identity")
+        seen.add(item["target_id"])
+        target = expected[item["target_id"]]
+        record = manifest["artifact_manifest"]["artifacts"][target["artifact_evidence_index"]]
+        if any(item.get(field) != value for field, value in {
+            "artifact_id": target["artifact_id"], "sha256": target["file"]["sha256"], "size_bytes": target["file"]["size_bytes"],
+            "source_identity": target["source_identity"], "validation": record["validation"], "fidelity": record["fidelity"],
+            "original_locator" if portable else "locator": record["locator"],
+        }.items()):
+            raise ValueError("bundle report changed native publication identity/bytes/status")
+
+
 def configure(job, native, directory):
     entry = native.get(job.get("configuration", job["id"]))
     if job.get("native") and entry is None:
@@ -402,9 +529,12 @@ def configure(job, native, directory):
     return source, source_record, spec
 
 
-def run_job(job, native, binary, mode, root, timeout):
+def run_job(job, native, binary, mode, root, timeout, portable=False):
     result = {"id": job["id"], "status": "failed", "expected": job.get("expected", "success"),
               "evidence": [], "published_artifacts": []}
+    if portable:
+        result["bundle_evidence"] = {"status": "not_attempted", "operations": [],
+                                     "reason": "No observed graph publication is available for packaging."}
     if job.get("native") and job.get("configuration", job["id"]) not in native:
         result.update(status="skipped_unconfigured", reason="No explicit native policy supplied; availability was not observed.")
         return result
@@ -442,8 +572,12 @@ def run_job(job, native, binary, mode, root, timeout):
         manifest_path = directory / "bundle" / "renderflow-run.json"
         manifest = None
         if manifest_path.exists():
-            result["evidence"].append({"kind": "run", **file_reference(manifest_path, root, MAX_JSON)})
-            manifest = read_json(manifest_path)
+            selected = file_reference(manifest_path, root, MAX_JSON)
+            result["evidence"].append({"kind": "run", **selected})
+            manifest_bytes = read_file(manifest_path, MAX_JSON)
+            if sha256(manifest_bytes) != selected["sha256"]:
+                raise ValueError("native receipt changed between selection and parsing")
+            manifest = json.loads(manifest_bytes, object_pairs_hook=unique_object)
             result["native_run_state"] = manifest.get("state")
             result["published_artifacts"] = published_artifacts(manifest, directory / "bundle", root)
         process = result["process"]
@@ -451,6 +585,8 @@ def run_job(job, native, binary, mode, root, timeout):
             raise ValueError("child did not finish with complete bounded captures")
         stdout = read_file(directory / "stdout.log", CAPTURE_BYTES)
         stderr = read_file(directory / "stderr.log", CAPTURE_BYTES)
+        if portable and mode == "execute" and result["published_artifacts"]:
+            bundle_checkpoints(binary, manifest_path, manifest, directory, root, timeout, result)
         if process["exit_code"] != 0:
             marker = job.get("failure_marker")
             diagnostic = (stdout + stderr).decode("utf-8", errors="replace")
@@ -483,6 +619,8 @@ def run_job(job, native, binary, mode, root, timeout):
                 original_body_evidence(manifest, result["published_artifacts"], source_record, spec["execution"]["screenplay_body"])
             if "subtitles" in spec["execution"]:
                 transcript_text_evidence(manifest, result["published_artifacts"], source_record)
+            if "lyrics" in spec["execution"]:
+                manual_lyrics_evidence(manifest, result["published_artifacts"], source_record, spec["execution"]["lyrics"], root)
             if job.get("expected") == "review_required":
                 records = manifest["artifact_manifest"]["artifacts"]
                 for item in result["published_artifacts"]:
@@ -544,6 +682,8 @@ def main(argv=None):
     parser.add_argument("--job", action="append", metavar="ID",
                         help="Select one fixture job; repeat for several. Omit to select the suite.")
     parser.add_argument("--include-negatives", action="store_true")
+    parser.add_argument("--portable", action="store_true",
+                        help="In execute mode, verify graph outputs, export retained evidence and verify the moved handoff. Describe stays static.")
     parser.add_argument("--timeout-seconds", type=int, default=900)
     arguments = parser.parse_args(argv)
     request_path = FIXTURE / "fixture.json"
@@ -554,6 +694,10 @@ def main(argv=None):
         request = select_request(request, arguments.job, arguments.include_negatives)
     except ValueError as error:
         parser.error(str(error))
+    if arguments.portable:
+        if arguments.mode == "plan":
+            parser.error("--portable requires execute or static describe; plans do not generate bundles")
+        request["portable_evidence"] = True
     if arguments.mode == "describe":
         print(json.dumps(request, indent=2, ensure_ascii=False))
         return 0
@@ -587,7 +731,7 @@ def main(argv=None):
     write_json(root / "started.json", report)
     try:
         for job in request["jobs"]:
-            result = run_job(job, native, binary, arguments.mode, root, arguments.timeout_seconds)
+            result = run_job(job, native, binary, arguments.mode, root, arguments.timeout_seconds, arguments.portable)
             report["jobs"].append(result)
             write_json(root / (job["id"] + ".result.json"), result)
         if sha256(read_file(binary)) != report["binary"]["sha256"]:
