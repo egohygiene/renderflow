@@ -229,6 +229,8 @@ impl MediaType {
             Format::Ssa => "text/x-ssa",
             Format::Ttml => "application/ttml+xml",
             Format::TimedTranscriptJson => "application/vnd.renderflow.timed-transcript+json",
+            Format::LyricsJson => "application/vnd.renderflow.lyrics+json",
+            Format::Lrc => "text/plain",
         };
         Self(value.to_string())
     }

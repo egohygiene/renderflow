@@ -259,6 +259,7 @@
             "null"
           ]
         },
+        "lyrics": {"anyOf": [{"$ref": "#/$defs/lyricsPolicy"}, {"type": "null"}]},
         "subtitles": {
           "anyOf": [
             {
@@ -320,6 +321,16 @@
         }
       },
       "type": "object"
+    },
+    "lyricsPolicy": {
+      "type": "object", "additionalProperties": false, "required": ["source_sha256"],
+      "properties": {
+        "source_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "review_state": {"enum": ["unreviewed", "reviewed"], "default": "unreviewed"},
+        "language": {"type": ["string", "null"], "maxLength": 64},
+        "revision": {"type": ["string", "null"], "maxLength": 256},
+        "sections": {"type": "object", "maxProperties": 100000, "additionalProperties": {"type": "string", "minLength": 1, "maxLength": 1024}, "default": {}}
+      }
     },
     "screenplayBodyPolicy": {
       "type": "object", "additionalProperties": false,
@@ -1907,6 +1918,7 @@
         "subtitles": {
           "type": "null"
         },
+        "lyrics": {"type": "null"},
         "speech": {
           "type": "null"
         },

@@ -246,6 +246,7 @@ fn default_profile_schema() -> String {
 pub(crate) fn bundled_profile(name: &str) -> Result<Option<DerivativeProfile>> {
     let source = match name {
         "editorial" => include_str!("../data/profiles/editorial-v1.yaml"),
+        "lyrics" => include_str!("../data/profiles/lyrics-v1.yaml"),
         "magazine" => include_str!("../data/profiles/magazine-v1.yaml"),
         "coloring-book" => include_str!("../data/profiles/coloring-book-v1.yaml"),
         "everything" => include_str!("../data/profiles/everything-v1.yaml"),
@@ -553,6 +554,9 @@ impl Default for ValidationPolicy {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ExecutionPolicy {
+    /// Explicit manual timed-lyrics classification; no recognition or alignment.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lyrics: Option<crate::lyrics::LyricsPolicy>,
     /// Locale and renderer settings for a single local composition package.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub composition: Option<CompositionBuildPolicy>,
@@ -743,6 +747,7 @@ impl FixedLayoutEpubPolicy {
 impl Default for ExecutionPolicy {
     fn default() -> Self {
         Self {
+            lyrics: None,
             composition: None,
             optimization: OptimizationMode::default(),
             derivative_planning: DerivativePlanningPolicy::default(),
@@ -883,6 +888,22 @@ impl fmt::Display for SpecValidationReport {
 impl SpecV2 {
     pub fn validate(&self) -> Vec<SpecDiagnostic> {
         let mut diagnostics = Vec::new();
+        if let Some(policy) = &self.execution.lyrics {
+            if let Err(error) = policy.validate() {
+                diagnostics.push(SpecDiagnostic::new("$.execution.lyrics","lyrics.policy.invalid",error.to_string()));
+            }
+            if self.sources.len() != 1 || self.sources.first().is_none_or(|source| source.kind != SourceKind::Artifact)
+                || self.transforms.is_some() || self.execution.composition.is_some()
+                || self.execution.subtitles.is_some() || self.execution.speech.is_some()
+                || self.execution.screenplay.is_some() || self.execution.screenplay_body.is_some()
+                || self.execution.screenplay_pdf.is_some() || self.execution.screenplay_recovery.is_some()
+                || self.execution.print_pdf_interior.is_some() || self.execution.fixed_layout_epub.is_some()
+                || self.execution.hygiene_policy.is_some()
+            {
+                diagnostics.push(SpecDiagnostic::new("$.execution.lyrics","lyrics.policy.ambiguous",
+                    "manual timed lyrics requires one artifact and a dedicated spec without other native, custom-transform or hygiene policies"));
+            }
+        }
 
         if self.schema != SPEC_V2_ID {
             diagnostics.push(SpecDiagnostic::new(
@@ -2214,6 +2235,7 @@ pub fn json_schema() -> Value {
                     ,"print_pdf_interior": {"anyOf": [{"$ref": "#/$defs/printPdfInterior"}, {"type": "null"}]}
                     ,"fixed_layout_epub": {"anyOf": [{"$ref": "#/$defs/fixedLayoutEpub"}, {"type": "null"}]}
                     ,"subtitles": {"anyOf": [{"$ref": "#/$defs/subtitles"}, {"type": "null"}]}
+                    ,"lyrics": {"anyOf": [{"$ref": "#/$defs/lyricsPolicy"}, {"type": "null"}]}
                     ,"speech": {"anyOf": [{"$ref": "#/$defs/speechPolicy"}, {"type": "null"}]}
                     ,"screenplay": {"anyOf": [{"$ref": "#/$defs/screenplayPolicy"}, {"type": "null"}]}
                     ,"screenplay_body": {"anyOf": [{"$ref": "#/$defs/screenplayBodyPolicy"}, {"type": "null"}]}
@@ -2221,6 +2243,7 @@ pub fn json_schema() -> Value {
                     ,"screenplay_recovery": {"anyOf": [{"$ref": "#/$defs/screenplayRecoveryPolicy"}, {"type": "null"}]}
                 }
             },
+                "lyricsPolicy": crate::lyrics::policy_schema(),
                 "screenplayBodyPolicy": {
                     "type": "object", "additionalProperties": false,
                     "required": ["allow_unqualified"],

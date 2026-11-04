@@ -20,6 +20,7 @@ mod screenplay_recovery;
 use screenplay_recovery::{recovery_provider_ids, register_recovery_edges,
     register_recovery_executors, validate_recovery_source, validate_recovery_targets};
 mod screenplay_body;
+mod lyrics;
 use screenplay_body::{register_body_edges, register_body_executors,
     validate_body_source, validate_body_targets, SCREENPLAY_BODY_ADAPTER_EVIDENCE};
 
@@ -563,6 +564,14 @@ fn resolve_loaded(request: PlanningRequest, loaded: crate::spec::LoadedSpec) -> 
         });
     }
     let source_format = source_format.context("source collection has no members")?;
+    if let Some(policy) = &spec.execution.lyrics {
+        lyrics::validate_source(source_format,collection,policy,&spec)?;
+        anyhow::ensure!(source_members[0].intake.source.digest().value() == policy.source_sha256,
+            "lyrics.source.changed: intake differs from explicit manual-source binding");
+        let mut bytes = Vec::new();
+        fs::File::open(&source_members[0].path)?.take(crate::timed_text::MAX_INPUT_BYTES as u64 + 1).read_to_end(&mut bytes)?;
+        crate::lyrics::normalize(&bytes,source_format,policy)?;
+    }
     let source_path = source_members[0].path.clone();
     let source_intake = &source_members[0].intake;
     if let Some(policy) = &spec.execution.screenplay_body {
@@ -631,6 +640,10 @@ fn resolve_loaded(request: PlanningRequest, loaded: crate::spec::LoadedSpec) -> 
         };
 
     register_builtin_strategy_edges(&mut graph, &mut tool_registry)?;
+    if let Some(policy) = &spec.execution.lyrics {
+        lyrics::register_edges(&mut graph,&mut tool_registry,source_format,policy)?;
+        graph = graph.filtered_by(|edge| edge.evidence.get("adapter").map(String::as_str) == Some(lyrics::LYRICS_ADAPTER));
+    }
     if let Some(policy) = &spec.execution.screenplay_body {
         register_body_edges(&mut graph, &mut tool_registry, source_format, policy)?;
         graph = graph.filtered_by(|edge| edge.evidence.get("adapter").map(String::as_str)
@@ -694,6 +707,7 @@ fn resolve_loaded(request: PlanningRequest, loaded: crate::spec::LoadedSpec) -> 
         policy_graph
     };
     let requested_targets = resolve_target_intent(&spec, &graph, source_format)?;
+    if spec.execution.lyrics.is_some() { lyrics::validate_targets(&requested_targets)?; }
     if requested_targets.iter().any(|target| target.preset.as_deref() == Some(crate::strategies::editorial::EDITORIAL_PRESET)) {
         anyhow::ensure!(!collection && source_format == Format::Markdown,
             "editorial.source: select one canonical Markdown article");
@@ -872,6 +886,9 @@ fn resolve_loaded(request: PlanningRequest, loaded: crate::spec::LoadedSpec) -> 
     }
     if spec.execution.screenplay_body.is_some() {
         plan.add_tool_diagnostic("screenplay_body.provider.unqualified: direct original-Fountain body exports use the local built-in codec without native executables. The bounded semantic profile and retained canonical reference do not qualify native application opening, pagination, layout, or creative approval. Publication independently revalidates the original, output, policy and canonical evidence; cache and checkpoint reuse remain disabled.");
+    }
+    if spec.execution.lyrics.is_some() {
+        plan.add_tool_diagnostic("lyrics.manual_source: selected manual timed-text bytes and explicit policy are bound; no audio recognition/alignment or creative approval is inferred. Use lyrics inspect for the shared eligibility/loss view. ChordPro and MusicXML remain unsupported. Planned targets are not generated artifacts; only observed publications establish output existence. Runtime/player qualification remains deferred.");
     }
     if spec.execution.screenplay_pdf.is_some() {
         plan.add_tool_diagnostic("screenplay_pdf.provider.unqualified: bounded preflight verifies configured Node/package pins, required package assets, and exact Node/package versions. This is availability evidence only; no PDF rendering or visual qualification occurs during planning. Execution independently inspects the emitted PDF; cache and checkpoint reuse remain disabled.");
@@ -1109,6 +1126,7 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
     let source_artifact = source_artifacts[0].clone();
 
     let mut executor = std::mem::take(&mut resolved.executor);
+    lyrics::register_executors(&mut executor,&resolved.dag,resolved.spec.execution.lyrics.as_ref(),resolved.cancellation.clone())?;
     register_subtitle_executors(
         &mut executor,
         &resolved.dag,
@@ -1568,6 +1586,16 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
                 }]).unwrap_or_default(),
             });
             if state == ValidationState::Invalid { outcome.state = state; }
+        }
+        if let Some(policy) = &resolved.spec.execution.lyrics {
+            let check = crate::lyrics::graph::validate_published(artifact,&source_artifact,&store,policy);
+            let state = if check.is_ok() {ValidationState::Valid} else {ValidationState::Invalid};
+            outcome.validators.push(ValidatorEvidence {
+                validator_id:"validator.lyrics.source_binding".into(),validator_version:env!("CARGO_PKG_VERSION").into(),
+                provider:"renderflow.core".into(),state,
+                diagnostics:check.err().map(|error| vec![ValidationDiagnostic {code:"lyrics.validation.source_binding".into(),message:error.to_string()}]).unwrap_or_default(),
+            });
+            if state == ValidationState::Invalid {outcome.state = state;}
         }
         if target.format == Format::Text && (resolved.spec.execution.subtitles.is_some()
             || resolved.spec.execution.speech.is_some()
@@ -3819,6 +3847,8 @@ fn apply_execution_policy(
 }
 
 fn edge_allowed(edge: &TransformEdge, tools: &ToolRegistry, spec: &SpecV2) -> bool {
+    if edge.evidence.get("adapter").map(String::as_str) == Some(lyrics::LYRICS_ADAPTER)
+        && spec.execution.lyrics.is_none() { return false; }
     if edge.from == Format::Text && (spec.execution.subtitles.is_some()
         || spec.execution.speech.is_some()) {
         return false;
@@ -4394,6 +4424,7 @@ fn artifact_extension(format: Format) -> String {
         Format::Kepub => "kepub.epub".to_string(),
         Format::ScreenplayJson => "screenplay.json".to_string(),
         Format::TimedTranscriptJson => "timed-transcript.json".to_string(),
+        Format::LyricsJson => "lyrics.json".to_string(),
         _ => format.to_string(),
     }
 }

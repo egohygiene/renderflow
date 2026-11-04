@@ -1,0 +1,18 @@
+schema: renderflow/v2
+sources:
+  - id: manual-lyrics
+    path: manual.srt
+    format: srt
+targets:
+  profiles: [lyrics]
+execution:
+  lyrics:
+    source_sha256: 5a0467455e91e0e07635ffa743050be50217f5c88bd15a08cf5eea23e59bd4b2
+    review_state: unreviewed
+    language: fr
+    revision: synthetic-manual-r1
+  derivative_planning:
+    max_hops: 4
+    max_candidates: 128
+output:
+  bundle_root: output

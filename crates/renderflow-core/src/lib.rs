@@ -39,6 +39,7 @@ pub mod print_pdf_image;
 pub mod print_pdf_inspect;
 pub mod process;
 pub mod presentation;
+pub mod lyrics;
 pub mod publication;
 pub mod screenplay;
 mod sdk;

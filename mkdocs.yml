@@ -66,6 +66,8 @@ nav:
       - Quick Start: getting-started/quickstart.md
       - CLI Overview: getting-started/cli-overview.md
   - User Guide:
+      - Manual Timed Lyrics: user-guide/manual-lyrics.md
+
       - Presentations: user-guide/presentations.md
       - Configuration: user-guide/configuration.md
       - Editorial Writing Agent: user-guide/editorial-agent.md

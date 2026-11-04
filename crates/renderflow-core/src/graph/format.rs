@@ -167,6 +167,10 @@ pub enum Format {
     Ttml,
     /// Renderflow's versioned timed-transcript JSON (`.timed-transcript.json`).
     TimedTranscriptJson,
+    /// Explicit lyrics wrapper around the shared timed-transcript model.
+    LyricsJson,
+    /// Line-synchronized lyric text; the lyrics profile exports millisecond LRC.
+    Lrc,
 }
 
 impl fmt::Display for Format {
@@ -251,6 +255,8 @@ impl fmt::Display for Format {
             Format::Ssa => "ssa",
             Format::Ttml => "ttml",
             Format::TimedTranscriptJson => "timed_transcript_json",
+            Format::LyricsJson => "lyrics_json",
+            Format::Lrc => "lrc",
         };
         write!(f, "{}", s)
     }
@@ -348,6 +354,8 @@ impl FromStr for Format {
             "ssa" => Ok(Format::Ssa),
             "ttml" => Ok(Format::Ttml),
             "timed_transcript_json" | "timed-transcript.json" => Ok(Format::TimedTranscriptJson),
+            "lyrics_json" | "lyrics.json" => Ok(Format::LyricsJson),
+            "lrc" => Ok(Format::Lrc),
             _ => anyhow::bail!(
                 "'{}' is not a known format. \
                  Documents: markdown, html, pdf, docx, epub, kepub, rst, latex, fountain, fdx, fadein, osf, trelby, screenplay_json. \
@@ -358,7 +366,7 @@ impl FromStr for Format {
                  Video: mp4, mov, mkv, webm, avi. \
                  Data: json, yaml, toml, csv, tsv, xml. \
                  Archives: zip, tar.gz, tar.xz. \
-                 Subtitles: srt, vtt, ass, ssa, ttml, timed_transcript_json.",
+                 Subtitles: srt, vtt, ass, ssa, ttml, timed_transcript_json, lyrics_json, lrc.",
                 s
             ),
         }
