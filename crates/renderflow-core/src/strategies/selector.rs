@@ -11,14 +11,18 @@ use crate::strategies::{DocxStrategy, EbookStrategy, HtmlStrategy, OutputStrateg
 /// strategy so that it can locate the correct template file when rendering.
 /// When `template` is `None` the strategy falls back to default pandoc behaviour.
 ///
-/// The optional `profile` is forwarded to audio strategies to control quality
-/// settings.  It is ignored for non-audio output types.
+/// The optional `profile` selects media quality settings or the bundled
+/// `editorial-v1` document presentation preset.
 pub fn select_strategy(
     output_type: &OutputType,
     template: Option<&str>,
     template_dir: &str,
     profile: Option<&str>,
 ) -> Result<Box<dyn OutputStrategy + Send + Sync>> {
+    if profile == Some(super::editorial::EDITORIAL_PRESET) {
+        anyhow::ensure!(template.is_none(), "editorial.template: the versioned preset owns its templates");
+        return Ok(Box::new(super::editorial::EditorialStrategy::new(output_type)?));
+    }
     match output_type {
         OutputType::Html => Ok(Box::new(HtmlStrategy::new(
             template.map(str::to_owned),

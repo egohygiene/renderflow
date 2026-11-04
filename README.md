@@ -664,6 +664,12 @@ Renderflow is organized as a Rust workspace:
 
 The CLI does not reimplement planning or execution logic; it delegates to the core crate.
 
+The bundled [editorial article profile](docs/user-guide/editorial-articles.md)
+selects HTML/PDF presentation, optional DOCX/EPUB derivatives and an exact source
+copy from one Markdown article. The [synthetic example](examples/editorial/README.md)
+includes the metadata contract and commands. Templates and licensed local fonts
+are embedded; native/visual qualification remains deferred under #379.
+
 Explicit [local command plugins](docs/plugin-guide/command-plugins.md) can use that
 same artifact-native SDK through a transform registry. The
 [names-to-JSON/CSV example](examples/plugins/names/README.md) demonstrates the
