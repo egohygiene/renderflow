@@ -26,6 +26,20 @@ supersedes: []
 
 # Renderflow Roadmap
 
+## 2026-11-03 — portable retained forest inventory
+
+The next #430 source checkpoint adds an explicit local export of retained native
+inventory and required canonical companions, with optional remaining original
+sources. Exact native receipt bytes stay unchanged; a separate hash-pinned index
+maps each included row to copied content-addressed payloads. The shared SDK/CLI
+verifier re-observes those files without original-store fallback and preserves
+run, fidelity and review state.
+
+See [portable bundles](docs/user-guide/portable-forest-bundles.md) and
+[source handoff](docs/work/430/PORTABLE_BUNDLES.md). Eight authored cases are
+unrun. Tests/build/Cargo/lint/format/schema/docs/product execution and CI remain
+deferred; #430/#421 and #458/#419 retain unobserved acceptance and release scope.
+
 ## 2026-11-03 — forest file verification
 
 The approved publishing stack #468/#470/#471/#472 is merged. #430's next

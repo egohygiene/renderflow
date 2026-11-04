@@ -389,6 +389,8 @@ pub fn run_cli(cli: Cli) -> Result<()> {
         },
         Some(Commands::Bundle {subcommand}) => match subcommand {
             BundleCommands::Verify(arguments) => commands::bundle::verify(arguments)?,
+            BundleCommands::Export(arguments) => commands::bundle::export(arguments)?,
+            BundleCommands::VerifyPortable(arguments) => commands::bundle::verify_portable(arguments)?,
         },
         Some(Commands::Presentation { subcommand }) => match subcommand {
             PresentationCommands::Fingerprint { installation_root } => commands::presentation::fingerprint(&installation_root)?,

@@ -1,5 +1,15 @@
 # #430 — multi-family forest integration checkpoint
 
+## Portable retained-inventory source checkpoint — November 3, 2026
+
+The [portable export checkpoint](PORTABLE_BUNDLES.md) builds on draft #473's
+observed-publication API. A separate hash-pinned index carries copied retained
+inventory and required canonical companions beside the exact native receipt;
+SDK/CLI verification needs no original output/store paths. Other original
+sources remain optional. Eight authored cases, including an ordinary builtin
+Fountain-to-FDX path, are unrun. Existing qualification and release acceptance
+remain open; no tests/build/lint/format/validators/product execution or CI ran.
+
 ## Observed-publication source checkpoint — November 3, 2026
 
 The publishing batch #468/#470/#471/#472 is merged with explicit maintainer

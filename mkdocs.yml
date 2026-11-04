@@ -67,6 +67,7 @@ nav:
       - CLI Overview: getting-started/cli-overview.md
   - User Guide:
       - Bundle Evidence: user-guide/bundle-evidence.md
+      - Portable Forest Bundles: user-guide/portable-forest-bundles.md
       - Manual Timed Lyrics: user-guide/manual-lyrics.md
 
       - Presentations: user-guide/presentations.md

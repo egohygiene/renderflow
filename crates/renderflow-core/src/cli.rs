@@ -971,6 +971,10 @@ pub enum LuluCommands {
 pub enum BundleCommands {
     /// Read and hash declared files; no provider, upload or publication approval.
     Verify(BundleVerifyArguments),
+    /// Copy retained inventory and exact receipt into a new portable evidence directory.
+    Export(BundleExportArguments),
+    /// Verify a moved portable directory without its original bundle or store.
+    VerifyPortable(BundlePortableVerifyArguments),
 }
 
 #[derive(clap::Args)]
@@ -983,6 +987,12 @@ pub struct BundleVerifyArguments {
     /// Explicit root; never inferred from receipt.output_dir or host paths.
     #[arg(long,value_name="DIRECTORY")]
     pub bundle_root:String,
+    #[command(flatten)]
+    pub limits:BundleIoArguments,
+}
+
+#[derive(clap::Args)]
+pub struct BundleIoArguments {
     #[arg(long,default_value_t=2147483648_u64)]
     pub maximum_file_bytes:u64,
     #[arg(long,default_value_t=8589934592_u64)]
@@ -991,6 +1001,33 @@ pub struct BundleVerifyArguments {
     pub maximum_publications:usize,
     #[arg(long,default_value_t=120_u64)]
     pub timeout_seconds:u64,
+}
+
+#[derive(clap::Args)]
+pub struct BundleExportArguments {
+    #[command(flatten)]
+    pub input:BundleVerifyArguments,
+    #[arg(long,value_name="DIRECTORY")]
+    pub artifact_store_root:Option<String>,
+    #[arg(long,value_name="DIRECTORY")]
+    pub output_dir:String,
+    /// Include remaining originals in addition to required canonical/source companions.
+    #[arg(long)]
+    pub include_sources:bool,
+    #[arg(long,default_value_t=16384_usize)]
+    pub maximum_records:usize,
+}
+
+#[derive(clap::Args)]
+pub struct BundlePortableVerifyArguments {
+    #[arg(long,value_name="DIRECTORY")]
+    pub bundle_root:String,
+    #[arg(long,value_name="SHA256")]
+    pub index_sha256:String,
+    #[arg(long,default_value_t=16384_usize)]
+    pub maximum_records:usize,
+    #[command(flatten)]
+    pub limits:BundleIoArguments,
 }
 
 /// Standalone presentation publication profile. Native rendering is opt-in.

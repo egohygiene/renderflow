@@ -22,6 +22,11 @@ pub struct FileObservation {
     pub size_bytes:u64,
 }
 
+pub(crate) struct ExpectedFile<'a> {
+    pub size_bytes:u64,
+    pub sha256:&'a str,
+}
+
 pub(crate) struct BundleRoot {
     requested:PathBuf,
     pub(crate) path:PathBuf,
@@ -97,10 +102,12 @@ pub(crate) fn check_budget(started:Instant,limits:&VerificationLimits,cancellati
 /// Observe while optionally copying into a caller-owned new staging file. Never
 /// publish a completion receipt unless the observation and destination both pass.
 pub(crate) fn observe(
-    root:&BundleRoot,relative:&str,expected_size:u64,expected_sha256:&str,
+    root:&BundleRoot,relative:&str,expected:ExpectedFile<'_>,
     limits:&VerificationLimits,started:Instant,cancellation:&ProcessCancellationToken,
     sink:&mut impl Write,
 ) -> Result<FileObservation,VerificationError> {
+    let expected_size=expected.size_bytes;
+    let expected_sha256=expected.sha256;
     check_budget(started,limits,cancellation)?;
     digest(expected_sha256)?;
     if expected_size>limits.max_file_bytes {return Err(VerificationError::Limit {resource:"file bytes"});}

@@ -107,10 +107,21 @@ impl PinnedRunReceipt {
         fs::File::open(path).map_err(files::io("open run receipt"))?
             .take(limits.max_manifest_bytes+1).read_to_end(&mut bytes).map_err(files::io("read run receipt"))?;
         if bytes.len() as u64>limits.max_manifest_bytes {return Err(VerificationError::Limit {resource:"receipt bytes"});}
+        let value=Self::from_bytes(bytes,expected_sha256,limits)?;
+        files::check_budget(started,limits,&cancellation)?;
+        Ok(value)
+    }
+
+    pub(crate) fn from_bytes(bytes:Vec<u8>,expected_sha256:&str,limits:&VerificationLimits)->Result<Self,VerificationError> {
+        limits.validate()?;
+        files::digest(expected_sha256)?;
+        if bytes.len() as u64>limits.max_manifest_bytes {return Err(VerificationError::Limit {resource:"receipt bytes"});}
         let sha256=format!("{:x}",Sha256::digest(&bytes));
         if sha256!=expected_sha256 {return Err(VerificationError::Integrity {field:"selected receipt SHA-256"});}
+        if !serde_json::from_slice::<Value>(&bytes)?.is_object() {
+            return Err(VerificationError::Integrity {field:"native receipt must be a JSON object"});
+        }
         let manifest=serde_json::from_slice(&bytes)?;
-        files::check_budget(started,limits,&cancellation)?;
         Ok(Self {bytes,manifest,sha256})
     }
 
@@ -141,7 +152,7 @@ pub fn verify<'a>(manifest:&'a RunManifest,root:&Path,limits:&VerificationLimits
         total=total.checked_add(record.size_bytes).ok_or(VerificationError::Limit {resource:"total bytes"})?;
         if total>limits.max_total_bytes {return Err(VerificationError::Limit {resource:"total bytes"});}
         let relative=record.locator.strip_prefix("bundle:").ok_or(VerificationError::Path {reason:"only bundle locators are verified"})?;
-        let observation=files::observe(&root,relative,record.size_bytes,&record.digest.value,limits,started,
+        let observation=files::observe(&root,relative,files::ExpectedFile {size_bytes:record.size_bytes,sha256:&record.digest.value},limits,started,
             &cancellation,&mut std::io::sink())?;
         result.push(VerifiedPublication {publication,observation});
     }
