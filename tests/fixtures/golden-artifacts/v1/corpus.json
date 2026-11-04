@@ -1,6 +1,6 @@
 {
   "schema_version": "renderflow.golden-corpus/v1",
-  "corpus_version": "1.3.2",
+  "corpus_version": "1.4.0",
   "license": "CC0-1.0",
   "redistribution": "Synthetic fixtures created for Renderflow conformance; no publication or third-party content.",
   "fixtures": [
@@ -293,7 +293,7 @@
       "id": "fixture.document.bom-crlf",
       "filename": "bom-crlf.md",
       "encoding": "utf8",
-      "payload": "﻿# Harbor\r\n\r\nA literal line.\r\n",
+      "payload": "\ufeff# Harbor\r\n\r\nA literal line.\r\n",
       "sha256": "a1b8170ceabdcd1b22ca2bf713ddade611346e1ba1462cb73e39ec439866d44f",
       "expected_format": "markdown",
       "expected_media_type": "text/markdown",
@@ -1169,12 +1169,12 @@
     {
       "schema_version": "renderflow.document-fixture-pack/v1",
       "id": "pack.lantern-map",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "document_type": "comic",
       "source_fixture": "fixture.pack.lantern-map-story",
       "generator": {
         "path": "crates/renderflow-core/tests/common/golden_comic.rs",
-        "sha256": "8349b7e64ca2275984220a7af0fa5836a75fdd7da7b989bdec98defdb37153d3"
+        "sha256": "421f229bc749c9127cca015950126f84a93e61fc1c73a088935e412140ed7f93"
       },
       "toolchain": {
         "path": "Cargo.lock",
@@ -1221,12 +1221,12 @@
             "cover_pages": 2,
             "width_mm": 100.0,
             "height_mm": 140.0,
-            "dpi": 72
+            "dpi": 127
           },
           "limits": {
             "max_files": 256,
             "max_source_bytes": 2097152,
-            "max_output_bytes": 16777216,
+            "max_output_bytes": 33554432,
             "cooperative_seconds": 120
           },
           "outputs": [
@@ -1293,7 +1293,7 @@
             "cover_pages": 2,
             "width_mm": 100.0,
             "height_mm": 140.0,
-            "dpi": 72
+            "dpi": 127
           },
           "limits": {
             "max_files": 256,
@@ -1343,19 +1343,19 @@
       ],
       "unavailable_mappings": [
         {
-          "role": "interior",
+          "role": "cover_wrap",
           "format": "pdf",
-          "reason": "The model wants one ordered interior PDF. Native composition emits per-page candidates and RGBA PNG; ordered print requires RGB/grayscale input. No qualified normalizer/aggregate route is selected."
+          "reason": "The optional PDF packet contains front/back as two ordered single pages using native interior semantics. Spine, wrap/spread, printer color/PDF-X/provider conformance and publication approval are not supplied."
+        }
+      ],
+      "recipe_dependencies": [
+        {
+          "path": "crates/renderflow-core/tests/common/golden_comic_publications.rs",
+          "sha256": "2b2a704060c66d670a5ef7f532fe93cdbeca65c517755008760dcbc385f7f01a"
         },
         {
-          "role": "cover",
-          "format": "pdf",
-          "reason": "The model wants a separate two-page cover PDF. Per-page candidates do not establish a cover merge, spine/wrap geometry or printer acceptance."
-        },
-        {
-          "role": "publication",
-          "format": "epub",
-          "reason": "Existing fixed-layout EPUB shares the RGB/grayscale raster preflight. No compatible normalization and comic publication-metadata/reading-order mapping is selected for these RGBA page candidates."
+          "path": "crates/renderflow-core/src/publication/raster.rs",
+          "sha256": "2674466b7776f9cfa65f3cc566e4f84541f8b0544f20dc171a2b6706bda4f322"
         }
       ]
     }

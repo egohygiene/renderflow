@@ -291,7 +291,10 @@
         "toolchain_sha256",
         "asset_sha256",
         "parameters",
-        "validator_ids"
+        "validator_ids",
+        "recipe_dependency_sha256",
+        "publication_outputs",
+        "rgb_preparation"
       ],
       "properties": {
         "pack_id": {
@@ -350,7 +353,7 @@
         "observed_publications": {
           "type": "integer",
           "minimum": 0,
-          "maximum": 230
+          "maximum": 233
         },
         "output_sha256": {
           "type": "object",
@@ -468,7 +471,7 @@
               "const": 140
             },
             "dpi": {
-              "const": 72
+              "const": 127
             }
           }
         },
@@ -480,6 +483,114 @@
           },
           "minItems": 5,
           "maxItems": 5
+        },
+        "recipe_dependency_sha256": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        },
+        "publication_outputs": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "role",
+              "native_target_role",
+              "format",
+              "page_ids",
+              "status",
+              "reason",
+              "output_sha256",
+              "run_id",
+              "provider_id",
+              "runtime_qualified",
+              "publication_approval_inferred"
+            ],
+            "properties": {
+              "role": {
+                "enum": [
+                  "interior",
+                  "cover_pages",
+                  "ebook"
+                ]
+              },
+              "native_target_role": {
+                "enum": [
+                  "interior",
+                  "ebook"
+                ]
+              },
+              "format": {
+                "enum": [
+                  "pdf",
+                  "epub"
+                ]
+              },
+              "page_ids": {
+                "type": "array",
+                "minItems": 2,
+                "maxItems": 46,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "status": {
+                "enum": [
+                  "recipe_only",
+                  "not_attempted",
+                  "observed_candidate"
+                ]
+              },
+              "reason": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "output_sha256": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "run_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "provider_id": {
+                "enum": [
+                  "tool.img2pdf",
+                  "tool.renderflow-epub"
+                ]
+              },
+              "runtime_qualified": {
+                "const": false
+              },
+              "publication_approval_inferred": {
+                "const": false
+              }
+            }
+          }
+        },
+        "rgb_preparation": {
+          "type": "object",
+          "maxProperties": 46,
+          "additionalProperties": {
+            "$ref": "renderflow-publication-rgb-v1.schema.json"
+          }
         }
       }
     }

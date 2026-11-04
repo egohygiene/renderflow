@@ -11,13 +11,15 @@ existing golden manifest pins its story, recipe, toolchain and font assets.
 `pack.lantern-map` selects two variants from the same recipe:
 
 - `minimal`: two interior pages, front cover and back cover; authored public-API
-  cases for per-page SVG/HTML/transcript/PNG/PDF candidates.
+  cases for per-page SVG/HTML/transcript/PNG/PDF candidates, explicit RGB preparation
+  and ordered native EPUB. Interior/cover-page PDF packets require an explicitly
+  selected full-tier img2pdf 0.6.3 provider.
 - `publication-44`: 44 numbered interior pages plus a separate two-cover group;
   source/planning-only case in the maximal tier. Two story beats repeat as a
   finite layout stress recipe, with no fabricated unique narrative or outputs.
 
 Each page has two panels, separate caption/dialogue content, stable reading IDs,
-artwork descriptions and an explicit human-review requirement. The 72 DPI
+artwork descriptions and an explicit human-review requirement. The 127 DPI
 100 × 140 mm output is a small preview fixture, not a print-quality promise.
 
 Source materialization is a function inside the existing
@@ -27,7 +29,9 @@ for the deferred execution example, retention option, schema/contributor
 convention, positive/negative assertions and provider limits. This sprint ran
 no generator, compiler, test, renderer, validator or CI.
 
-Combined interior/cover PDF and comic EPUB mappings remain explicitly
-unavailable. A PDF checker or per-page candidate is not a provider exporter,
+Ordered EPUB and opt-in PDF packet recipes reuse the existing packagers.
+The two-cover packet is not a wrap/spine or printer-conformance exporter; that
+mapping remains unavailable. RGB preparation explicitly drops color intent and
+density metadata without converting the retained samples. A PDF checker or per-page candidate is not a provider exporter,
 printer acceptance or publication approval. No existing golden baseline is
 silently created or updated.
