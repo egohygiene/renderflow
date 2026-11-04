@@ -104,6 +104,10 @@ store until the corresponding export/consumer contract is satisfied. It also
 does not validate every field in the complete native receipt or prove rendering
 quality, source authenticity or release readiness.
 
+The optional [portable forest handoff](portable-forest-bundles.md) adds explicit
+retained-inventory copying and moved-directory verification on top of this
+service. It preserves native metadata and still grants no publication approval.
+
 The source and seven meaningful filesystem regression cases are authored and
 unrun. No product tests, compiler/build/Cargo resolution, lint/format/schema/docs
 validators, CLI/native/provider execution or CI ran for this checkpoint. #430

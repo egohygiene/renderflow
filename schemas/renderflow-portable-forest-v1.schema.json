@@ -1,0 +1,29 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://egohygiene.github.io/renderflow/schemas/renderflow-portable-forest-v1.schema.json",
+  "title":"Portable native forest inventory v1",
+  "type":"object","additionalProperties":false,
+  "required":["schema_version","run_id","run_state","native_receipt","include_sources","records"],
+  "properties":{
+    "schema_version":{"const":"renderflow.portable-forest/v1"},
+    "run_id":{"type":"string","minLength":1},
+    "run_state":{"enum":["planned","complete","partial","failed","cancelled"]},
+    "include_sources":{"type":"boolean","description":"Include remaining originals. Required canonical/source companions are included independently of this flag."},
+    "native_receipt":{
+      "type":"object","additionalProperties":false,"required":["path","sha256","size_bytes"],
+      "properties":{
+        "path":{"const":"native/run.json"},
+        "sha256":{"type":"string","pattern":"^[a-f0-9]{64}$"},
+        "size_bytes":{"type":"integer","minimum":0}
+      }
+    },
+    "records":{"type":"array","minItems":1,"maxItems":100000,"items":{
+      "type":"object","additionalProperties":false,"required":["native_index","path"],
+      "properties":{
+        "native_index":{"type":"integer","minimum":0},
+        "path":{"type":["string","null"],"pattern":"^objects/sha256/[a-f0-9]{2}/[a-f0-9]{64}$"}
+      }
+    }}
+  },
+  "$comment":"Runtime requires one binding per native inventory row in original order, digest-derived paths, exact native receipt agreement and required companion inclusion. Null paths are deliberately external original sources. This is a transport index, not proof of native fidelity or publisher/review authenticity."
+}

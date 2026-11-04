@@ -78,7 +78,13 @@ bundle root. Refuse traversal, links escaping the bundle or a missing payload;
 verify the recorded byte size and digest before copying or handing it to another
 provider. Preserve the native manifest and the evidence files it references.
 Do not treat `artifact-store:` locators as files already published into the
-portable output bundle.
+portable output bundle. The explicit
+[portable forest exporter](../user-guide/portable-forest-bundles.md) copies
+retained inventory and required canonical companions into digest-addressed
+objects, keeps the exact native receipt, and supplies a separate index for
+locating those copies. Its verifier checks the selected index, receipt and
+included bytes without falling back to the original store. This does not
+promote run state, fidelity, review status or runtime qualification.
 
 ## Preserve losses and review state
 
@@ -93,8 +99,8 @@ portable output bundle.
 
 An original-body native export keeps its canonical companion in the local
 artifact store unless `screenplay_json` is also selected for publication.
-Copying a native-only bundle does not make an `artifact-store:` reference
-portable. Preserve the referenced store, or select the canonical target and
+Copying a native-only bundle without that explicit export does not make an
+`artifact-store:` reference portable. Preserve the referenced store, or select the canonical target and
 retain its actual publication together with the original source and native run
 evidence when moving the outputs. The creative fixture's `original-body` job
 selects that canonical companion explicitly.

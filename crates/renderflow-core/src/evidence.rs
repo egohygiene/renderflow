@@ -19,6 +19,7 @@ use crate::toolchain::ToolchainSnapshot;
 mod publications;
 pub(crate) mod files;
 pub mod verification;
+pub mod portable;
 pub use publications::{PublishedTarget, PublishedTargetsError};
 
 pub const RUN_MANIFEST_SCHEMA_V1: &str = "renderflow.run/v1";
