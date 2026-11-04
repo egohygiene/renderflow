@@ -360,6 +360,7 @@ impl AiSkillRegistry {
             include_str!("../../data/ai/skills/visual-dna-v1.json"),
             include_str!("../../data/ai/skills/prompt-from-dna-v1.json"),
             include_str!("../../data/ai/skills/accessibility-description-v1.json"),
+            include_str!("../../data/ai/skills/sonic-description-v1.json"),
         ];
         let mut registry = Self::default();
         for source in sources {
@@ -648,7 +649,7 @@ mod tests {
     #[test]
     fn bundled_skills_are_valid_and_candidate_first() {
         let registry = AiSkillRegistry::bundled().unwrap();
-        assert_eq!(registry.iter().count(), 5);
+        assert_eq!(registry.iter().count(), 6);
         assert!(registry.iter().all(|skill| {
             skill.approval.initial_state == AiCandidateState::Candidate
                 && skill.approval.human_review_required

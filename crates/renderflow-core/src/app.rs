@@ -155,6 +155,7 @@ pub fn run_cli(cli: Cli) -> Result<()> {
             AiCommands::Cache { path } => commands::ai::run_cache(&path)?,
         },
         Some(Commands::Dna { subcommand }) => match subcommand {
+            DnaCommands::Sonic { subcommand } => commands::sonic::run(subcommand)?,
             DnaCommands::Extract {
                 input,
                 output,

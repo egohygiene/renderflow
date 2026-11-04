@@ -1,0 +1,129 @@
+{
+  "schema": "aniflow.audio-analysis/v1",
+  "status": "complete",
+  "source": {
+    "artifact": {
+      "id": "fixture_source",
+      "sha256": "2976da01e205a110c9fa41d47659e238a5c6d3c3f3137582f2949853faa201dd",
+      "byte_size": 3244
+    },
+    "stream_index": 0,
+    "sample_rate_hz": 16000,
+    "channels": 1,
+    "frame_count": 1600,
+    "origin": {
+      "numerator": 0,
+      "denominator": 1
+    },
+    "stem": null
+  },
+  "artifacts": [
+    {
+      "id": "fixture_evidence",
+      "sha256": "f6023f432062476bae9a8322bfbbf7dc315bd71923601a351612a0903ef17976",
+      "byte_size": 68
+    }
+  ],
+  "providers": [
+    {
+      "id": "fixture_provider",
+      "provider": {
+        "id": "org.egohygiene.aniflow.synthetic",
+        "version": "1.0.0"
+      },
+      "implementation_sha256": "e3aa14dfa1f64feb7b00ee8398d8e17cb7993bcbacaf2325f14136404abf9624",
+      "configuration_sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "tools": [],
+      "models": {
+        "kind": "none_required"
+      },
+      "license": {
+        "kind": "unavailable",
+        "reason": "Original synthetic contract fixture only; no real provider or model was used."
+      }
+    }
+  ],
+  "capabilities": [
+    {
+      "capability": {
+        "id": "aniflow/audio-musical-structure",
+        "version": "1.0.0"
+      },
+      "status": "complete",
+      "provider_evidence_ids": [
+        "fixture_provider"
+      ],
+      "evidence_artifact_ids": [
+        "fixture_evidence"
+      ],
+      "diagnostic_ids": []
+    }
+  ],
+  "observations": [
+    {
+      "id": "tempo_candidate",
+      "capability_id": "aniflow/audio-musical-structure",
+      "kind": "tempo",
+      "value": {
+        "kind": "quantity",
+        "value": 120.0,
+        "unit": "beats_per_minute"
+      },
+      "scope": {
+        "channels": [
+          0
+        ],
+        "stem_id": null
+      },
+      "provenance": {
+        "class": "heuristic",
+        "confidence": {
+          "kind": "uncalibrated",
+          "score": 0.75
+        },
+        "provider_evidence_id": "fixture_provider",
+        "evidence_artifact_ids": [
+          "fixture_evidence"
+        ]
+      }
+    },
+    {
+      "id": "key_candidate",
+      "capability_id": "aniflow/audio-musical-structure",
+      "kind": "key",
+      "value": {
+        "kind": "label",
+        "value": "C major (synthetic candidate)"
+      },
+      "scope": {
+        "channels": [
+          0
+        ],
+        "stem_id": null
+      },
+      "provenance": {
+        "class": "probabilistic",
+        "confidence": {
+          "kind": "unavailable",
+          "reason": "No calibrated confidence exists for this authored fixture."
+        },
+        "provider_evidence_id": "fixture_provider",
+        "evidence_artifact_ids": [
+          "fixture_evidence"
+        ]
+      }
+    }
+  ],
+  "timelines": [],
+  "semantic_artifacts": [],
+  "excerpts": [],
+  "diagnostics": [],
+  "extensions": {
+    "org.egohygiene.renderflow.fixture": {
+      "kind": "authored_contract_shape",
+      "provider_executed": false,
+      "model_executed": false,
+      "claim": "Synthetic assertions on 100 ms of silence exercise schema and authority shapes; no tempo/key/audio analysis was executed."
+    }
+  }
+}

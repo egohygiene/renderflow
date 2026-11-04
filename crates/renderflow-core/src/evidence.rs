@@ -18,6 +18,7 @@ use crate::toolchain::ToolchainSnapshot;
 
 mod publications;
 pub(crate) mod files;
+pub(crate) mod json;
 pub mod verification;
 pub mod portable;
 pub use publications::{PublishedTarget, PublishedTargetsError};

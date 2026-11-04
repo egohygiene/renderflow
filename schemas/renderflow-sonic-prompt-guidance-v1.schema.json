@@ -1,0 +1,234 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "renderflow.sonic-prompt-guidance/v1"
+    },
+    "profile": {
+      "const": "sonic-evidence-v1"
+    },
+    "source_dna_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "target_modality": {
+      "const": "audio"
+    },
+    "purpose": {
+      "const": "related_original_asset"
+    },
+    "creative_brief": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "components": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "dimension": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "value": {
+            "type": [
+              "string",
+              "number"
+            ]
+          },
+          "evidence_ids": {
+            "type": "array",
+            "maxItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_.-]+$"
+            }
+          },
+          "confidence": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "kind": {
+                    "const": "calibrated"
+                  },
+                  "score": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  }
+                },
+                "required": [
+                  "kind",
+                  "score"
+                ]
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "kind": {
+                    "const": "uncalibrated"
+                  },
+                  "score": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  }
+                },
+                "required": [
+                  "kind",
+                  "score"
+                ]
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "kind": {
+                    "const": "unavailable"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 4096
+                  }
+                },
+                "required": [
+                  "kind",
+                  "reason"
+                ]
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "kind": {
+                    "const": "not_applicable"
+                  }
+                },
+                "required": [
+                  "kind"
+                ]
+              }
+            ]
+          },
+          "importance": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "correction_of": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128,
+                "pattern": "^[A-Za-z0-9_.-]+$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "dimension",
+          "value",
+          "evidence_ids",
+          "confidence",
+          "importance",
+          "correction_of"
+        ]
+      }
+    },
+    "compact_tags": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      }
+    },
+    "avoid": {
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      }
+    },
+    "selection_limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "maximum_components": {
+          "const": 64
+        },
+        "maximum_tags": {
+          "const": 16
+        },
+        "available_facts": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 512
+        }
+      },
+      "required": [
+        "maximum_components",
+        "maximum_tags",
+        "available_facts"
+      ]
+    },
+    "importance_is_confidence": {
+      "const": false
+    },
+    "review_required": {
+      "const": true
+    },
+    "direct_imitation_allowed": {
+      "const": false
+    },
+    "legal_clearance_claimed": {
+      "const": false
+    },
+    "source_dna_digest_algorithm": {
+      "const": "sha256"
+    },
+    "guidance_revision": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  },
+  "required": [
+    "schema_version",
+    "profile",
+    "source_dna_sha256",
+    "target_modality",
+    "purpose",
+    "creative_brief",
+    "components",
+    "compact_tags",
+    "avoid",
+    "selection_limits",
+    "importance_is_confidence",
+    "review_required",
+    "direct_imitation_allowed",
+    "legal_clearance_claimed",
+    "source_dna_digest_algorithm",
+    "guidance_revision"
+  ],
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-sonic-prompt-guidance-v1.schema.json",
+  "title": "Provider-neutral Sonic prompt guidance candidate v1"
+}

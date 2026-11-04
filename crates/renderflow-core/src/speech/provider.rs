@@ -416,6 +416,16 @@ pub(super) fn sha256(bytes: &[u8]) -> String { format!("{:x}", Sha256::digest(by
 /// RF64, compressed/extensible WAVE, duplicate streams, and trailing data are
 /// refused rather than decoded or normalized implicitly.
 pub(crate) fn inspect_pcm_wav(bytes: &[u8]) -> Result<u64, SpeechError> {
+    Ok(inspect_pcm_wav_details(bytes)?.duration_ms)
+}
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct PcmWavInspection {
+    pub duration_ms: u64,
+    pub frame_count: u64,
+}
+
+pub(crate) fn inspect_pcm_wav_details(bytes: &[u8]) -> Result<PcmWavInspection, SpeechError> {
     let invalid = |message: &str| SpeechError::InvalidRequest(format!("unsupported WAV: {message}"));
     if bytes.len() as u64 > MAX_SOURCE_BYTES || bytes.len() < 44
         || &bytes[..4] != b"RIFF" || &bytes[8..12] != b"WAVE"
@@ -469,7 +479,7 @@ pub(crate) fn inspect_pcm_wav(bytes: &[u8]) -> Result<u64, SpeechError> {
         return Err(invalid("duration exceeds the ten-minute profile limit"));
     }
     // Round up the final partial millisecond, preserving sub-ms sample tails.
-    Ok((data_bytes + 31) / 32)
+    Ok(PcmWavInspection {duration_ms:(data_bytes + 31) / 32,frame_count:data_bytes / 2})
 }
 
 #[cfg(test)]
