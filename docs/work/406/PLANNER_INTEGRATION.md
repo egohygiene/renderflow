@@ -1,5 +1,8 @@
 # #406 — composition build, planning and publication integration
 
+See [the source acceptance reconciliation](ACCEPTANCE.md) for current coverage,
+native/common receipt verification limits and the next local corpus work.
+
 This is the sixth **authored, unqualified** #406 checkpoint. It follows shared
 planning in [PR #453](https://github.com/egohygiene/renderflow/pull/453) and
 admits the bounded composition engine through the ordinary v2 build contract.

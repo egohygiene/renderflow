@@ -1,5 +1,11 @@
 # Layered composition: format and tool evaluation
 
+Current source coverage and remaining acceptance are reconciled in
+[ACCEPTANCE.md](ACCEPTANCE.md). The dated operation matrix below remains a
+design evaluation; candidate tools and round-trip directions are not support
+claims. Six authored checkpoints now include bounded typography, PNG/PDF,
+shared planning and ordinary build admission.
+
 Issue: [#406](https://github.com/egohygiene/renderflow/issues/406). Source review
 date: **2026-10-13**. This is a design evaluation, not native-format qualification.
 No candidate tool was installed, probed, executed, benchmarked, or used to convert

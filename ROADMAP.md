@@ -26,6 +26,26 @@ supersedes: []
 
 # Renderflow Roadmap
 
+## 2026-11-03 — composition source reconciliation and next local queue
+
+The selected oldest-local lane is #349 briefings → #397 Sonic DNA → remaining
+local #406 scope. The [#406 acceptance map](docs/work/406/ACCEPTANCE.md) now
+reconciles all six authored composition checkpoints. Bounded typography,
+PNG/PDF, shared planning and ordinary v2 build admission are already authored;
+historical notes below describing them as future implementation are superseded.
+No additional unconditional feature gap was selected, and no acceptance box is
+closed. Broader typography and justified native interchange still need explicit
+feature requirements; compiler/schema/runtime/visual/compatibility/release
+evidence remains deferred.
+
+Next local source preparation is existing #412's bounded extension of the
+generator-first corpus, followed by focused synthetic-comic child #413. Reuse
+the existing corpus contracts and separate authored expected outcomes from
+executed evidence. Flow #52 remains an external released-adapter lane; the prior
+Flow #80/#456-first proposal does not replace this oldest-local order. This
+checkpoint changes documentation only; all tests/build/Cargo/lint/format/schema/
+docs/product/native/provider/model/CI execution remains deferred.
+
 ## 2026-11-03 — bounded Sonic evidence normalization
 
 The oldest-local #397 checkpoint now authors source/clock/evidence-bound PCM and
