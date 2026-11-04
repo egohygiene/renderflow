@@ -3,6 +3,7 @@ members = [
     "crates/renderflow-core",
     "crates/renderflow-cli",
     "crates/renderflow-plugin-sdk",
+    "crates/renderflow-api",
 ]
 resolver = "2"
 

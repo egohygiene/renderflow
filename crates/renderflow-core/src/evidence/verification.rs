@@ -84,6 +84,40 @@ impl<'a> VerifiedPublication<'a> {
     pub fn observation(&self)->&FileObservation {&self.observation}
 }
 
+/// Bounded binary delivery of one actual publication. Bytes are copied during
+/// the same confined observation that checks their declared size and digest.
+/// Larger payloads can still use streaming verification; this convenience
+/// deliberately refuses buffering more than 32 MiB.
+pub struct PublicationBytes<'a> {
+    pub publication: PublishedTarget<'a>,
+    pub observation: FileObservation,
+    pub bytes: Vec<u8>,
+}
+
+pub fn read_publication<'a>(manifest:&'a RunManifest,target_id:&str,root:&Path,
+    limits:&VerificationLimits,cancellation:ProcessCancellationToken)
+    ->Result<PublicationBytes<'a>,VerificationError> {
+    limits.validate()?;
+    let started=Instant::now();
+    files::check_budget(started,limits,&cancellation)?;
+    let publications=manifest.published_targets()?;
+    if publications.len()>limits.max_publications {return Err(VerificationError::Limit {resource:"publication count"});}
+    let publication=publications.into_iter().find(|publication|publication.branch.target_id==target_id)
+        .ok_or(VerificationError::Integrity {field:"selected target has no actual publication"})?;
+    let record=publication.artifact;
+    if record.digest.algorithm!="sha256" {return Err(VerificationError::UnsupportedDigest);}
+    if record.size_bytes>limits.max_file_bytes || record.size_bytes>limits.max_total_bytes
+        || record.size_bytes>32*1024*1024 {return Err(VerificationError::Limit {resource:"buffered publication bytes"});}
+    let relative=record.locator.strip_prefix("bundle:").ok_or(VerificationError::Path {reason:"only bundle locators can be delivered"})?;
+    let root=BundleRoot::new(root)?;
+    let mut bytes=Vec::with_capacity(record.size_bytes as usize);
+    let observation=files::observe(&root,relative,files::ExpectedFile {size_bytes:record.size_bytes,sha256:&record.digest.value},
+        limits,started,&cancellation,&mut bytes)?;
+    root.recheck()?;
+    files::check_budget(started,limits,&cancellation)?;
+    Ok(PublicationBytes {publication,observation,bytes})
+}
+
 /// Own the exact selected receipt bytes alongside its parsed native model.
 /// The caller's digest identifies bytes, not an authenticated publisher.
 pub struct PinnedRunReceipt {

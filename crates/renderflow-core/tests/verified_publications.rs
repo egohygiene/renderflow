@@ -11,6 +11,38 @@ use renderflow::evidence::{RunState,ValidationState};
 fn token()->ProcessCancellationToken {ProcessCancellationToken::new()}
 
 #[test]
+fn bounded_delivery_returns_the_observed_bytes_and_preserves_native_state() {
+    let root=tempfile::tempdir().unwrap();let payload=b"copied bytes\n";
+    fs::write(root.path().join("result.txt"),payload).unwrap();let run=fixture::manifest(payload);
+    let target=run.published_targets().unwrap()[0].branch.target_id.clone();
+    let value=renderflow::evidence::verification::read_publication(&run,&target,root.path(),&VerificationLimits::default(),token()).unwrap();
+    assert_eq!(value.bytes,payload);assert_eq!(value.observation.sha256,fixture::digest(payload));
+    assert_eq!(value.publication.artifact.validation,ValidationState::Skipped);assert_eq!(run.state,RunState::Partial);
+    fs::write(root.path().join("result.txt"),b"changed bytes\n").unwrap();
+    assert!(renderflow::evidence::verification::read_publication(&run,&target,root.path(),&VerificationLimits::default(),token()).is_err());
+}
+
+#[test]
+fn bounded_delivery_refuses_missing_targets_limits_and_cancelled_reads() {
+    let root=tempfile::tempdir().unwrap();let run=fixture::manifest(b"hello");
+    let target=run.published_targets().unwrap()[0].branch.target_id.clone();
+    let limits=VerificationLimits{max_file_bytes:4,..Default::default()};
+    assert!(matches!(renderflow::evidence::verification::read_publication(&run,&target,root.path(),&limits,token()),Err(VerificationError::Limit{..})));
+    assert!(renderflow::evidence::verification::read_publication(&run,"missing",root.path(),&VerificationLimits::default(),token()).is_err());
+    let cancelled=token();cancelled.cancel();
+    assert!(matches!(renderflow::evidence::verification::read_publication(&run,&target,root.path(),&VerificationLimits::default(),cancelled),Err(VerificationError::Cancelled)));
+}
+
+#[test]
+fn adapter_json_objects_refuse_nested_duplicates_arrays_and_oversized_bodies() {
+    use renderflow::evidence::json::object;
+    assert!(object::<serde_json::Value>(br#"{"nested":{"x":1,"x":2}}"#,1024).is_err());
+    assert!(object::<serde_json::Value>(b"[]",1024).is_err());
+    assert!(object::<serde_json::Value>(b"{}",1).is_err());
+    assert_eq!(object::<serde_json::Value>(br#"{"x":2}"#,1024).unwrap()["x"],2);
+}
+
+#[test]
 fn file_verification_preserves_partial_run_skipped_validation_and_review_metadata() {
     let root=tempfile::tempdir().unwrap();
     let payload="Unchanged words — 你好\n".as_bytes();

@@ -5,6 +5,16 @@ use serde::de::{self, MapAccess, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer};
 use serde_json::{Map, Value};
 
+/// Shared bounded JSON object decoding for adapters. The caller selects its
+/// byte cap; duplicate keys are refused at every nested map before typed
+/// deserialization of the original bytes. This is structural decoding only.
+pub fn object<T:serde::de::DeserializeOwned>(bytes:&[u8],max_bytes:usize)->anyhow::Result<T> {
+    anyhow::ensure!(max_bytes>0 && max_bytes<=128*1024*1024 && bytes.len()<=max_bytes,"JSON object byte bound exceeded");
+    let value:StrictValue=serde_json::from_slice(bytes)?;
+    anyhow::ensure!(value.0.is_object(),"JSON request must be an object");
+    Ok(serde_json::from_slice(bytes)?)
+}
+
 /// serde_json::Value alone silently overwrites duplicate keys. Inspect every
 /// map, including ignored extension metadata, while retaining JSON's ordinary
 /// recursion limit and the caller's byte cap.
