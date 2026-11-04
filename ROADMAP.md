@@ -26,6 +26,22 @@ supersedes: []
 
 # Renderflow Roadmap
 
+## 2026-11-03 — local repository briefing prototype
+
+The maintainer selected oldest actionable Renderflow work without new sibling
+repo prerequisites. #349 now has a bounded format evaluation and standalone
+local publication SDK/CLI profile: exact source/script bindings, transcript/HTML,
+chapters, supplied PCM narration and optional RSS candidates. Review declarations,
+freshness and publication approval stay distinct; no voice/model service, remote
+fetch, feed posting or new Flow profile is required.
+
+See [briefing guide](docs/user-guide/repository-briefings.md),
+[evaluation](docs/work/349/EVALUATION.md) and [handoff](docs/work/349/HANDOFF.md).
+Nine authored cases are unrun. All tests/build/Cargo/lint/format/schema/docs/
+product/provider/native/model/CI execution remains deferred. Existing #349 and
+#458/#419 retain unobserved acceptance and release scope. Next is local #397,
+then concrete remaining #406 scope; the proposed Flow #80-first lane is superseded.
+
 ## 2026-11-03 — selected forest handoff demonstration
 
 The third #430 source checkpoint adds the provider-free manual-SRT lyrics job to

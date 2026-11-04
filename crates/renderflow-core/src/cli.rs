@@ -361,6 +361,13 @@ pub enum Commands {
         subcommand: PresentationCommands,
     },
 
+    /// Plan or package local source-bound briefings without generating voices or publishing feeds.
+    #[command(subcommand_required = true, arg_required_else_help = true)]
+    Briefing {
+        #[command(subcommand)]
+        subcommand: BriefingCommands,
+    },
+
     /// Inspect explicitly supplied manual timed lyrics and eligible derivatives.
     #[command(subcommand_required = true, arg_required_else_help = true)]
     Lyrics {
@@ -1028,6 +1035,29 @@ pub struct BundlePortableVerifyArguments {
     pub maximum_records:usize,
     #[command(flatten)]
     pub limits:BundleIoArguments,
+}
+
+#[derive(Subcommand)]
+pub enum BriefingCommands {
+    /// Observe pinned sources and report exact script identity; creates no output.
+    #[command(visible_alias = "inspect")]
+    Plan {
+        #[arg(long, value_name = "FILE")]
+        input: String,
+    },
+    /// Write a new local evidence bundle; publication approval remains separate.
+    Build(BriefingArguments),
+}
+
+#[derive(clap::Args)]
+pub struct BriefingArguments {
+    #[arg(long, value_name = "FILE")]
+    pub input: String,
+    #[arg(long, value_name = "DIRECTORY")]
+    pub output_dir: String,
+    /// Package an explicitly unapproved candidate; never grants publication authority.
+    #[arg(long)]
+    pub allow_draft: bool,
 }
 
 /// Standalone presentation publication profile. Native rendering is opt-in.

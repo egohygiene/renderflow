@@ -1,0 +1,5 @@
+Harbor Notes
+
+This synthetic repository keeps a small catalog of neighborhood tide observations.
+The first milestone records dated observations as text and preserves the original entries.
+The next milestone adds a local comparison view; it is planned rather than released.

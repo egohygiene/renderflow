@@ -66,6 +66,7 @@ nav:
       - Quick Start: getting-started/quickstart.md
       - CLI Overview: getting-started/cli-overview.md
   - User Guide:
+      - Repository Briefings: user-guide/repository-briefings.md
       - Bundle Evidence: user-guide/bundle-evidence.md
       - Portable Forest Bundles: user-guide/portable-forest-bundles.md
       - Manual Timed Lyrics: user-guide/manual-lyrics.md

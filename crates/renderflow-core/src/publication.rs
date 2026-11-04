@@ -1,6 +1,8 @@
 //! Provider-neutral publication contracts and deterministic release metadata.
 
 pub mod coloring_book;
+pub mod briefing;
+pub(crate) mod local;
 pub mod lulu;
 pub mod magazine;
 
