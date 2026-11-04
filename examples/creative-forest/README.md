@@ -65,6 +65,7 @@ not directly runnable specs with machine paths. All exact targets are required.
 | `original-body` | `sources/original.fountain` | `target.screenplay_json`, `target.fdx`, `target.fadein`, `target.osf`, `target.trelby`; built-in body exports with no provider |
 | `recovery-text` | `sources/unstructured-scene.txt` | `target.screenplay_json`, `target.fountain`, `target.fdx`, `target.fadein`, `target.osf` |
 | `timed-text` | `sources/captions.srt` | `target.timed_transcript_json`, `target.vtt`, `target.text` |
+| `manual-lyrics` | `sources/manual-lyrics.srt` | Bundled `lyrics` profile: canonical lyrics JSON, YAML, SRT, VTT, text, Markdown, LRC and TTML; no external provider |
 | `fountain-analysis` | `sources/original.fountain` | Analysis JSON in `stdout.log`; no invented graph target |
 | `transcript-text` | `sources/captions.srt` | `transcript.txt` plus export report in `stdout.log` |
 | `screenplay-pdf` | `sources/original.fountain` | `target.pdf`; optional pinned afterwriting policy |
@@ -182,6 +183,54 @@ timeout, crash or unexpected success fails a refusal case. Content-refusal cases
 can still plan successfully: planning does not pretend to execute the source.
 
 ## Evidence, bounds and limitations
+
+### Optional portable evidence
+
+For a later authorized execution session, select `--portable` to exercise the
+shared public bundle CLI after each graph job that retains actual publications:
+
+```bash
+python3 scripts/run_creative_forest_fixture.py --mode execute --portable \
+  --job original-body --job manual-lyrics \
+  --renderflow /absolute/path/to/renderflow --output /existing/parent/portable-forest
+```
+
+This runs `bundle verify` on the pinned native receipt, `bundle export` with
+explicit bundle/store roots and `--include-sources`, renames the handoff to
+`jobs/<id>/portable`, then runs `bundle verify-portable` with the exact index
+digest and only the moved handoff root. Original files and caches remain in
+place; this launcher does not prove isolation on a disconnected machine. The
+verifier's source contract has no original-store fallback. See
+[portable forest bundles](../../docs/user-guide/portable-forest-bundles.md).
+
+Each operation retains separate process evidence and bounded stdout/stderr under
+`jobs/<id>/bundle-evidence/`. The job's `bundle_evidence` status is `verified`,
+`failed`, or `not_attempted`, independently of native run state. The copied index
+and exact native receipt are referenced by path, digest and byte length. A partial
+native run can have verified retained outputs and still fail the fixture job;
+transport success never promotes validation, fidelity or creative review.
+Unconfigured native jobs, standalone commands and refusals without publications
+do not fabricate package evidence. Original sources travel in this opt-in
+handoff, so it is an internal evidence package, not a sanitized public upload.
+
+`--mode describe --portable` remains static and includes `portable_evidence: true`
+in the selected declaration. Execute retains that same declaration in its request
+digest. `--mode plan --portable` is refused before output/child creation because
+plans supply no observed bundle. Omitting the flag retains the existing path.
+Packaging uses the same executable identity, process/capture limits and the SDK's
+cooperative I/O limits: 512 MiB per payload, 2 GiB per logical observation phase,
+and an internal timeout no greater than 3,600 seconds. Each subprocess also has
+the launcher's configured timeout. There is no hard total disk/memory bound.
+
+The new manual-lyrics job uses the exact original synthetic SRT from
+`examples/lyrics/manual.srt`, a fixed source SHA-256 and explicit unreviewed
+policy. Its canonical companion remains published. An unchanged source SRT is
+recorded as a source-equivalent publication, while generated outputs retain
+canonical/source bindings and LRC timing/grouping losses. No recognition,
+alignment or review is inferred. The eight profile target hashes are authored
+declarations, with the bundled profile's explicit IDs/roles and no selectors.
+
+### Retained reports
 
 The request is `renderflow.creative-fixture/v1`; `result.json` is
 `renderflow.creative-fixture-result/v1`. `started.json` and individual job result

@@ -231,6 +231,10 @@
           "items": {
             "$ref": "#/$defs/job"
           }
+        },
+        "portable_evidence": {
+          "const": true,
+          "description": "Opt-in execute packaging and moved verification; static describe retains this declaration. Not valid for plan execution."
         }
       },
       "required": [
@@ -255,7 +259,11 @@
             "run",
             "plan",
             "standalone_payload",
-            "standalone_report"
+            "standalone_report",
+            "bundle_stdout",
+            "bundle_stderr",
+            "portable_index",
+            "portable_receipt"
           ]
         },
         "path": {
@@ -411,6 +419,9 @@
         },
         "process": {
           "$ref": "#/$defs/process"
+        },
+        "bundle_evidence": {
+          "$ref": "#/$defs/bundleEvidence"
         }
       },
       "required": [
@@ -510,6 +521,80 @@
         "binary",
         "gaps",
         "jobs"
+      ]
+    },
+    "bundleEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "operations",
+        "reason"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "not_attempted",
+            "failed",
+            "verified"
+          ]
+        },
+        "reason": {
+          "type": "string"
+        },
+        "operations": {
+          "type": "array",
+          "maxItems": 3,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "operation",
+              "process"
+            ],
+            "properties": {
+              "operation": {
+                "enum": [
+                  "verify-native",
+                  "export-portable",
+                  "verify-portable"
+                ]
+              },
+              "process": {
+                "$ref": "#/$defs/process"
+              }
+            }
+          }
+        },
+        "portable_directory": {
+          "type": "string"
+        },
+        "index_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "native_receipt_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "verified"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "portable_directory",
+              "index_sha256",
+              "native_receipt_sha256"
+            ]
+          }
+        }
       ]
     }
   }

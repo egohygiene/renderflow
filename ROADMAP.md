@@ -26,6 +26,20 @@ supersedes: []
 
 # Renderflow Roadmap
 
+## 2026-11-03 — selected forest handoff demonstration
+
+The third #430 source checkpoint adds the provider-free manual-SRT lyrics job to
+the existing selected fixture. Opt-in `--portable` execution uses the shared
+native verifier, retained-inventory exporter and moved-handoff verifier, with
+actual process/log/pinned-file evidence. Static describe retains the opt-in in
+the request digest; plan refuses packaging. Partial run, skipped validation,
+review, fidelity and unattempted states remain separate from verified bytes.
+
+See [fixture guide](docs/user-guide/creative-forest.md) and
+[handoff](docs/work/430/PORTABLE_DEMO.md). Six new regression cases are authored
+and unrun. Tests/build/Cargo/lint/format/schema/docs/product/native/provider
+execution and CI remain deferred; no forest or release acceptance is closed.
+
 ## 2026-11-03 — portable retained forest inventory
 
 The next #430 source checkpoint adds an explicit local export of retained native

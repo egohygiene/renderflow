@@ -461,6 +461,18 @@ class TranscriptTextEvidenceTests(unittest.TestCase):
 
 
 class FixtureDeclarationTests(unittest.TestCase):
+    def test_manual_lyrics_are_explicitly_bound_to_srt_without_native_recognition(self):
+        request = fixture.read_json(fixture.FIXTURE / "fixture.json")
+        job = next(job for job in request["jobs"] if job["id"] == "manual-lyrics")
+        spec = fixture.read_json(fixture.FIXTURE / job["spec"])
+        source = fixture.read_file(fixture.FIXTURE / job["source"])
+        self.assertEqual(spec["targets"], {"profiles": ["lyrics"]})
+        self.assertEqual(spec["execution"]["lyrics"]["source_sha256"], fixture.sha256(source))
+        self.assertEqual(spec["execution"]["lyrics"]["review_state"], "unreviewed")
+        self.assertEqual({item["format"] for item in job["expected_targets"]},
+                         {"lyrics_json", "yaml", "srt", "vtt", "text", "markdown", "lrc", "ttml"})
+        self.assertFalse(job.get("native", False))
+
     def test_original_job_uses_preserved_fountain_without_native_configuration(self):
         request = fixture.read_json(fixture.FIXTURE / "fixture.json")
         job = next(job for job in request["jobs"] if job["id"] == "original-body")
@@ -480,6 +492,26 @@ class FixtureDeclarationTests(unittest.TestCase):
 
 
 class FixtureSelectionTests(unittest.TestCase):
+    def test_portable_describe_is_static_and_retains_the_opt_in(self):
+        stdout = io.StringIO()
+        with mock.patch.object(fixture, "run_child", side_effect=AssertionError("unexpected child")), \
+                mock.patch.object(fixture, "run_job") as dispatch, redirect_stdout(stdout):
+            self.assertEqual(fixture.main(["--mode", "describe", "--job", "manual-lyrics", "--portable"]), 0)
+        request = json.loads(stdout.getvalue())
+        self.assertTrue(request["portable_evidence"])
+        self.assertEqual([job["id"] for job in request["jobs"]], ["manual-lyrics"])
+        dispatch.assert_not_called()
+
+    def test_portable_plan_is_refused_before_output_or_dispatch(self):
+        output = self.root / "no-portable-plan"
+        with mock.patch.object(fixture, "run_job") as dispatch, redirect_stderr(io.StringIO()):
+            with self.assertRaises(SystemExit) as refusal:
+                fixture.main(["--mode", "plan", "--job", "manual-lyrics", "--portable",
+                              "--renderflow", str(self.binary), "--output", str(output)])
+        self.assertEqual(refusal.exception.code, 2)
+        dispatch.assert_not_called()
+        self.assertFalse(output.exists())
+
     def setUp(self):
         self.request = fixture.read_json(fixture.FIXTURE / "fixture.json")
         self.temporary = tempfile.TemporaryDirectory()
@@ -542,10 +574,11 @@ class FixtureSelectionTests(unittest.TestCase):
                 output = self.root / mode
                 dispatched = []
 
-                def observe_dispatch(job, native, binary, actual_mode, root, timeout):
+                def observe_dispatch(job, native, binary, actual_mode, root, timeout, portable=False):
                     dispatched.append(job["id"])
                     self.assertEqual(native, {})
                     self.assertEqual(actual_mode, mode)
+                    self.assertFalse(portable)
                     return {"id": job["id"], "status": "planned" if mode == "plan" else "completed",
                             "expected": job.get("expected", "success"),
                             "evidence": [], "published_artifacts": []}
@@ -619,6 +652,101 @@ class FixtureSelectionTests(unittest.TestCase):
         self.assertEqual(report["jobs"][0]["published_artifacts"], [])
         self.assertFalse(report["coverage_complete"])
         self.assertFalse((output / "original-body.result.json").exists())
+
+
+class BundleCheckpointTests(unittest.TestCase):
+    """Synthetic CLI envelopes exercise orchestration, not Rust/file qualification."""
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.root = Path(self.temporary.name)
+        self.directory = self.root / "jobs" / "synthetic"
+        bundle = self.directory / "bundle"
+        bundle.mkdir(parents=True)
+        self.record = {"locator": "bundle:result.txt", "validation": "skipped", "fidelity": "partial"}
+        self.manifest = {"run_id": "synthetic-partial", "state": "partial",
+                         "artifact_manifest": {"artifacts": [self.record]}}
+        self.manifest_path = bundle / "renderflow-run.json"
+        fixture.write_json(self.manifest_path, self.manifest)
+        self.receipt_bytes = self.manifest_path.read_bytes()
+        self.receipt_sha256 = fixture.sha256(self.receipt_bytes)
+        self.target = {"target_id": "synthetic-target", "artifact_id": "synthetic-artifact",
+                       "artifact_evidence_index": 0, "source_identity": False,
+                       "file": {"path": "unused/result.txt", "sha256": "a" * 64, "size_bytes": 7}}
+        self.result = {"status": "failed", "evidence": [{"kind": "run", **fixture.file_reference(self.manifest_path, self.root)}], "published_artifacts": [self.target],
+                       "bundle_evidence": {"status": "not_attempted", "operations": [], "reason": "synthetic"}}
+
+    def report(self, portable):
+        item = {"target_id": self.target["target_id"], "artifact_id": self.target["artifact_id"],
+                "sha256": "a" * 64, "size_bytes": 7, "source_identity": False,
+                "validation": "skipped", "fidelity": "partial",
+                "original_locator" if portable else "locator": self.record["locator"]}
+        value = {"run_id": self.manifest["run_id"], "run_state": "partial", "runtime_qualified": False,
+                 "publisher_authenticated": False, "creative_approval_inferred": False,
+                 "publications" if portable else "verified_publications": [item]}
+        return value
+
+    def test_transport_report_cannot_promote_partial_skipped_native_status(self):
+        for portable in (False, True):
+            value = self.report(portable)
+            fixture.check_bundle_report(value, self.manifest, [self.target], portable)
+            for change in ({"run_state": "complete"}, {"runtime_qualified": True}, {"creative_approval_inferred": True}):
+                with self.subTest(portable=portable, change=change), self.assertRaises(ValueError):
+                    fixture.check_bundle_report({**value, **change}, self.manifest, [self.target], portable)
+
+    def test_failed_packaging_retains_logs_without_claiming_a_verified_handoff(self):
+        def failure(argv, capture, timeout):
+            (capture / "stdout.log").write_text("{}\n", encoding="utf-8")
+            (capture / "stderr.log").write_text("synthetic failure\n", encoding="utf-8")
+            return {"argv": argv, "exit_code": 1, "termination": "exited", "captures_closed": True}
+        with mock.patch.object(fixture, "run_child", side_effect=failure), self.assertRaises(ValueError):
+            fixture.bundle_command(Path("/synthetic/renderflow"), ["verify"], "verify-native",
+                                   self.directory, self.root, 120, self.result)
+        self.assertNotEqual(self.result["bundle_evidence"]["status"], "verified")
+        self.assertEqual(self.result["bundle_evidence"]["operations"][0]["process"]["exit_code"], 1)
+        self.assertEqual({item["kind"] for item in self.result["evidence"]}, {"run", "bundle_stdout", "bundle_stderr"})
+
+    def test_moved_verification_uses_pinned_copy_and_preserves_original_run_status(self):
+        index_bytes = b'{"synthetic_index":true}\n'
+        index_sha256 = fixture.sha256(index_bytes)
+        calls = []
+
+        def observation(argv, capture, timeout):
+            calls.append(argv)
+            command = argv[2]
+            if command == "verify":
+                value = {**self.report(False), "schema_version": "renderflow.publication-verification/v1",
+                         "receipt_sha256": self.receipt_sha256}
+            elif command == "export":
+                exported = Path(argv[argv.index("--output-dir") + 1])
+                (exported / "native").mkdir(parents=True)
+                (exported / "native/run.json").write_bytes(self.receipt_bytes)
+                (exported / "bundle.json").write_bytes(index_bytes)
+                value = {"schema_version": "renderflow.portable-forest-export/v1", "native_receipt_sha256": self.receipt_sha256,
+                         "index_sha256": index_sha256, "include_sources": True,
+                         "run_id": self.manifest["run_id"], "run_state": "partial"}
+            else:
+                moved = Path(argv[argv.index("--bundle-root") + 1])
+                self.assertEqual(moved.name, "portable")
+                self.assertEqual((moved / "native/run.json").read_bytes(), self.receipt_bytes)
+                self.assertNotIn("--manifest", argv)
+                self.assertNotIn("--artifact-store-root", argv)
+                self.assertEqual(argv[argv.index("--index-sha256") + 1], index_sha256)
+                value = {**self.report(True), "schema_version": "renderflow.portable-forest-verification/v1",
+                         "native_receipt_sha256": self.receipt_sha256, "index_sha256": index_sha256,
+                         "include_sources": True, "observed_records": 1, "external_source_records": 0}
+            fixture.write_json(capture / "stdout.log", value)
+            (capture / "stderr.log").write_bytes(b"")
+            return {"argv": argv, "exit_code": 0, "termination": "exited", "captures_closed": True}
+
+        with mock.patch.object(fixture, "run_child", side_effect=observation):
+            fixture.bundle_checkpoints(Path("/synthetic/renderflow"), self.manifest_path, self.manifest,
+                                       self.directory, self.root, 120, self.result)
+        self.assertEqual([argv[2] for argv in calls], ["verify", "export", "verify-portable"])
+        self.assertEqual(self.result["bundle_evidence"]["status"], "verified")
+        self.assertEqual(self.result["status"], "failed")
+        self.assertEqual(self.manifest["state"], "partial")
+        self.assertFalse((self.directory / "portable-export").exists())
 
 
 if __name__ == "__main__":

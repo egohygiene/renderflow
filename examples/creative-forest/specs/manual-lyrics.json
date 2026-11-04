@@ -1,0 +1,37 @@
+{
+  "schema": "renderflow/v2",
+  "sources": [
+    {
+      "id": "source.fixture",
+      "path": "REPLACED_BY_RUNNER",
+      "format": "srt",
+      "detect": false
+    }
+  ],
+  "targets": {
+    "profiles": [
+      "lyrics"
+    ]
+  },
+  "execution": {
+    "network": "deny",
+    "ai": "deny",
+    "max_parallel": 1,
+    "lyrics": {
+      "source_sha256": "5a0467455e91e0e07635ffa743050be50217f5c88bd15a08cf5eea23e59bd4b2",
+      "review_state": "unreviewed",
+      "language": "fr",
+      "revision": "synthetic-manual-r1",
+      "sections": {}
+    },
+    "derivative_planning": {
+      "max_hops": 4,
+      "max_candidates": 128
+    }
+  },
+  "output": {
+    "bundle_root": "REPLACED_BY_RUNNER",
+    "naming_template": "{source.id}/{target.id}.{ext}",
+    "collision": "error"
+  }
+}

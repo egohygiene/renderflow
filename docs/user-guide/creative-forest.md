@@ -82,6 +82,7 @@ Completing a subset does not establish complete suite coverage.
 | `original-body` | Built-in direct original Fountain to canonical screenplay JSON, FDX, Fade In, OSF and Trelby body exports; no external provider. |
 | `recovery-text` | Recovered canonical screenplay and Fountain/FDX/Fade In/OSF body derivatives, with mandatory loss/review evidence. |
 | `timed-text` | Canonical transcript, WebVTT and terminal plain text from original fixture captions; text retains timing/provenance loss evidence. |
+| `manual-lyrics` | Eight representations from an explicitly supplied and source-bound manual SRT, retaining an unreviewed canonical companion; no recognition or provider. |
 | `fountain-analysis` | Standalone analysis of the original bounded Fountain fixture. |
 | `transcript-text` | Separate standalone text export from caption data, retaining its existing public-command behavior. |
 
@@ -103,6 +104,49 @@ Graph transcript text remains terminal under the existing subtitle policy. Its
 native evidence links the actual retained canonical transcript and discloses
 timing, cue-ID and structured-metadata omissions with partial fidelity. Neither
 the graph text target nor the standalone example can recreate timing from text.
+
+## Retain a portable handoff
+
+The opt-in `--portable` path uses the same public SDK-backed bundle commands
+after actual graph publications exist. For the later execution session:
+
+```bash
+python3 scripts/run_creative_forest_fixture.py \
+  --mode execute --portable --job original-body --job manual-lyrics \
+  --renderflow "/absolute/path/to/renderflow" \
+  --output "dist/portable-creative-forest"
+```
+
+The parent `dist` must already exist and the output must be new. The launcher
+verifies each original native bundle, exports retained inventory and original
+sources, moves the export to `jobs/<id>/portable`, and verifies that handoff using
+only its root and pinned index digest. Original inputs/caches are retained. The
+command example is authored and unrun; disconnected-host qualification is still
+pending. The [portable format guide](portable-forest-bundles.md) explains copied
+objects, unchanged native locators and retained review/loss evidence.
+
+Read `bundle_evidence` in each job result for separate `verified`, `failed` or
+`not_attempted` status and actual subprocess records. Captures live in
+`jobs/<id>/bundle-evidence/`; completed index/native-receipt copies carry exact
+file references. A retained partial run can pass byte transport checks while its
+conversion job remains failed. Standalone operations and unconfigured native
+jobs do not invent bundle results. Hash agreement never grants creative review,
+provider qualification or release readiness. This handoff includes production
+metadata and originals; it is an internal package for review before sharing.
+
+`--mode describe --portable` prints the effective declaration without launching
+a child or creating output. The opt-in is retained as `portable_evidence: true`
+in the selected request and its digest. Plan mode refuses this flag because
+planned filenames cannot supply observed publication files. See the fixture
+README for per-child, capture and I/O bounds.
+
+The manual-lyrics job uses [your supplied-timing workflow](manual-lyrics.md):
+an explicit SRT and digest-bound unreviewed policy feed the bundled `lyrics`
+profile. Canonical lyrics JSON, YAML, source-equivalent SRT, WebVTT, text,
+Markdown, LRC and TTML remain separate native publication identities. The
+companion preserves policy/context; LRC keeps its declared missing end-time and
+multiline-grouping limitations. No audio, lyric recognition or synchronization
+is introduced.
 
 ## Add explicitly configured native jobs
 

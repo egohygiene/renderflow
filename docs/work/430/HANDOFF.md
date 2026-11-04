@@ -1,5 +1,14 @@
 # #430 — multi-family forest integration checkpoint
 
+## Selected portable-demo source checkpoint — November 3, 2026
+
+The [third source checkpoint](PORTABLE_DEMO.md) adds a manual-lyrics fixture and
+opt-in shared-CLI bundle checks/export/moved verification. Drafts #473/#474
+supply the SDK implementation. Actual process/log evidence and pinned copied
+index/receipt facts remain separate from native conversion and review states.
+Six new cases are authored/unrun; all executable checks/CI remain deferred.
+The three source checkpoints do not close #430/#421 or release qualification.
+
 ## Portable retained-inventory source checkpoint — November 3, 2026
 
 The [portable export checkpoint](PORTABLE_BUNDLES.md) builds on draft #473's

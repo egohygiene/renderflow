@@ -3,14 +3,15 @@
   "fixture_id": "creative-forest-430",
   "qualification": "authored_unqualified",
   "license": "MIT",
-  "identity_expectations": "Authored target-identity-v1 declaration hashes; not receipts from generated plans. Exact targets have explicit roles; generated all_reachable roles equal canonical formats; no selectors.",
+  "identity_expectations": "Authored target-identity-v1 declaration hashes; not receipts from generated plans. Exact targets have explicit roles; generated all_reachable roles equal canonical formats; no selectors. Manual-lyrics profile targets use the bundled lyrics-v1 explicit IDs and roles, with no selectors; hashes remain declarations, not observed plans.",
   "gaps": [
     "Original Fountain body exports cover only the strict six-kind body profile; unsupported structures and native application behavior remain unqualified.",
     "Original Fountain to PDF is a separate pinned job; recovery and native import outputs are not automatically chained into it.",
     "Speech, embedded subtitles, and screenplay native policies are isolated jobs, not a single cross-family native DAG.",
     "Transcript text has both a terminal graph target and a separate standalone export; standalone analysis/text commands have no public dry-run plan.",
     "Native tools, platform compatibility, OCR/ASR accuracy, and fixtures remain unqualified until manually exercised.",
-    "Speech and embedded-subtitle positive jobs require operator-supplied recordings/media; redistributed silence is a negative fixture only."
+    "Speech and embedded-subtitle positive jobs require operator-supplied recordings/media; redistributed silence is a negative fixture only.",
+    "Manual lyric timing/classification is supplied explicitly; player/format qualification is pending, and no recognition or synchronization is inferred."
   ],
   "jobs": [
     {
@@ -103,6 +104,55 @@
         }
       ],
       "source": "sources/captions.srt"
+    },
+    {
+      "id": "manual-lyrics",
+      "kind": "build",
+      "spec": "specs/manual-lyrics.json",
+      "source": "sources/manual-lyrics.srt",
+      "expected": "success",
+      "expected_targets": [
+        {
+          "declared_id": "lyrics.canonical",
+          "format": "lyrics_json",
+          "target_id": "target-6bf66f58e45ae2b8c212a27671a60606ef527089bc8b0a317726a13d25711f2e"
+        },
+        {
+          "declared_id": "lyrics.yaml",
+          "format": "yaml",
+          "target_id": "target-4aacf53bb4288688d966d422fdd632d376c2cebdb6b1f3d38da513144939d7bf"
+        },
+        {
+          "declared_id": "lyrics.srt",
+          "format": "srt",
+          "target_id": "target-694d5308efa0ef1a7bde71544c69e1bd446cac21548dc15213460e32dd1d2d27"
+        },
+        {
+          "declared_id": "lyrics.vtt",
+          "format": "vtt",
+          "target_id": "target-d97bf0a1d1d28e992fd97f01b92691e384862b1efb59e43a6c8e19104e1a646c"
+        },
+        {
+          "declared_id": "lyrics.text",
+          "format": "text",
+          "target_id": "target-99600ba90e1f8624ee760d7b84485e73010da329b3bc9fdf2a8db509c60b6555"
+        },
+        {
+          "declared_id": "lyrics.markdown",
+          "format": "markdown",
+          "target_id": "target-b864750a24ac2c5759e106fd079a5424063754d6d2cafd5e2556f25a2556d660"
+        },
+        {
+          "declared_id": "lyrics.lrc",
+          "format": "lrc",
+          "target_id": "target-d710d2c64679f744e5a368f97793e7ac3736b3b838b7b245ad6c21d9e5781611"
+        },
+        {
+          "declared_id": "lyrics.ttml",
+          "format": "ttml",
+          "target_id": "target-dc3e1f3c576afaf992e4c6056778cbb54d714ddb0624fe5f7b993573c1563a4f"
+        }
+      ]
     },
     {
       "id": "fountain-analysis",

@@ -35,7 +35,10 @@ output/inspection representation, not a newly claimed general editable importer.
 ## Configure and inspect
 
 Use the [complete synthetic example](../../examples/lyrics/README.md). The
-ordinary `renderflow/v2` configuration selects:
+selectable [creative forest fixture](creative-forest.md#retain-a-portable-handoff)
+also includes a provider-free `manual-lyrics` job, with optional retained-evidence
+export and moved-handoff verification. Both examples remain authored/unqualified.
+The ordinary `renderflow/v2` configuration selects:
 
 ```yaml
 targets:
