@@ -1,0 +1,19 @@
+{
+  "title": "The Lantern Map",
+  "subtitle": "Pip and Vale\nfind a route home.",
+  "back_cover": "A small light travels\nfarther with a friend.",
+  "characters": [
+    "Pip: an orange circle courier.",
+    "Vale: a blue square mapmaker."
+  ],
+  "beats": [
+    [
+      "Pip finds a blue dot.\nA star on the floor!",
+      "A route, says Vale.\nThey carry a lantern."
+    ],
+    [
+      "At the pier, each dot\nbecomes a safe step.",
+      "We can share the map.\nThe harbor lights up."
+    ]
+  ]
+}

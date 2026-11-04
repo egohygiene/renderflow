@@ -11,6 +11,37 @@ use sha2::{Digest, Sha256};
 
 use super::{Corpus, ScenarioEvidence};
 
+pub fn payload(fixture: &super::Fixture, limit: usize) -> Result<Vec<u8>> {
+    match fixture.encoding.as_str() {
+        "utf8" => {
+            ensure!(fixture.payload.len() <= limit, "UTF-8 fixture byte bound");
+            Ok(fixture.payload.as_bytes().to_vec())
+        }
+        "hex" => {
+            ensure!(fixture.payload.len() <= limit * 2
+                && fixture.payload.bytes().all(|byte|byte.is_ascii_hexdigit()), "hex fixture byte/character bound");
+            super::decode_hex(&fixture.payload)
+        }
+        "file" => {
+            ensure!(fixture.sha256.is_some(), "file-backed fixture needs an exact source pin");
+            let relative = Path::new(&fixture.payload);
+            ensure!(!fixture.payload.is_empty() && !fixture.payload.contains(['\\', ':', '\0'])
+                && relative.components().all(|part| matches!(part, Component::Normal(_))), "unsafe fixture source path");
+            let mut path = super::corpus_path().parent().context("corpus parent missing")?.to_path_buf();
+            for part in relative.components() {
+                path.push(part.as_os_str());
+                ensure!(!std::fs::symlink_metadata(&path)?.file_type().is_symlink(), "fixture source may not traverse symlinks");
+            }
+            let meta = std::fs::symlink_metadata(&path)?;
+            ensure!(meta.is_file() && meta.len() <= limit as u64, "fixture source file bound");
+            let bytes = std::fs::read(path)?;
+            ensure!(bytes.len() <= limit, "fixture source grew beyond bound");
+            Ok(bytes)
+        }
+        _ => anyhow::bail!("unknown fixture encoding"),
+    }
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Taxonomy {
@@ -130,15 +161,7 @@ pub fn check(corpus: &Corpus) -> Result<()> {
             && names.insert(fixture.filename.to_ascii_lowercase()),
             "fixture names must be confined and unique on case-insensitive filesystems");
         ensure!(identities.insert(fixture.id.as_str()), "duplicate fixture identity");
-        let size = match fixture.encoding.as_str() {
-            "utf8" => fixture.payload.len(),
-            "hex" => {
-                ensure!(fixture.payload.len().is_multiple_of(2)
-                    && fixture.payload.bytes().all(|byte| byte.is_ascii_hexdigit()), "invalid hex payload");
-                fixture.payload.len() / 2
-            }
-            _ => anyhow::bail!("unknown fixture encoding"),
-        };
+        let size = payload(fixture, limits.max_fixture_bytes)?.len();
         total = total.checked_add(size).context("source size overflow")?;
         ensure!(size <= limits.max_fixture_bytes && total <= limits.max_total_source_bytes,
             "source materialization byte bound");
@@ -146,7 +169,8 @@ pub fn check(corpus: &Corpus) -> Result<()> {
             ensure!(matches!(taxonomy.class.as_str(), "valid" | "boundary" | "malformed" | "unsupported" | "resource_stress")
                 && taxonomy.assertion_scope == "intake"
                 && !taxonomy.construction.is_empty() && taxonomy.seed == 0
-                && taxonomy.generator == "renderflow.golden.inline/v1" && !taxonomy.residual.is_empty()
+                && matches!(taxonomy.generator.as_str(), "renderflow.golden.inline/v1" | "renderflow.golden.file/v1")
+                && !taxonomy.residual.is_empty()
                 && fixture.sha256.is_some(), "incomplete classified fixture recipe");
         }
         if let Some(budget) = &fixture.extraction_limits {

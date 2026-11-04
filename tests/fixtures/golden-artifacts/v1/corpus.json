@@ -1,6 +1,6 @@
 {
   "schema_version": "renderflow.golden-corpus/v1",
-  "corpus_version": "1.2.0",
+  "corpus_version": "1.3.0",
   "license": "CC0-1.0",
   "redistribution": "Synthetic fixtures created for Renderflow conformance; no publication or third-party content.",
   "fixtures": [
@@ -598,6 +598,25 @@
       },
       "expected_diagnostic": "intake.budget.depth",
       "expected_discovered": 1
+    },
+    {
+      "id": "fixture.pack.lantern-map-story",
+      "filename": "lantern-map-story.json",
+      "encoding": "file",
+      "payload": "packs/lantern-map/story.json",
+      "sha256": "d60fbd6ca893f74fd4ba3e8fdb415becaf58da4ef584c789520937ca371871ed",
+      "expected_format": "json",
+      "expected_media_type": "application/json",
+      "family": "data",
+      "expected_outcome": "accepted",
+      "taxonomy": {
+        "class": "valid",
+        "assertion_scope": "intake",
+        "construction": "Exact small original story file; pack recipe creates geometry without any image/model service.",
+        "seed": 0,
+        "generator": "renderflow.golden.file/v1",
+        "residual": "Intake checks JSON identity. Pack output and human publication approval remain separate."
+      }
     }
   ],
   "collections": [
@@ -884,6 +903,34 @@
         "failure.ratio_budget",
         "failure.depth_budget"
       ]
+    },
+    {
+      "id": "comic_minimal",
+      "tier": "fast",
+      "fixtures": [
+        "fixture.pack.lantern-map-story"
+      ],
+      "assertion_scope": "native_output",
+      "coverage": [
+        "composition.page-candidates"
+      ],
+      "pack": {
+        "id": "pack.lantern-map",
+        "case_id": "minimal"
+      }
+    },
+    {
+      "id": "comic_publication_plan",
+      "tier": "maximal",
+      "fixtures": [
+        "fixture.pack.lantern-map-story"
+      ],
+      "assertion_scope": "inventory",
+      "coverage": [],
+      "pack": {
+        "id": "pack.lantern-map",
+        "case_id": "publication-44"
+      }
     }
   ],
   "limits": {
@@ -1110,7 +1157,207 @@
         "id": "failure.writing_mode",
         "category": "failure_class",
         "description": "Finite corpus coverage obligation for writing mode. Empty mapping remains an explicit gap."
+      },
+      {
+        "id": "composition.page-candidates",
+        "category": "local_capability",
+        "description": "Finite original comic per-page composition candidates, five output kinds; no aggregate print, EPUB or consumer approval."
       }
     ]
-  }
+  },
+  "packs": [
+    {
+      "schema_version": "renderflow.document-fixture-pack/v1",
+      "id": "pack.lantern-map",
+      "version": "1.0.0",
+      "document_type": "comic",
+      "source_fixture": "fixture.pack.lantern-map-story",
+      "generator": {
+        "path": "crates/renderflow-core/tests/common/golden_comic.rs",
+        "sha256": "8349b7e64ca2275984220a7af0fa5836a75fdd7da7b989bdec98defdb37153d3"
+      },
+      "toolchain": {
+        "path": "Cargo.lock",
+        "sha256": "35903fe9c8aa928edf554f7f86f178677531fdacb2bb8a38654ee8f292dc9139"
+      },
+      "profile": "renderflow.layered-composition/v5",
+      "assets": [
+        {
+          "path": "examples/page-composition/raster-composition/fonts/DejaVuSans.ttf",
+          "sha256": "ae7b7855e115a5966d8b1b3f80f254ccc117ec86f9965e202ee2940453837280"
+        },
+        {
+          "path": "examples/page-composition/raster-composition/fonts/DEJAVU-LICENSE.txt",
+          "sha256": "63d3ba759d12804c5b31a9d5940d855c1820d1f5999e6b0872eb1c7ff045fbc9"
+        },
+        {
+          "path": "examples/page-composition/raster-composition/fonts/registry.json",
+          "sha256": "772c4c1b782eaf176da9f9d0a2244cd881f2d6bc59033733d1059b4b3e66213e"
+        }
+      ],
+      "rights": {
+        "path": "tests/fixtures/golden-artifacts/v1/packs/lantern-map/LICENSE",
+        "sha256": "869383b310f79d1db8ab05a6a4fd5396e352b02e7f5af579e6a0f849ecbe0f60"
+      },
+      "license": "CC0-1.0",
+      "provenance": "Original story, circle/square characters and deterministic geometric art created for the fixture. No private consumer content, service output or real approval. Font retains its independent full license. Test implementation code retains the repository license.",
+      "required_capabilities": [
+        "composition.page-candidates"
+      ],
+      "optional_capabilities": [
+        "publication.generate.pdf.interior",
+        "publication.pdf.cover",
+        "ebook.generate.epub.fixed-layout",
+        "composition.export.ora"
+      ],
+      "cases": [
+        {
+          "id": "minimal",
+          "tier": "fast",
+          "exercise": "execute",
+          "parameters": {
+            "seed": 0,
+            "interior_pages": 2,
+            "cover_pages": 2,
+            "width_mm": 100.0,
+            "height_mm": 140.0,
+            "dpi": 72
+          },
+          "limits": {
+            "max_files": 256,
+            "max_source_bytes": 2097152,
+            "max_output_bytes": 16777216,
+            "cooperative_seconds": 120
+          },
+          "outputs": [
+            {
+              "role": "page",
+              "format": "svg",
+              "media_type": "image/svg+xml",
+              "schema": null,
+              "validator": "fixture.comic.svg-structure/v1"
+            },
+            {
+              "role": "page",
+              "format": "html",
+              "media_type": "text/html",
+              "schema": null,
+              "validator": "fixture.comic.html-structure/v1"
+            },
+            {
+              "role": "page",
+              "format": "transcript_json",
+              "media_type": "application/json",
+              "schema": "renderflow.page-transcript/v1",
+              "validator": "fixture.comic.transcript/v1"
+            },
+            {
+              "role": "page",
+              "format": "png",
+              "media_type": "image/png",
+              "schema": null,
+              "validator": "fixture.comic.png-geometry/v1"
+            },
+            {
+              "role": "page",
+              "format": "pdf",
+              "media_type": "application/pdf",
+              "schema": null,
+              "validator": "fixture.comic.pdf-geometry-pixels/v1"
+            }
+          ],
+          "negative_cases": [
+            "stale_content",
+            "unreviewed_content",
+            "digest_mismatch",
+            "missing_asset",
+            "missing_font",
+            "unsupported_schema",
+            "wrong_order",
+            "wrong_count",
+            "wrong_geometry",
+            "missing_accessibility",
+            "pre_cancel",
+            "unavailable_interchange",
+            "missing_output",
+            "corrupt_output"
+          ]
+        },
+        {
+          "id": "publication-44",
+          "tier": "maximal",
+          "exercise": "plan",
+          "parameters": {
+            "seed": 0,
+            "interior_pages": 44,
+            "cover_pages": 2,
+            "width_mm": 100.0,
+            "height_mm": 140.0,
+            "dpi": 72
+          },
+          "limits": {
+            "max_files": 256,
+            "max_source_bytes": 2097152,
+            "max_output_bytes": 0,
+            "cooperative_seconds": 120
+          },
+          "outputs": [
+            {
+              "role": "page",
+              "format": "svg",
+              "media_type": "image/svg+xml",
+              "schema": null,
+              "validator": "fixture.comic.svg-structure/v1"
+            },
+            {
+              "role": "page",
+              "format": "html",
+              "media_type": "text/html",
+              "schema": null,
+              "validator": "fixture.comic.html-structure/v1"
+            },
+            {
+              "role": "page",
+              "format": "transcript_json",
+              "media_type": "application/json",
+              "schema": "renderflow.page-transcript/v1",
+              "validator": "fixture.comic.transcript/v1"
+            },
+            {
+              "role": "page",
+              "format": "png",
+              "media_type": "image/png",
+              "schema": null,
+              "validator": "fixture.comic.png-geometry/v1"
+            },
+            {
+              "role": "page",
+              "format": "pdf",
+              "media_type": "application/pdf",
+              "schema": null,
+              "validator": "fixture.comic.pdf-geometry-pixels/v1"
+            }
+          ],
+          "negative_cases": []
+        }
+      ],
+      "unavailable_mappings": [
+        {
+          "role": "interior",
+          "format": "pdf",
+          "reason": "The model wants one ordered interior PDF. Native composition emits per-page candidates and RGBA PNG; ordered print requires RGB/grayscale input. No qualified normalizer/aggregate route is selected."
+        },
+        {
+          "role": "cover",
+          "format": "pdf",
+          "reason": "The model wants a separate two-page cover PDF. Per-page candidates do not establish a cover merge, spine/wrap geometry or printer acceptance."
+        },
+        {
+          "role": "publication",
+          "format": "epub",
+          "reason": "Existing fixed-layout EPUB shares the RGB/grayscale raster preflight. No compatible normalization and comic publication-metadata/reading-order mapping is selected for these RGBA page candidates."
+        }
+      ]
+    }
+  ]
 }
