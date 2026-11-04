@@ -1,5 +1,14 @@
 # #430 — multi-family forest integration checkpoint
 
+## Observed-publication source checkpoint — November 3, 2026
+
+The publishing batch #468/#470/#471/#472 is merged with explicit maintainer
+authorization; main is `0514685f424bf16e76bd0b01b02f0254dc4e5789`.
+The next [source checkpoint](VERIFIED_PUBLICATIONS.md) adds shared SDK/CLI
+publication file observations above the existing pure receipt join. Source only;
+no product checks/CI or release qualification ran. All existing acceptance and
+the portability/native/released-consumer gaps remain open.
+
 ## Publication selection checkpoint — October 28, 2026
 
 The maintainer authorized merge and continuation. PR #464 merged at
