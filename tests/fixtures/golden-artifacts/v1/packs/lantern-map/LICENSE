@@ -1,0 +1,11 @@
+SPDX-License-Identifier: CC0-1.0
+
+The original Lantern Map story, characters, geometric artwork recipe and
+fixture expectation declarations are dedicated to the public domain under
+CC0 1.0 Universal: https://creativecommons.org/publicdomain/zero/1.0/
+
+The recipe reuses an unchanged DejaVu Sans font, registry and full license from
+examples/page-composition/raster-composition/fonts/. That font is covered by
+its retained Bitstream Vera/DejaVu license, not this CC0 dedication. Repository
+test implementation code retains the repository license. No private consumer
+artwork, actual approval record or image/model service output is included.

@@ -32,6 +32,8 @@ use sha2::{Digest, Sha256};
 
 #[path = "common/golden_contract.rs"]
 mod contract;
+#[path = "common/golden_comic.rs"]
+mod comic;
 
 const CORPUS_SCHEMA: &str = "renderflow.golden-corpus/v1";
 const REPORT_SCHEMA: &str = "renderflow.conformance-report/v1";
@@ -49,6 +51,8 @@ struct Corpus {
     #[serde(default)]
     limits: contract::Limits,
     coverage: Option<contract::Coverage>,
+    #[serde(default)]
+    packs: Vec<comic::DocumentPack>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -88,6 +92,7 @@ struct Scenario {
     coverage: Vec<String>,
     #[serde(default = "contract::default_assertion_scope")]
     assertion_scope: String,
+    pack: Option<comic::PackSelection>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -115,6 +120,7 @@ struct ConformanceReport {
     scenarios: Vec<ScenarioEvidence>,
     #[serde(skip_serializing_if = "Option::is_none")]
     coverage: Option<contract::CoverageReport>,
+    packs: Vec<comic::PackEvidence>,
 }
 
 #[derive(Debug, Serialize)]
@@ -250,11 +256,7 @@ fn decode_hex(value: &str) -> Result<Vec<u8>> {
 }
 
 fn materialize_fixture(root: &Path, fixture: &Fixture) -> Result<PathBuf> {
-    let bytes = match fixture.encoding.as_str() {
-        "utf8" => fixture.payload.as_bytes().to_vec(),
-        "hex" => decode_hex(&fixture.payload)?,
-        other => anyhow::bail!("unsupported fixture encoding '{other}'"),
-    };
+    let bytes = contract::payload(fixture, 1024 * 1024)?;
     if let Some(expected) = &fixture.sha256 {
         anyhow::ensure!(
             expected.len() == 64
@@ -347,6 +349,7 @@ fn golden_artifact_forest_conformance() -> Result<()> {
     assert_eq!(corpus.license, "CC0-1.0");
     assert!(corpus.redistribution.contains("Synthetic"));
     contract::check(&corpus)?;
+    comic::check(&corpus)?;
 
     let fixture_ids = corpus
         .fixtures
@@ -1084,6 +1087,7 @@ fn golden_artifact_forest_conformance() -> Result<()> {
         "tool_backed" => 1,
         _ => 2,
     };
+    let packs = comic::run(&corpus, &paths, work.path(), requested_rank, &mut results)?;
     let tools = ["pandoc", "ffmpeg"];
     let available_tools = tools
         .iter()
@@ -1178,6 +1182,7 @@ fn golden_artifact_forest_conformance() -> Result<()> {
         fixtures: fixture_evidence,
         scenarios,
         coverage,
+        packs,
     };
     let encoded = serde_json::to_vec_pretty(&report)?;
     let decoded: serde_json::Value = serde_json::from_slice(&encoded)?;

@@ -26,6 +26,23 @@ supersedes: []
 
 # Renderflow Roadmap
 
+## 2026-11-03 — original synthetic comic pack source checkpoint
+
+#413 extends #412's existing golden corpus/harness to corpus 1.3.0 with an
+original CC0 Lantern Map story, deterministic geometric artwork and retained
+licensed fonts. One embedded versioned pack convention supplies a two-interior
+plus front/back cover case and the same recipe's 44-interior plus separate
+two-cover planning model. Authored per-page candidate inspections, 14 named
+negatives and warm/cold reruns retain source/review and availability boundaries.
+No product renderer, consumer grammar or competing test framework is added.
+
+See [pack guide](docs/document-fixture-packs.md),
+[original source](tests/fixtures/golden-artifacts/v1/packs/lantern-map/README.md)
+and [handoff](docs/work/413/HANDOFF.md). All generation/compilation/tests/
+validators/native/provider/media/model/CI execution remains deferred. Combined
+interior/cover PDF and comic EPUB are unavailable mappings; the larger case is
+planning-only. #412/#413 stay open for their remaining acceptance and execution.
+
 ## 2026-11-03 — bounded adversarial corpus source checkpoint
 
 #476–#478 are merged with explicit maintainer authorization. The next oldest

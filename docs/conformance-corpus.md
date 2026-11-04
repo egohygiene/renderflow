@@ -1,8 +1,16 @@
 # Golden artifact conformance
 
+The next #413 checkpoint adds the original
+[document fixture pack](document-fixture-packs.md) in corpus 1.3.0: one pinned
+story file after the 30-source intake slice, a minimal native comic case and a
+44+2 planning-only variant. The same harness and v1 schemas are extended; all
+new cases remain uncompiled/unrun. Earlier checkpoint counts below describe
+the historical #412 slice.
+
 Renderflow's versioned golden corpus binds its artifact claims to a small,
-redistribution-safe acceptance harness. The corpus contains synthetic payloads
-only. It does not contain private publication, customer, or third-party content,
+redistribution-safe acceptance harness. Document payloads are original and
+synthetic; pack recipes can reuse explicitly pinned licensed fonts with their
+full rights records. No private publication or customer content is included,
 and no fixture requires network or AI access.
 
 The #412 extension is **authored and unrun**. Corpus 1.2.0 adds a finite

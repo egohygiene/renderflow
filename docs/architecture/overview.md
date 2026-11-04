@@ -88,6 +88,7 @@ All paths below are relative to the repository root. Core paths live under
 | Sonic evidence and descriptions | `crates/renderflow-core/src/dna/sonic/`; supplied Aniflow contracts, existing DNA/AI services and local publication I/O |
 | Plugin contract | `crates/renderflow-plugin-sdk/`; host integration in `crates/renderflow-core/src/transforms/plugin.rs` |
 | Integration coverage | `crates/renderflow-core/tests/`, plus root `tests/` entries declared by crate manifests |
+| Golden corpus and document packs | `tests/fixtures/golden-artifacts/v1/corpus.json`, `crates/renderflow-core/tests/golden_conformance.rs` and `tests/common/golden_contract.rs` / `golden_comic.rs` under that crate; see [pack convention](../document-fixture-packs.md) |
 | Public contracts and examples | `schemas/`, `examples/`, `docs/` |
 | Release and site tooling | `.github/workflows/release.yml`, `scripts/`, `apps/`; see the release guide before using legacy packaging helpers |
 

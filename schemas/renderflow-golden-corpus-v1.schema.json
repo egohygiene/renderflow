@@ -53,6 +53,12 @@
     },
     "coverage": {
       "$ref": "#/$defs/coverage"
+    },
+    "packs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/documentPack"
+      }
     }
   },
   "$defs": {
@@ -80,7 +86,8 @@
         "encoding": {
           "enum": [
             "utf8",
-            "hex"
+            "hex",
+            "file"
           ]
         },
         "payload": {
@@ -124,7 +131,29 @@
           "minimum": 0,
           "maximum": 32
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "encoding": {
+                "const": "file"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "sha256"
+            ],
+            "properties": {
+              "payload": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      ]
     },
     "collection": {
       "type": "object",
@@ -197,6 +226,24 @@
             "availability",
             "inventory"
           ]
+        },
+        "pack": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "case_id"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "case_id": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
         }
       }
     },
@@ -316,7 +363,10 @@
           "const": 0
         },
         "generator": {
-          "const": "renderflow.golden.inline/v1"
+          "enum": [
+            "renderflow.golden.inline/v1",
+            "renderflow.golden.file/v1"
+          ]
         },
         "residual": {
           "type": "string",
@@ -395,6 +445,308 @@
                 ]
               },
               "description": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      }
+    },
+    "packPin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "packOutput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "role",
+        "format",
+        "media_type",
+        "schema",
+        "validator"
+      ],
+      "properties": {
+        "role": {
+          "const": "page"
+        },
+        "format": {
+          "enum": [
+            "svg",
+            "html",
+            "transcript_json",
+            "png",
+            "pdf"
+          ]
+        },
+        "media_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "schema": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "validator": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "packCase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "tier",
+        "exercise",
+        "parameters",
+        "limits",
+        "outputs",
+        "negative_cases"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tier": {
+          "enum": [
+            "fast",
+            "maximal"
+          ]
+        },
+        "exercise": {
+          "enum": [
+            "execute",
+            "plan"
+          ]
+        },
+        "parameters": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "seed",
+            "interior_pages",
+            "cover_pages",
+            "width_mm",
+            "height_mm",
+            "dpi"
+          ],
+          "properties": {
+            "seed": {
+              "const": 0
+            },
+            "interior_pages": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 44,
+              "multipleOf": 2
+            },
+            "cover_pages": {
+              "const": 2
+            },
+            "width_mm": {
+              "const": 100
+            },
+            "height_mm": {
+              "const": 140
+            },
+            "dpi": {
+              "const": 72
+            }
+          }
+        },
+        "limits": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "max_files",
+            "max_source_bytes",
+            "max_output_bytes",
+            "cooperative_seconds"
+          ],
+          "properties": {
+            "max_files": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 256
+            },
+            "max_source_bytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 8388608
+            },
+            "max_output_bytes": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 134217728
+            },
+            "cooperative_seconds": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 600
+            }
+          }
+        },
+        "outputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/packOutput"
+          },
+          "minItems": 5,
+          "maxItems": 5
+        },
+        "negative_cases": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "stale_content",
+              "unreviewed_content",
+              "digest_mismatch",
+              "missing_asset",
+              "missing_font",
+              "unsupported_schema",
+              "wrong_order",
+              "wrong_count",
+              "wrong_geometry",
+              "missing_accessibility",
+              "pre_cancel",
+              "unavailable_interchange",
+              "missing_output",
+              "corrupt_output"
+            ]
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "documentPack": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "id",
+        "version",
+        "document_type",
+        "source_fixture",
+        "generator",
+        "toolchain",
+        "profile",
+        "assets",
+        "rights",
+        "license",
+        "provenance",
+        "required_capabilities",
+        "optional_capabilities",
+        "cases",
+        "unavailable_mappings"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "renderflow.document-fixture-pack/v1"
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "const": "1.0.0"
+        },
+        "document_type": {
+          "const": "comic"
+        },
+        "source_fixture": {
+          "type": "string",
+          "minLength": 1
+        },
+        "generator": {
+          "$ref": "#/$defs/packPin"
+        },
+        "toolchain": {
+          "$ref": "#/$defs/packPin"
+        },
+        "profile": {
+          "const": "renderflow.layered-composition/v5"
+        },
+        "assets": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/packPin"
+          },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "rights": {
+          "$ref": "#/$defs/packPin"
+        },
+        "license": {
+          "const": "CC0-1.0"
+        },
+        "provenance": {
+          "type": "string",
+          "minLength": 1
+        },
+        "required_capabilities": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        },
+        "optional_capabilities": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        },
+        "cases": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/packCase"
+          },
+          "minItems": 1
+        },
+        "unavailable_mappings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "role",
+              "format",
+              "reason"
+            ],
+            "properties": {
+              "role": {
+                "type": "string",
+                "minLength": 1
+              },
+              "format": {
+                "type": "string",
+                "minLength": 1
+              },
+              "reason": {
                 "type": "string",
                 "minLength": 1
               }
