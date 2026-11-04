@@ -1,5 +1,13 @@
 # #406 — composition build admission checkpoint
 
+Source reconciliation, November 3, 2026 (America/New_York):
+[ACCEPTANCE.md](ACCEPTANCE.md) maps every original acceptance requirement to
+the six authored checkpoints and the evidence still missing. No additional
+unconditional local feature gap was selected. Continue source preparation in
+#412, then #413, while keeping #406's broader typography/native-interchange and
+deferred acceptance open. Historical implementation orders below are not the
+current queue. This reconciliation changes documentation only.
+
 Base: shared planning and publication merged in
 [PR #453](https://github.com/egohygiene/renderflow/pull/453).
 This is the **sixth authored, unqualified implementation checkpoint**.

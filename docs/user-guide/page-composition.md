@@ -19,6 +19,10 @@ Tests, builds, lint, schema validation, CLI/fixture/render/native execution,
 Cargo and CI were deferred during the sprint. Source implementation and serialized evidence do not establish print
 readability, font rights, or acceptance by a design application.
 
+The [acceptance reconciliation](../work/406/ACCEPTANCE.md) maps the current
+implementation to the original roadmap and records the remaining typography,
+interchange and qualification limits.
+
 ## Build from a configuration
 
 Place this `renderflow.yaml` beside an authored `page.composition.json` package:
