@@ -149,7 +149,7 @@ pub(crate) fn digest(value:&str) -> Result<(),VerificationError> {
     Ok(())
 }
 
-fn same_identity(left:&Metadata,right:&Metadata,contents:bool) -> bool {
+pub(crate) fn same_identity(left:&Metadata,right:&Metadata,contents:bool) -> bool {
     if left.is_file()!=right.is_file() || left.is_dir()!=right.is_dir() || right.file_type().is_symlink() {return false;}
     if contents && (left.len()!=right.len() || left.modified().ok()!=right.modified().ok()) {return false;}
     #[cfg(unix)] {

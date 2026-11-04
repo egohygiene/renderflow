@@ -415,7 +415,7 @@ pub(super) fn sha256(bytes: &[u8]) -> String { format!("{:x}", Sha256::digest(by
 /// retained in the source identity but do not alter the single PCM data stream.
 /// RF64, compressed/extensible WAVE, duplicate streams, and trailing data are
 /// refused rather than decoded or normalized implicitly.
-pub(super) fn inspect_pcm_wav(bytes: &[u8]) -> Result<u64, SpeechError> {
+pub(crate) fn inspect_pcm_wav(bytes: &[u8]) -> Result<u64, SpeechError> {
     let invalid = |message: &str| SpeechError::InvalidRequest(format!("unsupported WAV: {message}"));
     if bytes.len() as u64 > MAX_SOURCE_BYTES || bytes.len() < 44
         || &bytes[..4] != b"RIFF" || &bytes[8..12] != b"WAVE"

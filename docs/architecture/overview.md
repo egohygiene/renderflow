@@ -81,6 +81,7 @@ All paths below are relative to the repository root. Core paths live under
 | Built-in and external adapters | `crates/renderflow-core/src/adapters/`, `transforms/`, `strategies/`, `process.rs` |
 | Creative source families | `crates/renderflow-core/src/screenplay/`, `timed_text/`, `speech/` |
 | Ordered publication outputs | `crates/renderflow-core/src/publication/`, `print_pdf.rs`, `fixed_layout_epub.rs` |
+| Standalone local briefings | `crates/renderflow-core/src/publication/briefing/`, `commands/briefing.rs`; source capture and receipt output share `publication/local.rs` and observed-file services |
 | Artifact storage, caches and resume | `crates/renderflow-core/src/artifact/`, `cache.rs`, `checkpoint.rs` |
 | Validation, hygiene and run evidence | `crates/renderflow-core/src/validation.rs`, `hygiene.rs`, `evidence.rs` |
 | AI catalog, skills and transport | `crates/renderflow-core/src/ai/`, `transforms/ai.rs` |

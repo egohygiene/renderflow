@@ -1,0 +1,50 @@
+{
+  "schema_version": "renderflow.briefing/v1",
+  "id": "harbor-notes-r1",
+  "title": "Harbor Notes: a short repository briefing",
+  "language": "en",
+  "as_of": "synthetic revision r1",
+  "rights": "Original synthetic Renderflow fixture, MIT; no real repository or person is represented.",
+  "sources": [
+    {
+      "id": "overview",
+      "path": "canonical.txt",
+      "sha256": "d4e89a98bdab0d5529f98155f9e5c6193fd53904a19256a6bd82f6e0fc66e787",
+      "revision": "synthetic-r1",
+      "canonical_url": null,
+      "rights": "Original synthetic text, MIT.",
+      "review": null
+    }
+  ],
+  "chapters": [
+    {
+      "id": "current",
+      "title": "What exists",
+      "text": "Harbor Notes stores dated tide observations as text. The original entries remain intact.",
+      "sources": [
+        {
+          "source_id": "overview",
+          "start_line": 3,
+          "end_line": 4
+        }
+      ],
+      "start_ms": null
+    },
+    {
+      "id": "next",
+      "title": "What is planned",
+      "text": "A local comparison view is planned. It has not been released.",
+      "sources": [
+        {
+          "source_id": "overview",
+          "start_line": 5,
+          "end_line": 5
+        }
+      ],
+      "start_ms": null
+    }
+  ],
+  "script_review": null,
+  "narration": null,
+  "feed": null
+}

@@ -6,7 +6,7 @@ use crate::cli::{
     AiCommands, AiSkillCommands, Cli, Commands, CompositionCommands, DnaCommands, DoctorProfile,
     DoctorReportFormat,
     EbookCommands, FontCommands, GraphCommands, LuluCommands, PluginCommands, PublicationCommands,
-    BundleCommands, LyricsCommands, PresentationCommands, ScreenplayCommands, SpecCommands, SpeechCommands, SubtitleCommands, ToolCommands,
+    BundleCommands, BriefingCommands, LyricsCommands, PresentationCommands, ScreenplayCommands, SpecCommands, SpeechCommands, SubtitleCommands, ToolCommands,
     VideoCommands,
 };
 use crate::video::HandBrakeLimits;
@@ -391,6 +391,10 @@ pub fn run_cli(cli: Cli) -> Result<()> {
             BundleCommands::Verify(arguments) => commands::bundle::verify(arguments)?,
             BundleCommands::Export(arguments) => commands::bundle::export(arguments)?,
             BundleCommands::VerifyPortable(arguments) => commands::bundle::verify_portable(arguments)?,
+        },
+        Some(Commands::Briefing { subcommand }) => match subcommand {
+            BriefingCommands::Plan { input } => commands::briefing::plan(&input)?,
+            BriefingCommands::Build(arguments) => commands::briefing::build(arguments)?,
         },
         Some(Commands::Presentation { subcommand }) => match subcommand {
             PresentationCommands::Fingerprint { installation_root } => commands::presentation::fingerprint(&installation_root)?,

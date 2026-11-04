@@ -1,6 +1,7 @@
 pub mod ai;
 pub mod audit;
 pub mod build;
+pub mod briefing;
 pub mod bundle;
 pub mod composition;
 pub mod dna;
