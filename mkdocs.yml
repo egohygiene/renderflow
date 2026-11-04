@@ -66,6 +66,7 @@ nav:
       - Quick Start: getting-started/quickstart.md
       - CLI Overview: getting-started/cli-overview.md
   - User Guide:
+      - Presentations: user-guide/presentations.md
       - Configuration: user-guide/configuration.md
       - Editorial Writing Agent: user-guide/editorial-agent.md
       - Spec v2 Reference: user-guide/spec-v2-reference.md

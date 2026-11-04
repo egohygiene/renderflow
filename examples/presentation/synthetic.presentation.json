@@ -1,0 +1,33 @@
+{
+  "schema_version": "renderflow.presentation/v1",
+  "id": "shared-shelf",
+  "title": "A shared shelf",
+  "language": "en",
+  "source": {
+    "repository": "https://example.invalid/fictional/shared-shelf",
+    "revision": "0000000000000000000000000000000000000000",
+    "path": "notes.md",
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "as_of": "Fictional example; no observed publication date",
+  "rights": "Original synthetic fixture contributed under the repository MIT license.",
+  "review_state": "draft",
+  "theme": "paper",
+  "transition": "none",
+  "slides": [
+    {
+      "id": "welcome",
+      "title": "A shared shelf",
+      "section": "A fictional neighborhood project",
+      "paragraphs": ["The fictional Cedar Lane group put a book shelf in its common room."],
+      "bullets": ["Volunteers take turns tidying it.", "A notebook could collect suggestions."],
+      "speaker_notes": "Private rehearsal notes: ask the group what they want to read."
+    },
+    {
+      "id": "next-step",
+      "title": "Leave room for suggestions",
+      "paragraphs": ["The group has not tried the notebook yet. Its usefulness remains an open question."],
+      "citations": [{"label": "Illustrative source address; not a fetched citation", "url": "https://example.invalid/shared-shelf"}]
+    }
+  ]
+}
