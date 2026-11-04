@@ -26,6 +26,21 @@ supersedes: []
 
 # Renderflow Roadmap
 
+## 2026-11-03 — bounded Sonic evidence normalization
+
+The oldest-local #397 checkpoint now authors source/clock/evidence-bound PCM and
+supplied Aniflow scalar analysis normalization through existing DNA/hygiene.
+Musical confidence tags, companion authority and separate human corrections are
+retained. Deterministic descriptions/guidance work without AI; an optional
+existing-runtime skill consumes sanitized structured evidence only. No model
+hears audio, no provider is installed and no sibling implementation is required.
+
+See [Sonic guide](docs/user-guide/sonic-dna.md), [synthetic recipe](examples/sonic-dna/README.md)
+and [handoff](docs/work/397/HANDOFF.md). Sixteen cases and four JSON schemas are
+authored/unrun. All tests/build/Cargo/lint/format/schema/docs/native/provider/
+model/CI execution remains deferred. #397 and #458/#419 retain full mapping,
+quality, runtime and release acceptance. Next: concrete remaining local #406 gaps.
+
 ## 2026-11-03 — local repository briefing prototype
 
 The maintainer selected oldest actionable Renderflow work without new sibling

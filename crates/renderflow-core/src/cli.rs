@@ -1377,6 +1377,12 @@ pub enum AiSkillCommands {
 /// Subcommands for optional, versioned Artifact DNA.
 #[derive(Subcommand)]
 pub enum DnaCommands {
+    /// Normalize supplied audio evidence and package review-required Sonic descriptions.
+    #[command(subcommand_required = true, arg_required_else_help = true)]
+    Sonic {
+        #[command(subcommand)]
+        subcommand: SonicCommands,
+    },
     /// Extract local deterministic DNA from an immutable source artifact
     Extract {
         /// Source artifact to inspect
@@ -1437,6 +1443,35 @@ pub enum DnaCommands {
         #[arg(long, default_value = "json", value_name = "FORMAT")]
         format: String,
     },
+}
+
+#[derive(Subcommand)]
+pub enum SonicCommands {
+    /// Capture exact inputs and report compatibility; no model/provider is invoked.
+    #[command(visible_alias = "inspect")]
+    Plan(SonicArguments),
+    /// Package baseline DNA and optional descriptions in a new local directory.
+    Build(SonicBuildArguments),
+}
+
+#[derive(clap::Args)]
+pub struct SonicArguments {
+    #[arg(long, value_name = "FILE")]
+    pub input: String,
+    /// Explicit prepared local Ollama catalog; availability claims remain declarations.
+    #[arg(long, value_name = "FILE", requires = "ollama_endpoint")]
+    pub ai_catalog: Option<String>,
+    /// Explicit loopback base URL for an already running local service; no service is started.
+    #[arg(long, value_name = "URL", requires = "ai_catalog")]
+    pub ollama_endpoint: Option<String>,
+}
+
+#[derive(clap::Args)]
+pub struct SonicBuildArguments {
+    #[command(flatten)]
+    pub source: SonicArguments,
+    #[arg(long, value_name = "DIRECTORY")]
+    pub output_dir: String,
 }
 
 /// Subcommands for versioned local font registries.

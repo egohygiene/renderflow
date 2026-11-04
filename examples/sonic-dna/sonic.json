@@ -1,0 +1,46 @@
+{
+  "schema_version": "renderflow.sonic-request/v1",
+  "id": "synthetic-sonic-r1",
+  "audio": {
+    "id": "mix",
+    "path": "source.wav",
+    "sha256": "2976da01e205a110c9fa41d47659e238a5c6d3c3f3137582f2949853faa201dd"
+  },
+  "analyses": [
+    {
+      "file": {
+        "id": "fixture_analysis",
+        "path": "analysis.json",
+        "sha256": "f7af5207c94ec57df252802fbbb4d1df8cd4323bb94587ad2facd4ca9beaaf72"
+      },
+      "evidence_files": [
+        {
+          "id": "fixture_evidence",
+          "path": "fixture-evidence.txt",
+          "sha256": "f6023f432062476bae9a8322bfbbf7dc315bd71923601a351612a0903ef17976"
+        }
+      ]
+    }
+  ],
+  "companions": [],
+  "corrections": [],
+  "policy": {
+    "enabled": true,
+    "policy_id": "policy.sonic.public-safe/v1",
+    "max_source_bytes": 33554432,
+    "max_observations": 512,
+    "allow_ai": false,
+    "allow_network": false,
+    "allow_remote": false,
+    "secret_action": "block",
+    "pii_action": "block",
+    "protected_reference_action": "rewrite",
+    "protected_references": []
+  },
+  "semantic": {
+    "mode": "disabled",
+    "source_approved_for_ai": false,
+    "preference": "local_only"
+  },
+  "dimension_weights": {}
+}

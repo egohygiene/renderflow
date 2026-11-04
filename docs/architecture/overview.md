@@ -85,6 +85,7 @@ All paths below are relative to the repository root. Core paths live under
 | Artifact storage, caches and resume | `crates/renderflow-core/src/artifact/`, `cache.rs`, `checkpoint.rs` |
 | Validation, hygiene and run evidence | `crates/renderflow-core/src/validation.rs`, `hygiene.rs`, `evidence.rs` |
 | AI catalog, skills and transport | `crates/renderflow-core/src/ai/`, `transforms/ai.rs` |
+| Sonic evidence and descriptions | `crates/renderflow-core/src/dna/sonic/`; supplied Aniflow contracts, existing DNA/AI services and local publication I/O |
 | Plugin contract | `crates/renderflow-plugin-sdk/`; host integration in `crates/renderflow-core/src/transforms/plugin.rs` |
 | Integration coverage | `crates/renderflow-core/tests/`, plus root `tests/` entries declared by crate manifests |
 | Public contracts and examples | `schemas/`, `examples/`, `docs/` |

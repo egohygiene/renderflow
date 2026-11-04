@@ -125,6 +125,8 @@ The built-in fixtures require no paid API or bundled weights:
 - `skill.metadata.extract`;
 - `skill.visual-dna.describe`;
 - `skill.prompt.from-sanitized-dna`;
+- `skill.sonic.describe-evidence` — cited structured-evidence candidates, without
+  receiving or hearing audio; see the [Sonic guide](../user-guide/sonic-dna.md);
 - `skill.accessibility.describe-candidate`.
 
 The visual skills reference the original geometric

@@ -1,0 +1,840 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-sonic-bundle-v1.schema.json",
+  "title": "Sonic plan, extension, lineage and run envelopes v1",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/plan"
+    },
+    {
+      "$ref": "#/$defs/extension"
+    },
+    {
+      "$ref": "#/$defs/lineage"
+    },
+    {
+      "$ref": "#/$defs/run"
+    }
+  ],
+  "$defs": {
+    "confidence": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "calibrated"
+            },
+            "score": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            }
+          },
+          "required": [
+            "kind",
+            "score"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "uncalibrated"
+            },
+            "score": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            }
+          },
+          "required": [
+            "kind",
+            "score"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "unavailable"
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            }
+          },
+          "required": [
+            "kind",
+            "reason"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "not_applicable"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        }
+      ]
+    },
+    "fact": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9_.-]+$"
+        },
+        "dimension": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "value": {
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "origin": {
+          "enum": [
+            "source_reported",
+            "provider_observed",
+            "inferred",
+            "human_provided"
+          ]
+        },
+        "class": {
+          "enum": [
+            "deterministic",
+            "heuristic",
+            "probabilistic"
+          ]
+        },
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        },
+        "evidence": {
+          "type": "object"
+        },
+        "correction_of": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_.-]+$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "dimension",
+        "value",
+        "origin",
+        "class",
+        "confidence",
+        "evidence",
+        "correction_of"
+      ]
+    },
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "role": {
+          "enum": [
+            "audio",
+            "analysis",
+            "analysis_evidence",
+            "companion"
+          ]
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 33554432
+        }
+      },
+      "required": [
+        "id",
+        "role",
+        "sha256",
+        "size_bytes"
+      ]
+    },
+    "unprojected": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "timelines": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 256
+        },
+        "semantic_artifacts": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 256
+        },
+        "excerpts": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 256
+        },
+        "diagnostics": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 256
+        },
+        "extensions": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 256
+        },
+        "scope": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        }
+      },
+      "required": [
+        "timelines",
+        "semantic_artifacts",
+        "excerpts",
+        "diagnostics",
+        "extensions",
+        "scope"
+      ]
+    },
+    "analysis": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "manifest_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "status": {
+          "enum": [
+            "complete",
+            "partial",
+            "unavailable",
+            "unsupported",
+            "cancelled",
+            "failed"
+          ]
+        },
+        "normalized_scalar_facts": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 256
+        },
+        "unprojected": {
+          "$ref": "#/$defs/unprojected"
+        },
+        "native_validation": {
+          "const": "bounded_projection_only"
+        },
+        "provider_authentication": {
+          "const": "not_established"
+        },
+        "contract_revision": {
+          "const": "8008e0176f45b34d2a9e74d8a26d9b3fd374b81f"
+        }
+      },
+      "required": [
+        "manifest_sha256",
+        "status",
+        "normalized_scalar_facts",
+        "unprojected",
+        "native_validation",
+        "provider_authentication",
+        "contract_revision"
+      ]
+    },
+    "companion": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 8388608
+        },
+        "kind": {
+          "enum": [
+            "reviewed_lyrics",
+            "transcript_candidate",
+            "artist_midi",
+            "inferred_midi",
+            "stem_manifest",
+            "visual_dna",
+            "metadata"
+          ]
+        },
+        "source_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "authority_reference": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "authority_is_declared": {
+          "const": true
+        },
+        "validation": {
+          "const": "byte_binding_only"
+        },
+        "payload_exposed_to_model": {
+          "const": false
+        }
+      },
+      "required": [
+        "sha256",
+        "size_bytes",
+        "kind",
+        "source_sha256",
+        "authority_reference",
+        "authority_is_declared",
+        "validation",
+        "payload_exposed_to_model"
+      ]
+    },
+    "semantic": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "enum": [
+            "disabled",
+            "optional",
+            "required"
+          ]
+        },
+        "status": {
+          "enum": [
+            "disabled",
+            "blocked",
+            "not_configured",
+            "unavailable",
+            "ready",
+            "produced",
+            "failed",
+            "invalid"
+          ]
+        },
+        "diagnostic_code": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "resolution": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "execution": {
+          "anyOf": [
+            {
+              "$ref": "renderflow-ai-execution-v1.schema.json"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "mode",
+        "status",
+        "diagnostic_code",
+        "resolution",
+        "execution"
+      ]
+    },
+    "plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "renderflow.sonic-plan/v1"
+        },
+        "profile": {
+          "const": "sonic-evidence-v1"
+        },
+        "engine_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "input_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "intent_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "inputs": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "$ref": "#/$defs/input"
+          }
+        },
+        "technical": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "profile": {
+              "const": "mono_16000_hz_pcm_s16le"
+            },
+            "frame_count": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "duration_ms": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 600000
+            },
+            "timestamp_origin": {
+              "const": "selected_input_samples_from_zero"
+            }
+          },
+          "required": [
+            "profile",
+            "frame_count",
+            "duration_ms",
+            "timestamp_origin"
+          ]
+        },
+        "analyses": {
+          "type": "array",
+          "maxItems": 8,
+          "items": {
+            "$ref": "#/$defs/analysis"
+          }
+        },
+        "declared_companions": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "enum": [
+                  "reviewed_lyrics",
+                  "transcript_candidate",
+                  "artist_midi",
+                  "inferred_midi",
+                  "stem_manifest",
+                  "visual_dna",
+                  "metadata"
+                ]
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "authority_is_declared": {
+                "const": true
+              },
+              "validation": {
+                "const": "byte_binding_only"
+              },
+              "payload_exposed_to_model": {
+                "const": false
+              }
+            },
+            "required": [
+              "kind",
+              "sha256",
+              "authority_is_declared",
+              "validation",
+              "payload_exposed_to_model"
+            ]
+          }
+        },
+        "fact_ids": {
+          "type": "array",
+          "maxItems": 512,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.-]+$"
+          }
+        },
+        "semantic": {
+          "$ref": "#/$defs/semantic"
+        },
+        "direct_audio_inference": {
+          "const": "unsupported_by_this_profile"
+        },
+        "expected_outputs": {
+          "type": "array",
+          "maxItems": 8,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "runtime_qualified": {
+          "const": false
+        }
+      },
+      "required": [
+        "schema_version",
+        "profile",
+        "engine_version",
+        "input_sha256",
+        "intent_sha256",
+        "inputs",
+        "technical",
+        "analyses",
+        "declared_companions",
+        "fact_ids",
+        "semantic",
+        "direct_audio_inference",
+        "expected_outputs",
+        "runtime_qualified"
+      ]
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "format": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "media_type": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "digest": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "algorithm": {
+              "const": "sha256"
+            },
+            "value": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          },
+          "required": [
+            "algorithm",
+            "value"
+          ]
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "relative_path": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            }
+          },
+          "required": [
+            "relative_path"
+          ]
+        },
+        "metadata": {
+          "type": "object"
+        },
+        "sources": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "storage_class": {
+          "enum": [
+            "source",
+            "intermediate",
+            "terminal"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "format",
+        "media_type",
+        "digest",
+        "size_bytes",
+        "payload",
+        "metadata",
+        "sources",
+        "storage_class"
+      ]
+    },
+    "lineage": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "renderflow.sonic-lineage/v1"
+        },
+        "external_selected_inputs": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "artifact": {
+                "$ref": "#/$defs/artifact"
+              },
+              "payload_included": {
+                "const": false
+              },
+              "authority": {
+                "const": "selected_input"
+              }
+            },
+            "required": [
+              "artifact",
+              "payload_included",
+              "authority"
+            ]
+          }
+        },
+        "produced": {
+          "type": "array",
+          "maxItems": 8,
+          "items": {
+            "$ref": "#/$defs/artifact"
+          }
+        },
+        "review_state": {
+          "const": "candidate"
+        },
+        "source_payloads_retained": {
+          "const": false
+        }
+      },
+      "required": [
+        "schema_version",
+        "external_selected_inputs",
+        "produced",
+        "review_state",
+        "source_payloads_retained"
+      ]
+    },
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "path",
+        "sha256",
+        "size_bytes"
+      ]
+    },
+    "run": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "renderflow.sonic-run/v1"
+        },
+        "profile": {
+          "const": "sonic-evidence-v1"
+        },
+        "state": {
+          "enum": [
+            "complete",
+            "partial"
+          ]
+        },
+        "plan": {
+          "$ref": "#/$defs/plan"
+        },
+        "semantic": {
+          "$ref": "#/$defs/semantic"
+        },
+        "source_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "intent_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "normalization_status": {
+          "enum": [
+            "skipped",
+            "complete",
+            "partial",
+            "blocked"
+          ]
+        },
+        "normalization_diagnostics": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        },
+        "review_state": {
+          "const": "candidate"
+        },
+        "publication_approval": {
+          "const": "not_granted"
+        },
+        "source_inputs_included": {
+          "const": false
+        },
+        "model_provider_candidate_payload_included": {
+          "const": false
+        },
+        "runtime_qualified": {
+          "const": false
+        },
+        "scope": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "files": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "$ref": "#/$defs/file"
+          }
+        }
+      },
+      "required": [
+        "schema_version",
+        "profile",
+        "state",
+        "plan",
+        "semantic",
+        "source_sha256",
+        "intent_sha256",
+        "normalization_status",
+        "normalization_diagnostics",
+        "review_state",
+        "publication_approval",
+        "source_inputs_included",
+        "model_provider_candidate_payload_included",
+        "runtime_qualified",
+        "scope",
+        "files"
+      ]
+    },
+    "extension": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": "renderflow.sonic-evidence/v1"
+        },
+        "facts": {
+          "type": "array",
+          "maxItems": 500,
+          "items": {
+            "$ref": "#/$defs/fact"
+          }
+        },
+        "analyses": {
+          "type": "array",
+          "maxItems": 8,
+          "items": {
+            "$ref": "#/$defs/analysis"
+          }
+        },
+        "companions": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "$ref": "#/$defs/companion"
+          }
+        },
+        "confidence_contract": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        }
+      },
+      "required": [
+        "schema_version",
+        "facts",
+        "analyses",
+        "companions",
+        "confidence_contract"
+      ]
+    }
+  },
+  "$comment": "All serialized outputs are candidates. Runtime cross-checks exact IDs, bytes and selected evidence; no provider authentication, native semantic proof or creative/release approval is conferred."
+}

@@ -31,7 +31,7 @@ pub(crate) fn sha256(bytes: &[u8]) -> String { format!("{:x}", Sha256::digest(by
 
 pub(crate) fn parse<T: DeserializeOwned>(bytes: &[u8]) -> Result<T> {
     ensure!(bytes.len() <= MAX_JSON, "publication.json.limit");
-    ensure!(serde_json::from_slice::<Value>(bytes)?.is_object(), "publication.json.object");
+    ensure!(serde_json::from_slice::<crate::evidence::json::StrictValue>(bytes)?.0.is_object(), "publication.json.object");
     // Deserialize original bytes, retaining serde's duplicate struct-field refusal.
     serde_json::from_slice(bytes).context("publication.json.contract")
 }

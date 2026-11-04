@@ -5,6 +5,7 @@ pub mod briefing;
 pub mod bundle;
 pub mod composition;
 pub mod dna;
+pub mod sonic;
 pub mod ebook;
 pub mod font;
 pub mod graph;

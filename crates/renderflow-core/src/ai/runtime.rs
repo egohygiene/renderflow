@@ -306,7 +306,7 @@ impl<'a> AiSkillRuntime<'a> {
         if response.content.len() > skill.budgets.max_output_bytes {
             anyhow::bail!("AI skill output exceeds its declared byte budget");
         }
-        let mut output: Value = serde_json::from_str(&response.content)
+        let crate::evidence::json::StrictValue(mut output) = serde_json::from_str(&response.content)
             .context("AI skill output is not valid structured JSON")?;
         let post_output_hygiene = sanitize_json_output(&mut output, skill, &protected_references)?;
         ensure_not_blocked(&post_output_hygiene, "post-output")?;

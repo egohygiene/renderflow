@@ -26,6 +26,8 @@ pub const ARTIFACT_DNA_COMPARISON_SCHEMA_V1: &str = "renderflow.artifact-dna-com
 pub const ARTIFACT_DNA_FORMAT_V1: &str = "artifact-dna-json";
 pub const ARTIFACT_DNA_MEDIA_TYPE_V1: &str = "application/vnd.renderflow.artifact-dna+json";
 
+pub mod sonic;
+
 /// Stable top-level modality families. Individual dimensions remain open and
 /// are identified by namespaced strings so providers can extend each family.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]

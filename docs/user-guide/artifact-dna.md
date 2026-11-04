@@ -32,9 +32,11 @@ capability, and produce reviewable candidates. The core DNA extractor trait can
 also host local analyzers or explicitly approved remote enrichers without
 changing the DNA schema.
 
-Sonic DNA normalization and English audio description remain a specialized
-follow-up. Aniflow owns temporal audio analysis; Renderflow owns normalization,
-hygiene, semantic description, provenance, and packaging.
+The bounded [Sonic evidence profile](sonic-dna.md) now authors PCM metadata,
+supplied-analysis normalization and cited English candidates through the same
+DNA/AI services. Aniflow owns temporal extraction; Renderflow owns normalization,
+hygiene, description, provenance and packaging. Broader native/audio/model
+qualification remains under #397; authored source is not execution evidence.
 
 ## Explicit policy and budgets
 

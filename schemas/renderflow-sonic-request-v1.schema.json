@@ -1,0 +1,283 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "renderflow.sonic-request/v1"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9_.-]+$"
+    },
+    "audio": {
+      "$ref": "#/$defs/file"
+    },
+    "analyses": {
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "file": {
+            "$ref": "#/$defs/file"
+          },
+          "evidence_files": {
+            "type": "array",
+            "maxItems": 128,
+            "items": {
+              "$ref": "#/$defs/file"
+            }
+          }
+        },
+        "required": [
+          "file",
+          "evidence_files"
+        ]
+      }
+    },
+    "companions": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "file": {
+            "$ref": "#/$defs/file"
+          },
+          "source_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "kind": {
+            "enum": [
+              "reviewed_lyrics",
+              "transcript_candidate",
+              "artist_midi",
+              "inferred_midi",
+              "stem_manifest",
+              "visual_dna",
+              "metadata"
+            ]
+          },
+          "authority_reference": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        },
+        "required": [
+          "file",
+          "source_sha256",
+          "kind",
+          "authority_reference"
+        ]
+      }
+    },
+    "corrections": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "fact_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9_.-]+$"
+          },
+          "value": {
+            "type": [
+              "string",
+              "number"
+            ]
+          },
+          "review_reference": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        },
+        "required": [
+          "fact_id",
+          "value",
+          "review_reference"
+        ]
+      }
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "const": true
+        },
+        "policy_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "allow_ai": {
+          "type": "boolean"
+        },
+        "allow_network": {
+          "type": "boolean"
+        },
+        "allow_remote": {
+          "type": "boolean"
+        },
+        "max_source_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 33554432
+        },
+        "max_observations": {
+          "type": "integer",
+          "minimum": 16,
+          "maximum": 1024
+        },
+        "secret_action": {
+          "enum": [
+            "omit",
+            "rewrite",
+            "block"
+          ]
+        },
+        "pii_action": {
+          "enum": [
+            "omit",
+            "rewrite",
+            "block"
+          ]
+        },
+        "protected_reference_action": {
+          "enum": [
+            "omit",
+            "rewrite",
+            "block"
+          ]
+        },
+        "protected_references": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "term": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "descriptive_replacement": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1024
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "term"
+            ]
+          }
+        }
+      },
+      "required": [
+        "enabled",
+        "max_source_bytes"
+      ]
+    },
+    "semantic": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "enum": [
+            "disabled",
+            "optional",
+            "required"
+          ]
+        },
+        "source_approved_for_ai": {
+          "type": "boolean"
+        },
+        "preference": {
+          "enum": [
+            "local_only",
+            "remote_only",
+            "local_preferred",
+            "lowest_cost",
+            "highest_quality"
+          ]
+        }
+      },
+      "required": [
+        "mode",
+        "source_approved_for_ai",
+        "preference"
+      ]
+    },
+    "dimension_weights": {
+      "type": "object",
+      "maxProperties": 64,
+      "additionalProperties": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1
+      }
+    }
+  },
+  "required": [
+    "schema_version",
+    "id",
+    "audio",
+    "analyses",
+    "companions",
+    "corrections",
+    "policy",
+    "semantic",
+    "dimension_weights"
+  ],
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-sonic-request-v1.schema.json",
+  "title": "Bounded Sonic evidence request v1",
+  "$defs": {
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9_.-]+$"
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      },
+      "required": [
+        "id",
+        "path",
+        "sha256"
+      ]
+    }
+  },
+  "$comment": "Runtime checks exact selected bytes, native evidence membership/clock and all bounds. Wave input is the existing ten-minute mono 16000 Hz PCM16 profile. Authority references are declarations; no inferred lyrical/MIDI approval."
+}
