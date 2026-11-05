@@ -50,7 +50,7 @@ pub fn serve(config:HttpConfig,base:&Path,auth:Arc<dyn Authorizer>,stop:Arc<Atom
             }
         });
     }
-    eprintln!("{}",serde_json::json!({"event":"listening","address":address.to_string(),"profile":renderflow::composition::COMPOSITION_PROFILE,"runtime_qualified":false}));
+    eprintln!("{}",serde_json::json!({"event":"listening","address":address.to_string(),"pipeline_count":service.pipelines().len(),"runtime_qualified":false}));
     let mut failure=None;
     while !stop.load(Ordering::Acquire) {
         match listener.accept() {

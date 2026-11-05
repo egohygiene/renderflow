@@ -72,16 +72,18 @@ impl Router {
             ("GET","/v1/pipelines")=>return self.json(200,self.service.pipelines(),id),
             ("GET","/v1/capabilities")=> {
                 let sdk=renderflow::EngineBuilder::new().build().map_err(|_|ApiError::internal())?.provider_capabilities();
-                return self.json(200,json!({"service_profile":renderflow::composition::COMPOSITION_PROFILE,"operations":["inspect","plan","execute","job_status","cancel","events","artifacts","forget"],
-                    "uploads":false,"remote_bind":false,"external_provider_jobs":false,"durable_jobs":false,"runtime_qualified":false,
-                    "limits":self.service.limits(),"http":self.limits,"sdk_inventory":sdk,"sdk_inventory_scope":"Broader library inventory; service admission is the native-composition profile only"}),id);
+                return self.json(200,json!({"service_profile":"operator_registered","service_profiles":crate::profiles::inventory(),"operations":["inspect","plan","execute","job_status","cancel","events","artifacts","forget"],
+                    "uploads":false,"remote_bind":false,"external_provider_jobs":self.service.pipelines().iter().any(|pipeline|pipeline.local_processes),"durable_jobs":false,"runtime_qualified":false,
+                    "limits":self.service.limits(),"http":self.limits,"sdk_inventory":sdk,"sdk_inventory_scope":"Broader library inventory; service admission uses a finite registered profile and explicit operator effect permission"}),id);
             },
             ("GET","/v1/formats")=> {
                 use renderflow::composition::CompositionOutput::*;
                 return self.json(200,json!({"profile":renderflow::composition::COMPOSITION_PROFILE,"outputs":[Svg,Html,TranscriptJson,TranscriptText,Png,Pdf,Ora,Psd,Idml].iter()
-                    .map(|format|json!({"id":format.name(),"media_type":format.media_type(),"implemented":format.supported()})).collect::<Vec<_>>()}),id);
+                    .map(|format|json!({"id":format.name(),"media_type":format.media_type(),"implemented":format.supported()})).collect::<Vec<_>>(),
+                    "profiles":crate::profiles::inventory()}),id);
             },
-            ("GET","/v1/transforms")=>return self.json(200,json!({"scope":"admitted service profile","transforms":[renderflow::composition::COMPOSITION_PROFILE],"provider":"renderflow.core-composition"}),id),
+            ("GET","/v1/transforms")=>return self.json(200,json!({"scope":"finite registered service profiles; actual branch selection remains in the SDK",
+                "profiles":crate::profiles::inventory()}),id),
             ("POST","/v1/inspect"|"/v1/plan"|"/v1/execute")=> {
                 let body:SubmitRequest=renderflow::evidence::json::object(&request.body,self.limits.body_bytes)
                     .map_err(|_|ApiError::new("invalid_json","Request must be a bounded object with known fields and unique keys",400))?;
@@ -106,7 +108,12 @@ impl Router {
                     let download=self.service.download(job,artifact)?;
                     return Ok(Response {status:200,media:match download.media_type.as_str() {
                         "application/json"=>"application/json","text/plain"=>"text/plain","text/html"=>"text/html",
-                        "image/svg+xml"=>"image/svg+xml","image/png"=>"image/png","application/pdf"=>"application/pdf",_=>"application/octet-stream",
+                        "image/svg+xml"=>"image/svg+xml","image/png"=>"image/png","application/pdf"=>"application/pdf",
+                        "text/vtt"=>"text/vtt","application/x-subrip"=>"application/x-subrip","application/ttml+xml"=>"application/ttml+xml",
+                        "text/markdown"=>"text/markdown","application/yaml"=>"application/yaml","application/xml"=>"application/xml",
+                        "application/epub+zip"=>"application/epub+zip",
+                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"=>"application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        _=>"application/octet-stream",
                     },body:download.bytes,headers:vec![("Content-Disposition",format!("attachment; filename=\"{}\"",download.filename)),("X-Content-SHA256",download.sha256)]});
                 },
                 ("GET",[_,_,_,_,"events"])=> {

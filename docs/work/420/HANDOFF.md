@@ -1,4 +1,9 @@
-# #420 — local HTTP/job source checkpoint
+# #420 — local HTTP/job source checkpoints
+
+Current extension: [LOCAL_PROFILES.md](LOCAL_PROFILES.md) adds explicit manual
+lyrics, timed-text, Fountain-body and operator-enabled editorial admission on
+top of this original stack. The first-profile-only descriptions below are
+historical scope for #481/#482, not the full current draft surface.
 
 The maintainer authorized merging #479/#480 and continuing the oldest local
 lane. They are merged at `f8d104b0b3a8f33835bc4b3bd0764e00fcfcae61` and

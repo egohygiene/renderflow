@@ -22,6 +22,33 @@ pub struct PipelineConfig {
     pub config: String,
     /// Explicit package file allowlist; directories and symlinks are refused.
     pub files: Vec<String>,
+    #[serde(default)]
+    pub profile: PipelineProfile,
+    /// Explicit operator opt-in for editorial Pandoc/Tectonic discovery/run.
+    #[serde(default)]
+    pub allow_local_processes: bool,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PipelineProfile {
+    #[default]
+    Composition,
+    ManualLyrics,
+    TimedText,
+    FountainBody,
+    Editorial,
+}
+impl PipelineProfile {
+    pub const ALL: [Self;5] = [Self::Composition,Self::ManualLyrics,Self::TimedText,Self::FountainBody,Self::Editorial];
+    pub fn name(self) -> &'static str {match self {
+        Self::Composition=>renderflow::composition::COMPOSITION_PROFILE,
+        Self::ManualLyrics=>"renderflow.api-profile/manual-lyrics/v1",
+        Self::TimedText=>"renderflow.api-profile/timed-text/v1",
+        Self::FountainBody=>"renderflow.api-profile/fountain-body/v1",
+        Self::Editorial=>"renderflow.api-profile/editorial/v1",
+    }}
+    pub fn local_processes(self) -> bool {self == Self::Editorial}
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -111,6 +138,8 @@ pub struct JobView {
     pub schema_version: &'static str,
     pub job_id: String,
     pub pipeline_id: String,
+    pub profile: &'static str,
+    pub local_processes: bool,
     pub package_sha256: String,
     pub effective_config_sha256: Option<String>,
     pub operation: Operation,
@@ -129,6 +158,7 @@ pub struct JobView {
 pub struct PipelineView {
     pub id: String, pub package_sha256: String, pub file_count: usize,
     pub size_bytes: u64, pub profile: &'static str,
+    pub local_processes: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]

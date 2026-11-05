@@ -26,6 +26,19 @@ supersedes: []
 
 # Renderflow Roadmap
 
+## 2026-11-04 — finite local API profiles source checkpoint
+
+#420 extends the API's captured composition packages to manual timed lyrics,
+standalone timed text, bounded original-Fountain exports and explicitly
+operator-enabled local editorial processes. Graph admission clamps existing
+provider/transform policies; the public SDK still owns planning, native
+execution, partial outcomes and evidence. Job/pipeline views record profile
+and process effects, and binary filenames use shared format descriptors. Source
+examples keep built-in and editorial opt-in configurations separate. See
+[profile handoff](docs/work/420/LOCAL_PROFILES.md). Eight new cases are authored
+and unrun. No compiler/test/schema/SDK/provider/model/listener/container/CI
+execution occurred; #420 remains open for broader original acceptance.
+
 ## 2026-11-04 — ordered comic publication source checkpoint
 
 #413 now wires observed native page PNGs through an explicit opaque device-RGB

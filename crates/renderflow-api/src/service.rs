@@ -9,6 +9,7 @@ use crate::package::{self, Package, Workspace};
 
 struct Entry {
     pipeline_id: String, package_sha256: String, operation: Operation, state: JobState,
+    profile: PipelineProfile,
     cancellation: CancellationToken, cancel_reason: Option<CancelReason>,
     submitted_at: u64, started_at: Option<u64>, completed_at: Option<u64>,
     deadline: Instant, completed: Option<Instant>, workspace: Option<Arc<Workspace>>,
@@ -19,6 +20,7 @@ struct Entry {
 impl Entry {
     fn view(&self,id:&str) -> ApiResult<JobView> {
         Ok(JobView { schema_version:API_SCHEMA,job_id:id.into(),pipeline_id:self.pipeline_id.clone(),package_sha256:self.package_sha256.clone(),
+            profile:self.profile.name(),local_processes:self.profile.local_processes(),
             effective_config_sha256:self.workspace.as_ref().map(|workspace|workspace.effective_config_sha256.clone()),
             operation:self.operation,state:self.state,cancel_requested:self.cancel_reason,submitted_at_unix_ms:self.submitted_at,
             started_at_unix_ms:self.started_at,completed_at_unix_ms:self.completed_at,last_event_id:self.sequence,dropped_events:self.dropped,
@@ -172,7 +174,7 @@ impl Service {
         if jobs.len() >= self.book.limits.retained_jobs { return Err(ApiError::new("job_capacity","Retained job capacity reached; expire or forget a terminal job",503)); }
         let id=format!("job-{}",package::digest(format!("{}:{}:{}",self.book.directory.path().display(),self.book.next.fetch_add(1,Ordering::Relaxed),now()).as_bytes()));
         let cancellation=CancellationToken::new();
-        let entry=Entry { pipeline_id:package.id.clone(),package_sha256:package.sha256.clone(),operation,state:JobState::Queued,
+        let entry=Entry { pipeline_id:package.id.clone(),package_sha256:package.sha256.clone(),profile:package.profile,operation,state:JobState::Queued,
             cancellation:cancellation.clone(),cancel_reason:None,submitted_at:now(),started_at:None,completed_at:None,
             deadline:Instant::now()+Duration::from_secs(self.book.limits.job_timeout_seconds),completed:None,workspace:None,
             result:None,error:None,events:VecDeque::new(),event_bytes:0,sequence:0,dropped:0 };
@@ -243,8 +245,11 @@ impl Service {
         };
         let observed=renderflow::evidence::verification::read_publication(&result.run_manifest,&publication.branch.target_id,&workspace.bundle(),&limits,renderflow::process::ProcessCancellationToken::new())
             .map_err(|_|ApiError::new("artifact_integrity","Artifact bytes or confined locator differ from native evidence",422))?;
-        let format:renderflow::composition::CompositionOutput=publication.artifact.format.parse().map_err(|_|ApiError::internal())?;
-        Ok(Download { sha256:observed.observation.sha256,bytes:observed.bytes,media_type:publication.artifact.media_type.clone(),filename:format!("artifact-{index}.{}",format.extension()) })
+        let extension=match publication.artifact.format.parse::<renderflow::composition::CompositionOutput>() {
+            Ok(format)=>format.extension().to_string(),
+            Err(_)=>crate::profiles::graph_download_extension(&publication.artifact.format)?,
+        };
+        Ok(Download { sha256:observed.observation.sha256,bytes:observed.bytes,media_type:publication.artifact.media_type.clone(),filename:format!("artifact-{index}.{extension}") })
     }
 }
 
@@ -267,9 +272,13 @@ fn execute_work(book:&Arc<Book>,work:Work) {
         let config=workspace.root().join(&work.package.config);
         let output=match work.operation {
             Operation::Inspect=>JobOutput::Inspect(engine.inspect(InspectionRequest::from_path(&config)).map_err(sdk_error)?),
-            Operation::Plan=>JobOutput::Plan(engine.provider_plan(PlanRequest::from_path(&config)).map_err(sdk_error)?),
+            Operation::Plan=> {
+                let plan=engine.provider_plan(PlanRequest::from_path(&config)).map_err(sdk_error)?;
+                crate::profiles::guard_plan(work.package.profile,&plan.plan)?;JobOutput::Plan(plan)
+            },
             Operation::Execute=> {
                 let resolved=engine.resolve_execution(ExecutionRequest::from_path(&config).dry_run(work.dry_run)).map_err(sdk_error)?;
+                crate::profiles::guard_plan(work.package.profile,resolved.plan())?;
                 JobOutput::Execute(engine.execute_resolved(resolved,work.dry_run).map_err(sdk_error)?)
             },
         };

@@ -4,6 +4,7 @@
 pub mod model;
 pub mod http;
 mod package;
+mod profiles;
 mod service;
 
 pub use model::*;

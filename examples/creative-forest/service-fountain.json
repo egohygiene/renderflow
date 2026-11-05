@@ -1,0 +1,23 @@
+{
+  "schema": "renderflow/v2",
+  "sources": [
+    {
+      "id": "source",
+      "path": "sources/original.fountain",
+      "format": "fountain"
+    }
+  ],
+  "targets": {
+    "all_reachable": true
+  },
+  "execution": {
+    "network": "deny",
+    "ai": "deny",
+    "screenplay_body": {
+      "allow_unqualified": true
+    }
+  },
+  "output": {
+    "bundle_root": "operator-original-output"
+  }
+}

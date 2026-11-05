@@ -5,21 +5,43 @@ CLI. This is an **authored, uncompiled and unrun #420 checkpoint**, available in
 source only. No listener, container, output or passing API/OpenAPI report was
 started or produced during this sprint. It is not a published distribution.
 
-The first admitted profile is native page composition. A trusted local operator
-registers a dedicated package root, flat v2 config and explicit relative file
-allowlist. Startup captures bytes and an original-package identity; each job
-gets a private copy and a separately identified effective config, with output
-placed under its own `bundle`. A request selects a registered ID and optional
-dry run. It cannot provide a host path, plugin, provider executable, AI endpoint,
-arbitrary configuration or uploaded source. General SDK profiles can be admitted
-later with explicit package/provider policies under the existing issue.
+Registered packages now select a finite service profile. A trusted local
+operator chooses a dedicated root, flat v2 config and explicit relative file
+allowlist. Startup captures bytes and an identity including profile/effect
+permission. Each job gets a private copy, an effective-config digest and its own
+`bundle`. Clients select a registered ID and optional dry run; they cannot send
+host paths, provider selections, configs or uploaded sources.
+
+| Operator `profile` | Existing SDK behavior | Process effects |
+| --- | --- | --- |
+| `composition` (default) | Native layered/localized page targets | Built-in |
+| `manual_lyrics` | Explicitly supplied SRT/WebVTT/timed JSON through the manual lyrics policy | Built-in; no recognition/alignment/model |
+| `timed_text` | Standalone SRT/WebVTT/timed JSON conversion and terminal text | Built-in; no embedded-media extraction |
+| `fountain_body` | Original Fountain to the existing five body-export formats | Built-in; explicit unqualified policy retained |
+| `editorial` | Bundled editorial Markdown to HTML/PDF/DOCX/EPUB and original-source identity | Requires `allow_local_processes: true`; local Pandoc and optionally Tectonic |
+
+The new graph profiles clamp tool/transform allowlists, deny network/AI requests,
+refuse custom registries/profiles/templates/variables/validators and require
+captured source membership. Only unchanged selected core bundled profiles may
+be expanded. Core validates and executes each native policy. Target-oriented
+`all_reachable` forests stay within those same finite edges; this is not an
+unrestricted generic graph endpoint. Missing tools/unsupported branches and
+native partial results remain explicit. Inspection/planning editorial jobs can
+perform provider discovery as part of the existing SDK resolver.
+
+The default composition configuration remains compatible. Library/core native
+plan/run/artifact objects pass through unchanged. API job/pipeline views add
+`profile` and `local_processes`; the maintained draft OpenAPI describes them.
 
 ## Local startup
 
 The [sample configuration](../examples/http-api/service.json) uses the original
 mixed-asset composition fixture and its retained DejaVu font/license. It emits
 the native default SVG/HTML/transcript candidates for both declared locales.
-All examples below are **unrun commands for the later qualification session**.
+For built-in multi-profile operation, select [local-profiles.json](../examples/http-api/local-profiles.json).
+[editorial-opt-in.json](../examples/http-api/editorial-opt-in.json) additionally
+authorizes local provider discovery/execution. All examples below are **unrun
+commands for the later qualification session**.
 
 1. Review the operator configuration. Roots resolve relative to its directory;
    `workspace_parent` must already exist and contain no symlink components.
@@ -113,7 +135,8 @@ Downloads ignore receipt-declared host roots, use the private bundle, refuse
 unsafe/changed/missing files and return observed bytes with `X-Content-SHA256`.
 HTML/SVG are attachments with restrictive response policy. The default buffer
 cap is 8 MiB; a larger native publication receives 413. Streaming large outputs
-remains future work. Verified bytes grant no creative, print, publisher or release
+remains future work. Download filenames use native composition output identities
+or the shared graph format descriptor; unknown MIME values use a binary fallback. Verified bytes grant no creative, print, publisher or release
 approval. Native receipts and review state retain that distinction.
 
 Terminal data expires after 15 minutes by default, or can be explicitly
@@ -123,6 +146,24 @@ loses API job IDs and queue state; it does not infer SDK checkpoint resume or
 replace Flow's cross-tool orchestration. Stop requests cancellation and allows
 a short grace period. Forced exit/native abort can leave private workspace data
 and incomplete bundles; no interrupted run is promoted to success.
+
+## Editorial effect boundary
+
+`allow_local_processes` is operator permission, bound into package identity. It
+is mandatory for editorial and refused for built-in profiles. HTTP requests
+cannot alter it. Capture/catalog/health do not probe Pandoc; an explicitly
+submitted editorial inspect/plan/execute may do so through the SDK. The source
+article and declared local assets come from the captured package; fonts/templates
+come from the existing bundled editorial strategy. External font registries,
+custom templates and client-supplied programs are not admitted.
+
+Prepare provider versions and Tectonic's local cache separately. No installation,
+download, remote fallback or job execution occurred in this sprint. Existing
+editorial provider/resource/cancellation limitations still apply: the API's
+cooperative deadline may mark cancellation intent while an in-flight strategy
+process is still returning. The workspace and worker slot remain held, and the
+native outcome is preserved. This is one trusted local operator, with no OS
+sandbox, hard process-kill, firewall, durable recovery or qualification guarantee.
 
 ## Resource limits and deployment
 

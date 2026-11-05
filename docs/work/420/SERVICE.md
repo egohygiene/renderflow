@@ -1,5 +1,11 @@
 # #420 — bounded local service application checkpoint
 
+The later [local profile checkpoint](LOCAL_PROFILES.md) extends this original
+composition-only contract. Graph profiles also clamp existing provider/transform
+ceilings; both original package/profile/effect identity and effective config
+identity are retained. The first-checkpoint descriptions below remain historical.
+
+
 Authored source only. The existing public SDK now has an optional sibling
 `renderflow-api` workspace crate providing a transport application over captured
 operator pipelines. This first checkpoint adds no listener, hosted service or

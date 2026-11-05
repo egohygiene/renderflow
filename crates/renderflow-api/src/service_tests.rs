@@ -21,7 +21,8 @@ impl Fixture {
         fs::write(source.join("renderflow.json"),serde_json::to_vec(&spec).unwrap()).unwrap();
         let config=ServiceConfig {schema_version:SERVICE_SCHEMA.into(),workspace_parent:"work".into(),
             pipelines:vec![PipelineConfig{id:"page".into(),root:"source".into(),config:"renderflow.json".into(),
-                files:files.into_iter().chain(std::iter::once("renderflow.json")).map(str::to_string).collect()}],limits:Limits::default()};
+                files:files.into_iter().chain(std::iter::once("renderflow.json")).map(str::to_string).collect(),
+                profile:PipelineProfile::Composition,allow_local_processes:false}],limits:Limits::default()};
         Self {_directory:directory,root,config}
     }
     pub(crate) fn service(&self)->Service {Service::new(self.config.clone(),&self.root).unwrap()}

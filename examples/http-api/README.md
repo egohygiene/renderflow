@@ -20,3 +20,17 @@ commands, job/cancellation/SSE/download contracts and remaining limits.
 No generator, test, Cargo build/resolution, formatter, validator, listener,
 container, provider/model/native execution or CI ran for this recipe. It has
 not rendered or published any consumer content.
+
+## Additional local profiles
+
+`local-profiles.json` registers composition plus manual timed lyrics, standalone
+timed text and bounded original-Fountain exports. Existing SDK graph planning
+and native evidence stay authoritative. `editorial-opt-in.json` additionally
+sets explicit local-process permission for Pandoc/Tectonic. Capture itself does
+not probe providers; submitting editorial jobs can. Neither sample was started.
+
+After the later build/runtime sweep, start with `--config` pointing at the chosen
+file, then POST a registered `pipeline_id` such as `manual-lyrics`, `timed-text`
+or `fountain-body` to the same inspect/plan/execute routes. All roots/files are
+operator-owned allowlists; clients cannot supply paths/configs/provider choices.
+See [profile contract](../../docs/work/420/LOCAL_PROFILES.md).

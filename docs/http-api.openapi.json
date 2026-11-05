@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Renderflow bounded local API",
-    "version": "1.0.0-draft",
-    "description": "Authored, unqualified #420 adapter. HTTP/1.1 one-request/Content-Length profile, loopback only, bearer credential, no browser origins, arbitrary uploads/configs or external providers. Native JSON objects pass through unchanged; only API envelopes/requests are specified here. No OpenAPI/runtime/provider/release validation was run."
+    "version": "1.1.0-draft",
+    "description": "Authored, unqualified #420 local adapter. Registered composition/manual-lyrics/timed-text/Fountain-body profiles use built-ins; editorial requires explicit operator local-process permission for Pandoc/Tectonic. Loopback, bearer, finite captured packages and process-local jobs. API envelopes wrap unchanged SDK objects. No upload/config/provider selection is accepted from clients; no runtime/schema/provider/release qualification is claimed."
   },
   "servers": [
     {
@@ -114,7 +114,7 @@
     "/v1/capabilities": {
       "get": {
         "operationId": "capabilities",
-        "description": "Service admission is native page composition only. Separately labelled SDK inventory has broader scope.",
+        "description": "Finite profile policy inventory; graph/composition selection and runtime evidence remain SDK-owned. Each registered pipeline declares its profile and whether local processes were explicitly permitted.",
         "responses": {
           "200": {
             "description": "Structured response",
@@ -135,7 +135,7 @@
     "/v1/formats": {
       "get": {
         "operationId": "formats",
-        "description": "Native composition output declarations, including explicit unavailable interchange outputs.",
+        "description": "Finite profile policy inventory; graph/composition selection and runtime evidence remain SDK-owned. Each registered pipeline declares its profile and whether local processes were explicitly permitted.",
         "responses": {
           "200": {
             "description": "Structured response",
@@ -156,7 +156,7 @@
     "/v1/transforms": {
       "get": {
         "operationId": "transforms",
-        "description": "One admitted core composition provider/profile; no second transform registry.",
+        "description": "Finite profile policy inventory; graph/composition selection and runtime evidence remain SDK-owned. Each registered pipeline declares its profile and whether local processes were explicitly permitted.",
         "responses": {
           "200": {
             "description": "Structured response",
@@ -893,7 +893,9 @@
           "last_event_id",
           "dropped_events",
           "result",
-          "error"
+          "error",
+          "profile",
+          "local_processes"
         ],
         "properties": {
           "schema_version": {
@@ -999,6 +1001,18 @@
                 "type": "null"
               }
             ]
+          },
+          "profile": {
+            "enum": [
+              "renderflow.layered-composition/v5",
+              "renderflow.api-profile/manual-lyrics/v1",
+              "renderflow.api-profile/timed-text/v1",
+              "renderflow.api-profile/fountain-body/v1",
+              "renderflow.api-profile/editorial/v1"
+            ]
+          },
+          "local_processes": {
+            "type": "boolean"
           }
         }
       },
@@ -1010,7 +1024,8 @@
           "package_sha256",
           "file_count",
           "size_bytes",
-          "profile"
+          "profile",
+          "local_processes"
         ],
         "properties": {
           "id": {
@@ -1029,7 +1044,16 @@
             "minimum": 0
           },
           "profile": {
-            "const": "renderflow.layered-composition/v5"
+            "enum": [
+              "renderflow.layered-composition/v5",
+              "renderflow.api-profile/manual-lyrics/v1",
+              "renderflow.api-profile/timed-text/v1",
+              "renderflow.api-profile/fountain-body/v1",
+              "renderflow.api-profile/editorial/v1"
+            ]
+          },
+          "local_processes": {
+            "type": "boolean"
           }
         }
       },
@@ -1220,7 +1244,7 @@
       "Capabilities": {
         "type": "object",
         "additionalProperties": true,
-        "description": "Admitted service profile/operations/limits plus a separately labelled broader SDK inventory. No upload, public bind or external-provider admission is inferred."
+        "description": "Finite service profile/operation/limit declarations and a separately labelled broader SDK inventory. Editorial process admission depends on operator configuration; inventory/health are not provider-readiness or qualification evidence."
       },
       "JobEnvelope": {
         "type": "object",
@@ -1392,7 +1416,7 @@
     }
   },
   "externalDocs": {
-    "url": "https://github.com/egohygiene/renderflow/blob/506cc5c2118e9925bab5f3597b144d07f657b0ad/crates/renderflow-core/src/sdk.rs",
+    "url": "https://github.com/egohygiene/renderflow/blob/7088796574c2cebe19d23b1e36459d3f62ce82f0/docs/http-api.md",
     "description": "Pinned public SDK owns native result and progress contracts; these API envelope schemas do not replace them."
   }
 }

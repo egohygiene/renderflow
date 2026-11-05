@@ -9,6 +9,7 @@ use crate::model::*;
 pub(crate) struct Package {
     pub id: String, pub files: BTreeMap<String,Arc<[u8]>>, pub config: String,
     pub sha256: String, pub size_bytes: u64,
+    pub profile: PipelineProfile,
 }
 
 pub(crate) struct Workspace { pub directory: tempfile::TempDir, pub effective_config_sha256: String }
@@ -79,23 +80,17 @@ impl Package {
         let input = files.get(&config.config).ok_or_else(||ApiError::new("config_missing","Pipeline config is absent from its allowlist",400))?;
         let text = std::str::from_utf8(input).map_err(|_|ApiError::new("invalid_config","Pipeline config must be UTF-8",400))?;
         let mut spec = renderflow::spec::load_spec_str(text).map_err(|_|ApiError::new("invalid_config","Core rejected the pipeline configuration",422))?.spec;
-        if spec.schema != "renderflow/v2" || spec.sources.len() != 1 || spec.sources[0].kind != renderflow::spec::SourceKind::Composition {
-            return Err(ApiError::new("unsupported_profile","This service checkpoint admits native page composition only",422));
-        }
-        relative(spec.sources[0].path.as_deref().ok_or_else(ApiError::internal)?)?;
-        if spec.execution.composition.as_ref().is_some_and(|policy|policy.cache_directory.is_some()) {
-            return Err(ApiError::new("shared_cache_refused","Service jobs require private bundle-local caches",422));
-        }
-        // Only output placement changes. Core still validates and owns every
-        // target, locale, provider, geometry and native execution policy.
+        crate::profiles::admit(config,&mut spec,&files)?;
+        // Output is always private. Graph profiles also apply explicit service
+        // ceilings over existing SDK providers/transforms; core owns semantics.
         spec.output.bundle_root = "bundle".into();
         let effective = serde_json::to_vec_pretty(&spec).map_err(|_|ApiError::internal())?;
         let identity = files.iter().map(|(name,bytes)|(name,digest(bytes),bytes.len())).collect::<Vec<_>>();
-        let sha256 = digest(&serde_json::to_vec(&(config.id.as_str(),&config.config,identity)).map_err(|_|ApiError::internal())?);
+        let sha256 = digest(&serde_json::to_vec(&(config.id.as_str(),&config.config,config.profile,config.allow_local_processes,identity)).map_err(|_|ApiError::internal())?);
         total = total.saturating_sub(input.len() as u64).saturating_add(effective.len() as u64);
         if total > limits.package_bytes { return Err(ApiError::new("package_limit","Normalized package exceeds source byte limit",413)); }
         files.insert(config.config.clone(),Arc::from(effective));
-        Ok(Self { id:config.id.clone(),files,config:config.config.clone(),sha256,size_bytes:total })
+        Ok(Self { id:config.id.clone(),files,config:config.config.clone(),sha256,size_bytes:total,profile:config.profile })
     }
 
     pub fn materialize(&self, parent: &Path) -> ApiResult<Workspace> {
@@ -112,7 +107,7 @@ impl Package {
 
     pub fn view(&self) -> PipelineView {
         PipelineView { id:self.id.clone(),package_sha256:self.sha256.clone(),file_count:self.files.len(),size_bytes:self.size_bytes,
-            profile:renderflow::composition::COMPOSITION_PROFILE }
+            profile:self.profile.name(),local_processes:self.profile.local_processes() }
     }
 }
 
