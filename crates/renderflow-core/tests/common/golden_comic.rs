@@ -99,6 +99,7 @@ struct Story {
 pub struct PackEvidence {
     pub pack_id: String, pub case_id: String, pub status: String,
     pub exercise: String, pub source_sha256: String, pub generator_sha256: String,
+    pub declared_exercise: String, pub large_execution_opt_in: bool,
     pub toolchain_sha256: String, pub asset_sha256: BTreeMap<String,String>,
     pub recipe_dependency_sha256: BTreeMap<String,String>,
     pub parameters: Parameters, pub validator_ids: Vec<String>,
@@ -117,6 +118,32 @@ struct Generated { source: PathBuf, pages: Vec<Page>, model: Value }
 fn digest(bytes: &[u8]) -> String { format!("{:x}", Sha256::digest(bytes)) }
 fn repository() -> PathBuf { Path::new(env!("CARGO_MANIFEST_DIR")).join("../..") }
 fn token() -> ProcessCancellationToken { ProcessCancellationToken::new() }
+
+const LARGE_COMIC_OPT_IN: &str = "RENDERFLOW_TEST_COMIC_LARGE";
+
+fn select_execution(exercise: &str, tier: &str, rank: usize, opt_in: Option<&std::ffi::OsStr>) -> Result<bool> {
+    match exercise {
+        "plan" => Ok(false),
+        "execute" => Ok(true),
+        "opt_in_execute" => {
+            ensure!(tier == "maximal" && rank == 2, "fixture.pack.large_tier");
+            match opt_in {
+                None => Ok(false),
+                Some(value) if value == std::ffi::OsStr::new("0") => Ok(false),
+                Some(value) if value == std::ffi::OsStr::new("1") => Ok(true),
+                _ => anyhow::bail!("fixture.pack.large_opt_in: expected 0 or 1"),
+            }
+        }
+        _ => anyhow::bail!("fixture.pack.exercise"),
+    }
+}
+
+fn check_run_budget(root: &Path, output: &Path, case: &PackCase, started: Instant) -> Result<()> {
+    ensure!(started.elapsed().as_secs() < case.limits.cooperative_seconds, "pack cooperative budget exceeded");
+    snapshot(output,2048,case.limits.max_output_bytes)?;
+    snapshot(root,4096,case.limits.max_source_bytes + 3 * case.limits.max_output_bytes)?;
+    Ok(())
+}
 
 fn pin_bytes(pin: &Pin) -> Result<Vec<u8>> {
     let relative = Path::new(&pin.path);
@@ -140,7 +167,7 @@ pub fn check(corpus: &Corpus) -> Result<()> {
         let stable_id = |id:&str| !id.is_empty() && id.len() <= 128
             && id.bytes().all(|byte|byte.is_ascii_alphanumeric() || matches!(byte,b'.'|b'-'|b'_'));
         ensure!(stable_id(&pack.id) && ids.insert(&pack.id) && pack.schema_version == "renderflow.document-fixture-pack/v1"
-            && pack.document_type == "comic" && pack.version == "1.1.0"
+            && pack.document_type == "comic" && pack.version == "1.2.0"
             && pack.license == "CC0-1.0" && !pack.provenance.is_empty()
             && pack.profile == COMPOSITION_PROFILE, "unsupported or incomplete fixture pack");
         ensure!(corpus.fixtures.iter().any(|fixture| fixture.id == pack.source_fixture), "pack story fixture missing");
@@ -160,10 +187,12 @@ pub fn check(corpus: &Corpus) -> Result<()> {
         for case in &pack.cases {
             let p = &case.parameters;
             ensure!(stable_id(&case.id) && case_ids.insert(&case.id) && matches!(case.tier.as_str(), "fast" | "maximal")
-                && matches!(case.exercise.as_str(), "execute" | "plan") && p.seed == 0
+                && matches!(case.exercise.as_str(), "execute" | "plan" | "opt_in_execute") && p.seed == 0
                 && (2..=44).contains(&p.interior_pages) && p.interior_pages.is_multiple_of(2)
                 && p.cover_pages == 2 && p.width_mm == 100.0 && p.height_mm == 140.0 && p.dpi == 127,
                 "comic recipe parameters exceed the selected finite subset");
+            ensure!(case.exercise != "opt_in_execute" || (case.tier == "maximal" && p.interior_pages == 44),
+                "large execution needs the bounded maximal case");
             ensure!((1..=256).contains(&case.limits.max_files)
                 && (1..=8 * 1024 * 1024).contains(&case.limits.max_source_bytes)
                 && case.limits.max_output_bytes <= 128 * 1024 * 1024
@@ -200,7 +229,7 @@ pub fn check(corpus: &Corpus) -> Result<()> {
             let case = pack.cases.iter().find(|case| case.id == selection.case_id).context("unknown pack case")?;
             ensure!(selected.insert((&selection.id, &selection.case_id))
                 && scenario.tier == case.tier && scenario.fixtures == vec![pack.source_fixture.clone()]
-                && scenario.assertion_scope == if case.exercise == "execute" { "native_output" } else { "inventory" },
+                && scenario.assertion_scope == if case.exercise == "plan" { "inventory" } else { "native_output" },
                 "scenario and pack selection disagree");
         }
     }
@@ -440,6 +469,10 @@ pub fn run(corpus: &Corpus, paths: &BTreeMap<String,PathBuf>, root: &Path,
                 assertions:vec!["larger pack source/planning tier was not requested; no generation or output success inferred".into()],providers:Vec::new(),reason:Some("maximal tier required".into()) }));
             continue;
         }
+        // Freeze the execution choice once. Merely selecting maximal still
+        // permits the source/planning case; it cannot launch the larger render.
+        let opt_in = std::env::var_os(LARGE_COMIC_OPT_IN);
+        let execute = select_execution(&case.exercise,&case.tier,requested_rank,opt_in.as_deref())?;
         let started = Instant::now(); let case_root = root.join(format!("{}-{}",pack.id,case.id)); fs::create_dir(&case_root)?;
         let story_bytes = fs::read(&paths[&pack.source_fixture])?;
         let generated = materialize(pack,case,&story_bytes,&case_root)?; validate_model(&generated,case,&generated.model)?;
@@ -449,7 +482,7 @@ pub fn run(corpus: &Corpus, paths: &BTreeMap<String,PathBuf>, root: &Path,
         let mut captures = BTreeMap::new();
         let mut first = None;
         for page in &generated.pages {
-            ensure!(started.elapsed().as_secs() < case.limits.cooperative_seconds, "pack cooperative budget exceeded");
+            check_run_budget(&case_root,&output_root,case,started)?;
             let resolved = resolve_composition(request(&page.manifest,case)?)?;
             ensure!(resolved.native_plan().branches.len() == case.outputs.len()
                 && resolved.native_plan().branches.iter().all(|branch|branch.state == CompositionBranchState::Planned), "comic page cannot plan requested outputs");
@@ -459,7 +492,7 @@ pub fn run(corpus: &Corpus, paths: &BTreeMap<String,PathBuf>, root: &Path,
                 ensure!(build.is_composition() && build.plan().artifact_forest.as_ref().context("ordinary comic build forest missing")?.branches.len() == case.outputs.len(),
                     "retained ordinary build configuration disagrees with the comic recipe");
             }
-            if case.exercise == "execute" {
+            if execute {
                 let destination = output_root.join(&page.id);
                 let run = execute_composition(&resolved,&destination,Some(&cache),&token())?;
                 ensure!(run.state == CompositionRunState::Complete && run.review_required && !run.runtime_qualified, "comic native execution state differs");
@@ -474,7 +507,8 @@ pub fn run(corpus: &Corpus, paths: &BTreeMap<String,PathBuf>, root: &Path,
                 if first.is_none() { first = Some((common,destination,observed)); }
             }
         }
-        let aggregate = publications::run(&generated,case,&case_root,&output_root,&captures,requested_rank)?;
+        check_run_budget(&case_root,&output_root,case,started)?;
+        let aggregate = publications::run(&generated,case,&case_root,&output_root,&captures,requested_rank,execute,started)?;
         publications += aggregate.observed;
         hashes.extend(aggregate.hashes);
         let mut negatives = Vec::new();
@@ -517,7 +551,9 @@ pub fn run(corpus: &Corpus, paths: &BTreeMap<String,PathBuf>, root: &Path,
             }
             negatives.push(kind.clone());
         }
-        if case.exercise == "execute" {
+        if execute {
+            ensure!(captures.len() == case.parameters.interior_pages + case.parameters.cover_pages
+                && aggregate.preparation.len() == captures.len(), "comic complete page/preparation set differs");
             let resolved = resolve_composition(request(&generated.pages[0].manifest,case)?)?;
             let warm = case_root.join("warm"); let run = execute_composition(&resolved,&warm,Some(&cache),&token())?;
             ensure!(run.branches.iter().all(|branch|branch.cache == renderflow::evidence::CacheDisposition::Hit), "comic warm cache did not reuse all terminal outputs");
@@ -533,20 +569,33 @@ pub fn run(corpus: &Corpus, paths: &BTreeMap<String,PathBuf>, root: &Path,
         snapshot(&case_root,4096,case.limits.max_source_bytes + 3 * case.limits.max_output_bytes)?;
         ensure!(started.elapsed().as_secs() < case.limits.cooperative_seconds, "pack cooperative budget exceeded");
         if let Some(path) = &retained { copy_tree(&generated.source,&path.join(format!("{}-{}",pack.id,case.id)))?; }
-        evidence.push(PackEvidence { pack_id:pack.id.clone(),case_id:case.id.clone(),status:if case.exercise=="execute" {"observed_candidates"} else {"planned_only"}.into(),
-            exercise:case.exercise.clone(),source_sha256:digest(&story_bytes),generator_sha256:pack.generator.sha256.clone(),profile:pack.profile.clone(),
+        evidence.push(PackEvidence { pack_id:pack.id.clone(),case_id:case.id.clone(),status:if execute {"observed_candidates"} else {"planned_only"}.into(),
+            exercise:if execute {"execute"} else {"plan"}.into(),declared_exercise:case.exercise.clone(),large_execution_opt_in:case.exercise=="opt_in_execute"&&execute,
+            source_sha256:digest(&story_bytes),generator_sha256:pack.generator.sha256.clone(),profile:pack.profile.clone(),
             toolchain_sha256:pack.toolchain.sha256.clone(),asset_sha256:pack.assets.iter().chain(std::iter::once(&pack.rights)).map(|asset|(asset.path.clone(),asset.sha256.clone())).collect(),
             recipe_dependency_sha256:pack.recipe_dependencies.iter().map(|pin|(pin.path.clone(),pin.sha256.clone())).collect(),
             parameters:case.parameters.clone(),validator_ids:case.outputs.iter().map(|output|output.validator.clone()).collect(),
             interior_page_ids:generated.pages.iter().filter(|page|page.role=="interior").map(|page|page.id.clone()).collect(),
-            cover_page_ids:vec!["cover-front".into(),"cover-back".into()],observed_pages:if case.exercise=="execute" {generated.pages.len()} else {0},
+            cover_page_ids:vec!["cover-front".into(),"cover-back".into()],observed_pages:if execute {generated.pages.len()} else {0},
             observed_publications:publications,output_sha256:hashes,source_bytes:before.1,output_bytes,negative_cases:negatives,
             unavailable_mappings:pack.unavailable_mappings.iter().map(|mapping|json!({"role":mapping.role,"format":mapping.format,"status":"unavailable","reason":mapping.reason})).collect(),
             publication_outputs:aggregate.outputs,rgb_preparation:aggregate.preparation,
             runtime_qualified:false,creative_approval_inferred:false });
-        results.insert((scenario.id.clone(),ScenarioEvidence {id:scenario.id.clone(),status:"passed".into(),
-            assertions:vec![if case.exercise=="execute" {"Per-page candidates, explicit RGB preparation and exact fixed EPUB image/order joins matched; PDF packets require a separately selected full-tier provider. Source immutability and warm/cold identity remain distinct from approval."} else {"Parameterized page model and aggregate recipes only; zero output artifacts or aggregate SDK plans observed."}.into()],
-            providers:vec!["renderflow.core-composition".into(),"tool.renderflow-epub".into()],reason:Some("Finite fixture scope; consumer publication and provider/runtime qualification are not inferred".into())}));
+        results.insert((scenario.id.clone(),ScenarioEvidence {id:scenario.id.clone(),status:if execute {"passed"}else{"excluded"}.into(),
+            assertions:vec![if execute {"Complete per-page candidates, explicit RGB preparation and ordered aggregate image/hash/count joins matched; PDF requires its explicit provider. Source immutability and warm/cold identity are separate from approval."} else {"Parameterized page model and aggregate recipes only; zero output artifacts or aggregate SDK plans observed."}.into()],
+            providers:if execute {vec!["renderflow.core-composition".into(),"tool.renderflow-epub".into()]}else{Vec::new()},
+            reason:Some(if execute {"Finite fixture scope; publication/provider/runtime qualification is not inferred"}else{"Large render not selected; set maximal tier and RENDERFLOW_TEST_COMIC_LARGE=1 separately"}.into())}));
     }
     Ok(evidence)
+}
+
+#[test]
+fn large_render_needs_its_exact_opt_in_and_maximal_tier() {
+    use std::ffi::OsStr;
+    assert!(!select_execution("opt_in_execute","maximal",2,None).unwrap());
+    assert!(!select_execution("opt_in_execute","maximal",2,Some(OsStr::new("0"))).unwrap());
+    assert!(select_execution("opt_in_execute","maximal",2,Some(OsStr::new("1"))).unwrap());
+    assert!(select_execution("opt_in_execute","fast",0,Some(OsStr::new("1"))).is_err());
+    assert!(select_execution("opt_in_execute","maximal",2,Some(OsStr::new("true"))).is_err());
+    assert!(select_execution("execute","fast",0,None).unwrap());
 }

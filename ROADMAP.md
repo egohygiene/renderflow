@@ -26,6 +26,17 @@ supersedes: []
 
 # Renderflow Roadmap
 
+## #413 / #412 — opt-in full-size comic source checkpoint
+
+Corpus 1.5.0 / comic pack 1.2.0 extends the same bounded fixture recipe to
+44 interior pages, separate two-cover PDF packet and 46-image EPUB. Maximal
+still plans by default; an exact large-execution flag and a separate PDF-provider
+selection control effects. Expected versus observed page counts, complete native
+capture/preparation joins, independent PDF inspection and cooperative resource
+guards are authored. See [large-case handoff](docs/work/413/LARGE_CASE.md).
+Five new cases are authored/unrun; no generator, compiler, tests, schema, SDK,
+native/provider/model/CI execution, output or approval is claimed.
+
 ## #456 — exact review/export source checkpoint
 
 The third draft adds separate accept/revise/reject records bound to exact
