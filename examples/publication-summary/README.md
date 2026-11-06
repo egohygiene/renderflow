@@ -28,3 +28,12 @@ refused/declared_ready. It does not probe a server, read credentials, install or
 download anything. Reported cost can remain unknown; it is not zero. See the
 [runtime mapping](../../docs/work/456/RUNTIME_PROFILE.md) and
 [profile schema](../../schemas/renderflow-ai-runtime-profile-v1.schema.json).
+
+The second source checkpoint adds a public
+`renderflow::publication::summary` capture/plan/generate API and the bundled
+`skill.publication.summary@1.0.0`. It consumes explicitly approved selected UTF-8
+text, not images/audio. Every synopsis statement references exact captured slice
+IDs. Reference checks remain separate from factual/semantic correctness and
+human publication review. No inference has occurred. See the
+[candidate contract](../../docs/work/456/CANDIDATES.md); CLI/review/export follow
+in the third draft.

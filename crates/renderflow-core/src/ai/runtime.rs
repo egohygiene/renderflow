@@ -488,31 +488,26 @@ fn render_and_sanitize_prompt(
     let input = input
         .as_object()
         .context("AI skill input must be an object")?;
-    let mut prompt = format!(
-        "SYSTEM\n{}\n\nINSTRUCTION\n{}\n\nINPUT\n{}",
-        skill.templates.system, skill.templates.instruction, skill.templates.prompt
-    );
+    let template = format!("SYSTEM\n{}\n\nINSTRUCTION\n{}\n\nINPUT\n{}",skill.templates.system,skill.templates.instruction,skill.templates.prompt);
+    let mut substitutions=std::collections::BTreeMap::new();
     for variable in &skill.variables {
-        let value = input.get(&variable.name);
-        if variable.required && value.is_none() {
-            anyhow::bail!("AI skill variable '{}' is required", variable.name);
-        }
-        let rendered = match value {
-            Some(Value::String(value)) => value.clone(),
-            Some(value) => serde_json::to_string(value)?,
-            None => String::new(),
-        };
-        if rendered.len() > variable.max_bytes {
-            anyhow::bail!(
-                "AI skill variable '{}' exceeds its byte limit",
-                variable.name
-            );
-        }
-        prompt = prompt.replace(&format!("{{{{{}}}}}", variable.name), &rendered);
+        let value=input.get(&variable.name);
+        if variable.required && value.is_none() {anyhow::bail!("AI skill variable is required");}
+        let rendered=match value {Some(Value::String(value))=>value.clone(),Some(value)=>serde_json::to_string(value)?,None=>String::new()};
+        if rendered.len()>variable.max_bytes {anyhow::bail!("AI skill variable exceeds its byte limit");}
+        substitutions.insert(variable.name.as_str(),rendered);
     }
-    if prompt.contains("{{") || prompt.contains("}}") {
-        anyhow::bail!("AI skill prompt contains unresolved template variables");
+    // Parse only the reviewed template. Inserted source data is opaque and is
+    // never rescanned for another variable or promoted into template syntax.
+    let mut prompt=String::new();let mut remaining=template.as_str();
+    while let Some(start)=remaining.find("{{") {
+        let literal=&remaining[..start];if literal.contains("}}") {anyhow::bail!("AI skill template delimiter is unmatched");}
+        prompt.push_str(literal);let rest=&remaining[start+2..];let end=rest.find("}}").context("AI skill template delimiter is unmatched")?;
+        let value=substitutions.get(&rest[..end]).context("AI skill template variable is undeclared")?;
+        prompt.push_str(value);remaining=&rest[end+2..];
     }
+    if remaining.contains("}}") {anyhow::bail!("AI skill template delimiter is unmatched");}
+    prompt.push_str(remaining);
     if prompt.len() > skill.max_rendered_prompt_bytes {
         anyhow::bail!("rendered AI skill prompt exceeds its byte budget");
     }
