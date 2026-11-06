@@ -27,6 +27,9 @@ pub struct PipelineConfig {
     /// Explicit operator opt-in for editorial Pandoc/Tectonic discovery/run.
     #[serde(default)]
     pub allow_local_processes: bool,
+    /// Opt-in replacement of the single captured built-in text source only.
+    #[serde(default)]
+    pub allow_source_uploads: bool,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -68,6 +71,10 @@ pub struct Limits {
     pub workspace_storage_bytes: u64,
     pub job_timeout_seconds: u64,
     pub retention_seconds: u64,
+    pub upload_count: usize,
+    pub upload_bytes: u64,
+    pub all_upload_bytes: u64,
+    pub upload_retention_seconds: u64,
 }
 
 impl Default for Limits {
@@ -76,7 +83,8 @@ impl Default for Limits {
             package_bytes: 32 * 1024 * 1024, all_package_bytes: 64 * 1024 * 1024,
             result_bytes: 2 * 1024 * 1024, progress_events: 64, progress_bytes: 64 * 1024,
             download_bytes: 8 * 1024 * 1024, job_storage_bytes: 256 * 1024 * 1024,workspace_storage_bytes:512*1024*1024,
-            job_timeout_seconds: 120, retention_seconds: 900 }
+            job_timeout_seconds: 120, retention_seconds: 900,
+            upload_count:16,upload_bytes:8*1024*1024,all_upload_bytes:32*1024*1024,upload_retention_seconds:900 }
     }
 }
 
@@ -92,7 +100,10 @@ impl Limits {
             || self.download_bytes == 0 || self.download_bytes > 32 * 1024 * 1024
             || self.job_storage_bytes < self.package_bytes || self.job_storage_bytes > 512 * 1024 * 1024
             || self.workspace_storage_bytes < self.job_storage_bytes || self.workspace_storage_bytes > 2*1024*1024*1024
-            || !(1..=600).contains(&self.job_timeout_seconds) || !(1..=86400).contains(&self.retention_seconds) {
+            || !(1..=600).contains(&self.job_timeout_seconds) || !(1..=86400).contains(&self.retention_seconds)
+            || !(1..=64).contains(&self.upload_count) || self.upload_bytes==0 || self.upload_bytes>64*1024*1024
+            || self.all_upload_bytes<self.upload_bytes || self.all_upload_bytes>64*1024*1024
+            || !(1..=86400).contains(&self.upload_retention_seconds) {
             return Err(ApiError::new("invalid_limits", "Service limits exceed the supported local profile", 400));
         }
         Ok(())
@@ -109,6 +120,17 @@ pub struct SubmitRequest {
     pub pipeline_id: String,
     #[serde(default)]
     pub dry_run: bool,
+    /// Process-local immutable source, bound to this registered pipeline.
+    #[serde(default)]
+    pub upload_id: Option<String>,
+}
+
+#[derive(Debug,Clone,Serialize)]
+pub struct UploadView {
+    pub schema_version: &'static str,
+    pub upload_id:String,pub pipeline_id:String,pub sha256:String,pub size_bytes:u64,
+    pub expires_at_unix_ms:u64,
+    pub review_inherited:bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -141,6 +163,7 @@ pub struct JobView {
     pub profile: &'static str,
     pub local_processes: bool,
     pub package_sha256: String,
+    pub source_upload: Option<UploadView>,
     pub effective_config_sha256: Option<String>,
     pub operation: Operation,
     pub state: JobState,
@@ -159,6 +182,7 @@ pub struct PipelineView {
     pub id: String, pub package_sha256: String, pub file_count: usize,
     pub size_bytes: u64, pub profile: &'static str,
     pub local_processes: bool,
+    pub source_uploads: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]

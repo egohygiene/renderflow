@@ -9,8 +9,9 @@ Registered packages now select a finite service profile. A trusted local
 operator chooses a dedicated root, flat v2 config and explicit relative file
 allowlist. Startup captures bytes and an identity including profile/effect
 permission. Each job gets a private copy, an effective-config digest and its own
-`bundle`. Clients select a registered ID and optional dry run; they cannot send
-host paths, provider selections, configs or uploaded sources.
+`bundle`. Clients select a registered ID, optional dry run and optional immutable
+source-upload ID. Uploads require explicit operator permission for a built-in
+text profile; clients cannot choose host paths, formats, providers or configs.
 
 | Operator `profile` | Existing SDK behavior | Process effects |
 | --- | --- | --- |
@@ -31,7 +32,8 @@ perform provider discovery as part of the existing SDK resolver.
 
 The default composition configuration remains compatible. Library/core native
 plan/run/artifact objects pass through unchanged. API job/pipeline views add
-`profile` and `local_processes`; the maintained draft OpenAPI describes them.
+`profile`, `local_processes`, upload capability and the job's optional source
+upload reference; the maintained draft OpenAPI describes them.
 
 ## Local startup
 
@@ -73,7 +75,8 @@ Except for `GET /health`, endpoints require `Authorization: Bearer ...`.
 Host must identify the exact loopback listener or `localhost` on its port.
 Browser `Origin` requests are refused; CORS, cookies, upgrades and proxy identity
 headers do not create a session. Only one HTTP/1.1 request is served per
-connection. POST uses explicit Content-Length and UTF-8 `application/json`;
+connection. POST uses explicit Content-Length and UTF-8 `application/json`, except
+the explicitly enabled raw binary upload endpoint;
 encoded/chunked bodies, `Expect: 100-continue`, duplicate headers, root arrays,
 nested duplicate JSON keys and unknown request fields are refused. Routes use
 literal IDs, without percent-encoded paths or arbitrary filesystem locators.
@@ -82,7 +85,7 @@ literal IDs, without percent-encoded paths or arbitrary filesystem locators.
 curl --noproxy 127.0.0.1 http://127.0.0.1:8787/health
 
 curl --noproxy 127.0.0.1 \
-  -H "Authorization: Bearer $RENDERFLOW_API_TOKEN" \
+  --header @/path/to/private-auth-header \
   -H "Content-Type: application/json" \
   --data '{"pipeline_id":"sample-page","dry_run":true}' \
   http://127.0.0.1:8787/v1/execute
@@ -92,11 +95,16 @@ These examples do not create a job until explicitly run. All inspect, plan and
 execute requests return `202` plus a `Location` job path. Poll that path for the
 structured result. The SDK executes one captured resolved build per execution;
 no terminal output is parsed and no CLI subprocess is involved.
+The private header file contains the authorization header, is operator-owned
+with restrictive permissions, and stays outside source control. This keeps the
+credential out of curl's command arguments; no token/header file was created here.
 
 | Endpoint | Behavior |
 | --- | --- |
 | `GET /health`, `GET /ready` | Process/configured admission state, without provider probes |
 | `GET /v1/pipelines` | Registered package IDs, capture sizes/digests and profile |
+| `POST /v1/pipelines/{pipeline_id}/uploads` | Capture one bounded immutable source for an enabled built-in text profile; no job starts |
+| `GET`, `DELETE /v1/uploads/{upload_id}` | Metadata before expiry, or forget only when no retained job references it |
 | `POST /v1/inspect`, `/v1/plan`, `/v1/execute` | Queue the corresponding shared SDK operation |
 | `GET /v1/jobs/{job_id}` | Current state, cancellation intent, bounded native result/error and progress cursor |
 | `DELETE /v1/jobs/{job_id}` | Request cancellation; keep worker/workspace until the SDK returns |
@@ -121,6 +129,50 @@ evidence. Core planning/execution errors without a native result use generic
 structured errors, avoiding exposure of raw operator paths or source content.
 Native SDK models still contain their own private-job paths and are available to
 the authenticated local operator; those paths never become download authority.
+
+## Optional immutable source uploads
+
+The [source-uploads example](../examples/http-api/source-uploads.json) explicitly
+enables one source slot for each built-in manual-lyrics, timed-text and Fountain
+profile. Other examples keep uploads off. Composition/editorial config and asset
+uploads are not admitted. Read the [upload contract](work/420/UPLOADS.md) before
+enabling it. The format, source path, graph and effects stay fixed by the captured
+pipeline; only new source bytes may be supplied.
+
+The following are **unrun examples** for after qualification. Replace the hash
+with `sha256sum` of the exact file. The private header file holds the bearer
+header outside source control and process arguments:
+
+```bash
+curl --noproxy 127.0.0.1 \
+  --header @/path/to/private-auth-header \
+  --header 'Content-Type: application/octet-stream' \
+  --header 'X-Content-SHA256: REPLACE_WITH_EXACT_FILE_SHA256' \
+  --data-binary @examples/lyrics/manual.srt \
+  http://127.0.0.1:8787/v1/pipelines/manual-lyrics/uploads
+```
+
+A successful 201 returns metadata and `Location: /v1/uploads/upload-...`, not a
+job. Submit that exact ID in a normal JSON request, for example:
+
+```json
+{"pipeline_id":"manual-lyrics","upload_id":"REPLACE_WITH_ACTUAL_UPLOAD_ID"}
+```
+
+Plan/inspect it before explicitly selecting execution. The upload ID must belong
+to the selected pipeline and be unexpired. Job metadata records the source hash,
+size, upload ID and an explicit `review_inherited: false`. Manual lyric uploads
+start unreviewed and clear old language/revision/section annotations. This does
+not infer approval or timing; the supplied file remains the only timing source.
+Invalid content can still fail core parsing/planning. The operator's original
+files and registered base package do not change.
+
+Defaults are 16 uploads, 8 MiB per file, 32 MiB total and 15-minute expiry. The
+effective body bound also respects HTTP and package limits. Expiry prevents new
+jobs; retained jobs keep their exact source lease charged to the pool. Finish or
+cancel a job, wait for terminal state, then forget it before deleting its upload.
+DELETE of an upload in use returns 409. No pending upload survives restart and
+no upload starts a provider, model, installation or job by itself.
 
 ## Progress, artifacts and retention
 

@@ -94,7 +94,7 @@ fn process(stream:&mut TcpStream,router:&Router,id:&str)->(u16,bool) {
 
 fn write_response(stream:&mut TcpStream,response:&Response,id:&str,head_only:bool,budget:Duration)->io::Result<()> {
     let deadline=Instant::now()+budget;
-    let reason=match response.status {200=>"OK",202=>"Accepted",204=>"No Content",400=>"Bad Request",401=>"Unauthorized",403=>"Forbidden",404=>"Not Found",
+    let reason=match response.status {200=>"OK",201=>"Created",202=>"Accepted",204=>"No Content",400=>"Bad Request",401=>"Unauthorized",403=>"Forbidden",404=>"Not Found",
         408=>"Request Timeout",409=>"Conflict",411=>"Length Required",413=>"Content Too Large",415=>"Unsupported Media Type",417=>"Expectation Failed",
         422=>"Unprocessable Content",431=>"Request Header Fields Too Large",503=>"Service Unavailable",_=>"Internal Server Error"};
     let mut headers=format!("HTTP/1.1 {} {}\r\nContent-Type: {}\r\nContent-Length: {}\r\nConnection: close\r\nCache-Control: no-store\r\nX-Content-Type-Options: nosniff\r\nContent-Security-Policy: default-src 'none'; sandbox\r\nX-Request-ID: {}\r\n",response.status,reason,response.media,response.body.len(),id);

@@ -22,12 +22,12 @@ impl Fixture {
         let config=ServiceConfig {schema_version:SERVICE_SCHEMA.into(),workspace_parent:"work".into(),
             pipelines:vec![PipelineConfig{id:"page".into(),root:"source".into(),config:"renderflow.json".into(),
                 files:files.into_iter().chain(std::iter::once("renderflow.json")).map(str::to_string).collect(),
-                profile:PipelineProfile::Composition,allow_local_processes:false}],limits:Limits::default()};
+                profile:PipelineProfile::Composition,allow_local_processes:false,allow_source_uploads:false}],limits:Limits::default()};
         Self {_directory:directory,root,config}
     }
     pub(crate) fn service(&self)->Service {Service::new(self.config.clone(),&self.root).unwrap()}
     fn submit(&self,service:&Service,operation:Operation,dry_run:bool)->JobView {
-        service.submit(operation,SubmitRequest{pipeline_id:"page".into(),dry_run}).unwrap()
+        service.submit(operation,SubmitRequest{pipeline_id:"page".into(),dry_run,upload_id:None}).unwrap()
     }
 }
 fn wait(service:&Service,id:&str)->JobView {
@@ -94,9 +94,9 @@ fn cancellation_retains_work_until_native_terminal_state_and_forget_is_explicit(
 fn retained_capacity_unknown_pipeline_limits_and_shutdown_are_structured() {
     let mut fixture=Fixture::new(&["transcript_json"]);fixture.config.limits.workers=1;fixture.config.limits.queued_jobs=1;fixture.config.limits.retained_jobs=2;
     let service=fixture.service();for _ in 0..2 {let job=fixture.submit(&service,Operation::Inspect,false);wait(&service,&job.job_id);}
-    assert_eq!(service.submit(Operation::Plan,SubmitRequest{pipeline_id:"page".into(),dry_run:false}).unwrap_err().code,"job_capacity");
-    assert_eq!(service.submit(Operation::Plan,SubmitRequest{pipeline_id:"unknown".into(),dry_run:false}).unwrap_err().code,"pipeline_not_found");
-    service.shutdown();assert!(!service.ready());assert_eq!(service.submit(Operation::Inspect,SubmitRequest{pipeline_id:"page".into(),dry_run:false}).unwrap_err().code,"shutting_down");
+    assert_eq!(service.submit(Operation::Plan,SubmitRequest{pipeline_id:"page".into(),dry_run:false,upload_id:None}).unwrap_err().code,"job_capacity");
+    assert_eq!(service.submit(Operation::Plan,SubmitRequest{pipeline_id:"unknown".into(),dry_run:false,upload_id:None}).unwrap_err().code,"pipeline_not_found");
+    service.shutdown();assert!(!service.ready());assert_eq!(service.submit(Operation::Inspect,SubmitRequest{pipeline_id:"page".into(),dry_run:false,upload_id:None}).unwrap_err().code,"shutting_down");
     fixture.config.limits.workers=0;assert!(Service::new(fixture.config,&fixture.root).is_err());
 }
 

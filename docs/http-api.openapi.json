@@ -561,6 +561,242 @@
           }
         }
       }
+    },
+    "/v1/pipelines/{pipeline_id}/uploads": {
+      "post": {
+        "summary": "Capture a bounded immutable source for an operator-enabled built-in text pipeline",
+        "description": "One raw source only. No filenames, paths, config, assets or effect/profile choices. Upload alone starts no job or model and inherits no review. Body admission follows authentication and operator permission. No multipart/chunked/compressed framing.",
+        "parameters": [
+          {
+            "name": "pipeline_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._-]{1,64}$"
+            }
+          },
+          {
+            "name": "X-Content-SHA256",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          {
+            "name": "Content-Length",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 67108864
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Immutable source captured; Location identifies metadata",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed digest/framing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Uploads disabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown pipeline",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body/source limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Wrong content type",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Digest mismatch",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Retained upload capacity or shutdown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/uploads/{upload_id}": {
+      "get": {
+        "summary": "Read immutable upload metadata before expiry",
+        "parameters": [
+          {
+            "name": "upload_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^upload-[0-9a-f]{64}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Metadata only; no source bytes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown or expired upload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Forget an upload only after all referencing jobs are forgotten",
+        "parameters": [
+          {
+            "name": "upload_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^upload-[0-9a-f]{64}$"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Unused upload removed"
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown upload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Retained job still references upload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -600,6 +836,19 @@
             "type": "boolean",
             "default": false,
             "description": "Only execute admits true; it preserves native planned state and publishes no artifacts."
+          },
+          "upload_id": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^upload-[0-9a-f]{64}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Optional immutable source upload for this same registered pipeline."
           }
         }
       },
@@ -895,7 +1144,8 @@
           "result",
           "error",
           "profile",
-          "local_processes"
+          "local_processes",
+          "source_upload"
         ],
         "properties": {
           "schema_version": {
@@ -1013,6 +1263,16 @@
           },
           "local_processes": {
             "type": "boolean"
+          },
+          "source_upload": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/UploadView"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         }
       },
@@ -1025,7 +1285,8 @@
           "file_count",
           "size_bytes",
           "profile",
-          "local_processes"
+          "local_processes",
+          "source_uploads"
         ],
         "properties": {
           "id": {
@@ -1053,6 +1314,9 @@
             ]
           },
           "local_processes": {
+            "type": "boolean"
+          },
+          "source_uploads": {
             "type": "boolean"
           }
         }
@@ -1410,6 +1674,67 @@
           },
           "error": {
             "$ref": "#/components/schemas/ApiError"
+          }
+        }
+      },
+      "UploadView": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "upload_id",
+          "pipeline_id",
+          "sha256",
+          "size_bytes",
+          "expires_at_unix_ms",
+          "review_inherited"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "renderflow.api-source-upload/v1"
+          },
+          "upload_id": {
+            "type": "string",
+            "pattern": "^upload-[0-9a-f]{64}$"
+          },
+          "pipeline_id": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 67108864
+          },
+          "expires_at_unix_ms": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "review_inherited": {
+            "const": false
+          }
+        }
+      },
+      "UploadEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "request_id",
+          "data"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "renderflow.api/v1"
+          },
+          "request_id": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/UploadView"
           }
         }
       }

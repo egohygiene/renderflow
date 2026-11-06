@@ -9,11 +9,16 @@ impl Head {
     pub fn header(&self,name:&str)->Option<&[u8]> {
         self.headers.iter().find(|(key,_)|key==name).map(|(_,value)|value.trim_ascii())
     }
+    pub fn upload_pipeline(&self)->Option<&str> {
+        if self.method!="POST" {return None;}
+        let id=self.path.strip_prefix("/v1/pipelines/")?.strip_suffix("/uploads")?;
+        crate::stable_id(id).then_some(id)
+    }
 }
 pub(super) struct Request {pub head:Head,pub body:Vec<u8>}
 
 pub(super) fn read<R:Read>(input:&mut R,limits:&HttpLimits,started:Instant,
-    gate:impl FnOnce(&Head)->ApiResult<()>) -> ApiResult<Request> {
+    gate:impl FnOnce(&Head)->ApiResult<usize>) -> ApiResult<Request> {
     let mut buffer=Vec::new();
     let (end,head)=loop {
         if started.elapsed()>=Duration::from_millis(limits.read_deadline_ms) {return Err(timeout());}
@@ -45,7 +50,7 @@ pub(super) fn read<R:Read>(input:&mut R,limits:&HttpLimits,started:Instant,
     };
     // Gate before body decoding/additional reads. A bounded initial header
     // read can already contain coalesced body bytes from the same packet.
-    gate(&head)?;
+    let body_limit=gate(&head)?;
     if head.header("transfer-encoding").is_some() || head.header("content-encoding").is_some()
         || head.header("upgrade").is_some() {return Err(ApiError::new("unsupported_framing","Encoded, chunked and upgraded requests are not admitted",400));}
     if head.header("expect").is_some() {return Err(ApiError::new("expectation_refused","Expect/100-continue is not supported",417));}
@@ -55,12 +60,15 @@ pub(super) fn read<R:Read>(input:&mut R,limits:&HttpLimits,started:Instant,
         Some(_)=>return Err(bad()),None if head.method=="POST"=>return Err(ApiError::new("length_required","POST requires Content-Length",411)),
         None=>0,
     };
-    if length>limits.body_bytes {return Err(ApiError::new("body_limit","Request body byte limit exceeded",413));}
+    if length>body_limit {return Err(ApiError::new("body_limit","Request body byte limit exceeded",413));}
     if head.method!="POST" && length!=0 {return Err(ApiError::new("unexpected_body","This method does not accept a body",400));}
     if head.method=="POST" {
         let media=head.header("content-type").and_then(|value|std::str::from_utf8(value).ok()).unwrap_or("");
-        if !matches!(media.to_ascii_lowercase().as_str(),"application/json"|"application/json; charset=utf-8") {
-            return Err(ApiError::new("content_type","POST requires application/json with UTF-8",415));
+        let binary=head.upload_pipeline().is_some();
+        let valid=if binary {media.eq_ignore_ascii_case("application/octet-stream")}
+            else {matches!(media.to_ascii_lowercase().as_str(),"application/json"|"application/json; charset=utf-8")};
+        if !valid {
+            return Err(ApiError::new("content_type","POST requires the endpoint's declared JSON or binary content type",415));
         }
     }
     let mut body=buffer[end..].to_vec();

@@ -23,6 +23,44 @@ fn call(router:&Router,raw:&[u8])->super::router::Response {
 }
 
 #[test]
+fn authenticated_binary_upload_returns_only_an_immutable_source_reference() {
+    let fixture=crate::service::upload_tests::Fixture::new();let router=router(fixture.service());
+    let bytes=crate::service::upload_tests::NEW;let hash=crate::package::digest(bytes);
+    let raw=input("POST","/v1/pipelines/lyrics/uploads",&format!("Content-Length: {}\r\nContent-Type: application/octet-stream\r\nX-Content-SHA256: {hash}\r\n",bytes.len()),std::str::from_utf8(bytes).unwrap());
+    let response=call(&router,raw.as_bytes());assert_eq!(response.status,201);
+    let value:Value=serde_json::from_slice(&response.body).unwrap();let id=value["data"]["upload_id"].as_str().unwrap();
+    assert_eq!(value["data"]["sha256"],hash);assert_eq!(value["data"]["review_inherited"],false);
+    assert!(!String::from_utf8(response.body.clone()).unwrap().contains("New manual words"));
+    assert!(response.headers.iter().any(|(name,value)|*name=="Location"&&value==&format!("/v1/uploads/{id}")));
+    assert_eq!(call(&router,input("GET",&format!("/v1/uploads/{id}"),"","").as_bytes()).status,200);
+    assert_eq!(router.service.active_jobs().unwrap(),0);
+    assert_eq!(call(&router,input("DELETE",&format!("/v1/uploads/{id}"),"","").as_bytes()).status,204);
+}
+
+#[test]
+fn upload_permission_digest_and_body_caps_refuse_before_another_body_read() {
+    struct HeaderOnly(Option<Vec<u8>>);
+    impl std::io::Read for HeaderOnly {
+        fn read(&mut self,buffer:&mut [u8])->std::io::Result<usize> {
+            let bytes=self.0.take().expect("refused upload read more body bytes");assert!(bytes.len()<=buffer.len());
+            buffer[..bytes.len()].copy_from_slice(&bytes);Ok(bytes.len())
+        }
+    }
+    let fixture=crate::service::upload_tests::Fixture::new();let mut router=router(fixture.service());router.limits.upload_bytes=8;
+    let hash=crate::package::digest(b"unused");
+    for (extra,status) in [
+        (format!("Content-Length: 9\r\nContent-Type: application/octet-stream\r\nX-Content-SHA256: {hash}\r\n"),413),
+        ("Content-Length: 2\r\nContent-Type: application/octet-stream\r\n".into(),400),
+        (format!("Content-Length: 2\r\nContent-Type: application/json\r\nX-Content-SHA256: {hash}\r\n"),415),
+    ] {
+        let raw=input("POST","/v1/pipelines/lyrics/uploads",&extra,"");
+        let error=framing::read(&mut HeaderOnly(Some(raw.into_bytes())),&router.limits,Instant::now(),|head|router.gate(head)).err().unwrap();
+        assert_eq!(error.status,status);
+    }
+    assert_eq!(router.service.active_jobs().unwrap(),0);
+}
+
+#[test]
 fn auth_host_and_origin_gates_precede_job_admission_without_echoing_credentials() {
     let fixture=Fixture::new(&["transcript_json"]);let router=router(fixture.service());
     for (raw,status) in [
@@ -94,9 +132,9 @@ fn http_configuration_is_loopback_and_bounded_before_socket_start() {
 #[test]
 fn maintained_openapi_envelopes_match_serialized_job_fields() {
     let api:Value=serde_json::from_str(OPENAPI).unwrap();assert_eq!(api["openapi"],"3.1.0");
-    assert_eq!(api["paths"].as_object().unwrap().len(),15);
+    assert_eq!(api["paths"].as_object().unwrap().len(),17);
     let fixture=Fixture::new(&["transcript_json"]);let service=fixture.service();
-    let job=service.submit(crate::Operation::Inspect,crate::SubmitRequest{pipeline_id:"page".into(),dry_run:false}).unwrap();
+    let job=service.submit(crate::Operation::Inspect,crate::SubmitRequest{pipeline_id:"page".into(),dry_run:false,upload_id:None}).unwrap();
     let job_id=job.job_id.clone();
     let actual=serde_json::to_value(job).unwrap().as_object().unwrap().keys().cloned().collect::<std::collections::BTreeSet<_>>();
     let declared=api["components"]["schemas"]["JobView"]["required"].as_array().unwrap().iter().map(|value|value.as_str().unwrap().to_string()).collect::<std::collections::BTreeSet<_>>();
@@ -110,7 +148,7 @@ fn maintained_openapi_envelopes_match_serialized_job_fields() {
 fn idle_or_absolute_read_errors_become_structured_timeouts() {
     struct TimedOut;
     impl std::io::Read for TimedOut {fn read(&mut self,_:&mut [u8])->std::io::Result<usize>{Err(std::io::ErrorKind::TimedOut.into())}}
-    let error=framing::read(&mut TimedOut,&HttpLimits::default(),Instant::now(),|_|Ok(())).err().unwrap();assert_eq!(error.status,408);
+    let error=framing::read(&mut TimedOut,&HttpLimits::default(),Instant::now(),|_|Ok(HttpLimits::default().body_bytes)).err().unwrap();assert_eq!(error.status,408);
     let limits=HttpLimits::default();let started=Instant::now()-Duration::from_millis(limits.read_deadline_ms+1);
-    assert_eq!(framing::read(&mut Cursor::new(b""),&limits,started,|_|Ok(())).err().unwrap().status,408);
+    assert_eq!(framing::read(&mut Cursor::new(b""),&limits,started,|_|Ok(HttpLimits::default().body_bytes)).err().unwrap().status,408);
 }
