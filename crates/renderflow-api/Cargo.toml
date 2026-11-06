@@ -1,0 +1,19 @@
+[package]
+name = "renderflow-api"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Optional bounded local service adapter over the Renderflow SDK"
+publish = false
+
+[dependencies]
+renderflow = { path = "../renderflow-core", version = "=0.3.0-rc.1" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+tempfile = "3"
+
+[lib]
+path = "src/lib.rs"

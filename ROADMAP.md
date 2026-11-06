@@ -26,6 +26,20 @@ supersedes: []
 
 # Renderflow Roadmap
 
+## 2026-11-04 — local API application checkpoint
+
+The maintainer authorized merging corpus drafts #479/#480 and continuing the
+oldest local lane. #420 now has an authored optional service application crate
+over the public SDK, initially admitting captured native page-composition
+packages. Bounded jobs, SDK progress/cancellation/native result states, private
+workspaces and verified publication-byte delivery keep transport concerns out
+of core planning/rendering. No listener is added in this first checkpoint.
+
+See [service contract](docs/work/420/SERVICE.md). Nine adapter and three shared
+SDK cases are authored/unrun. All tests/build/Cargo/lint/format/schema/docs/
+generator/SDK/native/provider/model/listener/CI execution remains deferred.
+#420 stays open; HTTP/auth/OpenAPI and broader profile/runtime acceptance follow.
+
 ## 2026-11-03 — original synthetic comic pack source checkpoint
 
 #413 extends #412's existing golden corpus/harness to corpus 1.3.0 with an
