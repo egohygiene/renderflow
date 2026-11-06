@@ -361,6 +361,7 @@ impl AiSkillRegistry {
             include_str!("../../data/ai/skills/prompt-from-dna-v1.json"),
             include_str!("../../data/ai/skills/accessibility-description-v1.json"),
             include_str!("../../data/ai/skills/sonic-description-v1.json"),
+            include_str!("../../data/ai/skills/publication-summary-v1.json"),
         ];
         let mut registry = Self::default();
         for source in sources {

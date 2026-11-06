@@ -26,6 +26,17 @@ supersedes: []
 
 # Renderflow Roadmap
 
+## #456 — source-grounded candidate source checkpoint
+
+An approved text-slice recipe now captures native immutable sources and produces
+review-required synopsis candidates through the shared skill/runtime/hygiene
+ports. Reference/hash/range checks remain explicitly separate from semantic
+accuracy and human approval. Candidate identity excludes operational timing and
+observer delivery; telemetry has no prompt/source/path data. One-pass template
+substitution keeps source values opaque. See
+[candidate handoff](docs/work/456/CANDIDATES.md). Ten new cases are authored and
+unrun; no compiler/tests/schema/model/provider/CI execution or inference occurred.
+
 ## #456 — explicit runtime-profile source checkpoint
 
 The next optional AI consumer reuses the existing catalog/resolver, skill
