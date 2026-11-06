@@ -1,0 +1,1398 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Renderflow bounded local API",
+    "version": "1.0.0-draft",
+    "description": "Authored, unqualified #420 adapter. HTTP/1.1 one-request/Content-Length profile, loopback only, bearer credential, no browser origins, arbitrary uploads/configs or external providers. Native JSON objects pass through unchanged; only API envelopes/requests are specified here. No OpenAPI/runtime/provider/release validation was run."
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:8787"
+    }
+  ],
+  "security": [
+    {
+      "localBearer": []
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "health",
+        "description": "Process liveness only. Host and origin gates still apply; no provider probing.",
+        "responses": {
+          "200": {
+            "description": "Structured response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": []
+      }
+    },
+    "/ready": {
+      "get": {
+        "operationId": "ready",
+        "description": "Configured admission and shutdown status; native providers/output/runtime are not qualified.",
+        "responses": {
+          "200": {
+            "description": "Structured response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadyEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          },
+          "503": {
+            "description": "Service has stopped accepting jobs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadyEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/openapi.json": {
+      "get": {
+        "operationId": "openapi",
+        "description": "This maintained OpenAPI envelope document; native SDK model fields remain owned by core.",
+        "responses": {
+          "200": {
+            "description": "OpenAPI 3.1 document",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/pipelines": {
+      "get": {
+        "operationId": "pipelines",
+        "description": "Registered package IDs and captured byte identities; no operator host-root paths or source upload.",
+        "responses": {
+          "200": {
+            "description": "Structured response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PipelinesEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/capabilities": {
+      "get": {
+        "operationId": "capabilities",
+        "description": "Service admission is native page composition only. Separately labelled SDK inventory has broader scope.",
+        "responses": {
+          "200": {
+            "description": "Structured response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CapabilitiesEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/formats": {
+      "get": {
+        "operationId": "formats",
+        "description": "Native composition output declarations, including explicit unavailable interchange outputs.",
+        "responses": {
+          "200": {
+            "description": "Structured response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/transforms": {
+      "get": {
+        "operationId": "transforms",
+        "description": "One admitted core composition provider/profile; no second transform registry.",
+        "responses": {
+          "200": {
+            "description": "Structured response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/inspect": {
+      "post": {
+        "operationId": "inspect",
+        "description": "Queue inspect over one captured registered package. Poll Location; no synchronous render or client-provided config/path.",
+        "responses": {
+          "202": {
+            "description": "Structured response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "Location": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Job status path"
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/plan": {
+      "post": {
+        "operationId": "plan",
+        "description": "Queue plan over one captured registered package. Poll Location; no synchronous render or client-provided config/path.",
+        "responses": {
+          "202": {
+            "description": "Structured response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "Location": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Job status path"
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/execute": {
+      "post": {
+        "operationId": "execute",
+        "description": "Queue execute over one captured registered package. Poll Location; no synchronous render or client-provided config/path.",
+        "responses": {
+          "202": {
+            "description": "Structured response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobEnvelope"
+                }
+              }
+            },
+            "headers": {
+              "Location": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Job status path"
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmitRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/jobs/{job_id}": {
+      "get": {
+        "operationId": "job",
+        "description": "Current service state and unchanged bounded native result. Partial/failure remain explicit; cancellation intent is separate.",
+        "responses": {
+          "200": {
+            "description": "Structured response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^job-[0-9a-f]{64}$"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "cancel",
+        "description": "Request SDK cancellation. Worker slot and workspace remain held until native return; terminal jobs retain actual state.",
+        "responses": {
+          "202": {
+            "description": "Structured response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          },
+          "200": {
+            "description": "The job is already terminal",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^job-[0-9a-f]{64}$"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/jobs/{job_id}/artifacts": {
+      "get": {
+        "operationId": "artifacts",
+        "description": "Actual native publication joins only. File bytes are re-observed on download; this list grants no approval.",
+        "responses": {
+          "200": {
+            "description": "Structured response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtifactsEnvelope"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^job-[0-9a-f]{64}$"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/jobs/{job_id}/retention": {
+      "delete": {
+        "operationId": "forget",
+        "description": "Forget a terminal job and release retained private data; active jobs return 409.",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^job-[0-9a-f]{64}$"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Retained terminal data released"
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/jobs/{job_id}/artifacts/{artifact_id}": {
+      "get": {
+        "operationId": "download",
+        "description": "Copy one confined publication during shared size/hash observation, then return a bounded binary attachment. Large streaming delivery is outside this checkpoint.",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^job-[0-9a-f]{64}$"
+            }
+          },
+          {
+            "name": "artifact_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^artifact-[0-9]{1,6}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Observed bytes; native validation/review/fidelity is preserved without promotion",
+            "headers": {
+              "X-Content-SHA256": {
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                }
+              },
+              "Content-Disposition": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "text/html": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/svg+xml": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/jobs/{job_id}/events": {
+      "get": {
+        "operationId": "events",
+        "description": "Finite SSE replay of retained SDK progress events, followed by a job metadata event. Connection closes; reconnect with after OR Last-Event-ID. IDs/gap/drop metadata make eviction explicit. No fabricated percentages or long-lived push stream.",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^job-[0-9a-f]{64}$"
+            }
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "description": "Exclusive cursor; mutually exclusive with Last-Event-ID."
+          },
+          {
+            "name": "Last-Event-ID",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{1,20}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "event: progress carries ProgressEvent; event: job carries current state/last_event_id/dropped_events/cursor_gap.",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "localBearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "Opaque 32\u2013256 ASCII non-whitespace bytes",
+        "description": "Single trusted local operator scope. Shipped executable reads RENDERFLOW_API_TOKEN; token is never logged."
+      }
+    },
+    "responses": {
+      "Error": {
+        "description": "Structured failure: 400/401/403/404/408/409/411/413/415/417/422/431/500/503 as applicable. Saturated socket admission closes before parsing. Native failed jobs remain 200 status resources with failed state.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorEnvelope"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "SubmitRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "pipeline_id"
+        ],
+        "properties": {
+          "pipeline_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9._-]{1,64}$"
+          },
+          "dry_run": {
+            "type": "boolean",
+            "default": false,
+            "description": "Only execute admits true; it preserves native planned state and publishes no artifacts."
+          }
+        }
+      },
+      "JobState": {
+        "type": "string",
+        "enum": [
+          "queued",
+          "running",
+          "cancelling",
+          "planned",
+          "complete",
+          "partial",
+          "failed",
+          "cancelled"
+        ]
+      },
+      "ApiError": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "Digest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "algorithm",
+          "value"
+        ],
+        "properties": {
+          "algorithm": {
+            "const": "sha256"
+          },
+          "value": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        }
+      },
+      "ArtifactProfile": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "input_path",
+          "input_format",
+          "output_dir",
+          "targets",
+          "transforms_path"
+        ],
+        "properties": {
+          "input_path": {
+            "type": "string"
+          },
+          "input_format": {
+            "type": "string"
+          },
+          "output_dir": {
+            "type": "string"
+          },
+          "targets": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "transforms_path": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "NativeExecutionPlan": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Unchanged public SDK ExecutionPlan. Native fields and extension semantics are owned by the pinned SDK, beyond this envelope schema."
+      },
+      "ProviderPlan": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "plan",
+          "digest"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "renderflow.provider/v1"
+          },
+          "plan": {
+            "$ref": "#/components/schemas/NativeExecutionPlan"
+          },
+          "digest": {
+            "$ref": "#/components/schemas/Digest"
+          }
+        }
+      },
+      "NativeArtifactManifest": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Unchanged SDK ArtifactManifest, including declared outputs and artifact evidence; declarations alone do not observe file bytes."
+      },
+      "NativeRunManifest": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Unchanged SDK RunManifest with actual native branch/run/validation/fidelity/provenance evidence. Full native model validation is outside this envelope schema."
+      },
+      "DiagnosticReport": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "info",
+          "warnings",
+          "recoverable_failures",
+          "fatal_failures",
+          "cancellations"
+        ],
+        "properties": {
+          "info": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "recoverable_failures": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "fatal_failures": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cancellations": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ExecutionResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "manifest",
+          "run_manifest",
+          "reused_cached_outputs",
+          "skipped_transforms",
+          "diagnostics"
+        ],
+        "properties": {
+          "manifest": {
+            "$ref": "#/components/schemas/NativeArtifactManifest"
+          },
+          "run_manifest": {
+            "$ref": "#/components/schemas/NativeRunManifest"
+          },
+          "manifest_path": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reused_cached_outputs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "skipped_transforms": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "diagnostics": {
+            "$ref": "#/components/schemas/DiagnosticReport"
+          },
+          "toolchain": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": true
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "JobOutput": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "operation",
+              "value"
+            ],
+            "properties": {
+              "operation": {
+                "const": "inspect"
+              },
+              "value": {
+                "$ref": "#/components/schemas/ArtifactProfile"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "operation",
+              "value"
+            ],
+            "properties": {
+              "operation": {
+                "const": "plan"
+              },
+              "value": {
+                "$ref": "#/components/schemas/ProviderPlan"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "operation",
+              "value"
+            ],
+            "properties": {
+              "operation": {
+                "const": "execute"
+              },
+              "value": {
+                "$ref": "#/components/schemas/ExecutionResult"
+              }
+            }
+          }
+        ],
+        "discriminator": {
+          "propertyName": "operation"
+        }
+      },
+      "JobView": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "job_id",
+          "pipeline_id",
+          "package_sha256",
+          "effective_config_sha256",
+          "operation",
+          "state",
+          "cancel_requested",
+          "submitted_at_unix_ms",
+          "started_at_unix_ms",
+          "completed_at_unix_ms",
+          "last_event_id",
+          "dropped_events",
+          "result",
+          "error"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "renderflow.api/v1"
+          },
+          "job_id": {
+            "type": "string",
+            "pattern": "^job-[0-9a-f]{64}$"
+          },
+          "pipeline_id": {
+            "type": "string"
+          },
+          "package_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "effective_config_sha256": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "operation": {
+            "enum": [
+              "inspect",
+              "plan",
+              "execute"
+            ]
+          },
+          "state": {
+            "$ref": "#/components/schemas/JobState"
+          },
+          "cancel_requested": {
+            "oneOf": [
+              {
+                "enum": [
+                  "client",
+                  "deadline",
+                  "storage",
+                  "shutdown"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "submitted_at_unix_ms": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "started_at_unix_ms": {
+            "oneOf": [
+              {
+                "type": "integer",
+                "minimum": 0
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "completed_at_unix_ms": {
+            "oneOf": [
+              {
+                "type": "integer",
+                "minimum": 0
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "last_event_id": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "dropped_events": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "result": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/JobOutput"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ApiError"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "PipelineView": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "package_sha256",
+          "file_count",
+          "size_bytes",
+          "profile"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "package_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "file_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "profile": {
+            "const": "renderflow.layered-composition/v5"
+          }
+        }
+      },
+      "ArtifactView": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "target_id",
+          "artifact_id",
+          "format",
+          "media_type",
+          "size_bytes",
+          "sha256",
+          "validation",
+          "fidelity",
+          "evidence",
+          "download_path"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^artifact-[0-9]{1,6}$"
+          },
+          "target_id": {
+            "type": "string"
+          },
+          "artifact_id": {
+            "type": "string"
+          },
+          "format": {
+            "type": "string"
+          },
+          "media_type": {
+            "type": "string"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "validation": {
+            "enum": [
+              "valid",
+              "valid_with_warnings",
+              "invalid",
+              "unavailable",
+              "skipped",
+              "not_requested"
+            ]
+          },
+          "fidelity": {
+            "enum": [
+              "lossless",
+              "partial",
+              "lossy",
+              "path_dependent",
+              "unknown"
+            ]
+          },
+          "evidence": {
+            "type": "string"
+          },
+          "download_path": {
+            "type": "string"
+          }
+        }
+      },
+      "ProgressEvent": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "stage",
+          "message"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "renderflow.progress/v1"
+          },
+          "stage": {
+            "enum": [
+              "inspecting",
+              "planning",
+              "assessing",
+              "resuming",
+              "executing",
+              "cancelled",
+              "completed"
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "run_id": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "step_id": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "artifact_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "state": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "diagnostics": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          }
+        }
+      },
+      "Health": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "live",
+          "service",
+          "version"
+        ],
+        "properties": {
+          "live": {
+            "const": true
+          },
+          "service": {
+            "const": "renderflow-api"
+          },
+          "version": {
+            "type": "string"
+          }
+        }
+      },
+      "Ready": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "accepting_jobs",
+          "pipeline_count",
+          "provider_readiness",
+          "runtime_qualified"
+        ],
+        "properties": {
+          "accepting_jobs": {
+            "type": "boolean"
+          },
+          "pipeline_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "provider_readiness": {
+            "const": "not_probed"
+          },
+          "runtime_qualified": {
+            "const": false
+          }
+        }
+      },
+      "Capabilities": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Admitted service profile/operations/limits plus a separately labelled broader SDK inventory. No upload, public bind or external-provider admission is inferred."
+      },
+      "JobEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "request_id",
+          "data"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "renderflow.api/v1"
+          },
+          "request_id": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/JobView"
+          }
+        }
+      },
+      "PipelinesEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "request_id",
+          "data"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "renderflow.api/v1"
+          },
+          "request_id": {
+            "type": "string"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PipelineView"
+            }
+          }
+        }
+      },
+      "ArtifactsEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "request_id",
+          "data"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "renderflow.api/v1"
+          },
+          "request_id": {
+            "type": "string"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ArtifactView"
+            }
+          }
+        }
+      },
+      "HealthEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "request_id",
+          "data"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "renderflow.api/v1"
+          },
+          "request_id": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/Health"
+          }
+        }
+      },
+      "ReadyEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "request_id",
+          "data"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "renderflow.api/v1"
+          },
+          "request_id": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/Ready"
+          }
+        }
+      },
+      "CapabilitiesEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "request_id",
+          "data"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "renderflow.api/v1"
+          },
+          "request_id": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/Capabilities"
+          }
+        }
+      },
+      "InventoryEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "request_id",
+          "data"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "renderflow.api/v1"
+          },
+          "request_id": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "ErrorEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "request_id",
+          "error"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "renderflow.api/v1"
+          },
+          "request_id": {
+            "type": "string"
+          },
+          "error": {
+            "$ref": "#/components/schemas/ApiError"
+          }
+        }
+      }
+    }
+  },
+  "externalDocs": {
+    "url": "https://github.com/egohygiene/renderflow/blob/506cc5c2118e9925bab5f3597b144d07f657b0ad/crates/renderflow-core/src/sdk.rs",
+    "description": "Pinned public SDK owns native result and progress contracts; these API envelope schemas do not replace them."
+  }
+}

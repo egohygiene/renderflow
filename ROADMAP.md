@@ -26,6 +26,21 @@ supersedes: []
 
 # Renderflow Roadmap
 
+## 2026-11-04 — bounded local HTTP transport checkpoint
+
+The #420 service application in draft #481 now has an authored optional
+loopback HTTP executable, bearer port/default, bounded sockets/requests/jobs,
+finite SDK event replay, native result states and verified artifact attachments.
+The [API guide](docs/http-api.md), [OpenAPI](docs/http-api.openapi.json),
+[sample](examples/http-api/README.md) and [handoff](docs/work/420/HANDOFF.md)
+describe its initial native-composition profile and wider acceptance gaps.
+
+Twenty cases across the two drafts are authored/uncompiled/unrun. All tests/
+build/Cargo/lint/format/schema/docs/OpenAPI/generator/SDK/native/provider/model/
+socket/container/CI execution remains deferred. No service, deployment, release
+or consumer proof is created. #420 remains open; #419/#458 keep qualification
+gates. The existing comic corpus lock identity is explicitly maintained.
+
 ## 2026-11-04 — local API application checkpoint
 
 The maintainer authorized merging corpus drafts #479/#480 and continuing the

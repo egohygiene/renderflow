@@ -73,6 +73,7 @@ All paths below are relative to the repository root. Core paths live under
 | CLI executable | `crates/renderflow-cli/src/main.rs` delegates to the core application |
 | CLI arguments and dispatch | `crates/renderflow-core/src/cli.rs`, `app.rs`, `commands/` |
 | Public library/SDK | `crates/renderflow-core/src/lib.rs`, `sdk.rs` |
+| Optional local HTTP/job adapter | `crates/renderflow-api/src/`: captured native-composition packages, bounded transport jobs and explicit loopback/auth/framing; [API contract](../http-api.md) |
 | Specification loading and policy | `crates/renderflow-core/src/spec.rs`, `spec/`, `config.rs` |
 | Shared build resolution | `crates/renderflow-core/src/planning/build.rs`, `planning.rs`, `planning/build_composition.rs` |
 | Graph paths, forest identity and execution | `crates/renderflow-core/src/graph/`, `planning/forest.rs` |

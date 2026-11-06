@@ -1,6 +1,6 @@
 {
   "schema_version": "renderflow.golden-corpus/v1",
-  "corpus_version": "1.3.1",
+  "corpus_version": "1.3.2",
   "license": "CC0-1.0",
   "redistribution": "Synthetic fixtures created for Renderflow conformance; no publication or third-party content.",
   "fixtures": [
@@ -1178,7 +1178,7 @@
       },
       "toolchain": {
         "path": "Cargo.lock",
-        "sha256": "a01da6a21ebc3974ca5d3335eeb076f58307c9e823f7528961139fdb630ffce7"
+        "sha256": "79f55f87ed17439ae39ebba7a9b6289992e5b91f001141397d169fb8980d9870"
       },
       "profile": "renderflow.layered-composition/v5",
       "assets": [
