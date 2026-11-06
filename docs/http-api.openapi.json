@@ -423,7 +423,7 @@
     "/v1/jobs/{job_id}/artifacts/{artifact_id}": {
       "get": {
         "operationId": "download",
-        "description": "Copy one confined publication during shared size/hash observation, then return a bounded binary attachment. Large streaming delivery is outside this checkpoint.",
+        "description": "Native confined bytes are copied into bounded private temporary storage and verified before success headers. Fixed Content-Length, observed SHA-256 and ETag identify the full response. Interrupted delivery closes the connection without a JSON suffix; clients must check length/hash. No Range or resumable/conditional transfer is supported.",
         "parameters": [
           {
             "name": "job_id",
@@ -458,6 +458,19 @@
                 "schema": {
                   "type": "string"
                 }
+              },
+              "Content-Length": {
+                "schema": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "description": "Exact verified snapshot byte length"
+              },
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Strong sha256-prefixed observed snapshot digest"
               }
             },
             "content": {
@@ -507,8 +520,94 @@
           },
           "default": {
             "$ref": "#/components/responses/Error"
+          },
+          "416": {
+            "description": "Partial ranges are refused",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Snapshot count/byte/storage capacity or shutdown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
           }
-        }
+        },
+        "summary": "Stream one complete verified artifact snapshot"
+      },
+      "head": {
+        "operationId": "download",
+        "description": "Native confined bytes are copied into bounded private temporary storage and verified before success headers. Fixed Content-Length, observed SHA-256 and ETag identify the full response. Interrupted delivery closes the connection without a JSON suffix; clients must check length/hash. No Range or resumable/conditional transfer is supported.",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^job-[0-9a-f]{64}$"
+            }
+          },
+          {
+            "name": "artifact_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^artifact-[0-9]{1,6}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Observed bytes; native validation/review/fidelity is preserved without promotion",
+            "headers": {
+              "X-Content-SHA256": {
+                "schema": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                }
+              },
+              "Content-Disposition": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Content-Length": {
+                "schema": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "description": "Exact verified snapshot byte length"
+              },
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Strong sha256-prefixed observed snapshot digest"
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          },
+          "416": {
+            "description": "Partial ranges are refused"
+          },
+          "503": {
+            "description": "Snapshot count/byte/storage capacity or shutdown"
+          }
+        },
+        "summary": "Verify the full artifact snapshot and return headers without body"
       }
     },
     "/v1/jobs/{job_id}/events": {
@@ -797,6 +896,34 @@
           }
         }
       }
+    },
+    "/schemas/renderflow-sdk-api-v1.schema.json": {
+      "get": {
+        "summary": "Read the self-contained core-owned SDK result/progress schema projection",
+        "description": "Read-only embedded schema assembly; no model, provider or source operation. Imported core run/intake declarations remain the source, with all served references local to this document.",
+        "responses": {
+          "200": {
+            "description": "Raw JSON Schema document, without the ordinary data envelope",
+            "content": {
+              "application/schema+json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -899,77 +1026,19 @@
         }
       },
       "ArtifactProfile": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "input_path",
-          "input_format",
-          "output_dir",
-          "targets",
-          "transforms_path"
-        ],
-        "properties": {
-          "input_path": {
-            "type": "string"
-          },
-          "input_format": {
-            "type": "string"
-          },
-          "output_dir": {
-            "type": "string"
-          },
-          "targets": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "transforms_path": {
-            "oneOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        }
+        "$ref": "../schemas/renderflow-sdk-api-v1.schema.json#/$defs/ArtifactProfile"
       },
       "NativeExecutionPlan": {
-        "type": "object",
-        "additionalProperties": true,
-        "description": "Unchanged public SDK ExecutionPlan. Native fields and extension semantics are owned by the pinned SDK, beyond this envelope schema."
+        "$ref": "../schemas/renderflow-sdk-api-v1.schema.json#/$defs/ExecutionPlan"
       },
       "ProviderPlan": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "schema_version",
-          "plan",
-          "digest"
-        ],
-        "properties": {
-          "schema_version": {
-            "const": "renderflow.provider/v1"
-          },
-          "plan": {
-            "$ref": "#/components/schemas/NativeExecutionPlan"
-          },
-          "digest": {
-            "$ref": "#/components/schemas/Digest"
-          }
-        }
+        "$ref": "../schemas/renderflow-sdk-api-v1.schema.json#/$defs/ProviderPlan"
       },
       "NativeArtifactManifest": {
-        "type": "object",
-        "additionalProperties": true,
-        "description": "Unchanged SDK ArtifactManifest, including declared outputs and artifact evidence; declarations alone do not observe file bytes."
+        "$ref": "../schemas/renderflow-sdk-api-v1.schema.json#/$defs/ArtifactManifest"
       },
       "NativeRunManifest": {
-        "type": "object",
-        "additionalProperties": true,
-        "description": "Unchanged SDK RunManifest with actual native branch/run/validation/fidelity/provenance evidence. Full native model validation is outside this envelope schema."
+        "$ref": "../schemas/renderflow-sdk-api-v1.schema.json#/$defs/RunManifest"
       },
       "DiagnosticReport": {
         "type": "object",
@@ -1015,59 +1084,7 @@
         }
       },
       "ExecutionResult": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "manifest",
-          "run_manifest",
-          "reused_cached_outputs",
-          "skipped_transforms",
-          "diagnostics"
-        ],
-        "properties": {
-          "manifest": {
-            "$ref": "#/components/schemas/NativeArtifactManifest"
-          },
-          "run_manifest": {
-            "$ref": "#/components/schemas/NativeRunManifest"
-          },
-          "manifest_path": {
-            "oneOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "reused_cached_outputs": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "skipped_transforms": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "diagnostics": {
-            "$ref": "#/components/schemas/DiagnosticReport"
-          },
-          "toolchain": {
-            "oneOf": [
-              {
-                "type": "object",
-                "additionalProperties": true
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        }
+        "$ref": "../schemas/renderflow-sdk-api-v1.schema.json#/$defs/ExecutionResult"
       },
       "JobOutput": {
         "oneOf": [
@@ -1390,75 +1407,7 @@
         }
       },
       "ProgressEvent": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "schema_version",
-          "stage",
-          "message"
-        ],
-        "properties": {
-          "schema_version": {
-            "const": "renderflow.progress/v1"
-          },
-          "stage": {
-            "enum": [
-              "inspecting",
-              "planning",
-              "assessing",
-              "resuming",
-              "executing",
-              "cancelled",
-              "completed"
-            ]
-          },
-          "message": {
-            "type": "string"
-          },
-          "run_id": {
-            "oneOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "step_id": {
-            "oneOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "artifact_ids": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "state": {
-            "oneOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "diagnostics": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "additionalProperties": true
-            }
-          }
-        }
+        "$ref": "../schemas/renderflow-sdk-api-v1.schema.json#/$defs/ProgressEvent"
       },
       "Health": {
         "type": "object",

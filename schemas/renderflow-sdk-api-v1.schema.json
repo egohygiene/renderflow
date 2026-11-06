@@ -1,0 +1,792 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-sdk-api-v1.schema.json",
+  "title": "Renderflow SDK API result and progress shapes",
+  "description": "Core-owned source schema for current SDK serialization. Existing run/intake definitions are imports, not a second native model. api_contract::json_schema returns a self-contained projection. Shape does not prove native joins, file observation, fidelity, human review or runtime qualification. JSON-valued metadata/policy/options remain declared extension data.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/ArtifactProfile"
+    },
+    {
+      "$ref": "#/$defs/ProviderPlan"
+    },
+    {
+      "$ref": "#/$defs/ExecutionResult"
+    },
+    {
+      "$ref": "#/$defs/ProgressEvent"
+    }
+  ],
+  "$defs": {
+    "DigestEvidence": {
+      "$ref": "renderflow-run-v1.schema.json#/$defs/digest"
+    },
+    "ArtifactManifest": {
+      "$ref": "renderflow-run-v1.schema.json#/$defs/artifact_manifest"
+    },
+    "ArtifactForest": {
+      "$ref": "renderflow-run-v1.schema.json#/$defs/artifact_forest"
+    },
+    "ExecutionDiagnostic": {
+      "$ref": "renderflow-run-v1.schema.json#/$defs/diagnostic"
+    },
+    "ResolvedArtifactProfile": {
+      "$ref": "renderflow-intake-v1.schema.json#/$defs/profile"
+    },
+    "RunManifest": {
+      "$ref": "renderflow-run-v1.schema.json"
+    },
+    "PlanNode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "node_type"
+      ],
+      "properties": {
+        "format": {
+          "type": "string"
+        },
+        "node_type": {
+          "enum": [
+            "source",
+            "intermediate",
+            "output"
+          ]
+        }
+      }
+    },
+    "PlanEdge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "from",
+        "to",
+        "cost",
+        "quality",
+        "input_kind",
+        "edge_type"
+      ],
+      "properties": {
+        "from": {
+          "type": "string"
+        },
+        "to": {
+          "type": "string"
+        },
+        "cost": {
+          "type": "number"
+        },
+        "quality": {
+          "type": "number"
+        },
+        "input_kind": {
+          "type": "string"
+        },
+        "edge_type": {
+          "enum": [
+            "lossless",
+            "lossy",
+            "aggregation"
+          ]
+        },
+        "provider_id": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "capability_id": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "required_provider_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "variant_id": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "evidence": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "ExecutionWave": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "index",
+        "edges"
+      ],
+      "properties": {
+        "index": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "edges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PlanEdge"
+          }
+        }
+      }
+    },
+    "ExecutionMetadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "total_nodes",
+        "total_edges",
+        "execution_depth",
+        "execution_waves",
+        "estimated_cost",
+        "estimated_quality",
+        "reused_intermediates",
+        "output_count"
+      ],
+      "properties": {
+        "total_nodes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total_edges": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "execution_depth": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "execution_waves": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "estimated_cost": {
+          "type": "number"
+        },
+        "estimated_quality": {
+          "type": "number"
+        },
+        "reused_intermediates": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "output_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "PlanDiagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "level",
+        "message"
+      ],
+      "properties": {
+        "level": {
+          "enum": [
+            "info",
+            "warning",
+            "error"
+          ]
+        },
+        "message": {
+          "type": "string"
+        }
+      }
+    },
+    "PageGeometry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "width",
+        "height",
+        "unit",
+        "margin",
+        "bleed",
+        "safe_area"
+      ],
+      "properties": {
+        "width": {
+          "type": "number"
+        },
+        "height": {
+          "type": "number"
+        },
+        "unit": {
+          "type": "string"
+        },
+        "margin": {
+          "oneOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "bleed": {
+          "oneOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "safe_area": {
+          "oneOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "PlanSourceArtifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact_id",
+        "digest",
+        "size_bytes",
+        "profile"
+      ],
+      "properties": {
+        "artifact_id": {
+          "type": "string"
+        },
+        "digest": {
+          "type": "string"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "profile": {
+          "$ref": "#/$defs/ResolvedArtifactProfile"
+        }
+      }
+    },
+    "PlanCollectionMember": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_id",
+        "locator",
+        "media_type",
+        "format",
+        "artifact"
+      ],
+      "properties": {
+        "source_id": {
+          "type": "string"
+        },
+        "locator": {
+          "type": "string"
+        },
+        "media_type": {
+          "type": "string"
+        },
+        "format": {
+          "type": "string"
+        },
+        "geometry": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/PageGeometry"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "artifact": {
+          "$ref": "#/$defs/PlanSourceArtifact"
+        }
+      }
+    },
+    "PlanSourceCollection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_id",
+        "members"
+      ],
+      "properties": {
+        "source_id": {
+          "type": "string"
+        },
+        "members": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PlanCollectionMember"
+          }
+        }
+      }
+    },
+    "SelectedToolVariantEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "attributes": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "SelectedToolEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "executable",
+        "version",
+        "capabilities",
+        "determinism",
+        "locality"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "executable": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "version": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "capabilities": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "determinism": {
+          "enum": [
+            "deterministic",
+            "configuration_dependent",
+            "nondeterministic"
+          ]
+        },
+        "locality": {
+          "enum": [
+            "local",
+            "local_service",
+            "network_optional",
+            "network_required"
+          ]
+        },
+        "variants": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SelectedToolVariantEvidence"
+          }
+        }
+      }
+    },
+    "ToolchainSnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "fingerprint",
+        "operating_system",
+        "architecture",
+        "selected_tools"
+      ],
+      "properties": {
+        "schema": {
+          "const": "renderflow.toolchain/v1"
+        },
+        "fingerprint": {
+          "type": "string"
+        },
+        "operating_system": {
+          "type": "string"
+        },
+        "architecture": {
+          "type": "string"
+        },
+        "selected_tools": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SelectedToolEvidence"
+          }
+        }
+      }
+    },
+    "ExecutionPlan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "targets",
+        "optimization",
+        "nodes",
+        "edges",
+        "waves",
+        "metadata",
+        "diagnostics"
+      ],
+      "properties": {
+        "source": {
+          "type": "string"
+        },
+        "targets": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "optimization": {
+          "type": "string"
+        },
+        "nodes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PlanNode"
+          }
+        },
+        "edges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PlanEdge"
+          }
+        },
+        "waves": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ExecutionWave"
+          }
+        },
+        "metadata": {
+          "$ref": "#/$defs/ExecutionMetadata"
+        },
+        "diagnostics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PlanDiagnostic"
+          }
+        },
+        "source_artifact": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/PlanSourceArtifact"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "source_collection": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/PlanSourceCollection"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "toolchain": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/ToolchainSnapshot"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "artifact_forest": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/ArtifactForest"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "ProviderPlan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "plan",
+        "digest"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "renderflow.provider/v1"
+        },
+        "plan": {
+          "$ref": "#/$defs/ExecutionPlan"
+        },
+        "digest": {
+          "$ref": "#/$defs/DigestEvidence"
+        }
+      }
+    },
+    "ArtifactProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "input_path",
+        "input_format",
+        "output_dir",
+        "targets",
+        "transforms_path"
+      ],
+      "properties": {
+        "input_path": {
+          "type": "string"
+        },
+        "input_format": {
+          "type": "string"
+        },
+        "output_dir": {
+          "type": "string"
+        },
+        "targets": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "transforms_path": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "DiagnosticReport": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "info",
+        "warnings",
+        "recoverable_failures",
+        "fatal_failures",
+        "cancellations"
+      ],
+      "properties": {
+        "info": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "recoverable_failures": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "fatal_failures": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "cancellations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "ExecutionResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "manifest",
+        "run_manifest",
+        "reused_cached_outputs",
+        "skipped_transforms",
+        "diagnostics"
+      ],
+      "properties": {
+        "manifest": {
+          "$ref": "#/$defs/ArtifactManifest"
+        },
+        "run_manifest": {
+          "$ref": "#/$defs/RunManifest"
+        },
+        "manifest_path": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reused_cached_outputs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "skipped_transforms": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "diagnostics": {
+          "$ref": "#/$defs/DiagnosticReport"
+        },
+        "toolchain": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/ToolchainSnapshot"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "ProgressEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "stage",
+        "message"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "renderflow.progress/v1"
+        },
+        "stage": {
+          "enum": [
+            "inspecting",
+            "planning",
+            "assessing",
+            "resuming",
+            "executing",
+            "cancelled",
+            "completed"
+          ]
+        },
+        "message": {
+          "type": "string"
+        },
+        "run_id": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "step_id": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "artifact_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "state": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "diagnostics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ExecutionDiagnostic"
+          }
+        }
+      }
+    }
+  }
+}

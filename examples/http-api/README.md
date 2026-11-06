@@ -44,3 +44,11 @@ lyrics start unreviewed without inherited language/revision/section annotations.
 Composition/editorial uploads remain disabled. The
 [upload guide](../../docs/http-api.md#optional-immutable-source-uploads) contains
 future commands only; this example has not been started or exercised.
+
+Artifact GET/HEAD now have an authored verified-snapshot streaming path. Normal
+HTTP downloads no longer use the library's small buffered convenience. Review
+the [streaming contract](../../docs/work/420/STREAMING.md) and explicit snapshot
+count/byte/time/workspace bounds before later startup; clients must check the
+full returned length/hash. Ranges are refused. Native schema metadata is served
+from core-owned embedded declarations, without provider or model work. No sample
+server, upload, download or schema projection was executed here.

@@ -110,10 +110,11 @@ credential out of curl's command arguments; no token/header file was created her
 | `DELETE /v1/jobs/{job_id}` | Request cancellation; keep worker/workspace until the SDK returns |
 | `GET /v1/jobs/{job_id}/events` | Finite replay of retained native SDK progress as SSE |
 | `GET /v1/jobs/{job_id}/artifacts` | Actual native publication joins; file bytes remain unobserved in the listing |
-| `GET /v1/jobs/{job_id}/artifacts/{artifact_id}` | Bounded binary attachment copied during shared size/hash observation |
+| `GET`, `HEAD /v1/jobs/{job_id}/artifacts/{artifact_id}` | Full verified private snapshot; fixed length/hash headers and bounded binary delivery |
 | `DELETE /v1/jobs/{job_id}/retention` | Forget terminal data; active jobs cannot be deleted |
 | `GET /v1/formats`, `/v1/transforms`, `/v1/capabilities` | Admitted service declarations; broader SDK inventory is separately labelled |
 | `GET /openapi.json` | Maintained [OpenAPI 3.1 envelope document](http-api.openapi.json) |
+| `GET /schemas/renderflow-sdk-api-v1.schema.json` | Authenticated, self-contained core SDK result/progress schema document |
 
 Job states are queued/running/cancelling/planned/complete/partial/failed/cancelled.
 Cancellation intent is separate from native outcome. A late native success stays
@@ -183,17 +184,40 @@ the latest cursor are explicit. This is finite replay, with the SDK's actual
 coarse phase/step notifications; no percentages or always-open stream is inferred.
 
 Artifact IDs are job-local references to exact native publication joins.
-Downloads ignore receipt-declared host roots, use the private bundle, refuse
-unsafe/changed/missing files and return observed bytes with `X-Content-SHA256`.
-HTML/SVG are attachments with restrictive response policy. The default buffer
-cap is 8 MiB; a larger native publication receives 413. Streaming large outputs
-remains future work. Download filenames use native composition output identities
-or the shared graph format descriptor; unknown MIME values use a binary fallback. Verified bytes grant no creative, print, publisher or release
-approval. Native receipts and review state retain that distinction.
+Downloads ignore receipt-declared host roots and observe the actual private
+bundle through core's existing confined size/hash observer. Bytes first go into
+a bounded private temporary file. A successful observation and snapshot length
+check must finish before a 200 response is constructed. Failed preparation
+returns a JSON error; it cannot send an unchecked successful artifact body.
+
+The HTTP route then streams fixed-size chunks from that snapshot, with exact
+Content-Length, `X-Content-SHA256` and a strong digest ETag. HEAD observes the same
+full snapshot and sends headers only. Range requests receive 416; partial,
+conditional and resumable transfers are not implemented. HTML/SVG remain
+attachments with restrictive response policy, and unknown MIME values use a
+binary fallback. Native format descriptors still own filename extensions.
+
+Defaults allow two concurrent snapshots, 128 MiB each, 256 MiB total reserved
+snapshot bytes, and separate 30-second cooperative preparation/delivery budgets.
+Private workspace storage admission also applies. The HTTP write deadline is
+independent and may be shorter (five seconds by default). Reservations and job
+workspace leases stay held until the response is dropped, including when a job
+expires or is forgotten during delivery. Cancelled preparation, corrupt sources,
+capacity/size/deadline refusals and shutdown do not yield a usable snapshot.
+
+Client disconnect, write failure, deadline or shutdown after headers closes the
+connection without appending JSON to binary data. Check full received length and
+SHA-256 before accepting a download; an incomplete body is not a successful
+artifact receipt. Delivery rechecks snapshot size/hash, and request telemetry
+reports incomplete delivery. Snapshot storage is temporary, not a publication or
+durable export. The library's old buffered `download` convenience keeps its 8 MiB
+default and 32 MiB ceiling; `prepare_download` is the separate large-file port.
+Verified bytes grant no creative, print, publisher or release approval.
 
 Terminal data expires after 15 minutes by default, or can be explicitly
 forgotten. In-flight download handles retain their workspace until observation
-finishes. Captured operator packages remain in memory until shutdown. Restart
+finishes. In-flight stream handles also retain their snapshot/workspace permits.
+Captured operator packages remain in memory until shutdown. Restart
 loses API job IDs and queue state; it does not infer SDK checkpoint resume or
 replace Flow's cross-tool orchestration. Stop requests cancellation and allows
 a short grace period. Forced exit/native abort can leave private workspace data
@@ -237,9 +261,18 @@ delivery and timing only, without URL/query/header/body/token/native-result logs
 The operator configuration [JSON schema](../schemas/renderflow-api-service-v1.schema.json)
 describes both application and HTTP envelopes. Code additionally enforces
 cross-field bounds and profile/package constraints. The OpenAPI document
-specifies actual API envelopes/requests; native plan/manifest objects remain
-SDK-owned opaque nested schemas here. Full nested native/OpenAPI/schema/runtime
-qualification has not run.
+specifies actual API envelopes/requests; native plan/manifest objects reference
+core-owned typed schemas. The
+[SDK schema source](../schemas/renderflow-sdk-api-v1.schema.json) describes
+inspection, provider plans, execution results and progress, including graph
+nodes/edges/waves, source profiles/collections, toolchains, run/artifact/step
+evidence, validation, hygiene and forests. Existing core run/intake definitions
+are imported rather than copied into the adapter. The authenticated schema
+endpoint serves a self-contained projection with local references, so API
+clients can retain it for offline use. This projection performs no provider,
+source or network operation. Native JSON-valued policy/options/metadata remain
+explicit extension data; shape alone does not check semantic joins or file bytes.
+Schema assembly, structural validation and runtime qualification remain unrun.
 
 An optional [container recipe](../crates/renderflow-api/Dockerfile) builds this
 source binary. It is unbuilt and unpublished. Use a reviewed configuration with
@@ -264,5 +297,5 @@ records and supported-platform behavior during #419's release sweep. No image,
 port forward, deployment, provider or service was started by this checkpoint.
 
 See [handoff](work/420/HANDOFF.md) and [dependency decision](work/420/HTTP_DEPENDENCY.md).
-#420 remains open for broader profiles/uploads/large streaming, recovery and all
+#420 remains open for broader source/asset profiles, recovery and all
 deferred compilation, API/OpenAPI, process, fault, platform and release evidence.

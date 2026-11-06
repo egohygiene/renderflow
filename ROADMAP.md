@@ -26,6 +26,17 @@ supersedes: []
 
 # Renderflow Roadmap
 
+## #420 — verified streamed delivery and native-schema checkpoint
+
+Core now authors a provisional-sink publication-copy port over the shared file
+observer. The API stages verified private snapshots before success headers,
+holds finite storage/workspace leases through GET/HEAD delivery, and reports
+length/hash/ETag while refusing ranges. Core-owned SDK schemas replace opaque
+native-result placeholders through a self-contained embedded projection. See
+[streaming/schema handoff](docs/work/420/STREAMING.md). Thirteen new cases are
+authored/unrun, 28 across this three-draft batch; no compiler/tests/validators/
+schema assembly/SDK/provider/model/listener/CI or artifact execution occurred.
+
 ## #420 — explicit immutable source-upload checkpoint
 
 Operator-enabled built-in text pipelines can capture one bounded raw source

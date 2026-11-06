@@ -1,7 +1,7 @@
 //! File-backed publication verification, layered over the existing native join.
 
 use std::fs;
-use std::io::Read;
+use std::io::{Read,Write};
 use std::path::Path;
 use std::time::Instant;
 
@@ -116,6 +116,31 @@ pub fn read_publication<'a>(manifest:&'a RunManifest,target_id:&str,root:&Path,
     root.recheck()?;
     files::check_budget(started,limits,&cancellation)?;
     Ok(PublicationBytes {publication,observation,bytes})
+}
+
+/// Copy one actual native publication through the same bounded, confined file
+/// observer. The sink receives provisional bytes: keep it private until this
+/// function returns success. This avoids the convenience reader's 32 MiB cap
+/// without turning an unchecked partial copy into publication authority.
+pub fn copy_publication<'a>(manifest:&'a RunManifest,target_id:&str,root:&Path,
+    limits:&VerificationLimits,cancellation:ProcessCancellationToken,sink:&mut impl Write)
+    ->Result<VerifiedPublication<'a>,VerificationError> {
+    limits.validate()?;let started=Instant::now();files::check_budget(started,limits,&cancellation)?;
+    let publications=manifest.published_targets()?;
+    if publications.len()>limits.max_publications {return Err(VerificationError::Limit {resource:"publication count"});}
+    let publication=publications.into_iter().find(|publication|publication.branch.target_id==target_id)
+        .ok_or(VerificationError::Integrity {field:"selected target has no actual publication"})?;
+    let record=publication.artifact;
+    if record.digest.algorithm!="sha256" {return Err(VerificationError::UnsupportedDigest);}
+    if record.size_bytes>limits.max_file_bytes||record.size_bytes>limits.max_total_bytes {
+        return Err(VerificationError::Limit {resource:"selected publication bytes"});
+    }
+    let relative=record.locator.strip_prefix("bundle:").ok_or(VerificationError::Path {reason:"only bundle locators can be delivered"})?;
+    let root=BundleRoot::new(root)?;
+    let observation=files::observe(&root,relative,files::ExpectedFile {size_bytes:record.size_bytes,sha256:&record.digest.value},
+        limits,started,&cancellation,sink)?;
+    root.recheck()?;files::check_budget(started,limits,&cancellation)?;
+    Ok(VerifiedPublication {publication,observation})
 }
 
 /// Own the exact selected receipt bytes alongside its parsed native model.
