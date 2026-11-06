@@ -2,7 +2,7 @@
 
 The original **Lantern Map** comic extends the existing
 [golden corpus](conformance-corpus.md), its v1 schemas and Rust integration
-harness. Corpus 1.4.0 has 31 source fixtures and an additive `packs` convention;
+harness. Corpus 1.5.0 has 31 source fixtures and an additive `packs` convention;
 there is no second runner or product publication model. This checkpoint is
 **authored, uncompiled and unrun**. No rendered comic, passing report, visual
 baseline or provider acceptance has been produced.
@@ -20,7 +20,7 @@ customer data, generated service image or actual approval record is copied.
 | Case | Tier | Source model | Selected exercise |
 | --- | --- | --- | --- |
 | `minimal` | `fast` | Two interior pages plus front/back cover pages | Five per-page candidates, explicit RGB preparation, ordered fixed-layout EPUB, inspections and negative gates; PDF packets opt in separately |
-| `publication-44` | `maximal` | 44 ordered interior pages and a separate two-page cover group | Source materialization and planning only; zero rendered publications |
+| `publication-44` | `maximal` | 44 ordered interior pages and a separate two-page cover group | Planning by default; explicit large-run opt-in renders all 46 pages and ordered aggregates |
 
 Both cases use one pinned geometric recipe, seed zero, 100 × 140 mm canvas and
 127 DPI preview settings, yielding exact 500 × 700 pixel canvases. This explicit
@@ -99,7 +99,7 @@ uncovered provider/version/process/font/script/failure obligations visible.
 
 ## Ordered publication candidates
 
-Pack 1.1.0 wires existing public SDK operations after each native page run.
+Pack 1.2.0 wires existing public SDK operations after each native page run.
 The selected PNG is read through the shared observed-publication reader, which
 checks its native target membership, confined locator, size and digest. The
 public `publication::raster::prepare_composition_rgb` port validates that exact
@@ -138,8 +138,16 @@ execution is local; EPUBCheck is not invoked by this recipe.
 `publication-plan.json` records grouping and prerequisites. After an actual
 minimal run, `publication-results.json`, `rgb-preparation.json` and report
 `publication_outputs` distinguish observed candidates from unattempted routes.
-The larger case remains page-source planning and publication **recipes only**:
-no RGB files, aggregate SDK plan or output is invented. Cover-wrap/PDF-X/CMYK,
+The larger case defaults to page-source planning and publication **recipes
+only**. Even maximal tier needs `RENDERFLOW_TEST_COMIC_LARGE=1` to execute it.
+The frozen effective exercise, declared exercise and large opt-in are recorded
+separately; an unselected large render is excluded from native-output coverage.
+No RGB files, aggregate SDK plan or output is inferred before page execution.
+With that opt-in, all 46 pages must have five native publications and exact RGB
+preparation joins. EPUB contains 46 ordered images; optional PDF packets contain
+44 interior pages and two separate cover pages. Each aggregate records expected
+count separately from observed count. PDF fixtures independently recheck native
+page boxes, image order/stream hashes and output hash. Cover-wrap/PDF-X/CMYK,
 provider/platform/runtime and human publication acceptance remain outstanding.
 
 ## Deferred execution
@@ -162,8 +170,25 @@ ordinary per-page build configurations for later explicit CLI use; native test
 outputs stay temporary. Do not confuse retained input recipes with observed
 output artifacts.
 
+A later full-size invocation (also **unrun**) is:
+
+```bash
+RENDERFLOW_CONFORMANCE_TIER="maximal" \
+RENDERFLOW_TEST_COMIC_LARGE="1" \
+RENDERFLOW_TEST_IMG2PDF="/path/to/img2pdf-0.6.3" \
+RENDERFLOW_CONFORMANCE_REPORT="/tmp/lantern-map-large-report.json" \
+cargo test --package renderflow --test golden_conformance --locked
+```
+
+Omitting the large flag keeps that case plan-only. Omitting the PDF provider
+keeps the PDF packets `not_attempted`, while the selected local EPUB/page routes
+still have to succeed. A selected failing provider is a failed fixture. `0`
+disables the large flag; other supplied values are refused. No installer or
+model service is invoked. Maximal retains its existing optional tool probes;
+the flag cannot enable the large case or PDF provider in fast tier.
+
 Each case allows at most 256 source files and 2 MiB source bytes; the minimal
-case allows 32 MiB primary output-bundle bytes and the larger plan allows zero.
+case allows 32 MiB primary output-bundle bytes and the large case 128 MiB.
 Additional cache/rerun working bytes have a finite aggregate guard. Cooperative
 checks run between pages/phases, with 120 seconds per case and the enclosing
 corpus deadline. These are authored guards, not measured memory/performance or
@@ -172,3 +197,7 @@ remains under #412; no workflow change or CI execution is included.
 
 See [#413 handoff](work/413/HANDOFF.md) for remaining acceptance. Source-only
 delivery does not close #412 or #413.
+
+The [large-case source handoff](work/413/LARGE_CASE.md) records the five new
+authored/unrun selection/grouping/absence/capture/budget cases. No generation,
+inspection, tests, build, schema, provider or CI execution occurred in this sprint.

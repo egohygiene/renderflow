@@ -1,6 +1,6 @@
 {
   "schema_version": "renderflow.golden-corpus/v1",
-  "corpus_version": "1.4.0",
+  "corpus_version": "1.5.0",
   "license": "CC0-1.0",
   "redistribution": "Synthetic fixtures created for Renderflow conformance; no publication or third-party content.",
   "fixtures": [
@@ -293,7 +293,7 @@
       "id": "fixture.document.bom-crlf",
       "filename": "bom-crlf.md",
       "encoding": "utf8",
-      "payload": "\ufeff# Harbor\r\n\r\nA literal line.\r\n",
+      "payload": "﻿# Harbor\r\n\r\nA literal line.\r\n",
       "sha256": "a1b8170ceabdcd1b22ca2bf713ddade611346e1ba1462cb73e39ec439866d44f",
       "expected_format": "markdown",
       "expected_media_type": "text/markdown",
@@ -925,7 +925,7 @@
       "fixtures": [
         "fixture.pack.lantern-map-story"
       ],
-      "assertion_scope": "inventory",
+      "assertion_scope": "native_output",
       "coverage": [],
       "pack": {
         "id": "pack.lantern-map",
@@ -1169,12 +1169,12 @@
     {
       "schema_version": "renderflow.document-fixture-pack/v1",
       "id": "pack.lantern-map",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "document_type": "comic",
       "source_fixture": "fixture.pack.lantern-map-story",
       "generator": {
         "path": "crates/renderflow-core/tests/common/golden_comic.rs",
-        "sha256": "421f229bc749c9127cca015950126f84a93e61fc1c73a088935e412140ed7f93"
+        "sha256": "644e4efbb9ae649343ea585670d6da73d91eb890d527bee2edb34f2ba031c854"
       },
       "toolchain": {
         "path": "Cargo.lock",
@@ -1286,7 +1286,7 @@
         {
           "id": "publication-44",
           "tier": "maximal",
-          "exercise": "plan",
+          "exercise": "opt_in_execute",
           "parameters": {
             "seed": 0,
             "interior_pages": 44,
@@ -1298,7 +1298,7 @@
           "limits": {
             "max_files": 256,
             "max_source_bytes": 2097152,
-            "max_output_bytes": 0,
+            "max_output_bytes": 134217728,
             "cooperative_seconds": 120
           },
           "outputs": [
@@ -1351,7 +1351,7 @@
       "recipe_dependencies": [
         {
           "path": "crates/renderflow-core/tests/common/golden_comic_publications.rs",
-          "sha256": "2b2a704060c66d670a5ef7f532fe93cdbeca65c517755008760dcbc385f7f01a"
+          "sha256": "671e0633b96378adccfa45860856980974e3f863e55d4b55377c10f362a3a4db"
         },
         {
           "path": "crates/renderflow-core/src/publication/raster.rs",

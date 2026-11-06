@@ -14,9 +14,11 @@ existing golden manifest pins its story, recipe, toolchain and font assets.
   cases for per-page SVG/HTML/transcript/PNG/PDF candidates, explicit RGB preparation
   and ordered native EPUB. Interior/cover-page PDF packets require an explicitly
   selected full-tier img2pdf 0.6.3 provider.
-- `publication-44`: 44 numbered interior pages plus a separate two-cover group;
-  source/planning-only case in the maximal tier. Two story beats repeat as a
-  finite layout stress recipe, with no fabricated unique narrative or outputs.
+- `publication-44`: 44 numbered interior pages plus a separate two-cover group.
+  Maximal tier plans by default; `RENDERFLOW_TEST_COMIC_LARGE=1` additionally
+  selects all 46 page runs, RGB preparation and ordered EPUB. PDF packets need
+  the separate explicit provider opt-in. Two story beats repeat as finite layout
+  stress data, with no fabricated unique narrative or observed outputs.
 
 Each page has two panels, separate caption/dialogue content, stable reading IDs,
 artwork descriptions and an explicit human-review requirement. The 127 DPI

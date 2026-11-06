@@ -536,7 +536,8 @@
         "exercise": {
           "enum": [
             "execute",
-            "plan"
+            "plan",
+            "opt_in_execute"
           ]
         },
         "parameters": {
