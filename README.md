@@ -26,6 +26,12 @@
 
 ## Documentation
 
+The optional [publication synopsis guide](docs/user-guide/publication-summary.md)
+uses selected, approved text to create a cited AI candidate, records an explicit
+accept/revise/reject decision, and exports accepted prose locally. The
+[original comic-text example](examples/publication-summary/README.md) defaults to
+AI off. Runtime, tests and model quality remain unqualified under #456.
+
 The [manual timed-lyrics profile](docs/user-guide/manual-lyrics.md) accepts your
 supplied SRT, WebVTT or timed-transcript JSON and authors explicit lyric
 derivatives through the existing graph/forest build path. It performs no lyric

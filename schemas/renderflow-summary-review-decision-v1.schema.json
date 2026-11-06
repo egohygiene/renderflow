@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-summary-review-decision-v1.schema.json",
+  "description": "Operator-supplied exact-subject decision; does not authenticate a reviewer or grant publication. Semantic review and original reference membership require code/human checks.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "candidate_id",
+    "candidate_sha256",
+    "action",
+    "reviewer_reference"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "renderflow.summary-review-decision/v1"
+    },
+    "candidate_id": {
+      "type": "string",
+      "pattern": "^summary-[a-f0-9]{64}$"
+    },
+    "candidate_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "action": {
+      "enum": [
+        "accept",
+        "revise",
+        "reject"
+      ]
+    },
+    "reviewer_reference": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "semantic_review_completed": {
+      "type": "boolean",
+      "default": false
+    },
+    "revised_body": {
+      "oneOf": [
+        {
+          "$ref": "renderflow-summary-body-v1.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "action": {
+            "enum": [
+              "accept",
+              "revise"
+            ]
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "semantic_review_completed"
+        ],
+        "properties": {
+          "semantic_review_completed": {
+            "const": true
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "action": {
+            "const": "revise"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "revised_body"
+        ],
+        "properties": {
+          "revised_body": {
+            "$ref": "renderflow-summary-body-v1.schema.json"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "revised_body": {
+            "type": "null"
+          }
+        }
+      }
+    }
+  ]
+}

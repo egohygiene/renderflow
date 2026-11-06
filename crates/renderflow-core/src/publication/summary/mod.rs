@@ -1,6 +1,7 @@
 //! Source-grounded, review-required synopsis candidates over the existing AI
 //! skill runtime. Selected text and model output never carry publish authority.
 mod model;
+pub mod review;
 pub use model::*;
 use std::collections::{BTreeMap,BTreeSet};
 use std::path::Path;

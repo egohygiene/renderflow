@@ -1,0 +1,21 @@
+{
+  "schema_version": "renderflow.publication-summary/v1",
+  "id": "synthetic.lantern-map",
+  "sources": [
+    {
+      "id": "comic-script",
+      "kind": "authored_script",
+      "path": "comic-script.txt",
+      "sha256": "028bb7e367415b9df2681accb706097a68752e3de4172d88d1896d212d8715d1",
+      "ranges": [
+        {
+          "start": 0,
+          "end": 512
+        }
+      ],
+      "approved_for_ai": false,
+      "approval_reference": "",
+      "privacy_approved_for_remote": false
+    }
+  ]
+}

@@ -26,6 +26,18 @@ supersedes: []
 
 # Renderflow Roadmap
 
+## #456 — exact review/export source checkpoint
+
+The third draft adds separate accept/revise/reject records bound to exact
+candidate ID/file bytes, confined subject re-observation and explicit local
+export into new directories. Original candidate state and publication metadata
+remain separate. A thin CLI and original CC0 comic text include a permission-off
+recipe, review criteria and a not_run measurement template. See the
+[review/export handoff](docs/work/456/REVIEW_EXPORT.md) and
+[standalone guide](docs/user-guide/publication-summary.md). Ten more cases are
+authored/unrun, 29 across the three checkpoints. No compiler/test/schema/provider/
+model/CI execution, merge, measured quality or full acceptance is claimed.
+
 ## #456 — source-grounded candidate source checkpoint
 
 An approved text-slice recipe now captures native immutable sources and produces
