@@ -26,6 +26,17 @@ supersedes: []
 
 # Renderflow Roadmap
 
+## #456 — explicit runtime-profile source checkpoint
+
+The next optional AI consumer reuses the existing catalog/resolver, skill
+runtime, adapters, hygiene and artifact contracts. A Renderflow-owned explicit
+profile pins one model/deployment, refuses fallback/unsupported settings/cost
+claims, adds bounded response/cancellation controls and retains requested versus
+server-reported model identity. Inspection has no provider effects. This is a
+proposed Flow #80 mapping, not shared-profile ratification or observed readiness.
+See [runtime handoff](docs/work/456/RUNTIME_PROFILE.md). Nine cases are authored
+and unrun; all compiler/test/schema/provider/model/CI execution remains deferred.
+
 ## 2026-11-04 — finite local API profiles source checkpoint
 
 #420 extends the API's captured composition packages to manual timed lyrics,

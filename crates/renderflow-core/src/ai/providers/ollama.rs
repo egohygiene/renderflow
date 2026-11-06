@@ -5,7 +5,6 @@
 //! for local-first execution.
 
 use std::fmt;
-use std::time::Duration;
 
 use anyhow::{Context, Result};
 use serde_json::json;
@@ -61,7 +60,8 @@ impl OllamaProvider {
         self
     }
 
-    fn call_api(&self, request: &AiRequest) -> Result<String> {
+    fn call_api(&self, request: &AiRequest) -> Result<(String,Option<String>)> {
+        anyhow::ensure!(!request.cancellation.as_ref().is_some_and(|token|token.is_cancelled()),"ai.transport.cancelled");
         let url = format!("{}/api/generate", self.endpoint.trim_end_matches('/'));
         let mut body = json!({
             "model": request.model,
@@ -101,35 +101,15 @@ impl OllamaProvider {
             "Sending request to Ollama"
         );
 
-        let mut agent_builder = ureq::AgentBuilder::new();
-        if let Some(timeout_ms) = request.timeout_ms {
-            agent_builder = agent_builder.timeout(Duration::from_millis(timeout_ms));
-        }
-        let agent = agent_builder.build();
-        let body_str = agent
-            .post(&url)
-            .set("Content-Type", "application/json")
-            .send_json(body)
-            .with_context(|| format!("Failed to POST to Ollama endpoint '{}'", url))?
-            .into_string()
-            .context("Failed to read Ollama HTTP response body")?;
-
-        let json: serde_json::Value = serde_json::from_str(&body_str).with_context(|| {
-            format!(
-                "Failed to parse Ollama JSON response; body was: {}",
-                body_str
-            )
-        })?;
-
-        json["response"]
-            .as_str()
-            .map(str::to_string)
-            .ok_or_else(|| {
-                anyhow::anyhow!(
-                    "Ollama response missing 'response' field; received: {}",
-                    body_str
-                )
-            })
+        let agent=super::response::agent(request,&self.endpoint);
+        let response=agent.post(&url).set("Content-Type", "application/json").send_json(body)
+            .map_err(|_|anyhow::anyhow!("ai.transport.ollama_request_failed"))?;
+        let body_str=super::response::read(response,request)?;
+        let json:serde_json::Value=serde_json::from_str(&body_str)
+            .map_err(|_|anyhow::anyhow!("ai.transport.invalid_json"))?;
+        let content=json["response"].as_str().context("ai.transport.missing_content")?.to_string();
+        let reported=json.get("model").and_then(|value|value.as_str()).map(str::to_string);
+        Ok((content,reported))
     }
 }
 
@@ -165,7 +145,7 @@ impl AiProvider for OllamaProvider {
 
     fn execute(&self, request: &AiRequest) -> Result<AiResponse> {
         let start = std::time::Instant::now();
-        let content = self
+        let (content,reported_model) = self
             .call_api(request)
             .with_context(|| format!("Ollama provider failed for model '{}'", request.model))?;
         let duration_ms = start.elapsed().as_millis() as u64;
@@ -177,6 +157,7 @@ impl AiProvider for OllamaProvider {
             input_tokens: None, // Ollama does not report token counts here
             output_tokens: None,
             duration_ms: Some(duration_ms),
+            reported_model,
         })
     }
 }
