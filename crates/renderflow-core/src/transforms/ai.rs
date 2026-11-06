@@ -631,6 +631,7 @@ mod tests {
                 duration_ms: Some(50),
                 model: "mock-model".to_string(),
                 provider: "mock".to_string(),
+                reported_model: None,
             })])
         }
     }

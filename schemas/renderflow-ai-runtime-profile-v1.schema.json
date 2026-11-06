@@ -1,0 +1,156 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-ai-runtime-profile-v1.schema.json",
+  "title": "Renderflow explicit runtime binding; proposed Flow 80 mapping",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "renderflow.ai-runtime-profile/v1"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._-]{1,128}$"
+    },
+    "mode": {
+      "enum": [
+        "disabled",
+        "local_only",
+        "remote"
+      ],
+      "default": "disabled"
+    },
+    "provider_id": {
+      "type": "string"
+    },
+    "model_id": {
+      "type": "string"
+    },
+    "endpoint": {
+      "type": "string",
+      "description": "Explicit base origin only; local mode requires literal loopback plus port; remote mode requires HTTPS. No user-info/query/fragment/path."
+    },
+    "credential_env": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Environment variable handle only, resolved by existing provider at explicit execution."
+    },
+    "local_service_egress_disabled": {
+      "type": "boolean",
+      "default": false
+    },
+    "preparation_reference": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "allowed_reported_models": {
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "type": "string",
+        "maxLength": 128
+      }
+    },
+    "generation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "temperature": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 2
+        },
+        "max_tokens": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "maximum": 4096
+        },
+        "seed": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "top_p": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "stop": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          }
+        },
+        "provider_extensions": {
+          "type": "object",
+          "maxProperties": 0
+        }
+      }
+    },
+    "budgets": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "max_input_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 131072
+        },
+        "max_output_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65536
+        },
+        "max_response_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1048576
+        },
+        "max_output_tokens": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4096
+        },
+        "max_duration_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 120000
+        },
+        "max_cost_microunits": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "description": "Finite monetary caps are currently refused before inference; unsupported accounting is not silently treated as enforced."
+        },
+        "allow_unknown_cost": {
+          "type": "boolean",
+          "default": false
+        }
+      }
+    }
+  }
+}

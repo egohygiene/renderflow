@@ -1,0 +1,12 @@
+{
+  "schema_version": "renderflow.ai-runtime-profile/v1",
+  "id": "summary.remote",
+  "mode": "remote",
+  "provider_id": "provider.openai-compatible",
+  "model_id": "gpt-4o-mini",
+  "endpoint": "https://api.openai.com",
+  "credential_env": "MODEL_API_TOKEN",
+  "budgets": {
+    "allow_unknown_cost": false
+  }
+}

@@ -111,6 +111,9 @@ pub struct AiRequest {
     /// Prompt template version string, included in cache keys so that changing
     /// the template invalidates existing cached responses.
     pub prompt_version: Option<String>,
+    /// Optional finite HTTP-envelope limit and cooperative request cancellation.
+    pub max_response_bytes: Option<usize>,
+    pub cancellation: Option<crate::process::ProcessCancellationToken>,
 }
 
 impl AiRequest {
@@ -124,6 +127,8 @@ impl AiRequest {
             params: GenerationParameters::default(),
             timeout_ms: None,
             prompt_version: None,
+            max_response_bytes: None,
+            cancellation: None,
         }
     }
 
@@ -161,6 +166,10 @@ impl AiRequest {
         self.prompt_version = Some(version.into());
         self
     }
+
+    pub fn with_transport_controls(mut self, maximum: usize, cancellation: crate::process::ProcessCancellationToken) -> Self {
+        self.max_response_bytes=Some(maximum);self.cancellation=Some(cancellation);self
+    }
 }
 
 // ── AiResponse ────────────────────────────────────────────────────────────────
@@ -181,6 +190,8 @@ pub struct AiResponse {
     pub output_tokens: Option<u32>,
     /// Wall-clock execution time in milliseconds.
     pub duration_ms: Option<u64>,
+    /// Server-reported model/alias, distinct from the requested model identity.
+    pub reported_model: Option<String>,
 }
 
 impl AiResponse {
@@ -197,6 +208,7 @@ impl AiResponse {
             input_tokens: None,
             output_tokens: None,
             duration_ms: None,
+            reported_model: None,
         }
     }
 
@@ -296,6 +308,7 @@ mod tests {
             input_tokens: Some(10),
             output_tokens: Some(20),
             duration_ms: None,
+            reported_model: None,
         };
         assert_eq!(r.total_tokens(), Some(30));
     }

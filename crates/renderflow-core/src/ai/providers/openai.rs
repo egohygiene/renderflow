@@ -13,7 +13,6 @@
 //! variables.  Keys are **never logged** at any log level.
 
 use std::fmt;
-use std::time::Duration;
 
 use anyhow::{Context, Result};
 use serde_json::json;
@@ -159,7 +158,8 @@ impl OpenAiProvider {
     fn call_api_with_tokens(
         &self,
         request: &AiRequest,
-    ) -> Result<(String, Option<u32>, Option<u32>)> {
+    ) -> Result<(String, Option<u32>, Option<u32>, Option<String>)> {
+        anyhow::ensure!(!request.cancellation.as_ref().is_some_and(|token|token.is_cancelled()),"ai.transport.cancelled");
         let url = format!(
             "{}/v1/chat/completions",
             self.endpoint.trim_end_matches('/')
@@ -203,41 +203,20 @@ impl OpenAiProvider {
             );
         }
 
-        let mut agent_builder = ureq::AgentBuilder::new();
-        if let Some(timeout_ms) = request.timeout_ms {
-            agent_builder = agent_builder.timeout(Duration::from_millis(timeout_ms));
-        }
-        let agent = agent_builder.build();
+        let agent=super::response::agent(request,&self.endpoint);
         let mut req = agent.post(&url).set("Content-Type", "application/json");
         if let Some(key) = self.resolve_api_key()? {
             req = req.set("Authorization", &format!("Bearer {}", key));
         }
 
-        let body_str = req
-            .send_json(body)
-            .with_context(|| format!("Failed to POST to OpenAI endpoint '{}'", url))?
-            .into_string()
-            .context("Failed to read OpenAI HTTP response body")?;
-
-        let json: serde_json::Value = serde_json::from_str(&body_str).with_context(|| {
-            format!(
-                "Failed to parse OpenAI JSON response; body was: {}",
-                body_str
-            )
-        })?;
-
-        let content = json["choices"][0]["message"]["content"]
-            .as_str()
-            .map(str::to_string)
-            .ok_or_else(|| {
-                anyhow::anyhow!(
-                    "OpenAI response missing 'choices[0].message.content'; received: {}",
-                    body_str
-                )
-            })?;
-
-        let (input_tokens, output_tokens) = Self::extract_tokens(&json);
-        Ok((content, input_tokens, output_tokens))
+        let response=req.send_json(body).map_err(|_|anyhow::anyhow!("ai.transport.openai_request_failed"))?;
+        let body_str=super::response::read(response,request)?;
+        let json:serde_json::Value=serde_json::from_str(&body_str)
+            .map_err(|_|anyhow::anyhow!("ai.transport.invalid_json"))?;
+        let content=json["choices"][0]["message"]["content"].as_str().context("ai.transport.missing_content")?.to_string();
+        let (input_tokens,output_tokens)=Self::extract_tokens(&json);
+        let reported=json.get("model").and_then(|value|value.as_str()).map(str::to_string);
+        Ok((content,input_tokens,output_tokens,reported))
     }
 }
 
@@ -280,7 +259,7 @@ impl AiProvider for OpenAiProvider {
 
     fn execute(&self, request: &AiRequest) -> Result<AiResponse> {
         let start = std::time::Instant::now();
-        let (content, input_tokens, output_tokens) = self
+        let (content, input_tokens, output_tokens, reported_model) = self
             .call_api_with_tokens(request)
             .with_context(|| format!("OpenAI provider failed for model '{}'", request.model))?;
         let duration_ms = start.elapsed().as_millis() as u64;
@@ -292,6 +271,7 @@ impl AiProvider for OpenAiProvider {
             input_tokens,
             output_tokens,
             duration_ms: Some(duration_ms),
+            reported_model,
         })
     }
 }

@@ -29,6 +29,19 @@ fn load_catalog(path: Option<&str>) -> Result<AiModelCatalog> {
     }
 }
 
+/// Profile inspection reads local declarations only. It performs no discovery,
+/// credential resolution, adapter construction, installation or inference.
+pub fn run_profile(profile:&str,catalog:Option<&str>,skill:&str,format:&str)->Result<()> {
+    let profile=crate::ai::profile::RuntimeProfile::load(profile)?;
+    let catalog=crate::ai::profile::load_catalog(catalog.map(std::path::Path::new))?;
+    let skills=AiSkillRegistry::bundled()?;
+    let skill=skills.get(skill,None).context("ai.profile.skill_missing")?;
+    let report=profile.inspect(&catalog,skill)?;
+    if format=="text" {println!("{}: {:?} ({})",report.profile_id,report.status,report.diagnostic_code);}
+    else {print!("{}",serialize_output(&report,format)?);}
+    Ok(())
+}
+
 fn serialize_output(value: &impl Serialize, format: &str) -> Result<String> {
     match format {
         "json" => Ok(format!("{}\n", serde_json::to_string_pretty(value)?)),

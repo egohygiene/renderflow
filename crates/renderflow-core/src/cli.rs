@@ -1255,6 +1255,17 @@ pub enum ToolCommands {
 /// Subcommands for `renderflow ai`.
 #[derive(Subcommand)]
 pub enum AiCommands {
+    /// Inspect one explicit runtime binding without probing or invoking a model
+    Profile {
+        #[arg(long,value_name="FILE")]
+        profile:String,
+        #[arg(long,value_name="FILE")]
+        catalog:Option<String>,
+        #[arg(long,default_value="skill.metadata.extract")]
+        skill:String,
+        #[arg(long,default_value="json")]
+        format:String,
+    },
     /// Inspect the versioned provider/model compatibility matrix
     #[command(
         after_help = "Examples:\n  renderflow ai matrix\n  renderflow ai matrix --format json"
