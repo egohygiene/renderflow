@@ -1,0 +1,183 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-summary-review-v1.schema.json",
+  "description": "Separate exact-candidate review artifact. Native locators, content/review IDs and hashes must be reobserved/checked by confined SDK code. Shape alone proves neither source identity nor human authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "review_id",
+    "candidate_artifact",
+    "decision",
+    "accepted_body",
+    "accepted_body_sha256",
+    "output_state",
+    "authority_kind",
+    "scope",
+    "publication_approved"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "renderflow.summary-review/v1"
+    },
+    "review_id": {
+      "type": "string",
+      "pattern": "^review-[a-f0-9]{64}$"
+    },
+    "candidate_artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "format",
+        "media_type",
+        "digest",
+        "size_bytes",
+        "payload",
+        "metadata",
+        "sources",
+        "storage_class"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "format": {
+          "const": "json"
+        },
+        "media_type": {
+          "const": "application/json"
+        },
+        "digest": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "algorithm",
+            "value"
+          ],
+          "properties": {
+            "algorithm": {
+              "const": "sha256"
+            },
+            "value": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          }
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 131072
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "relative_path"
+          ],
+          "properties": {
+            "relative_path": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "metadata": {
+          "type": "object"
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "storage_class": {
+          "const": "intermediate"
+        }
+      }
+    },
+    "decision": {
+      "$ref": "renderflow-summary-review-decision-v1.schema.json"
+    },
+    "accepted_body": {
+      "oneOf": [
+        {
+          "$ref": "renderflow-summary-body-v1.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "accepted_body_sha256": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "output_state": {
+      "enum": [
+        "approved",
+        null
+      ]
+    },
+    "authority_kind": {
+      "const": "operator_supplied_review_reference; not authenticated"
+    },
+    "scope": {
+      "const": "synopsis_text_only; no media, rights, provider or publication approval"
+    },
+    "publication_approved": {
+      "const": false
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "decision": {
+            "properties": {
+              "action": {
+                "const": "reject"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "accepted_body": {
+            "type": "null"
+          },
+          "accepted_body_sha256": {
+            "type": "null"
+          },
+          "output_state": {
+            "type": "null"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "accepted_body": {
+            "$ref": "renderflow-summary-body-v1.schema.json"
+          },
+          "accepted_body_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "output_state": {
+            "const": "approved"
+          }
+        }
+      }
+    }
+  ]
+}

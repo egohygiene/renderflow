@@ -66,6 +66,7 @@ nav:
       - Quick Start: getting-started/quickstart.md
       - CLI Overview: getting-started/cli-overview.md
   - User Guide:
+      - Publication Synopsis: user-guide/publication-summary.md
       - Repository Briefings: user-guide/repository-briefings.md
       - Sonic DNA Evidence: user-guide/sonic-dna.md
       - Bundle Evidence: user-guide/bundle-evidence.md

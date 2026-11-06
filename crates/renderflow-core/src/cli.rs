@@ -1255,6 +1255,8 @@ pub enum ToolCommands {
 /// Subcommands for `renderflow ai`.
 #[derive(Subcommand)]
 pub enum AiCommands {
+    /// Plan, generate, review and explicitly export source-grounded synopsis candidates
+    Summary {#[command(subcommand)] subcommand:SummaryCommands},
     /// Inspect one explicit runtime binding without probing or invoking a model
     Profile {
         #[arg(long,value_name="FILE")]
@@ -1351,6 +1353,38 @@ pub enum AiCommands {
         /// Path to the AI cache file
         #[arg(long, default_value = ".renderflow-ai-cache.json", value_name = "FILE")]
         path: String,
+    },
+}
+
+#[derive(Subcommand,Debug)]
+pub enum SummaryCommands {
+    /// Inspect captured source coverage and runtime declarations without inference
+    Plan {
+        #[arg(long)] recipe:String,
+        #[arg(long)] profile:String,
+        #[arg(long)] catalog:Option<String>,
+    },
+    /// Invoke one explicitly prepared profile and write a separate review candidate
+    Generate {
+        #[arg(long)] recipe:String,
+        #[arg(long)] profile:String,
+        #[arg(long)] catalog:Option<String>,
+        #[arg(long)] store:String,
+        #[arg(long)] output_dir:String,
+    },
+    /// Record accept/revise/reject against an exact candidate ID and file digest
+    Review {
+        #[arg(long)] candidate:String,
+        #[arg(long)] decision:String,
+        #[arg(long)] store:String,
+        #[arg(long)] output_dir:String,
+    },
+    /// Materialize an accepted review into a new local directory
+    Export {
+        #[arg(long)] review:String,
+        #[arg(long)] review_sha256:String,
+        #[arg(long)] store:String,
+        #[arg(long)] output_dir:String,
     },
 }
 

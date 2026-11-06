@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-accepted-summary-v1.schema.json",
+  "description": "Local accepted-prose export companion, with reference/coverage/processing metadata but no raw source quotes. Review is operator-declared, not authenticated publication authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "candidate_id",
+    "candidate_sha256",
+    "review_id",
+    "body",
+    "references",
+    "processing",
+    "coverage_note",
+    "source_coverage",
+    "reviewer_reference",
+    "semantic_review_declared",
+    "scope",
+    "publication_approved"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "renderflow.accepted-summary/v1"
+    },
+    "candidate_id": {
+      "type": "string",
+      "pattern": "^summary-[a-f0-9]{64}$"
+    },
+    "candidate_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "review_id": {
+      "type": "string",
+      "pattern": "^review-[a-f0-9]{64}$"
+    },
+    "body": {
+      "$ref": "renderflow-summary-body-v1.schema.json"
+    },
+    "references": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "evidence_id",
+          "source_id",
+          "artifact_id",
+          "source_sha256",
+          "start",
+          "end",
+          "text_sha256"
+        ],
+        "properties": {
+          "evidence_id": {
+            "type": "string",
+            "pattern": "^evidence-[a-f0-9]{64}$"
+          },
+          "source_id": {
+            "type": "string"
+          },
+          "artifact_id": {
+            "type": "string"
+          },
+          "source_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "start": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "end": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "text_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        }
+      }
+    },
+    "processing": {
+      "$ref": "renderflow-summary-candidate-v1.schema.json#/properties/processing"
+    },
+    "coverage_note": {
+      "type": "string"
+    },
+    "source_coverage": {
+      "$ref": "renderflow-summary-candidate-v1.schema.json#/properties/sources"
+    },
+    "reviewer_reference": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "semantic_review_declared": {
+      "const": true
+    },
+    "scope": {
+      "const": "synopsis_text_only; no media, rights, provider or publication approval"
+    },
+    "publication_approved": {
+      "const": false
+    }
+  }
+}

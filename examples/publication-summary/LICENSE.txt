@@ -1,0 +1,7 @@
+The original synthetic text in comic-script.txt is dedicated to the public
+domain under CC0 1.0 Universal, to the extent permitted by law.
+https://creativecommons.org/publicdomain/zero/1.0/
+
+This dedication covers only that text, not third-party models, runtime software,
+fonts, images, private inputs, or model outputs. Repository source and other
+example files retain the repository's MIT license.

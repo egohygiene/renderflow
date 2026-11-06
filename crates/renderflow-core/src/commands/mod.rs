@@ -1,4 +1,5 @@
 pub mod ai;
+pub mod summary;
 pub mod audit;
 pub mod build;
 pub mod briefing;

@@ -35,5 +35,23 @@ The second source checkpoint adds a public
 text, not images/audio. Every synopsis statement references exact captured slice
 IDs. Reference checks remain separate from factual/semantic correctness and
 human publication review. No inference has occurred. See the
-[candidate contract](../../docs/work/456/CANDIDATES.md); CLI/review/export follow
-in the third draft.
+[candidate contract](../../docs/work/456/CANDIDATES.md).
+
+The third checkpoint adds `ai summary plan`, `generate`, `review` and `export`.
+Follow the [standalone guide](../../docs/user-guide/publication-summary.md).
+Accept/revise/reject decisions bind the candidate ID and exact candidate file
+SHA-256. An accepted review permits only an explicit local synopsis export;
+it does not replace publication metadata or approve rights, media or posting.
+
+`comic-script.txt` is original synthetic CC0 text about Pip and Vale. Its pinned
+recipe, `summary.json`, selects the full text and defaults to AI permission off.
+The license is not an inference/privacy decision. After reading the actual
+source, make a reviewed recipe copy in this directory, explicitly set its
+permission and record your own approval reference before selecting generation.
+Paths resolve relative to the recipe. Keep remote privacy permission false for
+the local-only route. No reference images or real publication data are bundled.
+
+[Evaluation criteria](EVALUATION.md) and `evaluation-template.json` describe a
+future local qualification. The template is **not_run**; every measured field is
+null. It is not a receipt, expected model output or a passing result. Tests use
+declared synthetic fixtures only. No model was selected, downloaded or executed.

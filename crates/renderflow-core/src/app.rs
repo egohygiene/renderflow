@@ -118,6 +118,7 @@ pub fn run_cli(cli: Cli) -> Result<()> {
             }
         }
         Some(Commands::Ai { subcommand }) => match subcommand {
+            AiCommands::Summary {subcommand}=>commands::summary::run(subcommand)?,
             AiCommands::Profile {profile,catalog,skill,format}=>commands::ai::run_profile(&profile,catalog.as_deref(),&skill,&format)?,
             AiCommands::Matrix { format, catalog } => {
                 commands::ai::run_matrix(&format, catalog.as_deref())?
