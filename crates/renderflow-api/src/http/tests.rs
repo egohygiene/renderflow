@@ -23,6 +23,51 @@ fn call(router:&Router,raw:&[u8])->super::router::Response {
 }
 
 #[test]
+fn full_artifact_get_and_head_have_verified_snapshot_headers_and_ranges_are_refused() {
+    let fixture=crate::service::upload_tests::Fixture::new();let router=router(fixture.service());
+    let bytes=crate::service::upload_tests::NEW;let upload=router.service.upload_source("lyrics",bytes.to_vec(),&crate::package::digest(bytes)).unwrap();
+    let job=router.service.submit(crate::Operation::Execute,crate::SubmitRequest {pipeline_id:"lyrics".into(),dry_run:false,upload_id:Some(upload.upload_id)}).unwrap();
+    let deadline=Instant::now()+Duration::from_secs(15);
+    while !router.service.job(&job.job_id).unwrap().state.terminal(){assert!(Instant::now()<deadline);std::thread::sleep(Duration::from_millis(10));}
+    let row=router.service.artifacts(&job.job_id).unwrap().into_iter().find(|row|row.format=="lyrics_json").unwrap();
+    for method in ["GET","HEAD"] {
+        let mut response=call(&router,input(method,&row.download_path,"","").as_bytes());assert_eq!(response.status,200);assert!(response.body.is_empty());
+        assert!(response.headers.iter().any(|(name,value)|*name=="X-Content-SHA256"&&value==&row.sha256));
+        assert!(response.headers.iter().any(|(name,value)|*name=="ETag"&&value==&format!("\"sha256-{}\"",row.sha256)));
+        assert_eq!(response.download.as_ref().unwrap().size_bytes,row.size_bytes);
+        if method=="GET" {let mut observed=Vec::new();response.download.as_mut().unwrap().copy_to(&mut observed).unwrap();assert_eq!(crate::package::digest(&observed),row.sha256);}
+    }
+    let response=call(&router,input("GET",&row.download_path,"Range: bytes=0-1\r\n","").as_bytes());assert_eq!(response.status,416);assert!(response.download.is_none());
+}
+
+#[test]
+fn corrupt_artifact_becomes_json_error_before_a_successful_download_response() {
+    let fixture=Fixture::new(&["transcript_json"]);let router=router(fixture.service());
+    let job=router.service.submit(crate::Operation::Execute,crate::SubmitRequest {pipeline_id:"page".into(),dry_run:false,upload_id:None}).unwrap();
+    let deadline=Instant::now()+Duration::from_secs(15);
+    while !router.service.job(&job.job_id).unwrap().state.terminal(){assert!(Instant::now()<deadline);std::thread::sleep(Duration::from_millis(10));}
+    let row=router.service.artifacts(&job.job_id).unwrap().into_iter().next().unwrap();
+    // Hold the actual private workspace through the existing service owner.
+    let (result,workspace)=router.service.execution(&job.job_id).unwrap();
+    let publications=result.run_manifest.published_targets().unwrap();let publication=publications.iter().find(|p|p.branch.target_id==row.target_id).unwrap();
+    let path=workspace.bundle().join(publication.artifact.locator.strip_prefix("bundle:").unwrap());std::fs::write(path,b"changed").unwrap();
+    let response=call(&router,input("GET",&row.download_path,"","").as_bytes());assert_eq!(response.status,422);assert!(response.download.is_none());
+    let error:Value=serde_json::from_slice(&response.body).unwrap();assert_eq!(error["error"]["code"],"artifact_integrity");
+}
+
+#[test]
+fn native_schema_metadata_is_authenticated_core_owned_and_self_contained() {
+    let fixture=Fixture::new(&["transcript_json"]);let router=router(fixture.service());
+    let response=call(&router,b"GET /schemas/renderflow-sdk-api-v1.schema.json HTTP/1.1\r\nHost: 127.0.0.1:8787\r\n\r\n");assert_eq!(response.status,401);
+    let response=call(&router,input("GET","/schemas/renderflow-sdk-api-v1.schema.json","","").as_bytes());
+    assert_eq!(response.status,200);assert_eq!(response.media,"application/schema+json");
+    let schema:Value=serde_json::from_slice(&response.body).unwrap();assert!(schema["$defs"]["ExecutionResult"].get("properties").is_some());
+    let api:Value=serde_json::from_str(OPENAPI).unwrap();
+    assert_eq!(api["components"]["schemas"]["NativeRunManifest"]["$ref"],"../schemas/renderflow-sdk-api-v1.schema.json#/$defs/RunManifest");
+    assert_eq!(router.service.active_jobs().unwrap(),0);
+}
+
+#[test]
 fn authenticated_binary_upload_returns_only_an_immutable_source_reference() {
     let fixture=crate::service::upload_tests::Fixture::new();let router=router(fixture.service());
     let bytes=crate::service::upload_tests::NEW;let hash=crate::package::digest(bytes);
@@ -132,7 +177,7 @@ fn http_configuration_is_loopback_and_bounded_before_socket_start() {
 #[test]
 fn maintained_openapi_envelopes_match_serialized_job_fields() {
     let api:Value=serde_json::from_str(OPENAPI).unwrap();assert_eq!(api["openapi"],"3.1.0");
-    assert_eq!(api["paths"].as_object().unwrap().len(),17);
+    assert_eq!(api["paths"].as_object().unwrap().len(),18);
     let fixture=Fixture::new(&["transcript_json"]);let service=fixture.service();
     let job=service.submit(crate::Operation::Inspect,crate::SubmitRequest{pipeline_id:"page".into(),dry_run:false,upload_id:None}).unwrap();
     let job_id=job.job_id.clone();

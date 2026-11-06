@@ -26,7 +26,7 @@ impl Authorizer for BearerToken {
 }
 
 pub(super) struct Router {pub service:Arc<Service>,pub auth:Arc<dyn Authorizer>,pub address:SocketAddr,pub limits:HttpLimits}
-pub(super) struct Response {pub status:u16,pub media:&'static str,pub body:Vec<u8>,pub headers:Vec<(&'static str,String)>}
+pub(super) struct Response {pub status:u16,pub media:&'static str,pub body:Vec<u8>,pub headers:Vec<(&'static str,String)>,pub download:Option<crate::ArtifactDownload>}
 
 impl Router {
     pub fn gate(&self,head:&Head)->ApiResult<usize> {
@@ -58,12 +58,12 @@ impl Router {
     }
     pub fn error(&self,error:ApiError,id:&str)->Response {
         let mut headers=Vec::new();if error.status==401 {headers.push(("WWW-Authenticate","Bearer realm=\"renderflow-api\"".into()));}
-        Response {status:error.status,media:"application/json",body:serde_json::to_vec(&json!({"schema_version":API_SCHEMA,"request_id":id,"error":error})).unwrap_or_else(|_|b"{}".to_vec()),headers}
+        Response {status:error.status,media:"application/json",body:serde_json::to_vec(&json!({"schema_version":API_SCHEMA,"request_id":id,"error":error})).unwrap_or_else(|_|b"{}".to_vec()),headers,download:None}
     }
     fn json<T:Serialize>(&self,status:u16,value:T,id:&str)->ApiResult<Response> {
         let body=serde_json::to_vec(&json!({"schema_version":API_SCHEMA,"request_id":id,"data":value})).map_err(|_|ApiError::internal())?;
         if body.len()>self.limits.json_response_bytes {return Err(ApiError::new("response_limit","API JSON response exceeds configured byte limit",413));}
-        Ok(Response {status,media:"application/json",body,headers:Vec::new()})
+        Ok(Response {status,media:"application/json",body,headers:Vec::new(),download:None})
     }
     fn route(&self,request:Request,id:&str)->ApiResult<Response> {
         let head=&request.head;let (path,query)=head.path.split_once('?').unwrap_or((&head.path,""));
@@ -79,12 +79,18 @@ impl Router {
             ("GET","/ready")=>return self.json(if self.service.ready(){200}else{503},json!({"accepting_jobs":self.service.ready(),"pipeline_count":self.service.pipelines().len(),"provider_readiness":"not_probed","runtime_qualified":false}),id),
             ("GET","/openapi.json")=> {
                 if OPENAPI.len()>self.limits.json_response_bytes {return Err(ApiError::new("response_limit","OpenAPI response exceeds byte limit",413));}
-                return Ok(Response {status:200,media:"application/json",body:OPENAPI.as_bytes().to_vec(),headers:Vec::new()});
+                return Ok(Response {status:200,media:"application/json",body:OPENAPI.as_bytes().to_vec(),headers:Vec::new(),download:None});
+            },
+            ("GET","/schemas/renderflow-sdk-api-v1.schema.json")=> {
+                let schema=renderflow::api_contract::json_schema().map_err(|_|ApiError::internal())?;
+                let body=serde_json::to_vec(&schema).map_err(|_|ApiError::internal())?;
+                if body.len()>self.limits.json_response_bytes {return Err(ApiError::new("response_limit","SDK schema exceeds the configured response limit",413));}
+                return Ok(Response {status:200,media:"application/schema+json",body,headers:Vec::new(),download:None});
             },
             ("GET","/v1/pipelines")=>return self.json(200,self.service.pipelines(),id),
             ("GET","/v1/capabilities")=> {
                 let sdk=renderflow::EngineBuilder::new().build().map_err(|_|ApiError::internal())?.provider_capabilities();
-                return self.json(200,json!({"service_profile":"operator_registered","service_profiles":crate::profiles::inventory(),"operations":["inspect","plan","execute","job_status","cancel","events","artifacts","forget"],
+                return self.json(200,json!({"service_profile":"operator_registered","service_profiles":crate::profiles::inventory(),"operations":["inspect","plan","execute","job_status","cancel","events","artifacts","forget","source_upload","upload_status","forget_upload","stream_download","sdk_schema"],
                     "uploads":self.service.pipelines().iter().any(|pipeline|pipeline.source_uploads),"upload_scope":"one immutable source for operator-enabled built-in text profiles", "remote_bind":false,"external_provider_jobs":self.service.pipelines().iter().any(|pipeline|pipeline.local_processes),"durable_jobs":false,"runtime_qualified":false,
                     "limits":self.service.limits(),"http":self.limits,"sdk_inventory":sdk,"sdk_inventory_scope":"Broader library inventory; service admission uses a finite registered profile and explicit operator effect permission"}),id);
             },
@@ -110,7 +116,7 @@ impl Router {
             if !crate::uploads::upload_id(upload){return Err(ApiError::new("upload_not_found","Unknown or expired upload",404));}
             return match head.method.as_str() {
                 "GET"=>self.json(200,self.service.upload(upload)?,id),
-                "DELETE"=>{self.service.forget_upload(upload)?;Ok(Response {status:204,media:"application/json",body:Vec::new(),headers:Vec::new()})},
+                "DELETE"=>{self.service.forget_upload(upload)?;Ok(Response {status:204,media:"application/json",body:Vec::new(),headers:Vec::new(),download:None})},
                 _=>Err(ApiError::new("route_not_found","Unknown method or versioned API route",404)),
             };
         }
@@ -122,11 +128,12 @@ impl Router {
             match (head.method.as_str(),parts.as_slice()) {
                 ("GET",[_,_,_,_])=>return self.json(200,self.service.job(job)?,id),
                 ("DELETE",[_,_,_,_])=> {let view=self.service.cancel(job)?;return self.json(if view.state.terminal(){200}else{202},view,id);},
-                ("DELETE",[_,_,_,_,"retention"])=> {self.service.forget(job)?;return Ok(Response {status:204,media:"application/json",body:Vec::new(),headers:Vec::new()});},
+                ("DELETE",[_,_,_,_,"retention"])=> {self.service.forget(job)?;return Ok(Response {status:204,media:"application/json",body:Vec::new(),headers:Vec::new(),download:None});},
                 ("GET",[_,_,_,_,"artifacts"])=>return self.json(200,self.service.artifacts(job)?,id),
-                ("GET",[_,_,_,_,"artifacts",artifact])=> {
-                    let download=self.service.download(job,artifact)?;
-                    return Ok(Response {status:200,media:match download.media_type.as_str() {
+                ("GET"|"HEAD",[_,_,_,_,"artifacts",artifact])=> {
+                    if head.header("range").is_some(){return Err(ApiError::new("range_refused","Partial artifact delivery is not supported; request the full verified snapshot",416));}
+                    let download=self.service.prepare_download(job,artifact)?;
+                    let media=match download.media_type.as_str() {
                         "application/json"=>"application/json","text/plain"=>"text/plain","text/html"=>"text/html",
                         "image/svg+xml"=>"image/svg+xml","image/png"=>"image/png","application/pdf"=>"application/pdf",
                         "text/vtt"=>"text/vtt","application/x-subrip"=>"application/x-subrip","application/ttml+xml"=>"application/ttml+xml",
@@ -134,7 +141,10 @@ impl Router {
                         "application/epub+zip"=>"application/epub+zip",
                         "application/vnd.openxmlformats-officedocument.wordprocessingml.document"=>"application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                         _=>"application/octet-stream",
-                    },body:download.bytes,headers:vec![("Content-Disposition",format!("attachment; filename=\"{}\"",download.filename)),("X-Content-SHA256",download.sha256)]});
+                    };
+                    let headers=vec![("Content-Disposition",format!("attachment; filename=\"{}\"",download.filename)),
+                        ("X-Content-SHA256",download.sha256.clone()),("ETag",format!("\"sha256-{}\"",download.sha256))];
+                    return Ok(Response {status:200,media,body:Vec::new(),headers,download:Some(download)});
                 },
                 ("GET",[_,_,_,_,"events"])=> {
                     let header=head.header("last-event-id").map(|value|std::str::from_utf8(value).unwrap_or("invalid"));
@@ -150,7 +160,7 @@ impl Router {
                     let state=json!({"job_id":events.job_id,"state":events.state,"last_event_id":events.last_event_id,"dropped_events":events.dropped_events,"cursor_gap":events.cursor_gap});
                     body.extend_from_slice(format!("event: job\ndata: {state}\n\n").as_bytes());
                     if body.len()>self.limits.json_response_bytes {return Err(ApiError::new("response_limit","Event replay response exceeds byte limit",413));}
-                    return Ok(Response {status:200,media:"text/event-stream",body,headers:vec![("X-Accel-Buffering","no".into())]});
+                    return Ok(Response {status:200,media:"text/event-stream",body,headers:vec![("X-Accel-Buffering","no".into())],download:None});
                 },
                 _=>{},
             }

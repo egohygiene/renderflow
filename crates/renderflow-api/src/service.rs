@@ -7,6 +7,10 @@ use renderflow::{CancellationToken, EngineBuilder, ExecutionRequest, InspectionR
 use crate::model::*;
 use crate::package::{self, Package, Workspace};
 
+#[path="download.rs"]
+mod download;
+pub use download::ArtifactDownload;
+
 struct Entry {
     pipeline_id: String, package_sha256: String, operation: Operation, state: JobState,
     profile: PipelineProfile,
@@ -42,6 +46,8 @@ struct Book {
     limits: Limits, packages: BTreeMap<String,Arc<Package>>, jobs: Mutex<BTreeMap<String,Entry>>,
     directory: tempfile::TempDir, shutdown: AtomicBool, next: AtomicU64,
     uploads:Mutex<BTreeMap<String,Arc<SourceUpload>>>,
+    downloads:Mutex<download::Pool>,
+    download_cancellation:renderflow::process::ProcessCancellationToken,
 }
 
 struct SourceUpload {view:UploadView,bytes:Arc<[u8]>,expires:Instant}
@@ -124,7 +130,8 @@ impl Service {
         }
         let directory = tempfile::Builder::new().prefix("renderflow-api-").tempdir_in(parent).map_err(|_|ApiError::io())?;
         let book = Arc::new(Book { limits:config.limits,packages,jobs:Mutex::new(BTreeMap::new()),directory,shutdown:AtomicBool::new(false),next:AtomicU64::new(1),
-            uploads:Mutex::new(BTreeMap::new()) });
+            uploads:Mutex::new(BTreeMap::new()),downloads:Mutex::new(download::Pool::default()),
+            download_cancellation:renderflow::process::ProcessCancellationToken::new() });
         let (sender,receiver) = mpsc::sync_channel::<Work>(book.limits.queued_jobs);
         let receiver = Arc::new(Mutex::new(receiver));
         for _ in 0..book.limits.workers {
@@ -164,6 +171,7 @@ impl Service {
     pub fn ready(&self) -> bool { !self.book.shutdown.load(Ordering::Acquire) }
     pub fn shutdown(&self) {
         self.book.shutdown.store(true,Ordering::Release);
+        self.book.download_cancellation.cancel();
         if let Ok(mut jobs)=self.book.jobs.lock() { for entry in jobs.values_mut() {
             let never_started=!entry.state.terminal() && entry.started_at.is_none();
             entry.cancel(CancelReason::Shutdown);
@@ -282,7 +290,7 @@ impl Service {
         Ok(EventsView { schema_version:API_SCHEMA,job_id:id.into(),state:entry.state,
             events,last_event_id:entry.sequence,dropped_events:entry.dropped,cursor_gap })
     }
-    fn execution(&self,id:&str) -> ApiResult<(renderflow::ExecutionResult,Arc<Workspace>)> {
+    pub(crate) fn execution(&self,id:&str) -> ApiResult<(renderflow::ExecutionResult,Arc<Workspace>)> {
         let jobs=self.book.jobs.lock().map_err(|_|ApiError::internal())?; let entry=jobs.get(id).ok_or_else(not_found)?;
         if !entry.state.terminal() { return Err(ApiError::new("job_active","Artifacts are available after terminal execution",409)); }
         let output:JobOutput=serde_json::from_slice(entry.result.as_deref().ok_or_else(||ApiError::new("no_execution_result","This job has no native execution result",409))?).map_err(|_|ApiError::internal())?;

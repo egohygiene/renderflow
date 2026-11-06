@@ -9,4 +9,4 @@ mod service;
 mod uploads;
 
 pub use model::*;
-pub use service::Service;
+pub use service::{Service,ArtifactDownload};

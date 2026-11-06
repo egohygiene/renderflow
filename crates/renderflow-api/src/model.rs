@@ -75,6 +75,10 @@ pub struct Limits {
     pub upload_bytes: u64,
     pub all_upload_bytes: u64,
     pub upload_retention_seconds: u64,
+    pub stream_downloads:usize,
+    pub stream_download_bytes:u64,
+    pub all_stream_download_bytes:u64,
+    pub stream_timeout_seconds:u64,
 }
 
 impl Default for Limits {
@@ -84,7 +88,8 @@ impl Default for Limits {
             result_bytes: 2 * 1024 * 1024, progress_events: 64, progress_bytes: 64 * 1024,
             download_bytes: 8 * 1024 * 1024, job_storage_bytes: 256 * 1024 * 1024,workspace_storage_bytes:512*1024*1024,
             job_timeout_seconds: 120, retention_seconds: 900,
-            upload_count:16,upload_bytes:8*1024*1024,all_upload_bytes:32*1024*1024,upload_retention_seconds:900 }
+            upload_count:16,upload_bytes:8*1024*1024,all_upload_bytes:32*1024*1024,upload_retention_seconds:900,
+            stream_downloads:2,stream_download_bytes:128*1024*1024,all_stream_download_bytes:256*1024*1024,stream_timeout_seconds:30 }
     }
 }
 
@@ -103,7 +108,10 @@ impl Limits {
             || !(1..=600).contains(&self.job_timeout_seconds) || !(1..=86400).contains(&self.retention_seconds)
             || !(1..=64).contains(&self.upload_count) || self.upload_bytes==0 || self.upload_bytes>64*1024*1024
             || self.all_upload_bytes<self.upload_bytes || self.all_upload_bytes>64*1024*1024
-            || !(1..=86400).contains(&self.upload_retention_seconds) {
+            || !(1..=86400).contains(&self.upload_retention_seconds)
+            || !(1..=8).contains(&self.stream_downloads) || self.stream_download_bytes==0 || self.stream_download_bytes>512*1024*1024
+            || self.all_stream_download_bytes<self.stream_download_bytes || self.all_stream_download_bytes>1024*1024*1024
+            || !(1..=120).contains(&self.stream_timeout_seconds) {
             return Err(ApiError::new("invalid_limits", "Service limits exceed the supported local profile", 400));
         }
         Ok(())

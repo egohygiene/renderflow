@@ -11,6 +11,42 @@ use renderflow::evidence::{RunState,ValidationState};
 fn token()->ProcessCancellationToken {ProcessCancellationToken::new()}
 
 #[test]
+fn streamed_observation_handles_over_32_mib_with_bounded_sink_writes() {
+    use std::io::Write;
+    use sha2::{Digest,Sha256};
+    let root=tempfile::tempdir().unwrap();let mut file=fs::File::create(root.path().join("result.txt")).unwrap();
+    let chunk=[b'x';65536];let mut hash=Sha256::new();
+    for _ in 0..513 {file.write_all(&chunk).unwrap();hash.update(chunk);}
+    drop(file);let mut run=fixture::manifest(b"");let size=513*65536;
+    run.artifact_manifest.artifacts[0].size_bytes=size;
+    run.artifact_manifest.artifacts[0].digest.value=format!("{:x}",hash.finalize());
+    struct Counter(u64);
+    impl Write for Counter {
+        fn write(&mut self,bytes:&[u8])->std::io::Result<usize>{assert!(bytes.len()<=65536);self.0+=bytes.len() as u64;Ok(bytes.len())}
+        fn flush(&mut self)->std::io::Result<()>{Ok(())}
+    }
+    let mut sink=Counter(0);
+    let observed=renderflow::evidence::verification::copy_publication(&run,"target-one",root.path(),&VerificationLimits::default(),token(),&mut sink).unwrap();
+    assert_eq!(observed.observation().size_bytes,size);assert_eq!(sink.0,size);assert_eq!(run.state,RunState::Partial);
+    assert!(renderflow::evidence::verification::read_publication(&run,"target-one",root.path(),&VerificationLimits::default(),token()).is_err());
+}
+
+#[test]
+fn provisional_copy_sink_failure_or_cancellation_cannot_become_verified() {
+    use std::io::Write;
+    struct Closed;
+    impl Write for Closed {
+        fn write(&mut self,_:&[u8])->std::io::Result<usize>{Err(std::io::ErrorKind::BrokenPipe.into())}
+        fn flush(&mut self)->std::io::Result<()>{Ok(())}
+    }
+    let root=tempfile::tempdir().unwrap();fs::write(root.path().join("result.txt"),b"hello").unwrap();let run=fixture::manifest(b"hello");
+    assert!(renderflow::evidence::verification::copy_publication(&run,"target-one",root.path(),&VerificationLimits::default(),token(),&mut Closed).is_err());
+    let cancelled=token();cancelled.cancel();let mut sink=Vec::new();
+    assert!(matches!(renderflow::evidence::verification::copy_publication(&run,"target-one",root.path(),&VerificationLimits::default(),cancelled,&mut sink),Err(VerificationError::Cancelled)));
+    assert!(sink.is_empty());
+}
+
+#[test]
 fn bounded_delivery_returns_the_observed_bytes_and_preserves_native_state() {
     let root=tempfile::tempdir().unwrap();let payload=b"copied bytes\n";
     fs::write(root.path().join("result.txt"),payload).unwrap();let run=fixture::manifest(payload);

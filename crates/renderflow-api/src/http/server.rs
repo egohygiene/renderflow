@@ -88,23 +88,34 @@ fn process(stream:&mut TcpStream,router:&Router,id:&str)->(u16,bool) {
     };
     let response=match request {Ok(request)=>router.dispatch(request,id),Err(error)=>router.error(error,id)};
     let status=response.status;
-    let delivered=write_response(stream,&response,id,head_only,Duration::from_millis(router.limits.write_deadline_ms)).is_ok();
+    let delivered=write_response(stream,response,id,head_only,Duration::from_millis(router.limits.write_deadline_ms)).is_ok();
     (status,delivered)
 }
 
-fn write_response(stream:&mut TcpStream,response:&Response,id:&str,head_only:bool,budget:Duration)->io::Result<()> {
+fn write_response(stream:&mut TcpStream,mut response:Response,id:&str,head_only:bool,budget:Duration)->io::Result<()> {
     let deadline=Instant::now()+budget;
     let reason=match response.status {200=>"OK",201=>"Created",202=>"Accepted",204=>"No Content",400=>"Bad Request",401=>"Unauthorized",403=>"Forbidden",404=>"Not Found",
-        408=>"Request Timeout",409=>"Conflict",411=>"Length Required",413=>"Content Too Large",415=>"Unsupported Media Type",417=>"Expectation Failed",
+        408=>"Request Timeout",409=>"Conflict",411=>"Length Required",413=>"Content Too Large",415=>"Unsupported Media Type",416=>"Range Not Satisfiable",417=>"Expectation Failed",
         422=>"Unprocessable Content",431=>"Request Header Fields Too Large",503=>"Service Unavailable",_=>"Internal Server Error"};
-    let mut headers=format!("HTTP/1.1 {} {}\r\nContent-Type: {}\r\nContent-Length: {}\r\nConnection: close\r\nCache-Control: no-store\r\nX-Content-Type-Options: nosniff\r\nContent-Security-Policy: default-src 'none'; sandbox\r\nX-Request-ID: {}\r\n",response.status,reason,response.media,response.body.len(),id);
+    let length=response.download.as_ref().map(|download|download.size_bytes).unwrap_or(response.body.len() as u64);
+    let mut headers=format!("HTTP/1.1 {} {}\r\nContent-Type: {}\r\nContent-Length: {}\r\nConnection: close\r\nCache-Control: no-store\r\nX-Content-Type-Options: nosniff\r\nContent-Security-Policy: default-src 'none'; sandbox\r\nX-Request-ID: {}\r\n",response.status,reason,response.media,length,id);
     for (name,value) in &response.headers {
         if value.contains(['\r','\n']){return Err(io::Error::from(io::ErrorKind::InvalidInput));}
         headers.push_str(name);headers.push_str(": ");headers.push_str(value);headers.push_str("\r\n");
     }
     headers.push_str("\r\n");write_bytes(stream,headers.as_bytes(),deadline)?;
-    if !head_only {write_bytes(stream,&response.body,deadline)?;}
+    if !head_only {
+        if let Some(download)=response.download.as_mut() {
+            let mut output=DeliveryWriter {stream,deadline};
+            download.copy_to(&mut output).map_err(|_|io::Error::other("Artifact delivery incomplete"))?;
+        }else{write_bytes(stream,&response.body,deadline)?;}
+    }
     Ok(())
+}
+struct DeliveryWriter<'a> {stream:&'a mut TcpStream,deadline:Instant}
+impl Write for DeliveryWriter<'_> {
+    fn write(&mut self,bytes:&[u8])->io::Result<usize> {write_bytes(self.stream,bytes,self.deadline)?;Ok(bytes.len())}
+    fn flush(&mut self)->io::Result<()> {Ok(())}
 }
 fn write_bytes(stream:&mut TcpStream,bytes:&[u8],deadline:Instant)->io::Result<()> {
     let mut position=0;

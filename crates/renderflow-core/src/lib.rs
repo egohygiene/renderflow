@@ -7,6 +7,7 @@
 
 pub mod adapters;
 pub mod ai;
+pub mod api_contract;
 pub mod app;
 pub mod artifact;
 mod assets;
