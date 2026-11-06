@@ -30,7 +30,7 @@ impl Fixture {
         fs::write(base.join("source/renderflow.json"),serde_json::to_vec(&spec).unwrap()).unwrap();
         let config=ServiceConfig {schema_version:SERVICE_SCHEMA.into(),workspace_parent:base.join("work"),
             pipelines:vec![PipelineConfig{id:"source".into(),root:base.join("source"),config:"renderflow.json".into(),
-                files:vec!["renderflow.json".into(),"input".into()],profile,allow_local_processes:profile.local_processes()}],limits:Limits::default()};
+                files:vec!["renderflow.json".into(),"input".into()],profile,allow_local_processes:profile.local_processes(),allow_source_uploads:false}],limits:Limits::default()};
         Self {root,config,spec}
     }
     fn rewrite(&mut self,change:impl FnOnce(&mut Value)) {
@@ -44,7 +44,7 @@ fn wait(service:&Service,id:&str)->JobView {
         assert!(Instant::now()<deadline);std::thread::sleep(Duration::from_millis(10));}
 }
 fn execute(service:&Service)->JobView {
-    let job=service.submit(Operation::Execute,SubmitRequest{pipeline_id:"source".into(),dry_run:false}).unwrap();wait(service,&job.job_id)
+    let job=service.submit(Operation::Execute,SubmitRequest{pipeline_id:"source".into(),dry_run:false,upload_id:None}).unwrap();wait(service,&job.job_id)
 }
 fn downloaded(service:&Service,id:&str,format:&str)->Vec<u8> {
     let rows=service.artifacts(id).unwrap();let row=rows.iter().find(|row|row.format==format).unwrap();
@@ -141,7 +141,7 @@ fn profile_defaults_and_effect_permission_are_bound_into_package_identity() {
 #[test]
 fn graph_dry_run_never_publishes_and_retains_bounded_plan_semantics() {
     let fixture=Fixture::new(PipelineProfile::ManualLyrics);let service=fixture.service().unwrap();
-    let job=service.submit(Operation::Execute,SubmitRequest{pipeline_id:"source".into(),dry_run:true}).unwrap();let job=wait(&service,&job.job_id);
+    let job=service.submit(Operation::Execute,SubmitRequest{pipeline_id:"source".into(),dry_run:true,upload_id:None}).unwrap();let job=wait(&service,&job.job_id);
     assert_eq!(job.state,JobState::Planned);assert!(service.artifacts(&job.job_id).unwrap().is_empty());
     let JobOutput::Execute(result)=job.result.unwrap() else {panic!("native result missing")};
     assert!(result.run_manifest.published_targets().unwrap().is_empty());

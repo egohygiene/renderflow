@@ -6,6 +6,7 @@ pub mod http;
 mod package;
 mod profiles;
 mod service;
+mod uploads;
 
 pub use model::*;
 pub use service::Service;

@@ -28,12 +28,12 @@ pub struct HttpConfig {
 #[serde(default,deny_unknown_fields)]
 pub struct HttpLimits {
     pub workers:usize,pub connections:usize,pub header_bytes:usize,pub headers:usize,
-    pub body_bytes:usize,pub json_response_bytes:usize,pub read_idle_ms:u64,
+    pub body_bytes:usize,pub upload_bytes:usize,pub json_response_bytes:usize,pub read_idle_ms:u64,
     pub read_deadline_ms:u64,pub write_deadline_ms:u64,pub shutdown_grace_ms:u64,
 }
 impl Default for HttpLimits {
     fn default()->Self {Self {workers:4,connections:8,header_bytes:8192,headers:32,
-        body_bytes:16384,json_response_bytes:4*1024*1024,read_idle_ms:1000,
+        body_bytes:16384,upload_bytes:8*1024*1024,json_response_bytes:4*1024*1024,read_idle_ms:1000,
         read_deadline_ms:5000,write_deadline_ms:5000,shutdown_grace_ms:5000}}
 }
 impl HttpConfig {
@@ -44,6 +44,7 @@ impl HttpConfig {
             || !(1..=16).contains(&h.workers) || h.connections<h.workers || h.connections>64
             || !(1024..=16384).contains(&h.header_bytes) || !(1..=64).contains(&h.headers)
             || !(2..=65536).contains(&h.body_bytes)
+            || !(1..=64*1024*1024).contains(&h.upload_bytes)
             || h.json_response_bytes<self.service.limits.result_bytes+128*1024 || h.json_response_bytes>8*1024*1024
             || !(100..=5000).contains(&h.read_idle_ms) || h.read_deadline_ms<h.read_idle_ms
             || h.read_deadline_ms>30000 || !(100..=30000).contains(&h.write_deadline_ms)

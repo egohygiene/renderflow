@@ -10,6 +10,7 @@ use crate::package::{self, Package, Workspace};
 struct Entry {
     pipeline_id: String, package_sha256: String, operation: Operation, state: JobState,
     profile: PipelineProfile,
+    source_upload:Option<Arc<SourceUpload>>,
     cancellation: CancellationToken, cancel_reason: Option<CancelReason>,
     submitted_at: u64, started_at: Option<u64>, completed_at: Option<u64>,
     deadline: Instant, completed: Option<Instant>, workspace: Option<Arc<Workspace>>,
@@ -21,6 +22,7 @@ impl Entry {
     fn view(&self,id:&str) -> ApiResult<JobView> {
         Ok(JobView { schema_version:API_SCHEMA,job_id:id.into(),pipeline_id:self.pipeline_id.clone(),package_sha256:self.package_sha256.clone(),
             profile:self.profile.name(),local_processes:self.profile.local_processes(),
+            source_upload:self.source_upload.as_ref().map(|upload|upload.view.clone()),
             effective_config_sha256:self.workspace.as_ref().map(|workspace|workspace.effective_config_sha256.clone()),
             operation:self.operation,state:self.state,cancel_requested:self.cancel_reason,submitted_at_unix_ms:self.submitted_at,
             started_at_unix_ms:self.started_at,completed_at_unix_ms:self.completed_at,last_event_id:self.sequence,dropped_events:self.dropped,
@@ -39,9 +41,17 @@ impl Entry {
 struct Book {
     limits: Limits, packages: BTreeMap<String,Arc<Package>>, jobs: Mutex<BTreeMap<String,Entry>>,
     directory: tempfile::TempDir, shutdown: AtomicBool, next: AtomicU64,
+    uploads:Mutex<BTreeMap<String,Arc<SourceUpload>>>,
 }
 
+struct SourceUpload {view:UploadView,bytes:Arc<[u8]>,expires:Instant}
+
 impl Book {
+    fn reap_uploads(&self,at:Instant) {
+        if let Ok(mut uploads)=self.uploads.lock() {
+            uploads.retain(|_,upload|at<upload.expires || Arc::strong_count(upload)>1);
+        }
+    }
     fn maintain(&self) {
         let Ok(mut jobs) = self.jobs.lock() else { return; };
         jobs.retain(|_,entry|!entry.completed.is_some_and(|time|time.elapsed() >= Duration::from_secs(self.limits.retention_seconds)));
@@ -53,6 +63,9 @@ impl Book {
             }
         }
         drop(jobs);
+        // Expiry prevents new submissions, while retained/queued jobs keep
+        // their exact source lease charged to the finite upload pool.
+        self.reap_uploads(Instant::now());
         if package::storage_size(self.directory.path(),65536,self.limits.workspace_storage_bytes).is_err() {
             if let Ok(mut jobs)=self.jobs.lock() { for entry in jobs.values_mut() { entry.cancel(CancelReason::Storage); } }
         }
@@ -110,7 +123,8 @@ impl Service {
             }
         }
         let directory = tempfile::Builder::new().prefix("renderflow-api-").tempdir_in(parent).map_err(|_|ApiError::io())?;
-        let book = Arc::new(Book { limits:config.limits,packages,jobs:Mutex::new(BTreeMap::new()),directory,shutdown:AtomicBool::new(false),next:AtomicU64::new(1) });
+        let book = Arc::new(Book { limits:config.limits,packages,jobs:Mutex::new(BTreeMap::new()),directory,shutdown:AtomicBool::new(false),next:AtomicU64::new(1),
+            uploads:Mutex::new(BTreeMap::new()) });
         let (sender,receiver) = mpsc::sync_channel::<Work>(book.limits.queued_jobs);
         let receiver = Arc::new(Mutex::new(receiver));
         for _ in 0..book.limits.workers {
@@ -159,6 +173,50 @@ impl Service {
     pub fn active_jobs(&self) -> ApiResult<usize> {
         Ok(self.book.jobs.lock().map_err(|_|ApiError::internal())?.values().filter(|entry|!entry.state.terminal()).count())
     }
+
+    /// This is declaration inspection only; no bytes, provider or job is read.
+    pub fn upload_limit(&self,pipeline_id:&str)->ApiResult<usize> {
+        if !stable_id(pipeline_id) {return Err(ApiError::new("pipeline_not_found","Unknown pipeline ID",404));}
+        let package=self.book.packages.get(pipeline_id).ok_or_else(||ApiError::new("pipeline_not_found","Unknown pipeline ID",404))?;
+        if package.source_upload_path.is_none(){return Err(ApiError::new("uploads_disabled","Source uploads are disabled for this pipeline",403));}
+        Ok(self.book.limits.upload_bytes.min(self.book.limits.package_bytes) as usize)
+    }
+
+    pub fn upload_source(&self,pipeline_id:&str,bytes:Vec<u8>,expected_sha256:&str)->ApiResult<UploadView> {
+        self.book.maintain();
+        if !self.ready(){return Err(ApiError::new("shutting_down","The service is shutting down",503));}
+        let limit=self.upload_limit(pipeline_id)?;
+        if bytes.is_empty()||bytes.len()>limit{return Err(ApiError::new("upload_limit","Upload must be nonempty and within the source byte limit",413));}
+        if !crate::uploads::sha256(expected_sha256)||package::digest(&bytes)!=expected_sha256 {
+            return Err(ApiError::new("upload_digest","Upload bytes differ from the required SHA-256",422));
+        }
+        let mut uploads=self.book.uploads.lock().map_err(|_|ApiError::internal())?;
+        let used=uploads.values().map(|upload|upload.view.size_bytes).sum::<u64>();
+        if uploads.len()>=self.book.limits.upload_count||used+bytes.len() as u64>self.book.limits.all_upload_bytes {
+            return Err(ApiError::new("upload_capacity","Retained upload capacity reached; expire or forget unused uploads/jobs",503));
+        }
+        if !self.ready(){return Err(ApiError::new("shutting_down","The service is shutting down",503));}
+        let id=format!("upload-{}",package::digest(format!("{}:{}:{}:{}",self.book.directory.path().display(),self.book.next.fetch_add(1,Ordering::Relaxed),pipeline_id,expected_sha256).as_bytes()));
+        let view=UploadView {schema_version:"renderflow.api-source-upload/v1",upload_id:id.clone(),pipeline_id:pipeline_id.into(),sha256:expected_sha256.into(),
+            size_bytes:bytes.len() as u64,expires_at_unix_ms:now().saturating_add(self.book.limits.upload_retention_seconds*1000),review_inherited:false};
+        uploads.insert(id,Arc::new(SourceUpload {view:view.clone(),bytes:Arc::from(bytes),expires:Instant::now()+Duration::from_secs(self.book.limits.upload_retention_seconds)}));
+        Ok(view)
+    }
+
+    pub fn upload(&self,id:&str)->ApiResult<UploadView> {
+        self.book.maintain();
+        let uploads=self.book.uploads.lock().map_err(|_|ApiError::internal())?;
+        let upload=uploads.get(id).filter(|upload|Instant::now()<upload.expires)
+            .ok_or_else(||ApiError::new("upload_not_found","Unknown or expired upload",404))?;
+        Ok(upload.view.clone())
+    }
+
+    pub fn forget_upload(&self,id:&str)->ApiResult<()> {
+        let mut uploads=self.book.uploads.lock().map_err(|_|ApiError::internal())?;
+        let upload=uploads.get(id).ok_or_else(||ApiError::new("upload_not_found","Unknown or expired upload",404))?;
+        if Arc::strong_count(upload)>1{return Err(ApiError::new("upload_in_use","Retained jobs still reference this upload",409));}
+        uploads.remove(id);Ok(())
+    }
     pub fn submit(&self,operation:Operation,request:SubmitRequest) -> ApiResult<JobView> {
         self.book.maintain();
         if !self.ready() { return Err(ApiError::new("shutting_down","The service is shutting down",503)); }
@@ -168,13 +226,22 @@ impl Service {
         if !stable_id(&request.pipeline_id) || (operation != Operation::Execute && request.dry_run) {
             return Err(ApiError::new("invalid_request","Invalid pipeline ID or operation options",400));
         }
-        let package=self.book.packages.get(&request.pipeline_id).cloned().ok_or_else(||ApiError::new("pipeline_not_found","No registered pipeline has that ID",404))?;
+        let base_package=self.book.packages.get(&request.pipeline_id).cloned().ok_or_else(||ApiError::new("pipeline_not_found","No registered pipeline has that ID",404))?;
+        let source_upload=if let Some(id)=&request.upload_id {
+            if !crate::uploads::upload_id(id){return Err(ApiError::new("upload_not_found","Unknown or expired upload",404));}
+            let uploads=self.book.uploads.lock().map_err(|_|ApiError::internal())?;
+            let upload=uploads.get(id).filter(|upload|Instant::now()<upload.expires).cloned()
+                .ok_or_else(||ApiError::new("upload_not_found","Unknown or expired upload",404))?;
+            if upload.view.pipeline_id!=request.pipeline_id{return Err(ApiError::new("upload_pipeline","Upload belongs to a different registered pipeline",409));}
+            Some(upload)
+        }else{None};
+        let package=if let Some(upload)=&source_upload {Arc::new(base_package.with_upload(upload.bytes.clone(),&upload.view.sha256,&self.book.limits)?)}else{base_package};
         let mut jobs=self.book.jobs.lock().map_err(|_|ApiError::internal())?;
         if !self.ready() { return Err(ApiError::new("shutting_down","The service is shutting down",503)); }
         if jobs.len() >= self.book.limits.retained_jobs { return Err(ApiError::new("job_capacity","Retained job capacity reached; expire or forget a terminal job",503)); }
         let id=format!("job-{}",package::digest(format!("{}:{}:{}",self.book.directory.path().display(),self.book.next.fetch_add(1,Ordering::Relaxed),now()).as_bytes()));
         let cancellation=CancellationToken::new();
-        let entry=Entry { pipeline_id:package.id.clone(),package_sha256:package.sha256.clone(),profile:package.profile,operation,state:JobState::Queued,
+        let entry=Entry { pipeline_id:package.id.clone(),package_sha256:package.sha256.clone(),profile:package.profile,source_upload,operation,state:JobState::Queued,
             cancellation:cancellation.clone(),cancel_reason:None,submitted_at:now(),started_at:None,completed_at:None,
             deadline:Instant::now()+Duration::from_secs(self.book.limits.job_timeout_seconds),completed:None,workspace:None,
             result:None,error:None,events:VecDeque::new(),event_bytes:0,sequence:0,dropped:0 };
@@ -324,3 +391,7 @@ fn now() -> u64 { SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default
 #[cfg(test)]
 #[path="service_tests.rs"]
 pub(crate) mod tests;
+
+#[cfg(test)]
+#[path="upload_tests.rs"]
+pub(crate) mod upload_tests;

@@ -34,3 +34,13 @@ file, then POST a registered `pipeline_id` such as `manual-lyrics`, `timed-text`
 or `fountain-body` to the same inspect/plan/execute routes. All roots/files are
 operator-owned allowlists; clients cannot supply paths/configs/provider choices.
 See [profile contract](../../docs/work/420/LOCAL_PROFILES.md).
+
+`source-uploads.json` is a separate explicit opt-in example for the three
+built-in text profiles. It allows one immutable replacement source per captured
+pipeline; clients still cannot choose paths, format, config, assets or effects.
+Raw upload capture requires a bounded Content-Length and exact SHA-256, creates
+no job, and provides a same-pipeline ID for a later explicit submission. Manual
+lyrics start unreviewed without inherited language/revision/section annotations.
+Composition/editorial uploads remain disabled. The
+[upload guide](../../docs/http-api.md#optional-immutable-source-uploads) contains
+future commands only; this example has not been started or exercised.

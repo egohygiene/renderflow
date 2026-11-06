@@ -26,6 +26,17 @@ supersedes: []
 
 # Renderflow Roadmap
 
+## #420 — explicit immutable source-upload checkpoint
+
+Operator-enabled built-in text pipelines can capture one bounded raw source
+with an exact digest, then bind its immutable upload ID to an explicit job.
+Existing source path/format/config/effects stay fixed; lyric review annotations
+are reset, base captures stay unchanged, and retained-job leases keep uploads
+charged through expiry. HTTP gates precede additional body reads. See the
+[upload handoff](docs/work/420/UPLOADS.md). Ten new cases are authored/unrun;
+no compiler/tests/schema/SDK/provider/model/listener/CI execution, upload or
+publication was performed. Wider assets/profiles and qualification stay in #420.
+
 ## #413 / #412 — opt-in full-size comic source checkpoint
 
 Corpus 1.5.0 / comic pack 1.2.0 extends the same bounded fixture recipe to

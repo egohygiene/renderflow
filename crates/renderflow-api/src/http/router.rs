@@ -29,7 +29,7 @@ pub(super) struct Router {pub service:Arc<Service>,pub auth:Arc<dyn Authorizer>,
 pub(super) struct Response {pub status:u16,pub media:&'static str,pub body:Vec<u8>,pub headers:Vec<(&'static str,String)>}
 
 impl Router {
-    pub fn gate(&self,head:&Head)->ApiResult<()> {
+    pub fn gate(&self,head:&Head)->ApiResult<usize> {
         if head.header("origin").is_some() {return Err(ApiError::new("origin_refused","Browser-origin requests are not enabled",403));}
         let host=head.header("host").and_then(|value|std::str::from_utf8(value).ok()).unwrap_or("");
         let bare_ip=match self.address.ip() {
@@ -39,12 +39,18 @@ impl Router {
         if !default_port && host!=self.address.to_string() && !host.eq_ignore_ascii_case(&format!("localhost:{}",self.address.port())) {
             return Err(ApiError::new("host_refused","Host does not identify this loopback listener",403));
         }
-        if head.method=="GET" && head.path=="/health" {return Ok(());}
+        if head.method=="GET" && head.path=="/health" {return Ok(0);}
         let value=head.header("authorization").unwrap_or_default();
         if value.len()<7 || !value[..7].eq_ignore_ascii_case(b"Bearer ") || !self.auth.authorize(&value[7..]) {
             return Err(ApiError::new("unauthorized","A valid bearer credential is required",401));
         }
-        Ok(())
+        if let Some(pipeline)=head.upload_pipeline() {
+            let limit=self.service.upload_limit(pipeline)?.min(self.limits.upload_bytes);
+            let hash=head.header("x-content-sha256").and_then(|value|std::str::from_utf8(value).ok()).unwrap_or("");
+            if !crate::uploads::sha256(hash){return Err(ApiError::new("upload_digest","Binary source upload requires an exact lowercase X-Content-SHA256",400));}
+            return Ok(limit);
+        }
+        Ok(self.limits.body_bytes)
     }
 
     pub fn dispatch(&self,request:Request,id:&str)->Response {
@@ -62,6 +68,12 @@ impl Router {
     fn route(&self,request:Request,id:&str)->ApiResult<Response> {
         let head=&request.head;let (path,query)=head.path.split_once('?').unwrap_or((&head.path,""));
         if !query.is_empty() && !path.ends_with("/events") {return Err(ApiError::new("query_refused","This endpoint has no query parameters",400));}
+        if let Some(pipeline)=head.upload_pipeline() {
+            let hash=head.header("x-content-sha256").and_then(|value|std::str::from_utf8(value).ok()).unwrap_or("");
+            let view=self.service.upload_source(pipeline,request.body,hash)?;
+            let location=format!("/v1/uploads/{}",view.upload_id);
+            let mut response=self.json(201,view,id)?;response.headers.push(("Location",location));return Ok(response);
+        }
         match (head.method.as_str(),path) {
             ("GET","/health")=>return self.json(200,json!({"live":true,"service":"renderflow-api","version":env!("CARGO_PKG_VERSION")}),id),
             ("GET","/ready")=>return self.json(if self.service.ready(){200}else{503},json!({"accepting_jobs":self.service.ready(),"pipeline_count":self.service.pipelines().len(),"provider_readiness":"not_probed","runtime_qualified":false}),id),
@@ -73,7 +85,7 @@ impl Router {
             ("GET","/v1/capabilities")=> {
                 let sdk=renderflow::EngineBuilder::new().build().map_err(|_|ApiError::internal())?.provider_capabilities();
                 return self.json(200,json!({"service_profile":"operator_registered","service_profiles":crate::profiles::inventory(),"operations":["inspect","plan","execute","job_status","cancel","events","artifacts","forget"],
-                    "uploads":false,"remote_bind":false,"external_provider_jobs":self.service.pipelines().iter().any(|pipeline|pipeline.local_processes),"durable_jobs":false,"runtime_qualified":false,
+                    "uploads":self.service.pipelines().iter().any(|pipeline|pipeline.source_uploads),"upload_scope":"one immutable source for operator-enabled built-in text profiles", "remote_bind":false,"external_provider_jobs":self.service.pipelines().iter().any(|pipeline|pipeline.local_processes),"durable_jobs":false,"runtime_qualified":false,
                     "limits":self.service.limits(),"http":self.limits,"sdk_inventory":sdk,"sdk_inventory_scope":"Broader library inventory; service admission uses a finite registered profile and explicit operator effect permission"}),id);
             },
             ("GET","/v1/formats")=> {
@@ -94,6 +106,14 @@ impl Router {
             _=>{},
         }
         let parts=path.split('/').collect::<Vec<_>>();
+        if let ["","v1","uploads",upload]=parts.as_slice() {
+            if !crate::uploads::upload_id(upload){return Err(ApiError::new("upload_not_found","Unknown or expired upload",404));}
+            return match head.method.as_str() {
+                "GET"=>self.json(200,self.service.upload(upload)?,id),
+                "DELETE"=>{self.service.forget_upload(upload)?;Ok(Response {status:204,media:"application/json",body:Vec::new(),headers:Vec::new()})},
+                _=>Err(ApiError::new("route_not_found","Unknown method or versioned API route",404)),
+            };
+        }
         if parts.len()>=4 && parts[1]=="v1" && parts[2]=="jobs" {
             let job=parts[3];
             if job.len()!=68 || !job.starts_with("job-") || !job[4..].bytes().all(|byte|byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte)) {
