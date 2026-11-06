@@ -570,7 +570,7 @@
               "const": 140
             },
             "dpi": {
-              "const": 72
+              "const": 127
             }
           }
         },
@@ -657,7 +657,8 @@
         "required_capabilities",
         "optional_capabilities",
         "cases",
-        "unavailable_mappings"
+        "unavailable_mappings",
+        "recipe_dependencies"
       ],
       "properties": {
         "schema_version": {
@@ -668,7 +669,7 @@
           "minLength": 1
         },
         "version": {
-          "const": "1.0.0"
+          "const": "1.1.0"
         },
         "document_type": {
           "const": "comic"
@@ -751,6 +752,14 @@
                 "minLength": 1
               }
             }
+          }
+        },
+        "recipe_dependencies": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "$ref": "#/$defs/packPin"
           }
         }
       }

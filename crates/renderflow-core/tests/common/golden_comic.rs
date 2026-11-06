@@ -18,6 +18,9 @@ use sha2::{Digest, Sha256};
 
 use super::{Corpus, ScenarioEvidence, ScenarioResults};
 
+#[path = "golden_comic_publications.rs"]
+mod publications;
+
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Pin { pub path: String, pub sha256: String }
@@ -35,6 +38,7 @@ pub struct DocumentPack {
     pub document_type: String,
     pub source_fixture: String,
     pub generator: Pin,
+    pub recipe_dependencies: Vec<Pin>,
     pub toolchain: Pin,
     pub profile: String,
     pub assets: Vec<Pin>,
@@ -96,11 +100,14 @@ pub struct PackEvidence {
     pub pack_id: String, pub case_id: String, pub status: String,
     pub exercise: String, pub source_sha256: String, pub generator_sha256: String,
     pub toolchain_sha256: String, pub asset_sha256: BTreeMap<String,String>,
+    pub recipe_dependency_sha256: BTreeMap<String,String>,
     pub parameters: Parameters, pub validator_ids: Vec<String>,
     pub profile: String, pub interior_page_ids: Vec<String>, pub cover_page_ids: Vec<String>,
     pub observed_pages: usize, pub observed_publications: usize,
     pub output_sha256: BTreeMap<String, String>, pub source_bytes: u64, pub output_bytes: u64,
     pub negative_cases: Vec<String>, pub unavailable_mappings: Vec<Value>,
+    pub publication_outputs: Vec<publications::AggregateEvidence>,
+    pub rgb_preparation: BTreeMap<String,renderflow::publication::raster::RgbPreparationEvidence>,
     pub runtime_qualified: bool, pub creative_approval_inferred: bool,
 }
 
@@ -133,11 +140,18 @@ pub fn check(corpus: &Corpus) -> Result<()> {
         let stable_id = |id:&str| !id.is_empty() && id.len() <= 128
             && id.bytes().all(|byte|byte.is_ascii_alphanumeric() || matches!(byte,b'.'|b'-'|b'_'));
         ensure!(stable_id(&pack.id) && ids.insert(&pack.id) && pack.schema_version == "renderflow.document-fixture-pack/v1"
-            && pack.document_type == "comic" && pack.version == "1.0.0"
+            && pack.document_type == "comic" && pack.version == "1.1.0"
             && pack.license == "CC0-1.0" && !pack.provenance.is_empty()
             && pack.profile == COMPOSITION_PROFILE, "unsupported or incomplete fixture pack");
         ensure!(corpus.fixtures.iter().any(|fixture| fixture.id == pack.source_fixture), "pack story fixture missing");
         pin_bytes(&pack.generator)?; pin_bytes(&pack.toolchain)?; pin_bytes(&pack.rights)?;
+        let required_recipe = BTreeSet::from([
+            "crates/renderflow-core/tests/common/golden_comic_publications.rs",
+            "crates/renderflow-core/src/publication/raster.rs",
+        ]);
+        ensure!(pack.recipe_dependencies.iter().map(|pin|pin.path.as_str()).collect::<BTreeSet<_>>() == required_recipe,
+            "comic publication recipe dependency pins differ");
+        for pin in &pack.recipe_dependencies { pin_bytes(pin)?; }
         ensure!(pack.generator.path == "crates/renderflow-core/tests/common/golden_comic.rs", "unknown fixture generator");
         ensure!(pack.assets.len() == 3, "comic needs font, license and registry pins");
         for asset in &pack.assets { pin_bytes(asset)?; }
@@ -148,7 +162,7 @@ pub fn check(corpus: &Corpus) -> Result<()> {
             ensure!(stable_id(&case.id) && case_ids.insert(&case.id) && matches!(case.tier.as_str(), "fast" | "maximal")
                 && matches!(case.exercise.as_str(), "execute" | "plan") && p.seed == 0
                 && (2..=44).contains(&p.interior_pages) && p.interior_pages.is_multiple_of(2)
-                && p.cover_pages == 2 && p.width_mm == 100.0 && p.height_mm == 140.0 && p.dpi == 72,
+                && p.cover_pages == 2 && p.width_mm == 100.0 && p.height_mm == 140.0 && p.dpi == 127,
                 "comic recipe parameters exceed the selected finite subset");
             ensure!((1..=256).contains(&case.limits.max_files)
                 && (1..=8 * 1024 * 1024).contains(&case.limits.max_source_bytes)
@@ -262,7 +276,7 @@ fn materialize(pack: &DocumentPack, case: &PackCase, story_bytes: &[u8], root: &
         "alt":pages.iter().map(|page|(page.id.clone(),Value::String(page.alt.clone()))).collect::<serde_json::Map<_,_>>(),
         "groups":[{"role":"interior","desired_format":"pdf","page_ids":pages.iter().filter(|page|page.role=="interior").map(|page|&page.id).collect::<Vec<_>>()},
                   {"role":"cover","desired_format":"pdf","page_ids":["cover-front","cover-back"]}],
-        "actual_mapping":"per_page_candidates_only","unavailable_mappings":pack.unavailable_mappings.iter().map(|mapping|json!({"role":mapping.role,"format":mapping.format,"reason":mapping.reason})).collect::<Vec<_>>(),
+        "actual_mapping":"per_page_candidates_then_explicit_device_rgb_publication","unavailable_mappings":pack.unavailable_mappings.iter().map(|mapping|json!({"role":mapping.role,"format":mapping.format,"reason":mapping.reason})).collect::<Vec<_>>(),
         "publication_approved":false});
     write_json(&source.join("publication-expectations.json"),&model)?;
     Ok(Generated { source, pages, model })
@@ -432,6 +446,7 @@ pub fn run(corpus: &Corpus, paths: &BTreeMap<String,PathBuf>, root: &Path,
         let before = snapshot(&generated.source,case.limits.max_files,case.limits.max_source_bytes)?;
         let output_root = case_root.join("outputs"); fs::create_dir(&output_root)?;
         let cache = case_root.join("cache"); let mut hashes = BTreeMap::new(); let mut publications = 0;
+        let mut captures = BTreeMap::new();
         let mut first = None;
         for page in &generated.pages {
             ensure!(started.elapsed().as_secs() < case.limits.cooperative_seconds, "pack cooperative budget exceeded");
@@ -451,11 +466,17 @@ pub fn run(corpus: &Corpus, paths: &BTreeMap<String,PathBuf>, root: &Path,
                 let common = run.run_manifest()?;
                 let verified = verification::verify(&common,&destination,&VerificationLimits::default(),token())?;
                 ensure!(verified.len() == case.outputs.len(), "comic actual publication count differs"); publications += verified.len();
+                let raster = resolved.native_plan().branches.iter().find(|branch|branch.output == CompositionOutput::Png)
+                    .and_then(|branch|branch.raster.clone()).context("comic PNG plan missing")?;
+                captures.insert(page.id.clone(),publications::Capture {manifest:common.clone(),root:destination.clone(),raster});
                 let observed = inspect_page(&destination,page,case)?;
                 for (format,hash) in &observed { hashes.insert(format!("{}/{}",page.id,format),hash.clone()); }
                 if first.is_none() { first = Some((common,destination,observed)); }
             }
         }
+        let aggregate = publications::run(&generated,case,&case_root,&output_root,&captures,requested_rank)?;
+        publications += aggregate.observed;
+        hashes.extend(aggregate.hashes);
         let mut negatives = Vec::new();
         for kind in &case.negative_cases {
             ensure!(started.elapsed().as_secs() < case.limits.cooperative_seconds, "pack negative-case cooperative budget exceeded");
@@ -515,15 +536,17 @@ pub fn run(corpus: &Corpus, paths: &BTreeMap<String,PathBuf>, root: &Path,
         evidence.push(PackEvidence { pack_id:pack.id.clone(),case_id:case.id.clone(),status:if case.exercise=="execute" {"observed_candidates"} else {"planned_only"}.into(),
             exercise:case.exercise.clone(),source_sha256:digest(&story_bytes),generator_sha256:pack.generator.sha256.clone(),profile:pack.profile.clone(),
             toolchain_sha256:pack.toolchain.sha256.clone(),asset_sha256:pack.assets.iter().chain(std::iter::once(&pack.rights)).map(|asset|(asset.path.clone(),asset.sha256.clone())).collect(),
+            recipe_dependency_sha256:pack.recipe_dependencies.iter().map(|pin|(pin.path.clone(),pin.sha256.clone())).collect(),
             parameters:case.parameters.clone(),validator_ids:case.outputs.iter().map(|output|output.validator.clone()).collect(),
             interior_page_ids:generated.pages.iter().filter(|page|page.role=="interior").map(|page|page.id.clone()).collect(),
             cover_page_ids:vec!["cover-front".into(),"cover-back".into()],observed_pages:if case.exercise=="execute" {generated.pages.len()} else {0},
             observed_publications:publications,output_sha256:hashes,source_bytes:before.1,output_bytes,negative_cases:negatives,
             unavailable_mappings:pack.unavailable_mappings.iter().map(|mapping|json!({"role":mapping.role,"format":mapping.format,"status":"unavailable","reason":mapping.reason})).collect(),
+            publication_outputs:aggregate.outputs,rgb_preparation:aggregate.preparation,
             runtime_qualified:false,creative_approval_inferred:false });
         results.insert((scenario.id.clone(),ScenarioEvidence {id:scenario.id.clone(),status:"passed".into(),
-            assertions:vec![if case.exercise=="execute" {"Original per-page candidates, independent structure/pixel/file joins, negative gates, source immutability and warm-cache byte identity matched; aggregate print/EPUB remain unavailable."} else {"Parameterized interior and separate two-cover model planned only; zero output artifacts observed."}.into()],
-            providers:vec!["renderflow.core-composition".into()],reason:Some("Finite fixture scope; consumer publication and provider/runtime qualification are not inferred".into())}));
+            assertions:vec![if case.exercise=="execute" {"Per-page candidates, explicit RGB preparation and exact fixed EPUB image/order joins matched; PDF packets require a separately selected full-tier provider. Source immutability and warm/cold identity remain distinct from approval."} else {"Parameterized page model and aggregate recipes only; zero output artifacts or aggregate SDK plans observed."}.into()],
+            providers:vec!["renderflow.core-composition".into(),"tool.renderflow-epub".into()],reason:Some("Finite fixture scope; consumer publication and provider/runtime qualification are not inferred".into())}));
     }
     Ok(evidence)
 }

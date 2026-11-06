@@ -5,6 +5,7 @@ pub mod briefing;
 pub(crate) mod local;
 pub mod lulu;
 pub mod magazine;
+pub mod raster;
 
 use std::collections::BTreeMap;
 use std::fs;

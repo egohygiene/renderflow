@@ -26,6 +26,20 @@ supersedes: []
 
 # Renderflow Roadmap
 
+## 2026-11-04 — ordered comic publication source checkpoint
+
+#413 now wires observed native page PNGs through an explicit opaque device-RGB
+preparation port into the existing fixed-layout EPUB and opt-in img2pdf packet
+routes. Pack 1.1.0/corpus 1.4.0 uses 127 DPI for exact 500×700 pixel placement,
+records normalization/source/plan/output identities and declared color metadata
+loss, and preserves separate interior/cover-page groups. Fast tier never probes
+the external PDF provider. The larger 44+2 case remains source/planning and
+aggregate recipes only. Cover wrap/spine, printer/EPUBCheck/platform/fidelity
+and human approval remain separate acceptance. See
+[source handoff](docs/work/413/PUBLICATIONS.md) and
+[pack guide](docs/document-fixture-packs.md). New cases and all product/tool/
+compiler/schema/CI execution remain unrun; #413 stays open.
+
 ## 2026-11-04 — bounded local HTTP transport checkpoint
 
 The #420 service application in draft #481 now has an authored optional
