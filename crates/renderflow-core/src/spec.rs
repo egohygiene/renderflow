@@ -242,8 +242,10 @@ fn default_profile_schema() -> String {
     "renderflow.profile/v1".to_string()
 }
 
-/// Bundled profiles use the same contract as profiles declared in a spec.
-pub(crate) fn bundled_profile(name: &str) -> Result<Option<DerivativeProfile>> {
+/// Read a named bundled profile without opening operator files or executing a
+/// provider. Adapters can compare declarations with the same core-owned profile
+/// used by the spec loader. Unknown names return None.
+pub fn bundled_profile(name: &str) -> Result<Option<DerivativeProfile>> {
     let source = match name {
         "editorial" => include_str!("../data/profiles/editorial-v1.yaml"),
         "lyrics" => include_str!("../data/profiles/lyrics-v1.yaml"),

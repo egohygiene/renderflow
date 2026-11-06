@@ -1,0 +1,72 @@
+{
+  "schema_version": "renderflow.http-service/v1",
+  "bind": "127.0.0.1:8787",
+  "http": {},
+  "service": {
+    "schema_version": "renderflow.api-service/v1",
+    "workspace_parent": "/tmp",
+    "pipelines": [
+      {
+        "id": "sample-page",
+        "root": "../page-composition/raster-composition",
+        "config": "renderflow.yaml",
+        "files": [
+          "renderflow.yaml",
+          "page.composition.json",
+          "content/en.json",
+          "content/de.json",
+          "fonts/registry.json",
+          "fonts/DejaVuSans.ttf",
+          "fonts/DEJAVU-LICENSE.txt",
+          "assets/two-panels.svg",
+          "assets/alpha-tile.png",
+          "assets/red-tile.jpg"
+        ],
+        "profile": "composition"
+      },
+      {
+        "id": "manual-lyrics",
+        "profile": "manual_lyrics",
+        "root": "../lyrics",
+        "config": "renderflow.yaml",
+        "files": [
+          "renderflow.yaml",
+          "manual.srt"
+        ]
+      },
+      {
+        "id": "timed-text",
+        "profile": "timed_text",
+        "root": "../creative-forest",
+        "config": "service-timed-text.json",
+        "files": [
+          "service-timed-text.json",
+          "sources/captions.srt"
+        ]
+      },
+      {
+        "id": "fountain-body",
+        "profile": "fountain_body",
+        "root": "../creative-forest",
+        "config": "service-fountain.json",
+        "files": [
+          "service-fountain.json",
+          "sources/original.fountain"
+        ]
+      },
+      {
+        "id": "editorial",
+        "profile": "editorial",
+        "allow_local_processes": true,
+        "root": "../editorial",
+        "config": "renderflow.yaml",
+        "files": [
+          "renderflow.yaml",
+          "article.md",
+          "assets/garden.png"
+        ]
+      }
+    ],
+    "limits": {}
+  }
+}

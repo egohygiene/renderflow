@@ -1,0 +1,21 @@
+{
+  "schema": "renderflow/v2",
+  "sources": [
+    {
+      "id": "source",
+      "path": "sources/captions.srt",
+      "format": "srt"
+    }
+  ],
+  "targets": {
+    "all_reachable": true
+  },
+  "execution": {
+    "network": "deny",
+    "ai": "deny",
+    "subtitles": {}
+  },
+  "output": {
+    "bundle_root": "operator-original-output"
+  }
+}
