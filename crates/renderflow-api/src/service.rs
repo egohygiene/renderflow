@@ -6,6 +6,8 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use renderflow::{CancellationToken, EngineBuilder, ExecutionRequest, InspectionRequest, PlanRequest, ProgressEvent, ProgressReporter};
 use crate::model::*;
 use crate::package::{self, Package, Workspace};
+#[path="durable.rs"]
+mod durable;
 
 #[path="download.rs"]
 mod download;
@@ -20,16 +22,19 @@ struct Entry {
     deadline: Instant, completed: Option<Instant>, workspace: Option<Arc<Workspace>>,
     result: Option<Vec<u8>>, error: Option<ApiError>, events: VecDeque<RecordedEvent>,
     event_bytes: usize, sequence: u64, dropped: u64,
+    recovered: bool, historical_upload: Option<UploadView>, historical_config_sha256: Option<String>,
+    recovered_expiry: Option<Instant>,
 }
 
 impl Entry {
     fn view(&self,id:&str) -> ApiResult<JobView> {
         Ok(JobView { schema_version:API_SCHEMA,job_id:id.into(),pipeline_id:self.pipeline_id.clone(),package_sha256:self.package_sha256.clone(),
             profile:self.profile.name(),local_processes:self.profile.local_processes(),
-            source_upload:self.source_upload.as_ref().map(|upload|upload.view.clone()),
-            effective_config_sha256:self.workspace.as_ref().map(|workspace|workspace.effective_config_sha256.clone()),
+            source_upload:self.source_upload.as_ref().map(|upload|upload.view.clone()).or_else(||self.historical_upload.clone()),
+            effective_config_sha256:self.workspace.as_ref().map(|workspace|workspace.effective_config_sha256.clone()).or_else(||self.historical_config_sha256.clone()),
             operation:self.operation,state:self.state,cancel_requested:self.cancel_reason,submitted_at_unix_ms:self.submitted_at,
             started_at_unix_ms:self.started_at,completed_at_unix_ms:self.completed_at,last_event_id:self.sequence,dropped_events:self.dropped,
+            recovered_after_restart:self.recovered,workspace_retained:self.workspace.is_some(),
             result:self.result.as_ref().map(|bytes|serde_json::from_slice(bytes)).transpose().map_err(|_|ApiError::internal())?,error:self.error.clone() })
     }
     fn cancel(&mut self,reason:CancelReason) {
@@ -48,40 +53,73 @@ struct Book {
     uploads:Mutex<BTreeMap<String,Arc<SourceUpload>>>,
     downloads:Mutex<download::Pool>,
     download_cancellation:renderflow::process::ProcessCancellationToken,
+    persistence: Option<durable::Store>,
+    persistence_failed: AtomicBool,
 }
 
 struct SourceUpload {view:UploadView,bytes:Arc<[u8]>,expires:Instant}
 
 impl Book {
-    fn reap_uploads(&self,at:Instant) {
-        if let Ok(mut uploads)=self.uploads.lock() {
-            uploads.retain(|_,upload|at<upload.expires || Arc::strong_count(upload)>1);
+    fn persist_locked(&self, jobs: &BTreeMap<String,Entry>) -> ApiResult<()> {
+        if self.persistence_failed.load(Ordering::Acquire){return Err(ApiError::new("journal_unavailable","Durable state is unavailable; restart and review preserved state",503));}
+        if let Some(store)=&self.persistence {
+            let outcome=self.uploads.lock().map_err(|_|ApiError::internal())
+                .and_then(|uploads|{
+                    let workspace_bytes=package::storage_size(self.directory.path(),65536,self.limits.workspace_storage_bytes)?;
+                    store.save(jobs,&uploads,&self.limits,workspace_bytes)
+                });
+            if outcome.is_err() {
+                self.persistence_failed.store(true,Ordering::Release);
+                // Stop new work and cooperatively cancel existing work. Never
+                // acknowledge an in-memory transition as durable after IO fails.
+                self.shutdown.store(true,Ordering::Release);
+                for entry in jobs.values(){entry.cancellation.cancel();}
+                self.download_cancellation.cancel();
+            }
+            outcome?;
         }
+        Ok(())
+    }
+    fn persist(&self) -> ApiResult<()> {
+        let jobs=self.jobs.lock().map_err(|_|ApiError::internal())?;
+        self.persist_locked(&jobs)
+    }
+    fn reap_uploads(&self,at:Instant) -> bool {
+        if let Ok(mut uploads)=self.uploads.lock() {
+            let before=uploads.len();
+            uploads.retain(|_,upload|at<upload.expires || Arc::strong_count(upload)>1);
+            return before!=uploads.len();
+        }
+        false
     }
     fn maintain(&self) {
         let Ok(mut jobs) = self.jobs.lock() else { return; };
-        jobs.retain(|_,entry|!entry.completed.is_some_and(|time|time.elapsed() >= Duration::from_secs(self.limits.retention_seconds)));
+        let before=jobs.len();
+        jobs.retain(|_,entry|!entry.recovered_expiry.is_some_and(|expiry|Instant::now()>=expiry)
+            && !entry.completed.is_some_and(|time|time.elapsed() >= Duration::from_secs(self.limits.retention_seconds)));
+        let mut changed=before!=jobs.len();
         let mut storage = Vec::new();
         for (id,entry) in jobs.iter_mut() {
             if !entry.state.terminal() {
-                if Instant::now() >= entry.deadline { entry.cancel(CancelReason::Deadline); }
+                if Instant::now() >= entry.deadline {let prior=entry.state;entry.cancel(CancelReason::Deadline);changed|=entry.state!=prior;}
                 if let Some(workspace) = &entry.workspace { storage.push((id.clone(),workspace.clone())); }
             }
         }
         drop(jobs);
         // Expiry prevents new submissions, while retained/queued jobs keep
         // their exact source lease charged to the finite upload pool.
-        self.reap_uploads(Instant::now());
+        changed|=self.reap_uploads(Instant::now());
         if package::storage_size(self.directory.path(),65536,self.limits.workspace_storage_bytes).is_err() {
-            if let Ok(mut jobs)=self.jobs.lock() { for entry in jobs.values_mut() { entry.cancel(CancelReason::Storage); } }
+            if let Ok(mut jobs)=self.jobs.lock() { for entry in jobs.values_mut() {let prior=entry.state;entry.cancel(CancelReason::Storage);changed|=entry.state!=prior;} }
         }
         for (id,workspace) in storage {
             if package::storage_size(workspace.root(),4096,self.limits.job_storage_bytes).is_err() {
                 if let Ok(mut jobs) = self.jobs.lock() {
-                    if let Some(entry) = jobs.get_mut(&id) { entry.cancel(CancelReason::Storage); }
+                    if let Some(entry) = jobs.get_mut(&id) {let prior=entry.state;entry.cancel(CancelReason::Storage);changed|=entry.state!=prior;}
                 }
             }
         }
+        if changed {let _=self.persist();}
     }
 }
 
@@ -106,8 +144,8 @@ impl ProgressReporter for Reporter {
     }
 }
 
-/// Per-process transport jobs only. SDK plans, rendering, caches, evidence and
-/// cancellation semantics remain in core. No durable orchestration or resume.
+/// Bounded local transport records. SDK plans/rendering remain in core; restart
+/// recovery never requeues work or becomes cross-tool orchestration/resume.
 pub struct Service { book:Arc<Book>, sender:SyncSender<Work> }
 
 impl Service {
@@ -129,9 +167,15 @@ impl Service {
             }
         }
         let directory = tempfile::Builder::new().prefix("renderflow-api-").tempdir_in(parent).map_err(|_|ApiError::io())?;
+        let persistence=config.persistence_directory.as_ref().map(|path|
+            durable::Store::open(&base,path,&packages,&config.limits)).transpose()?;
         let book = Arc::new(Book { limits:config.limits,packages,jobs:Mutex::new(BTreeMap::new()),directory,shutdown:AtomicBool::new(false),next:AtomicU64::new(1),
             uploads:Mutex::new(BTreeMap::new()),downloads:Mutex::new(download::Pool::default()),
+            persistence,
+            persistence_failed:AtomicBool::new(false),
             download_cancellation:renderflow::process::ProcessCancellationToken::new() });
+        if let Some(store)=&book.persistence {store.restore(&book)?;}
+        book.persist()?;
         let (sender,receiver) = mpsc::sync_channel::<Work>(book.limits.queued_jobs);
         let receiver = Arc::new(Mutex::new(receiver));
         for _ in 0..book.limits.workers {
@@ -149,7 +193,7 @@ impl Service {
                         // this catches only unwind panics in compatible builds.
                         let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(||execute_work(&book,work)));
                         if outcome.is_err() {
-                            if let Ok(mut jobs)=book.jobs.lock() { if let Some(entry)=jobs.get_mut(&id) { entry.finish(JobState::Failed,Some(ApiError::internal()),None); } }
+                            if let Ok(mut jobs)=book.jobs.lock() { if let Some(entry)=jobs.get_mut(&id) { entry.finish(JobState::Failed,Some(ApiError::internal()),None); } let _=book.persist_locked(&jobs); }
                         }
                     },
                     Err(mpsc::RecvTimeoutError::Timeout)=>{},
@@ -176,7 +220,7 @@ impl Service {
             let never_started=!entry.state.terminal() && entry.started_at.is_none();
             entry.cancel(CancelReason::Shutdown);
             if never_started { entry.finish(JobState::Cancelled,None,None); }
-        } }
+        } let _=self.book.persist_locked(&jobs); }
     }
     pub fn active_jobs(&self) -> ApiResult<usize> {
         Ok(self.book.jobs.lock().map_err(|_|ApiError::internal())?.values().filter(|entry|!entry.state.terminal()).count())
@@ -208,6 +252,7 @@ impl Service {
         let view=UploadView {schema_version:"renderflow.api-source-upload/v1",upload_id:id.clone(),pipeline_id:pipeline_id.into(),sha256:expected_sha256.into(),
             size_bytes:bytes.len() as u64,expires_at_unix_ms:now().saturating_add(self.book.limits.upload_retention_seconds*1000),review_inherited:false};
         uploads.insert(id,Arc::new(SourceUpload {view:view.clone(),bytes:Arc::from(bytes),expires:Instant::now()+Duration::from_secs(self.book.limits.upload_retention_seconds)}));
+        drop(uploads);self.book.persist()?;
         Ok(view)
     }
 
@@ -223,7 +268,7 @@ impl Service {
         let mut uploads=self.book.uploads.lock().map_err(|_|ApiError::internal())?;
         let upload=uploads.get(id).ok_or_else(||ApiError::new("upload_not_found","Unknown or expired upload",404))?;
         if Arc::strong_count(upload)>1{return Err(ApiError::new("upload_in_use","Retained jobs still reference this upload",409));}
-        uploads.remove(id);Ok(())
+        uploads.remove(id);drop(uploads);self.book.persist()
     }
     pub fn submit(&self,operation:Operation,request:SubmitRequest) -> ApiResult<JobView> {
         self.book.maintain();
@@ -252,13 +297,16 @@ impl Service {
         let entry=Entry { pipeline_id:package.id.clone(),package_sha256:package.sha256.clone(),profile:package.profile,source_upload,operation,state:JobState::Queued,
             cancellation:cancellation.clone(),cancel_reason:None,submitted_at:now(),started_at:None,completed_at:None,
             deadline:Instant::now()+Duration::from_secs(self.book.limits.job_timeout_seconds),completed:None,workspace:None,
-            result:None,error:None,events:VecDeque::new(),event_bytes:0,sequence:0,dropped:0 };
+            result:None,error:None,events:VecDeque::new(),event_bytes:0,sequence:0,dropped:0,
+            recovered:false,historical_upload:None,historical_config_sha256:None,recovered_expiry:None };
         let view=entry.view(&id)?; jobs.insert(id.clone(),entry);
+        self.book.persist_locked(&jobs)?;
         let work=Work { id:id.clone(),package,operation,dry_run:request.dry_run,cancellation };
         match self.sender.try_send(work) {
             Ok(())=>Ok(view),
             Err(error)=> {
                 jobs.remove(&id);
+                self.book.persist_locked(&jobs)?;
                 Err(match error {
                     TrySendError::Full(_)=>ApiError::new("queue_full","Job queue capacity reached",503),
                     TrySendError::Disconnected(_)=>ApiError::new("shutting_down","Job workers are unavailable",503),
@@ -268,11 +316,14 @@ impl Service {
     }
     pub fn job(&self,id:&str) -> ApiResult<JobView> {
         self.book.maintain();
-        self.book.jobs.lock().map_err(|_|ApiError::internal())?.get(id).ok_or_else(not_found)?.view(id)
+        let jobs=self.book.jobs.lock().map_err(|_|ApiError::internal())?;
+        if self.book.persistence_failed.load(Ordering::Acquire){return Err(ApiError::new("journal_unavailable","Durable state could not be committed; preserved records require restart review",503));}
+        jobs.get(id).ok_or_else(not_found)?.view(id)
     }
     pub fn cancel(&self,id:&str) -> ApiResult<JobView> {
         let mut jobs=self.book.jobs.lock().map_err(|_|ApiError::internal())?;
-        let entry=jobs.get_mut(id).ok_or_else(not_found)?; entry.cancel(CancelReason::Client); entry.view(id)
+        let entry=jobs.get_mut(id).ok_or_else(not_found)?; entry.cancel(CancelReason::Client); let view=entry.view(id)?;
+        self.book.persist_locked(&jobs)?;Ok(view)
     }
     /// Terminal deletion is separate from cancellation; active work retains its
     /// workspace and concurrency slot until the SDK actually returns.
@@ -280,7 +331,7 @@ impl Service {
         let mut jobs=self.book.jobs.lock().map_err(|_|ApiError::internal())?;
         let entry=jobs.get(id).ok_or_else(not_found)?;
         if !entry.state.terminal() { return Err(ApiError::new("job_active","Cancel and wait for terminal state before forgetting a job",409)); }
-        jobs.remove(id); Ok(())
+        jobs.remove(id); self.book.persist_locked(&jobs)
     }
     pub fn events(&self,id:&str,after:u64) -> ApiResult<EventsView> {
         let jobs=self.book.jobs.lock().map_err(|_|ApiError::internal())?; let entry=jobs.get(id).ok_or_else(not_found)?;
@@ -295,7 +346,7 @@ impl Service {
         if !entry.state.terminal() { return Err(ApiError::new("job_active","Artifacts are available after terminal execution",409)); }
         let output:JobOutput=serde_json::from_slice(entry.result.as_deref().ok_or_else(||ApiError::new("no_execution_result","This job has no native execution result",409))?).map_err(|_|ApiError::internal())?;
         let JobOutput::Execute(result)=output else { return Err(ApiError::new("no_execution_result","Inspection and planning do not publish artifacts",409)); };
-        Ok((result,entry.workspace.clone().ok_or_else(ApiError::internal)?))
+        Ok((result,entry.workspace.clone().ok_or_else(||ApiError::new("workspace_not_retained","Recovered status is historical; binary workspaces are process-local and this job is not rerun",409))?))
     }
     pub fn artifacts(&self,id:&str) -> ApiResult<Vec<ArtifactView>> {
         let (result,_workspace)=self.execution(id)?;
@@ -333,14 +384,16 @@ impl Drop for Service { fn drop(&mut self) { self.shutdown(); } }
 fn execute_work(book:&Arc<Book>,work:Work) {
     {
         let Ok(mut jobs)=book.jobs.lock() else { return; }; let Some(entry)=jobs.get_mut(&work.id) else { return; };
-        if work.cancellation.is_cancelled() { entry.finish(JobState::Cancelled,None,None); return; }
+        if work.cancellation.is_cancelled() { entry.finish(JobState::Cancelled,None,None); let _=book.persist_locked(&jobs); return; }
         entry.state=JobState::Running; entry.started_at=Some(now());
+        if book.persist_locked(&jobs).is_err(){return;}
     }
     let output=(||->ApiResult<JobOutput> {
         let workspace=Arc::new(work.package.materialize(book.directory.path())?);
         {
             let mut jobs=book.jobs.lock().map_err(|_|ApiError::internal())?;
             jobs.get_mut(&work.id).ok_or_else(not_found)?.workspace=Some(workspace.clone());
+            book.persist_locked(&jobs)?;
         }
         let reporter=Arc::new(Reporter {book:Arc::downgrade(book),id:work.id.clone()});
         let engine=EngineBuilder::new().with_cancellation_token(work.cancellation.clone()).with_progress_reporter(reporter).build().map_err(sdk_error)?;
@@ -382,6 +435,7 @@ fn execute_work(book:&Arc<Book>,work:Work) {
                 Err(error)=>entry.finish(if error.code=="cancelled" {JobState::Cancelled} else {JobState::Failed},Some(error),None),
             }
         }
+        let _=book.persist_locked(&jobs);
     }
 }
 
