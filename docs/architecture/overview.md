@@ -35,7 +35,11 @@ scheduling gate. The separate post-roadmap audit remains
 
 Ordinary `build`, configuration `inspect`/`graph`, and the SDK share the
 `planning::build` boundary. Resolution loads the specification once and
-captures a `ResolvedBuild` using the graph or native composition engine.
+captures a `ResolvedBuild` using the graph, native composition or frozen
+presentation engine. `kind: presentation` explicitly admits a deck; it does not
+classify arbitrary JSON as presentation content. Its forest projects the existing
+presentation executor with exact targets and observed publication joins. See the
+[presentation build contract](../work/350/FOREST.md).
 Execution consumes that captured state. The CLI adapts arguments and reports
 results; it does not own another renderer.
 

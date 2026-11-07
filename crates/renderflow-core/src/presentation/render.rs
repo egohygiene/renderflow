@@ -50,17 +50,18 @@ pub struct PresentationPlan {
     pub limits: Vec<String>,
 }
 
-struct Captured {
+pub(crate) struct Captured {
+    pub(crate) input_size: u64,
     model: Presentation,
     files: BTreeMap<String, Vec<u8>>,
-    plan: PresentationPlan,
+    pub(crate) plan: PresentationPlan,
 }
 
 pub fn plan(request: &PresentationRequest) -> Result<PresentationPlan> {
     Ok(capture(request)?.plan)
 }
 
-fn capture(request: &PresentationRequest) -> Result<Captured> {
+pub(crate) fn capture(request: &PresentationRequest) -> Result<Captured> {
     ensure!(!request.targets.is_empty(), "presentation.targets: select at least one target");
     let unique = request.targets.iter().copied().collect::<BTreeSet<_>>();
     ensure!(unique.len() == request.targets.len(), "presentation.targets: repeated target");
@@ -101,7 +102,7 @@ fn capture(request: &PresentationRequest) -> Result<Captured> {
         limits: vec!["Source/review/rights metadata are author declarations; source revision freshness is not independently fetched.".into(),
             "No runtime, visual, accessibility, PDF/UA, browser or platform qualification is claimed.".into(),
             "System font metrics and native PDF metadata may vary; deterministic assembly is distinct from identical native bytes.".into(),
-            "Slidev publication is an explicit standalone profile; general v2 artifact-forest admission is not implemented by this adapter.".into()],
+            "Standalone and v2 builds share this frozen profile; a forest projection is not publication approval.".into()],
     };
     files.insert("presentation.json".into(), model_bytes);
     files.insert("slides.md".into(), slidev_markdown(&model)?.into_bytes());
@@ -115,7 +116,7 @@ fn capture(request: &PresentationRequest) -> Result<Captured> {
     files.insert("vite.config.ts".into(), b"export default { cacheDir: './.vite-cache' }\n".to_vec());
     files.insert("transcript.html".into(), transcript(&model).into_bytes());
     files.insert("README.txt".into(), b"Renderflow presentation source. Requires a separately prepared local @slidev/cli 53.0.0 installation. No install command runs during publication. See Renderflow's presentation guide. Speaker notes are present only when explicitly selected. Review and publication approval remain the author's responsibility.\n".to_vec());
-    Ok(Captured { model, files, plan })
+    Ok(Captured { input_size: bytes.len() as u64, model, files, plan })
 }
 
 /// Direct SDK entry point used by the CLI. Write only to a new output directory;
@@ -123,6 +124,13 @@ fn capture(request: &PresentationRequest) -> Result<Captured> {
 pub fn build(request: &PresentationRequest, cancellation: ProcessCancellationToken) -> Result<Value> {
     check_cancelled(&cancellation)?;
     let captured = capture(request)?;
+    build_captured(request, &captured, cancellation)
+}
+
+/// Consume the captured model/assets; never reload mutable source paths.
+pub(crate) fn build_captured(request: &PresentationRequest, captured: &Captured,
+    cancellation: ProcessCancellationToken) -> Result<Value> {
+    check_cancelled(&cancellation)?;
     let native = captured.plan.provider_required;
     if native {
         ensure!(request.allow_unqualified, "presentation.unqualified: explicit opt-in required for Slidev");
@@ -195,7 +203,7 @@ pub(crate) fn check_cancelled(cancellation: &ProcessCancellationToken) -> Result
     Ok(())
 }
 
-fn write_new(path: &Path, bytes: &[u8]) -> Result<()> {
+pub(crate) fn write_new(path: &Path, bytes: &[u8]) -> Result<()> {
     fs::create_dir_all(path.parent().context("presentation.output.parent")?)?;
     let mut file = OpenOptions::new().write(true).create_new(true).open(path)?;
     file.write_all(bytes)?;

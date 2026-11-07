@@ -8,10 +8,13 @@ adapter targets a prepared **@slidev/cli 53.0.0** installation; it never invokes
 npm, npx, a package installer, a theme installer, an AI model, or a remote font
 service during publication.
 
-This is authored, unqualified source. The interface is not yet admitted to the
-general `renderflow/v2` derivative forest. Ordinary graph planning is unchanged.
-Keep that distinction when integrating a consumer; a standalone result is not a
-released Flow provider contract.
+This is authored, unqualified source. The same captured renderer is now admitted
+through `renderflow/v2` with explicit `kind: presentation`, exact targets
+`presentation_source`, `presentation_web`, and `pdf`, and optional
+`execution.presentation` settings. See the [example build spec](../../examples/presentation/renderflow.yml)
+and [forest contract](../work/350/FOREST.md). Native rendering requires the same
+explicit pins and unqualified opt-in as the standalone command. This is not a
+released Flow provider contract or publication approval.
 
 ## Author a deck
 

@@ -1,9 +1,8 @@
 //! Renderer-neutral presentations and an explicit local Slidev publication profile.
 //!
-//! This standalone profile shares process and package-observation services. It
-//! does not create another job engine or claim general artifact-forest admission.
+//! Standalone and v2 build entry points share frozen capture and execution.
 
-mod render;
+pub(crate) mod render;
 pub mod slidev;
 
 use std::collections::BTreeSet;

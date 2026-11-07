@@ -17,7 +17,7 @@ use super::{digest, read_file, sha256, PresentationTarget};
 
 pub const SLIDEV_VERSION: &str = "53.0.0";
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PinnedProgram {
     pub path: PathBuf,
@@ -26,7 +26,7 @@ pub struct PinnedProgram {
     pub version: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SlidevProvider {
     pub schema_version: String,
