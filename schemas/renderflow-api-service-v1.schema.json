@@ -306,6 +306,14 @@
         },
         "limits": {
           "$ref": "#/$defs/limits"
+        },
+        "persistence_directory": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "description": "Optional existing private owner-only local journal directory; no automatic job replay or binary workspace recovery."
         }
       }
     },

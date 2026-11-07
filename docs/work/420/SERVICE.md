@@ -80,9 +80,11 @@ work is admitted while the workspace cannot fit its configured budget.
 Active jobs cannot be forgotten, expired or evicted to free a concurrency slot.
 Terminal forget and cancellation are separate operations. Terminal retention
 releases private data; an in-flight download keeps its workspace handle alive.
-Shutdown refuses new jobs and requests cancellation. Process restart loses this
-transport queue and job IDs; it does not infer SDK resume/recovery or replace
-Flow's durable cross-tool state. Release builds use panic=abort, so native panics
+Shutdown refuses new jobs and requests cancellation. The default process-local
+profile loses this transport queue and job IDs on restart. The optional
+[local journal](RECOVERY.md) retains bounded status/upload records and marks
+unfinished jobs interrupted without replaying them. It does not infer SDK
+resume/recovery or replace Flow's durable cross-tool state. Release builds use panic=abort, so native panics
 remain process failures even though compatible unwind builds catch worker panics.
 
 ## Qualification

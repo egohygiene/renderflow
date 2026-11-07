@@ -3,7 +3,7 @@
   "info": {
     "title": "Renderflow bounded local API",
     "version": "1.1.0-draft",
-    "description": "Authored, unqualified #420 local adapter. Registered composition/manual-lyrics/timed-text/Fountain-body profiles use built-ins; editorial requires explicit operator local-process permission for Pandoc/Tectonic. Loopback, bearer, finite captured packages and process-local jobs. API envelopes wrap unchanged SDK objects. No upload/config/provider selection is accepted from clients; no runtime/schema/provider/release qualification is claimed."
+    "description": "Authored, unqualified #420 local adapter. Registered composition/manual-lyrics/timed-text/Fountain-body profiles use built-ins; editorial requires explicit operator local-process permission for Pandoc/Tectonic. Loopback, bearer, finite captured packages and bounded local jobs with optional status/upload persistence; restart never reruns work. API envelopes wrap unchanged SDK objects. No upload/config/provider selection is accepted from clients; no runtime/schema/provider/release qualification is claimed."
   },
   "servers": [
     {
@@ -1162,7 +1162,9 @@
           "error",
           "profile",
           "local_processes",
-          "source_upload"
+          "source_upload",
+          "recovered_after_restart",
+          "workspace_retained"
         ],
         "properties": {
           "schema_version": {
@@ -1290,6 +1292,14 @@
                 "type": "null"
               }
             ]
+          },
+          "recovered_after_restart": {
+            "type": "boolean",
+            "description": "Historical status restored from the local journal; no automatic work replay."
+          },
+          "workspace_retained": {
+            "type": "boolean",
+            "description": "False for recovered status; binary artifacts are not retained across restart."
           }
         }
       },
