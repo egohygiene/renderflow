@@ -29,7 +29,7 @@ pub fn run(
     }
 
     let resolved = resolve(request)?;
-    let output = if resolved.is_composition() {
+    let output = if resolved.is_native() {
         let format = match output_format.to_lowercase().as_str() {
             "dot" | "graphviz" => "dot",
             _ => "text",

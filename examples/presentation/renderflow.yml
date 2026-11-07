@@ -1,0 +1,10 @@
+schema: renderflow/v2
+sources:
+  - id: deck
+    kind: presentation
+    path: synthetic.presentation.json
+targets:
+  exact:
+    - format: presentation_source
+output:
+  bundle_root: presentation-out
