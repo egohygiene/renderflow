@@ -44,7 +44,7 @@ fn descriptor(id:&str,bytes:&[u8],limits:&Limits)->ApiResult<Retained> {
     }
     members.sort_by(|a,b|(&a.path,&a.target).cmp(&(&b.path,&b.target)));
     let value=Retained {schema:SCHEMA.into(),job_id:id.into(),result_sha256:result_digest(bytes)?,files:members};
-    if value.total_bytes()?>limits.job_storage_bytes{return Err(invalid());}Ok(value)
+    value.validate(limits)?;Ok(value)
 }
 impl Retained {
     pub(super) fn total_bytes(&self)->ApiResult<u64> {
@@ -56,11 +56,15 @@ impl Retained {
         let mut seen=BTreeSet::new();let mut paths=BTreeMap::new();let mut folded=BTreeSet::new();
         for member in &self.files {
             package::relative(&member.path)?;
+            if member.path.split('/').count()>64{return Err(invalid());}
             if member.target.is_empty()||member.target.len()>4096||!seen.insert(&member.target)||!crate::uploads::sha256(&member.sha256){return Err(invalid());}
             let identity=(&member.sha256,member.size);
             if let Some(old)=paths.insert(&member.path,identity){if old!=identity{return Err(invalid());}}
             else if !folded.insert(member.path.to_ascii_lowercase()){return Err(invalid());}
-        }Ok(())
+        }
+        let mut directories=BTreeSet::new();for member in &self.files {let mut parent=Path::new(&member.path).parent();while let Some(p)=parent {directories.insert(p.to_owned());parent=p.parent();}}
+        if directories.len().saturating_add(paths.len()).saturating_add(3)>65536{return Err(invalid());}
+        if serde_json::to_vec(self).map_err(|_|invalid())?.len()>limits.result_bytes{return Err(invalid());}Ok(())
     }
 }
 fn private_directory(path:&Path)->ApiResult<()> {
