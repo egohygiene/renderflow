@@ -52,3 +52,38 @@ fn briefing_service_does_not_admit_uploads_processes_or_unreferenced_private_fil
     fixture.config.pipelines[0].allow_source_uploads=false;fixture.config.pipelines[0].allow_local_processes=true;assert!(fixture.service().is_err());
     fixture.config.pipelines[0].allow_local_processes=false;fixture.config.pipelines[0].files.push("private.txt".into());fs::write(fixture.config.pipelines[0].root.join("private.txt"),b"unreferenced private content").unwrap();assert!(fixture.service().is_err());
 }
+
+fn presentation()->Fixture {
+    let mut fixture=Fixture::new();fixture.config.pipelines[0].profile=PipelineProfile::Presentation;
+    fixture.config.pipelines[0].allow_local_processes=true;fixture.config.pipelines[0].files=vec!["renderflow.json".into(),"deck.json".into()];
+    fs::write(fixture.config.pipelines[0].root.join("deck.json"),include_bytes!("../../../examples/presentation/synthetic.presentation.json")).unwrap();
+    fixture.spec=json!({"schema":"renderflow/v2","sources":[{"id":"deck","kind":"presentation","path":"deck.json"}],
+        "targets":{"exact":[{"format":"presentation_source"}]},"output":{"bundle_root":"operator-original-output"}});fixture.write();fixture
+}
+#[test]
+fn presentation_source_zip_is_captured_and_verified_without_running_slidev() {
+    let fixture=presentation();let service=fixture.service().unwrap();fs::write(fixture.config.pipelines[0].root.join("deck.json"),b"operator edit after capture").unwrap();
+    let view=finish(&service,Operation::Execute);assert_eq!(view.state,JobState::Complete);assert_eq!(view.profile,PipelineProfile::Presentation.name());
+    let row=service.artifacts(&view.job_id).unwrap().remove(0);assert_eq!(row.format,"presentation_source");
+    let download=service.download(&view.job_id,&row.id).unwrap();assert!(download.filename.ends_with(".zip"));assert!(download.bytes.starts_with(b"PK"));assert_eq!(digest(&download.bytes),row.sha256);
+    assert!(!fixture.config.pipelines[0].root.join("operator-original-output").exists());
+}
+#[test]
+fn native_presentation_without_selected_pins_stays_unavailable() {
+    let mut fixture=presentation();fixture.spec["targets"]["exact"]=json!([{"format":"presentation_web"},{"format":"pdf"}]);fixture.write();let service=fixture.service().unwrap();
+    let view=finish(&service,Operation::Plan);let JobOutput::Plan(plan)=view.result.unwrap() else{panic!("plan result required");};
+    assert!(plan.plan.artifact_forest.unwrap().branches.iter().all(|b|b.state==renderflow::graph::ForestBranchState::Unavailable));
+    assert_eq!(finish(&service,Operation::Execute).state,JobState::Failed);
+}
+#[test]
+fn presentation_requires_process_opt_in_and_refuses_uploads() {
+    let mut fixture=presentation();fixture.config.pipelines[0].allow_local_processes=false;assert!(fixture.service().is_err());
+    fixture.config.pipelines[0].allow_local_processes=true;fixture.config.pipelines[0].allow_source_uploads=true;assert!(fixture.service().is_err());
+}
+#[test]
+fn presentation_image_references_must_be_in_the_exact_captured_closure() {
+    let fixture=presentation();let path=fixture.config.pipelines[0].root.join("deck.json");let mut model:Value=serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+    model["slides"][0]["images"]=json!([{"path":"missing.png","sha256":"a".repeat(64),"alt":"Synthetic missing image","rights":"Synthetic MIT declaration"}]);
+    fs::write(&path,serde_json::to_vec(&model).unwrap()).unwrap();assert!(fixture.service().is_err());
+    model["slides"][0]["images"][0]["path"]=json!("../../outside.png");fs::write(path,serde_json::to_vec(&model).unwrap()).unwrap();assert!(fixture.service().is_err());
+}

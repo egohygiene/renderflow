@@ -1,0 +1,11 @@
+{
+  "schema_version":"renderflow.http-service/v1","bind":"127.0.0.1:8787","http":{},
+  "service":{
+    "schema_version":"renderflow.api-service/v1","workspace_parent":"/tmp",
+    "pipelines":[{
+      "id":"local-deck","root":"../presentation","config":"renderflow.yml",
+      "profile":"presentation","allow_local_processes":true,"allow_source_uploads":false,
+      "files":["renderflow.yml","synthetic.presentation.json"]
+    }],"limits":{}
+  }
+}

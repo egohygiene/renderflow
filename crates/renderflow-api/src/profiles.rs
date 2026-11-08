@@ -14,7 +14,7 @@ fn refused(code:&str,message:&str)->ApiError {ApiError::new(code,message,422)}
 
 pub(crate) fn outputs(profile:PipelineProfile)->Vec<Format> {
     match profile {
-        PipelineProfile::Composition|PipelineProfile::Briefing=>Vec::new(),
+        PipelineProfile::Composition|PipelineProfile::Briefing|PipelineProfile::Presentation=>Vec::new(),
         PipelineProfile::ManualLyrics=>renderflow::lyrics::OUTPUTS.to_vec(),
         PipelineProfile::TimedText=>vec![Format::Srt,Format::WebVtt,Format::TimedTranscriptJson,Format::Text],
         PipelineProfile::FountainBody=>vec![Format::ScreenplayJson,Format::Fdx,Format::FadeIn,Format::Osf,Format::Trelby],
@@ -29,11 +29,12 @@ pub(crate) fn providers(profile:PipelineProfile)->Vec<String> {
         PipelineProfile::FountainBody=>&["tool.renderflow-screenplay-body"],
         PipelineProfile::Editorial=>&["tool.pandoc","tool.tectonic"],
         PipelineProfile::Briefing=>&["renderflow.briefing"],
+        PipelineProfile::Presentation=>&["renderflow.presentation","tool.slidev"],
     };ids.iter().map(|value|value.to_string()).collect()
 }
 fn transforms(profile:PipelineProfile,source:Format)->Vec<String> {
     match profile {
-        PipelineProfile::Composition|PipelineProfile::Briefing=>Vec::new(),
+        PipelineProfile::Composition|PipelineProfile::Briefing|PipelineProfile::Presentation=>Vec::new(),
         PipelineProfile::ManualLyrics=>std::iter::once(format!("builtin.lyrics.{source}.lyrics_json"))
             .chain(outputs(profile).iter().filter(|format|**format!=Format::LyricsJson)
                 .map(|format|format!("builtin.lyrics.lyrics_json.{format}"))).collect(),
@@ -77,6 +78,7 @@ pub(crate) fn admit(config:&PipelineConfig,spec:&mut SpecV2,files:&BTreeMap<Stri
         return Err(refused("source_path","The source must be present in the package allowlist without a URI"));
     }
     if config.profile==PipelineProfile::Briefing {return publication::admit_briefing(config,spec,files);}
+    if config.profile==PipelineProfile::Presentation {return publication::admit_presentation(config,spec,files);}
     if config.profile==PipelineProfile::Composition {
         if config.allow_local_processes || source.kind!=SourceKind::Composition {
             return Err(refused("unsupported_profile","Composition does not admit external process effects"));
@@ -101,7 +103,7 @@ pub(crate) fn admit(config:&PipelineConfig,spec:&mut SpecV2,files:&BTreeMap<Stri
         PipelineProfile::ManualLyrics|PipelineProfile::TimedText=>matches!(format,Format::Srt|Format::WebVtt|Format::TimedTranscriptJson),
         PipelineProfile::FountainBody=>format==Format::Fountain,
         PipelineProfile::Editorial=>format==Format::Markdown,
-        PipelineProfile::Composition|PipelineProfile::Briefing=>false,
+        PipelineProfile::Composition|PipelineProfile::Briefing|PipelineProfile::Presentation=>false,
     };
     if !format_allowed {return Err(refused("source_format","Source format is outside the registered profile"));}
     let providers=providers(config.profile);let transforms=transforms(config.profile,format);
@@ -161,6 +163,7 @@ pub(crate) fn admit(config:&PipelineConfig,spec:&mut SpecV2,files:&BTreeMap<Stri
 
 pub(crate) fn guard_plan(profile:PipelineProfile,plan:&ExecutionPlan)->ApiResult<()> {
     if profile==PipelineProfile::Briefing {return publication::guard_briefing(plan);}
+    if profile==PipelineProfile::Presentation {return publication::guard_presentation(plan);}
     if profile==PipelineProfile::Composition{return Ok(());}
     let providers=providers(profile);let source:Format=plan.source.parse().map_err(|_|ApiError::internal())?;
     let transforms=transforms(profile,source);
@@ -176,6 +179,7 @@ pub(crate) fn guard_plan(profile:PipelineProfile,plan:&ExecutionPlan)->ApiResult
 
 pub(crate) fn graph_download_extension(format:&str)->ApiResult<String> {
     if let Some((_,_,extension,_))=publication::BRIEFING_OUTPUTS.iter().find(|row|row.0==format){return Ok((*extension).into());}
+    if let Some((_,_,extension,_))=publication::PRESENTATION_OUTPUTS.iter().find(|row|row.0==format){return Ok((*extension).into());}
     let format:Format=format.parse().map_err(|_|ApiError::internal())?;
     let registry=renderflow::graph::capability::FormatCapabilityRegistry::global();
     let descriptor=registry.get(format).ok_or_else(ApiError::internal)?;
@@ -194,6 +198,7 @@ pub(crate) fn inventory()->serde_json::Value {
             [Svg,Html,TranscriptJson,TranscriptText,Png,Pdf,Ora,Psd,Idml].iter().map(|format|
                 serde_json::json!({"id":format.name(),"media_type":format.media_type(),"implemented":format.supported()})).collect::<Vec<_>>()
         } else if *profile==PipelineProfile::Briefing {publication::BRIEFING_OUTPUTS.iter().map(|(id,media,_,_)|serde_json::json!({"id":id,"media_type":media,"implemented":true})).collect()}
+        else if *profile==PipelineProfile::Presentation {publication::PRESENTATION_OUTPUTS.iter().map(|(id,media,_,_)|serde_json::json!({"id":id,"media_type":media,"implemented":true,"native_provider_required":*id!="presentation_source"})).collect()}
         else {outputs(*profile).iter().filter_map(|format|registry.get(*format)).map(|descriptor|
             serde_json::json!({"id":descriptor.id,"media_type":descriptor.media_types.first(),"implemented":true})).collect()};
         serde_json::json!({"selection":profile,"profile":profile.name(),"local_processes":profile.local_processes(),

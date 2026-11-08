@@ -9,6 +9,11 @@ pub(super) const BRIEFING_OUTPUTS:[(&str,&str,&str,&str);6]=[
     ("briefing_feed","application/rss+xml","rss","feed.rss"),
     ("briefing_audio","audio/wav","wav","narration.wav"),
 ];
+pub(super) const PRESENTATION_OUTPUTS:[(&str,&str,&str,&str);3]=[
+    ("presentation_source","application/zip","zip","presentation-source.zip"),
+    ("presentation_web","application/zip","zip","presentation-web.zip"),
+    ("pdf","application/pdf","pdf","presentation.pdf"),
+];
 fn reference(model:&str,value:&str,files:&BTreeMap<String,Arc<[u8]>>,required:&mut BTreeSet<String>)->ApiResult<()> {
     relative(value)?;
     if value.split('/').any(|part|part.is_empty()||part=="."||part=="..") {return Err(refused("publication_reference","Publication references require exact confined relative paths"));}
@@ -41,6 +46,32 @@ pub(super) fn guard_briefing(plan:&ExecutionPlan)->ApiResult<()> {
         ||plan.edges.iter().any(|e|e.provider_id.as_deref()!=Some("renderflow.briefing")||!e.required_provider_ids.is_empty()
             ||!BRIEFING_OUTPUTS.iter().any(|(id,_,_,_)|e.to==*id&&e.capability_id.as_deref()==Some(format!("briefing.{id}").as_str()))){
         return Err(refused("briefing_plan","SDK selected a route outside the finite local briefing profile"));
+    }Ok(())
+}
+
+pub(super) fn admit_presentation(config:&PipelineConfig,spec:&mut SpecV2,files:&BTreeMap<String,Arc<[u8]>>)->ApiResult<()> {
+    // This named profile advertises possible native Slidev effects, so require
+    // explicit operator process permission even for a source-only selection.
+    if !config.allow_local_processes||config.allow_source_uploads||spec.sources[0].kind!=SourceKind::Presentation||!stable_id(&spec.sources[0].id)||!spec.validate().is_empty(){
+        return Err(refused("presentation_profile","Presentation requires the closed core profile, explicit operator process permission and no source uploads/custom effects"));
+    }
+    let path=spec.sources[0].path.as_deref().ok_or_else(ApiError::internal)?;
+    let model=renderflow::presentation::parse(files.get(path).ok_or_else(ApiError::internal)?)
+        .map_err(|_|refused("presentation_model","Core refused the captured presentation model"))?;
+    let mut required=BTreeSet::from([config.config.clone(),path.into()]);
+    for slide in &model.slides {for image in &slide.images {reference(path,&image.path,files,&mut required)?;}}
+    if files.keys().cloned().collect::<BTreeSet<_>>()!=required{return Err(refused("publication_allowlist","Presentation package must contain exactly config, model and referenced local images"));}
+    spec.execution.requirements.local_only=true;spec.execution.requirements.offline=true;Ok(())
+}
+pub(super) fn guard_presentation(plan:&ExecutionPlan)->ApiResult<()> {
+    let forest=plan.artifact_forest.as_ref().ok_or_else(||refused("presentation_plan","Core presentation forest is missing"))?;
+    if plan.source!="presentation_snapshot"||plan.targets.is_empty()||plan.targets.len()>3||forest.branches.len()!=plan.targets.len()
+        ||forest.profiles!=vec![renderflow::presentation::PROFILE_VERSION.to_owned()]
+        ||forest.branches.iter().any(|b|!PRESENTATION_OUTPUTS.iter().any(|(id,_,_,file)|b.format==*id&&b.options.get("file").and_then(|v|v.as_str())==Some(*file)))
+        ||plan.edges.iter().any(|e|!e.required_provider_ids.is_empty()||!PRESENTATION_OUTPUTS.iter().any(|(id,_,_,_)|
+            e.to==*id&&e.provider_id.as_deref()==Some(if *id=="presentation_source"{"renderflow.presentation"}else{"tool.slidev"})
+            &&e.capability_id.as_deref()==Some(format!("presentation.{id}").as_str()))){
+        return Err(refused("presentation_plan","SDK selected a route outside the finite presentation profile"));
     }Ok(())
 }
 

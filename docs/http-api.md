@@ -307,3 +307,8 @@ The operator-selected local briefing profile reuses the common publisher with
 exact captured references and no new client uploads/processes; see
 [briefing HTTP admission](work/349/HTTP.md) and its
 [unrun operator sample](../examples/http-api/briefing.json).
+
+The presentation service profile captures model/images and delivers native
+source/web ZIP or PDF targets under explicit operator process permission;
+see [presentation HTTP admission](work/350/HTTP.md) and its
+[unrun registration example](../examples/http-api/presentation.json).
