@@ -47,15 +47,17 @@ pub enum PipelineProfile {
     TimedText,
     FountainBody,
     Editorial,
+    Briefing,
 }
 impl PipelineProfile {
-    pub const ALL: [Self;5] = [Self::Composition,Self::ManualLyrics,Self::TimedText,Self::FountainBody,Self::Editorial];
+    pub const ALL: [Self;6] = [Self::Composition,Self::ManualLyrics,Self::TimedText,Self::FountainBody,Self::Editorial,Self::Briefing];
     pub fn name(self) -> &'static str {match self {
         Self::Composition=>renderflow::composition::COMPOSITION_PROFILE,
         Self::ManualLyrics=>"renderflow.api-profile/manual-lyrics/v1",
         Self::TimedText=>"renderflow.api-profile/timed-text/v1",
         Self::FountainBody=>"renderflow.api-profile/fountain-body/v1",
         Self::Editorial=>"renderflow.api-profile/editorial/v1",
+        Self::Briefing=>"renderflow.api-profile/briefing/v1",
     }}
     pub fn local_processes(self) -> bool {self == Self::Editorial}
 }

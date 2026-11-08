@@ -51,7 +51,8 @@
             "manual_lyrics",
             "timed_text",
             "fountain_body",
-            "editorial"
+            "editorial",
+            "briefing"
           ],
           "default": "composition",
           "description": "Closed admission policy over existing core SDK routes."

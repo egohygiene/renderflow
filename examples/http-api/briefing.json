@@ -1,0 +1,14 @@
+{
+  "schema_version":"renderflow.http-service/v1",
+  "bind":"127.0.0.1:8787",
+  "http":{},
+  "service":{
+    "schema_version":"renderflow.api-service/v1",
+    "workspace_parent":"/tmp",
+    "pipelines":[{
+      "id":"local-briefing","root":"../briefing","config":"build.yml",
+      "profile":"briefing","allow_local_processes":false,"allow_source_uploads":false,
+      "files":["build.yml","briefing.json","canonical.txt"]
+    }],"limits":{}
+  }
+}
