@@ -9,6 +9,9 @@ pub const SERVICE_SCHEMA: &str = "renderflow.api-service/v1";
 pub struct ServiceConfig {
     pub schema_version: String,
     pub workspace_parent: PathBuf,
+    /// Optional private existing directory for bounded local status/upload recovery.
+    #[serde(default)]
+    pub persistence_directory: Option<PathBuf>,
     pub pipelines: Vec<PipelineConfig>,
     #[serde(default)]
     pub limits: Limits,
@@ -128,7 +131,7 @@ pub struct SubmitRequest {
     pub pipeline_id: String,
     #[serde(default)]
     pub dry_run: bool,
-    /// Process-local immutable source, bound to this registered pipeline.
+    /// Immutable source bound to this registered pipeline and optional durable store.
     #[serde(default)]
     pub upload_id: Option<String>,
 }
@@ -181,6 +184,10 @@ pub struct JobView {
     pub completed_at_unix_ms: Option<u64>,
     pub last_event_id: u64,
     pub dropped_events: u64,
+    /// Historical status recovered from the operator-selected local journal.
+    pub recovered_after_restart: bool,
+    /// Binary workspace is process-local even when status is recovered.
+    pub workspace_retained: bool,
     pub result: Option<JobOutput>,
     pub error: Option<ApiError>,
 }

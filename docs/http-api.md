@@ -172,8 +172,11 @@ Defaults are 16 uploads, 8 MiB per file, 32 MiB total and 15-minute expiry. The
 effective body bound also respects HTTP and package limits. Expiry prevents new
 jobs; retained jobs keep their exact source lease charged to the pool. Finish or
 cancel a job, wait for terminal state, then forget it before deleting its upload.
-DELETE of an upload in use returns 409. No pending upload survives restart and
-no upload starts a provider, model, installation or job by itself.
+DELETE of an upload in use returns 409. By default uploads are process-local.
+An explicit private `persistence_directory` retains bounded, digest-checked
+unexpired uploads and historical job records across restart; see
+[local recovery](work/420/RECOVERY.md). No upload starts a provider, model,
+installation or job by itself.
 
 ## Progress, artifacts and retention
 
