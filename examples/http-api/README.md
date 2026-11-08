@@ -52,3 +52,7 @@ count/byte/time/workspace bounds before later startup; clients must check the
 full returned length/hash. Ranges are refused. Native schema metadata is served
 from core-owned embedded declarations, without provider or model work. No sample
 server, upload, download or schema projection was executed here.
+
+`briefing.json` registers the existing synthetic briefing build through the
+same closed HTTP routes. The source example explicitly allows a local unreviewed
+candidate; it does not grant content/publication approval. No listener was run.

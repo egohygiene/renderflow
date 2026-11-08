@@ -302,3 +302,8 @@ port forward, deployment, provider or service was started by this checkpoint.
 See [handoff](work/420/HANDOFF.md) and [dependency decision](work/420/HTTP_DEPENDENCY.md).
 #420 remains open for broader source/asset profiles, recovery and all
 deferred compilation, API/OpenAPI, process, fault, platform and release evidence.
+
+The operator-selected local briefing profile reuses the common publisher with
+exact captured references and no new client uploads/processes; see
+[briefing HTTP admission](work/349/HTTP.md) and its
+[unrun operator sample](../examples/http-api/briefing.json).

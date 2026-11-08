@@ -1278,7 +1278,8 @@
               "renderflow.api-profile/manual-lyrics/v1",
               "renderflow.api-profile/timed-text/v1",
               "renderflow.api-profile/fountain-body/v1",
-              "renderflow.api-profile/editorial/v1"
+              "renderflow.api-profile/editorial/v1",
+              "renderflow.api-profile/briefing/v1"
             ]
           },
           "local_processes": {
@@ -1342,7 +1343,8 @@
               "renderflow.api-profile/manual-lyrics/v1",
               "renderflow.api-profile/timed-text/v1",
               "renderflow.api-profile/fountain-body/v1",
-              "renderflow.api-profile/editorial/v1"
+              "renderflow.api-profile/editorial/v1",
+              "renderflow.api-profile/briefing/v1"
             ]
           },
           "local_processes": {
