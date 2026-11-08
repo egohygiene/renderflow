@@ -6,11 +6,15 @@ use serde::{Deserialize, Serialize};
 use super::*;
 
 const SCHEMA: &str = "renderflow.api-local-state/v1";
-pub(super) struct Store { root:PathBuf, binding:String, _lock:File }
+pub(super) struct Store { root:PathBuf, binding:String, retain_artifacts:bool, _lock:File }
 
 #[derive(Serialize,Deserialize)]
 #[serde(deny_unknown_fields)]
-struct Snapshot { schema:String, catalog_sha256:String, jobs:Vec<StoredJob>, uploads:Vec<StoredUpload> }
+struct Snapshot {
+    schema:String, catalog_sha256:String, jobs:Vec<StoredJob>, uploads:Vec<StoredUpload>,
+    #[serde(default,skip_serializing_if="Vec::is_empty")]
+    garbage:Vec<retained::Retained>,
+}
 #[derive(Clone,Serialize,Deserialize)]
 #[serde(deny_unknown_fields)]
 struct StoredUpload { id:String,pipeline:String,sha256:String,size:u64,expires:u64 }
@@ -106,11 +110,13 @@ struct StoredJob {
     source_upload:Option<StoredUpload>,effective_config_sha256:Option<String>,cancel_reason:Option<CancelReason>,
     submitted:u64,started:Option<u64>,completed:Option<u64>,sequence:u64,
     result:Option<serde_json::Value>,error:Option<StoredError>,
+    #[serde(default,skip_serializing_if="Option::is_none")]
+    retained:Option<retained::Retained>,
 }
 
 fn corrupt()->ApiError {ApiError::new("journal_invalid","Local state is unsupported, changed, corrupt or exceeds the current admission limits; preserve it for manual review",422)}
 fn storage()->ApiError {ApiError::new("journal_storage","Local state could not be durably committed; admission stopped and existing work was cooperatively cancelled",503)}
-fn read(path:&Path,limit:u64)->ApiResult<Vec<u8>> {
+pub(super) fn read(path:&Path,limit:u64)->ApiResult<Vec<u8>> {
     package::no_links(path)?;
     let meta=fs::symlink_metadata(path).map_err(|_|storage())?;
     if !meta.is_file()||meta.len()>limit{return Err(corrupt());}
@@ -120,8 +126,12 @@ fn read(path:&Path,limit:u64)->ApiResult<Vec<u8>> {
 }
 
 impl Store {
+    #[cfg(test)]
     pub(super) fn open(base:&Path,path:&Path,packages:&BTreeMap<String,Arc<Package>>,limits:&Limits)->ApiResult<Self> {
-        #[cfg(not(unix))] {let _=(base,path,packages,limits);return Err(ApiError::new("journal_platform","Durable local state currently requires a qualified Unix-style private filesystem",422));}
+        Self::open_with_artifacts(base,path,packages,limits,false)
+    }
+    pub(super) fn open_with_artifacts(base:&Path,path:&Path,packages:&BTreeMap<String,Arc<Package>>,limits:&Limits,retain_artifacts:bool)->ApiResult<Self> {
+        #[cfg(not(unix))] {let _=(base,path,packages,limits,retain_artifacts);return Err(ApiError::new("journal_platform","Durable local state currently requires a qualified Unix-style private filesystem",422));}
         #[cfg(unix)] {
             use std::os::unix::fs::{MetadataExt,OpenOptionsExt};
             let root=package::operator_path(base,path)?;
@@ -137,8 +147,10 @@ impl Store {
             if !meta.is_file()||meta.nlink()!=1||meta.mode()&0o077!=0{return Err(corrupt());}
             lock.try_lock().map_err(|_|ApiError::new("journal_locked","Another service still owns the persistence writer lock",409))?;
             let catalog=packages.iter().map(|(id,p)|(id,&p.sha256,p.profile)).collect::<Vec<_>>();
-            let binding=package::digest(&serde_json::to_vec(&(SCHEMA,catalog,limits)).map_err(|_|corrupt())?);
-            let store=Self {root,binding,_lock:lock};store.inventory(limits)?;Ok(store)
+            let binding=if retain_artifacts {package::digest(&serde_json::to_vec(&(SCHEMA,catalog,limits,"published-artifact-cache/v1")).map_err(|_|corrupt())?)}
+                else {package::digest(&serde_json::to_vec(&(SCHEMA,catalog,limits)).map_err(|_|corrupt())?)};
+            if retain_artifacts {retained::prepare_root(&root)?;}
+            let store=Self {root,binding,retain_artifacts,_lock:lock};store.inventory(limits)?;Ok(store)
         }
     }
     fn inventory(&self,limits:&Limits)->ApiResult<Vec<PathBuf>> {
@@ -149,12 +161,14 @@ impl Store {
             let name=path.file_name().and_then(|s|s.to_str()).ok_or_else(corrupt)?;
             let known=name=="writer.lock"||name=="state.json"||name.starts_with(".journal-")||name.starts_with(".upload-")
                 ||name.strip_suffix(".bin").is_some_and(crate::uploads::upload_id);
+            if name=="artifacts"&&self.retain_artifacts {retained::inventory_root(&path,limits)?;continue;}
             if !known||!meta.is_file()||meta.file_type().is_symlink(){return Err(corrupt());}files.push(path);
         }
-        package::storage_size(&self.root,limits.upload_count*2+8,limits.workspace_storage_bytes)?;Ok(files)
+        package::storage_size(&self.root,65536,limits.workspace_storage_bytes)?;Ok(files)
     }
-    fn budget(&self,new_bytes:usize,limits:&Limits,workspace_bytes:u64)->ApiResult<()> {
-        let size=package::storage_size(&self.root,limits.upload_count*2+8,limits.workspace_storage_bytes)?;
+    pub(super) fn bytes(&self,limits:&Limits)->ApiResult<u64> {self.inventory(limits)?;package::storage_size(&self.root,65536,limits.workspace_storage_bytes)}
+    fn budget(&self,new_bytes:u64,limits:&Limits,workspace_bytes:u64)->ApiResult<()> {
+        let size=self.bytes(limits)?;
         if size.saturating_add(new_bytes as u64).saturating_add(workspace_bytes)>limits.workspace_storage_bytes{return Err(storage());}Ok(())
     }
     pub(super) fn restore(&self,book:&Book)->ApiResult<()> {
@@ -162,7 +176,11 @@ impl Store {
         match fs::symlink_metadata(&path){Ok(_)=>{},Err(e) if e.kind()==std::io::ErrorKind::NotFound=>return Ok(()),Err(_)=>return Err(storage())}
         let bytes=read(&path,book.limits.workspace_storage_bytes/2)?;
         let snapshot:Snapshot=renderflow::evidence::json::object(&bytes,book.limits.workspace_storage_bytes as usize).map_err(|_|corrupt())?;
-        if snapshot.schema!=SCHEMA||snapshot.catalog_sha256!=self.binding||snapshot.jobs.len()>book.limits.retained_jobs||snapshot.uploads.len()>book.limits.upload_count{return Err(corrupt());}
+        if snapshot.schema!=SCHEMA||snapshot.catalog_sha256!=self.binding||snapshot.jobs.len()>book.limits.retained_jobs||snapshot.uploads.len()>book.limits.upload_count||snapshot.garbage.len()>book.limits.retained_jobs*2{return Err(corrupt());}
+        for garbage in &snapshot.garbage {
+            if !self.retain_artifacts||snapshot.jobs.iter().any(|j|j.id==garbage.job_id){return Err(corrupt());}
+            retained::remove(&self.root,garbage,&book.limits)?;
+        }
         let at=now();let instant=Instant::now();let mut uploads=BTreeMap::new();let mut total=0_u64;
         for stored in snapshot.uploads {
             if !crate::uploads::upload_id(&stored.id)||!crate::uploads::sha256(&stored.sha256)||stored.size==0||stored.size>book.limits.upload_bytes
@@ -198,24 +216,44 @@ impl Store {
             if stored.effective_config_sha256.as_deref().is_some_and(|s|!crate::uploads::sha256(s)){return Err(corrupt());}
             let age=Duration::from_millis(at-stored.completed.ok_or_else(corrupt)?);
             let remaining=Duration::from_secs(book.limits.retention_seconds).checked_sub(age).ok_or_else(corrupt)?;
+            let workspace=if let Some(cache)=stored.retained {
+                if !self.retain_artifacts||stored.state!=JobState::Complete||stored.operation!=Operation::Execute||cache.job_id!=stored.id{return Err(corrupt());}
+                let temporary=package::storage_size(book.directory.path(),65536,book.limits.workspace_storage_bytes)?;
+                self.budget(retained::estimate(result.as_deref().ok_or_else(corrupt)?,&book.limits)?,&book.limits,temporary)?;
+                Some(Arc::new(retained::hydrate(&self.root,&cache,result.as_deref().ok_or_else(corrupt)?,
+                    stored.effective_config_sha256.as_deref().ok_or_else(corrupt)?,book.directory.path(),&book.limits)?))
+            }else{None};
             jobs.insert(stored.id,Entry {pipeline_id:stored.pipeline,package_sha256:stored.package_sha256,profile:stored.profile,source_upload:None,
                 operation:stored.operation,state:stored.state,cancellation:CancellationToken::new(),cancel_reason:stored.cancel_reason,
                 submitted_at:stored.submitted,started_at:stored.started,completed_at:stored.completed,deadline:instant,
-                completed:Some(instant),recovered_expiry:Some(instant+remaining),workspace:None,result,error,events:VecDeque::new(),event_bytes:0,
+                completed:Some(instant),recovered_expiry:Some(instant+remaining),workspace,result,error,events:VecDeque::new(),event_bytes:0,
                 sequence:stored.sequence,dropped:stored.sequence,recovered:true,historical_upload,historical_config_sha256:stored.effective_config_sha256});
         }
         *book.jobs.lock().map_err(|_|ApiError::internal())?=jobs;
         *book.uploads.lock().map_err(|_|ApiError::internal())?=uploads;Ok(())
     }
     pub(super) fn save(&self,jobs:&BTreeMap<String,Entry>,uploads:&BTreeMap<String,Arc<SourceUpload>>,limits:&Limits,workspace_bytes:u64)->ApiResult<()> {
+        let prior=match fs::symlink_metadata(self.root.join("state.json")) {
+            Ok(_)=>Some(renderflow::evidence::json::object::<Snapshot>(&read(&self.root.join("state.json"),limits.workspace_storage_bytes/2)?,limits.workspace_storage_bytes as usize).map_err(|_|corrupt())?),
+            Err(e) if e.kind()==std::io::ErrorKind::NotFound=>None,Err(_)=>return Err(storage()),
+        };
+        if prior.as_ref().is_some_and(|p|p.schema!=SCHEMA||p.catalog_sha256!=self.binding){return Err(corrupt());}
         let mut stored_jobs=Vec::new();
         for (id,entry) in jobs {
             let view=entry.view(id)?;
+            let cache=if self.retain_artifacts&&entry.operation==Operation::Execute&&entry.state==JobState::Complete {
+                if let (Some(result),Some(workspace))=(&entry.result,&entry.workspace) {
+                    let additional=if self.root.join("artifacts").join(id).try_exists().map_err(|_|storage())? {0}else{retained::estimate(result,limits)?};
+                    self.budget(additional,limits,workspace_bytes)?;
+                    let cached=retained::capture(&self.root,id,result,workspace,limits)?;
+                    workspace.cache_ready.store(cached.is_some(),Ordering::Release);cached
+                }else{None}
+            }else{None};
             stored_jobs.push(StoredJob {id:id.clone(),pipeline:entry.pipeline_id.clone(),package_sha256:entry.package_sha256.clone(),profile:entry.profile,
                 operation:entry.operation,state:entry.state,source_upload:view.source_upload.as_ref().map(StoredUpload::capture),
                 effective_config_sha256:view.effective_config_sha256,cancel_reason:entry.cancel_reason,submitted:entry.submitted_at,started:entry.started_at,completed:entry.completed_at,
                 sequence:entry.sequence,result:entry.result.as_ref().map(|b|serde_json::from_slice(b).map_err(|_|corrupt())).transpose()?,
-                error:entry.error.as_ref().map(|e|StoredError {code:e.code.clone(),message:e.message.clone(),status:e.status})});
+                error:entry.error.as_ref().map(|e|StoredError {code:e.code.clone(),message:e.message.clone(),status:e.status}),retained:cache});
         }
         let mut stored_uploads=Vec::new();
         for upload in uploads.values() {
@@ -223,20 +261,28 @@ impl Store {
             if path.try_exists().map_err(|_|storage())? {
                 if package::digest(&read(&path,upload.view.size_bytes)?)!=upload.view.sha256{return Err(corrupt());}
             } else {
-                self.budget(upload.bytes.len(),limits,workspace_bytes)?;
+                self.budget(upload.bytes.len() as u64,limits,workspace_bytes)?;
                 let mut file=tempfile::Builder::new().prefix(".upload-").tempfile_in(&self.root).map_err(|_|storage())?;
                 file.write_all(&upload.bytes).map_err(|_|storage())?;file.as_file().sync_all().map_err(|_|storage())?;
                 file.persist_noclobber(&path).map_err(|_|storage())?;
             }
             stored_uploads.push(StoredUpload::capture(&upload.view));
         }
-        let snapshot=Snapshot {schema:SCHEMA.into(),catalog_sha256:self.binding.clone(),jobs:stored_jobs,uploads:stored_uploads};
+        let mut garbage=BTreeMap::new();
+        if let Some(prior)=prior {
+            for cache in prior.garbage.into_iter().chain(prior.jobs.into_iter().filter_map(|j|j.retained)) {
+                if !jobs.contains_key(&cache.job_id)&&self.root.join("artifacts").join(&cache.job_id).try_exists().map_err(|_|storage())? {garbage.insert(cache.job_id.clone(),cache);}
+            }
+        }
+        if garbage.len()>limits.retained_jobs*2{return Err(corrupt());}
+        let snapshot=Snapshot {schema:SCHEMA.into(),catalog_sha256:self.binding.clone(),jobs:stored_jobs,uploads:stored_uploads,garbage:garbage.into_values().collect()};
         let bytes=serde_json::to_vec(&snapshot).map_err(|_|corrupt())?;
-        if bytes.len() as u64>limits.workspace_storage_bytes/2{return Err(storage());}self.budget(bytes.len(),limits,workspace_bytes)?;
+        if bytes.len() as u64>limits.workspace_storage_bytes/2{return Err(storage());}self.budget(bytes.len() as u64,limits,workspace_bytes)?;
         let mut file=tempfile::Builder::new().prefix(".journal-").tempfile_in(&self.root).map_err(|_|storage())?;
         file.write_all(&bytes).map_err(|_|storage())?;file.as_file().sync_all().map_err(|_|storage())?;
         file.persist(self.root.join("state.json")).map_err(|_|storage())?;
         File::open(&self.root).and_then(|f|f.sync_all()).map_err(|_|storage())?;
+        for garbage in &snapshot.garbage {retained::remove(&self.root,garbage,limits)?;}
         for path in self.inventory(limits)? {
             let name=path.file_name().and_then(|s|s.to_str()).ok_or_else(corrupt)?;
             if name.starts_with(".journal-")||name.starts_with(".upload-")||name.strip_suffix(".bin").is_some_and(|id|!uploads.contains_key(id)) {

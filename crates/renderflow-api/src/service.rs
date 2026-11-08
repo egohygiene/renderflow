@@ -8,6 +8,8 @@ use crate::model::*;
 use crate::package::{self, Package, Workspace};
 #[path="durable.rs"]
 mod durable;
+#[path="retained.rs"]
+mod retained;
 
 #[path="download.rs"]
 mod download;
@@ -34,7 +36,8 @@ impl Entry {
             effective_config_sha256:self.workspace.as_ref().map(|workspace|workspace.effective_config_sha256.clone()).or_else(||self.historical_config_sha256.clone()),
             operation:self.operation,state:self.state,cancel_requested:self.cancel_reason,submitted_at_unix_ms:self.submitted_at,
             started_at_unix_ms:self.started_at,completed_at_unix_ms:self.completed_at,last_event_id:self.sequence,dropped_events:self.dropped,
-            recovered_after_restart:self.recovered,workspace_retained:self.workspace.is_some(),
+            recovered_after_restart:self.recovered,workspace_retained:self.workspace.as_ref().is_some_and(|w|!w.artifacts_only),
+            artifacts_retained:self.workspace.as_ref().is_some_and(|w|w.cache_ready.load(Ordering::Acquire)),
             result:self.result.as_ref().map(|bytes|serde_json::from_slice(bytes)).transpose().map_err(|_|ApiError::internal())?,error:self.error.clone() })
     }
     fn cancel(&mut self,reason:CancelReason) {
@@ -60,6 +63,12 @@ struct Book {
 struct SourceUpload {view:UploadView,bytes:Arc<[u8]>,expires:Instant}
 
 impl Book {
+    fn storage_bytes(&self)->ApiResult<u64> {
+        let temporary=package::storage_size(self.directory.path(),65536,self.limits.workspace_storage_bytes)?;
+        let retained=self.persistence.as_ref().map(|s|s.bytes(&self.limits)).transpose()?.unwrap_or(0);
+        let total=temporary.checked_add(retained).ok_or_else(||ApiError::new("storage_capacity","Combined service storage budget exceeded",503))?;
+        if total>self.limits.workspace_storage_bytes{return Err(ApiError::new("storage_capacity","Combined service storage budget exceeded",503));}Ok(total)
+    }
     fn persist_locked(&self, jobs: &BTreeMap<String,Entry>) -> ApiResult<()> {
         if self.persistence_failed.load(Ordering::Acquire){return Err(ApiError::new("journal_unavailable","Durable state is unavailable; restart and review preserved state",503));}
         if let Some(store)=&self.persistence {
@@ -109,7 +118,7 @@ impl Book {
         // Expiry prevents new submissions, while retained/queued jobs keep
         // their exact source lease charged to the finite upload pool.
         changed|=self.reap_uploads(Instant::now());
-        if package::storage_size(self.directory.path(),65536,self.limits.workspace_storage_bytes).is_err() {
+        if self.storage_bytes().is_err() {
             if let Ok(mut jobs)=self.jobs.lock() { for entry in jobs.values_mut() {let prior=entry.state;entry.cancel(CancelReason::Storage);changed|=entry.state!=prior;} }
         }
         for (id,workspace) in storage {
@@ -150,6 +159,7 @@ pub struct Service { book:Arc<Book>, sender:SyncSender<Work> }
 
 impl Service {
     pub fn new(config:ServiceConfig,base:&Path) -> ApiResult<Self> {
+        if config.retain_completed_artifacts&&config.persistence_directory.is_none(){return Err(ApiError::new("artifact_persistence_required","Artifact retention requires an explicit private persistence directory",422));}
         config.limits.validate()?;
         if config.schema_version != SERVICE_SCHEMA || config.pipelines.is_empty() || config.pipelines.len() > 16 {
             return Err(ApiError::new("invalid_service","A service needs a supported schema and 1–16 registered pipelines",400));
@@ -168,7 +178,7 @@ impl Service {
         }
         let directory = tempfile::Builder::new().prefix("renderflow-api-").tempdir_in(parent).map_err(|_|ApiError::io())?;
         let persistence=config.persistence_directory.as_ref().map(|path|
-            durable::Store::open(&base,path,&packages,&config.limits)).transpose()?;
+            durable::Store::open_with_artifacts(&base,path,&packages,&config.limits,config.retain_completed_artifacts)).transpose()?;
         let book = Arc::new(Book { limits:config.limits,packages,jobs:Mutex::new(BTreeMap::new()),directory,shutdown:AtomicBool::new(false),next:AtomicU64::new(1),
             uploads:Mutex::new(BTreeMap::new()),downloads:Mutex::new(download::Pool::default()),
             persistence,
@@ -273,7 +283,7 @@ impl Service {
     pub fn submit(&self,operation:Operation,request:SubmitRequest) -> ApiResult<JobView> {
         self.book.maintain();
         if !self.ready() { return Err(ApiError::new("shutting_down","The service is shutting down",503)); }
-        if package::storage_size(self.book.directory.path(),65536,self.book.limits.workspace_storage_bytes).is_err() {
+        if self.book.storage_bytes().is_err() {
             return Err(ApiError::new("storage_capacity","Service workspace budget reached; expire or forget terminal jobs",503));
         }
         if !stable_id(&request.pipeline_id) || (operation != Operation::Execute && request.dry_run) {
@@ -342,6 +352,7 @@ impl Service {
             events,last_event_id:entry.sequence,dropped_events:entry.dropped,cursor_gap })
     }
     pub(crate) fn execution(&self,id:&str) -> ApiResult<(renderflow::ExecutionResult,Arc<Workspace>)> {
+        if self.book.persistence_failed.load(Ordering::Acquire){return Err(ApiError::new("journal_unavailable","Durable state requires restart reconciliation",503));}
         let jobs=self.book.jobs.lock().map_err(|_|ApiError::internal())?; let entry=jobs.get(id).ok_or_else(not_found)?;
         if !entry.state.terminal() { return Err(ApiError::new("job_active","Artifacts are available after terminal execution",409)); }
         let output:JobOutput=serde_json::from_slice(entry.result.as_deref().ok_or_else(||ApiError::new("no_execution_result","This job has no native execution result",409))?).map_err(|_|ApiError::internal())?;

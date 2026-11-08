@@ -66,7 +66,7 @@ impl Service {
             if pool.count>=self.book.limits.stream_downloads||pool.bytes+size>self.book.limits.all_stream_download_bytes {
                 return Err(ApiError::new("download_capacity","Concurrent artifact snapshot capacity reached",503));
             }
-            let current=package::storage_size(self.book.directory.path(),65536,self.book.limits.workspace_storage_bytes)?;
+            let current=self.book.storage_bytes()?;
             if current.saturating_add(pool.bytes).saturating_add(size)>self.book.limits.workspace_storage_bytes {
                 return Err(ApiError::new("storage_capacity","Insufficient private snapshot storage budget",503));
             }

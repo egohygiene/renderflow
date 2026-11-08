@@ -14,7 +14,10 @@ pub(crate) struct Package {
     pub source_upload_path:Option<String>,
 }
 
-pub(crate) struct Workspace { pub directory: tempfile::TempDir, pub effective_config_sha256: String }
+pub(crate) struct Workspace {
+    pub directory: tempfile::TempDir, pub effective_config_sha256: String,
+    pub artifacts_only: bool, pub cache_ready:std::sync::atomic::AtomicBool,
+}
 impl Workspace {
     pub fn root(&self) -> &Path { self.directory.path() }
     pub fn bundle(&self) -> PathBuf { self.root().join("bundle") }
@@ -143,7 +146,7 @@ impl Package {
             file.write_all(bytes).map_err(|_|ApiError::io())?;
         }
         let effective_config_sha256 = digest(self.files.get(&self.config).ok_or_else(ApiError::internal)?);
-        Ok(Workspace { directory,effective_config_sha256 })
+        Ok(Workspace { directory,effective_config_sha256,artifacts_only:false,cache_ready:std::sync::atomic::AtomicBool::new(false) })
     }
 
     pub fn view(&self) -> PipelineView {

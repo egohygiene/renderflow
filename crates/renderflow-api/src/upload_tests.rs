@@ -16,7 +16,7 @@ impl Fixture {
                 "source_sha256":package::digest(original),"review_state":"reviewed","language":"en","revision":"old-review","sections":{"cue-000001":"old section"}}},
             "output":{"bundle_root":"operator-original-output"}});
         fs::write(base.join("source/renderflow.json"),serde_json::to_vec_pretty(&spec).unwrap()).unwrap();
-        let config=ServiceConfig {schema_version:SERVICE_SCHEMA.into(),persistence_directory:None,workspace_parent:base.join("work"),
+        let config=ServiceConfig {schema_version:SERVICE_SCHEMA.into(),persistence_directory:None,retain_completed_artifacts:false,workspace_parent:base.join("work"),
             pipelines:vec![PipelineConfig {id:"lyrics".into(),root:base.join("source"),config:"renderflow.json".into(),files:vec!["renderflow.json".into(),"manual.srt".into()],
                 profile:PipelineProfile::ManualLyrics,allow_local_processes:false,allow_source_uploads:true}],limits:Limits::default()};
         Self {root,config}

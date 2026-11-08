@@ -12,6 +12,9 @@ pub struct ServiceConfig {
     /// Optional private existing directory for bounded local status/upload recovery.
     #[serde(default)]
     pub persistence_directory: Option<PathBuf>,
+    /// Retain only verified published files, never source packages or workers.
+    #[serde(default)]
+    pub retain_completed_artifacts: bool,
     pub pipelines: Vec<PipelineConfig>,
     #[serde(default)]
     pub limits: Limits,
@@ -186,8 +189,10 @@ pub struct JobView {
     pub dropped_events: u64,
     /// Historical status recovered from the operator-selected local journal.
     pub recovered_after_restart: bool,
-    /// Binary workspace is process-local even when status is recovered.
+    /// Complete input/processing workspace is process-local.
     pub workspace_retained: bool,
+    /// Published-file cache was committed; bytes are checked again on recovery/download.
+    pub artifacts_retained: bool,
     pub result: Option<JobOutput>,
     pub error: Option<ApiError>,
 }
