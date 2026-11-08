@@ -18,6 +18,8 @@ use crate::screenplay::recovery::provider::RecoveryExtractionConfig;
 
 mod composition;
 pub use composition::CompositionBuildPolicy;
+pub(crate) mod presentation;
+pub use presentation::PresentationBuildPolicy;
 
 pub const SPEC_V2_ID: &str = "renderflow/v2";
 pub const SPEC_V2_SCHEMA_PATH: &str = "schemas/renderflow-v2.schema.json";
@@ -45,6 +47,7 @@ pub enum SourceKind {
     Artifact,
     Collection,
     Composition,
+    Presentation,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -562,6 +565,9 @@ pub struct ExecutionPolicy {
     /// Locale and renderer settings for a single local composition package.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub composition: Option<CompositionBuildPolicy>,
+    /// Explicit frozen presentation adapter, independent of ordinary JSON intake.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub presentation: Option<PresentationBuildPolicy>,
     #[serde(default)]
     pub optimization: OptimizationMode,
     #[serde(default)]
@@ -751,6 +757,7 @@ impl Default for ExecutionPolicy {
         Self {
             lyrics: None,
             composition: None,
+            presentation: None,
             optimization: OptimizationMode::default(),
             derivative_planning: DerivativePlanningPolicy::default(),
             max_parallel: default_max_parallel(),
@@ -1069,7 +1076,7 @@ impl SpecV2 {
             match source.kind {
                 // This source uses the bounded native composition contract,
                 // validated separately from artifact and collection locators.
-                SourceKind::Composition => {},
+                SourceKind::Composition | SourceKind::Presentation => {},
                 SourceKind::Artifact => {
                     let locator_count =
                         usize::from(source.path.is_some()) + usize::from(source.uri.is_some());
@@ -1470,6 +1477,7 @@ impl SpecV2 {
         }
 
         composition::validate(self, &mut diagnostics);
+        presentation::validate(self, &mut diagnostics);
         diagnostics
     }
 }
@@ -2512,6 +2520,7 @@ pub fn json_schema() -> Value {
         }
     });
     composition::extend_schema(&mut schema);
+    presentation::extend_schema(&mut schema);
     schema
 }
 

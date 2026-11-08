@@ -75,7 +75,7 @@ pub(crate) fn run_selection(options: BuildOptions<'_>) -> Result<()> {
     }
 
     let mut resolved = resolve(options.planning_request()?)?.with_resume(options.resume)?;
-    let composition = resolved.is_composition();
+    let composition = resolved.is_native();
     if composition && !options.dry_run {
         let cancellation = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
         let signal = cancellation.clone();
