@@ -52,7 +52,8 @@
             "timed_text",
             "fountain_body",
             "editorial",
-            "briefing"
+            "briefing",
+            "presentation"
           ],
           "default": "composition",
           "description": "Closed admission policy over existing core SDK routes."
@@ -60,7 +61,7 @@
         "allow_local_processes": {
           "type": "boolean",
           "default": false,
-          "description": "Required true for editorial; other profiles require false. Explicitly permits selected local provider discovery/execution; no OS sandbox or provider qualification is inferred."
+          "description": "Required true for editorial and presentation; other profiles require false. Explicitly permits selected local provider discovery/execution; no OS sandbox or provider qualification is inferred."
         },
         "allow_source_uploads": {
           "type": "boolean",

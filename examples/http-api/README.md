@@ -56,3 +56,8 @@ server, upload, download or schema projection was executed here.
 `briefing.json` registers the existing synthetic briefing build through the
 same closed HTTP routes. The source example explicitly allows a local unreviewed
 candidate; it does not grant content/publication approval. No listener was run.
+
+`presentation.json` registers the existing synthetic source-only deck. It requires
+explicit process permission for the presentation profile; its selected source ZIP
+uses no Slidev process. Native web/PDF additionally need exact prepared local pins
+and explicit unqualified opt-in. No sample was started or browser downloaded.

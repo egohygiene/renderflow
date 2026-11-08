@@ -48,9 +48,10 @@ pub enum PipelineProfile {
     FountainBody,
     Editorial,
     Briefing,
+    Presentation,
 }
 impl PipelineProfile {
-    pub const ALL: [Self;6] = [Self::Composition,Self::ManualLyrics,Self::TimedText,Self::FountainBody,Self::Editorial,Self::Briefing];
+    pub const ALL: [Self;7] = [Self::Composition,Self::ManualLyrics,Self::TimedText,Self::FountainBody,Self::Editorial,Self::Briefing,Self::Presentation];
     pub fn name(self) -> &'static str {match self {
         Self::Composition=>renderflow::composition::COMPOSITION_PROFILE,
         Self::ManualLyrics=>"renderflow.api-profile/manual-lyrics/v1",
@@ -58,8 +59,9 @@ impl PipelineProfile {
         Self::FountainBody=>"renderflow.api-profile/fountain-body/v1",
         Self::Editorial=>"renderflow.api-profile/editorial/v1",
         Self::Briefing=>"renderflow.api-profile/briefing/v1",
+        Self::Presentation=>"renderflow.api-profile/presentation/v1",
     }}
-    pub fn local_processes(self) -> bool {self == Self::Editorial}
+    pub fn local_processes(self) -> bool {matches!(self,Self::Editorial|Self::Presentation)}
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
