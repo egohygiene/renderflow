@@ -1,5 +1,13 @@
 {
   "$defs": {
+    "briefingBuildPolicy": {"type": "object", "additionalProperties": false, "properties": {"allow_draft": {"type": "boolean", "default": false}}},
+    "briefingSource": {
+      "required": ["kind", "path"],
+      "properties": {
+        "kind": {"const": "briefing"}, "path": {"type": "string", "minLength": 1}, "uri": {"type": "null"}, "members": {"maxItems": 0},
+        "sha256": {"type": "null"}, "geometry": {"type": "null"}, "format": {"type": "null"}, "media_type": {"type": "null"}, "role": {"type": "null"}, "detect": {"const": true}, "immutable": {"const": true}
+      }
+    },
     "accessibilityMetadata": {
       "additionalProperties": false,
       "properties": {
@@ -348,6 +356,7 @@
             }
           ]
         },
+        "briefing": {"anyOf": [{"$ref": "#/$defs/briefingBuildPolicy"}, {"type": "null"}]},
         "presentation": {
           "anyOf": [
             {
@@ -1492,7 +1501,8 @@
             "artifact",
             "collection",
             "composition",
-            "presentation"
+            "presentation",
+            "briefing"
           ]
         },
         "media_type": {
@@ -2455,6 +2465,27 @@
   "title": "Renderflow execution specification v2",
   "type": "object",
   "allOf": [
+    {
+      "if": {"properties": {"sources": {"contains": {"required": ["kind"], "properties": {"kind": {"const": "briefing"}}}}}},
+      "then": {"properties": {
+        "sources": {"minItems": 1, "maxItems": 1, "items": {"$ref": "#/$defs/briefingSource"}},
+        "targets": {"properties": {
+          "exact": {"type": "array", "minItems": 1, "maxItems": 6, "uniqueItems": true, "items": {"required": ["format"], "properties": {
+            "format": {"enum": ["briefing_script", "briefing_text", "briefing_html", "briefing_chapters", "briefing_feed", "briefing_audio"]}, "requirement": {"const": "required"}, "options": {"maxProperties": 0},
+            "id": {"type": "null"}, "role": {"type": "null"}, "family": {"type": "null"}, "capability": {"type": "null"}, "transform": {"type": "null"}, "provider": {"type": "null"}, "variant": {"type": "null"}, "preset": {"type": "null"}, "template": {"type": "null"}
+          }}},
+          "profiles": {"maxItems": 0}, "all_reachable": {"const": false}, "include": {"$ref": "#/$defs/compositionEmptySelectors"}, "exclude": {"$ref": "#/$defs/compositionEmptySelectors"}, "intermediates": {"const": "cache_only"}
+        }},
+        "execution": {"properties": {
+          "briefing": {"anyOf": [{"$ref": "#/$defs/briefingBuildPolicy"}, {"type": "null"}]}, "composition": {"type": "null"}, "presentation": {"type": "null"}, "lyrics": {"type": "null"},
+          "speech": {"type": "null"}, "subtitles": {"type": "null"}, "screenplay": {"type": "null"}, "screenplay_body": {"type": "null"}, "screenplay_pdf": {"type": "null"}, "screenplay_recovery": {"type": "null"},
+          "max_parallel": {"const": 1}, "optimization": {"const": "balanced"}, "network": {"const": "deny"}, "ai": {"const": "deny"}
+        }},
+        "profiles": {"maxProperties": 0}, "variables": {"maxProperties": 0}, "hygiene": {"maxProperties": 0}, "publication": {"type": "null"}, "transforms": {"type": "null"},
+        "output": {"properties": {"collision": {"const": "error"}, "naming_template": {"const": "{source.id}/{target.role}.{ext}"}}}
+      }},
+      "else": {"properties": {"execution": {"properties": {"briefing": {"type": "null"}}}}}
+    },
     {
       "if": {
         "properties": {

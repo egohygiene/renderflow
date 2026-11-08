@@ -1,0 +1,16 @@
+schema: renderflow/v2
+sources:
+  - id: briefing
+    kind: briefing
+    path: briefing.json
+targets:
+  exact:
+    - format: briefing_script
+    - format: briefing_text
+    - format: briefing_html
+    - format: briefing_chapters
+execution:
+  briefing:
+    allow_draft: true
+output:
+  bundle_root: briefing-candidate

@@ -1,5 +1,5 @@
 //! Local, reviewable repository briefings from pinned text and supplied scripts.
-//! This is a standalone publication profile, not a voice/AI or job engine.
+//! Standalone and common-build entry points share this publication owner.
 
 mod model;
 mod render;
@@ -56,9 +56,9 @@ pub struct BriefingPlan {
     pub publication_approval: String,
 }
 
-struct Captured {
-    plan: BriefingPlan,
-    files: BTreeMap<String, Vec<u8>>,
+pub(crate) struct Captured {
+    pub(crate) plan: BriefingPlan,
+    pub(crate) files: BTreeMap<String, Vec<u8>>,
 }
 
 /// Shared CLI/SDK resolution. It reads bounded local snapshots, never fetches
@@ -67,7 +67,7 @@ pub fn plan(input: &Path, token: ProcessCancellationToken) -> Result<BriefingPla
     Ok(capture(input, token)?.plan)
 }
 
-fn capture(input: &Path, token: ProcessCancellationToken) -> Result<Captured> {
+pub(crate) fn capture(input: &Path, token: ProcessCancellationToken) -> Result<Captured> {
     ensure!(!token.is_cancelled(), "briefing.cancelled");
     let bytes = local::read_file(input, local::MAX_JSON)?;
     let model = parse(&bytes)?;
@@ -141,6 +141,12 @@ fn capture(input: &Path, token: ProcessCancellationToken) -> Result<Captured> {
 
 pub fn build(request: &BriefingRequest, token: ProcessCancellationToken) -> Result<Value> {
     let captured = capture(&request.input, token.clone())?;
+    build_captured(request, &captured, token)
+}
+
+/// Publish the exact bounded snapshot resolved by the common build facade.
+/// Review declarations remain declarations; no source/provider is reloaded.
+pub(crate) fn build_captured(request: &BriefingRequest, captured: &Captured, token: ProcessCancellationToken) -> Result<Value> {
     ensure!(captured.plan.freshness != "stale", "briefing.source.stale: update the source binding and review before building");
     ensure!(captured.plan.narration_script_current != Some(false), "briefing.narration.script.changed: plan reports the current script digest");
     ensure!(captured.plan.reviews_declared || request.allow_draft,
