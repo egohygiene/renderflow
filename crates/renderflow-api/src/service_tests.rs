@@ -19,7 +19,7 @@ impl Fixture {
         let spec=json!({"schema":"renderflow/v2","sources":[{"id":"page","kind":"composition","path":"page.composition.json"}],
             "targets":{"exact":formats.iter().map(|format|json!({"format":format})).collect::<Vec<_>>()},"output":{"bundle_root":"operator-original-output"}});
         fs::write(source.join("renderflow.json"),serde_json::to_vec(&spec).unwrap()).unwrap();
-        let config=ServiceConfig {schema_version:SERVICE_SCHEMA.into(),persistence_directory:None,workspace_parent:"work".into(),
+        let config=ServiceConfig {schema_version:SERVICE_SCHEMA.into(),persistence_directory:None,retain_completed_artifacts:false,workspace_parent:"work".into(),
             pipelines:vec![PipelineConfig{id:"page".into(),root:"source".into(),config:"renderflow.json".into(),
                 files:files.into_iter().chain(std::iter::once("renderflow.json")).map(str::to_string).collect(),
                 profile:PipelineProfile::Composition,allow_local_processes:false,allow_source_uploads:false}],limits:Limits::default()};

@@ -28,7 +28,7 @@ impl Fixture {
             _=>{},
         }
         fs::write(base.join("source/renderflow.json"),serde_json::to_vec(&spec).unwrap()).unwrap();
-        let config=ServiceConfig {schema_version:SERVICE_SCHEMA.into(),persistence_directory:None,workspace_parent:base.join("work"),
+        let config=ServiceConfig {schema_version:SERVICE_SCHEMA.into(),persistence_directory:None,retain_completed_artifacts:false,workspace_parent:base.join("work"),
             pipelines:vec![PipelineConfig{id:"source".into(),root:base.join("source"),config:"renderflow.json".into(),
                 files:vec!["renderflow.json".into(),"input".into()],profile,allow_local_processes:profile.local_processes(),allow_source_uploads:false}],limits:Limits::default()};
         Self {root,config,spec}

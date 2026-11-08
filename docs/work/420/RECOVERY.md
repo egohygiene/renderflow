@@ -1,5 +1,9 @@
 # Bounded local status and upload recovery
 
+Follow-on source checkpoint: [completed publication recovery](COMPLETED_ARTIFACTS.md)
+adds an explicit opt-in published-file cache. The status/upload-only behavior
+below remains the default; the old workspace is never restored.
+
 November 7, 2026 source checkpoint, based on main
 `4d887e95fbb43dc86167b7029e49595bb6704295`. #420 remains open.
 

@@ -313,7 +313,12 @@
             "null"
           ],
           "minLength": 1,
-          "description": "Optional existing private owner-only local journal directory; no automatic job replay or binary workspace recovery."
+          "description": "Optional existing private owner-only local journal directory; no automatic job replay."
+        },
+        "retain_completed_artifacts": {
+          "type": "boolean",
+          "default": false,
+          "description": "Requires persistence_directory. Copies verified completed native publications for bounded reverified download recovery; never retains inputs or resumes interrupted work. Changing this policy requires journal reconciliation."
         }
       }
     },

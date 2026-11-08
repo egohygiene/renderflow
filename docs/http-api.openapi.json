@@ -1164,7 +1164,8 @@
           "local_processes",
           "source_upload",
           "recovered_after_restart",
-          "workspace_retained"
+          "workspace_retained",
+          "artifacts_retained"
         ],
         "properties": {
           "schema_version": {
@@ -1299,7 +1300,11 @@
           },
           "workspace_retained": {
             "type": "boolean",
-            "description": "False for recovered status; binary artifacts are not retained across restart."
+            "description": "Full input/processing workspace is process-local; false after restart even when a download-only artifact copy is recovered."
+          },
+          "artifacts_retained": {
+            "type": "boolean",
+            "description": "Verified published-file cache was committed under explicit operator policy. Native results stay historical; actual bytes are checked again on recovery and download."
           }
         }
       },
