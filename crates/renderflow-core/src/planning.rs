@@ -7,6 +7,7 @@
 pub mod build;
 mod build_composition;
 mod build_presentation;
+mod build_briefing;
 pub mod composition;
 pub(crate) mod composition_evidence;
 pub use composition::{
@@ -439,8 +440,8 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
         .to_str()
         .context("Config path contains non-UTF8 characters")?;
     let loaded = load_spec(config_path)?;
-    if loaded.spec.sources.iter().any(|source| matches!(source.kind, SourceKind::Composition | SourceKind::Presentation)) {
-        anyhow::bail!("composition.build.entrypoint: use planning::build::resolve for composition sources");
+    if loaded.spec.sources.iter().any(|source| matches!(source.kind, SourceKind::Composition | SourceKind::Presentation | SourceKind::Briefing)) {
+        anyhow::bail!("composition.build.entrypoint: use planning::build::resolve for native publication sources");
     }
     resolve_loaded(request, loaded)
 }

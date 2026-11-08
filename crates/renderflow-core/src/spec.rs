@@ -20,6 +20,8 @@ mod composition;
 pub use composition::CompositionBuildPolicy;
 pub(crate) mod presentation;
 pub use presentation::PresentationBuildPolicy;
+pub(crate) mod briefing;
+pub use briefing::BriefingBuildPolicy;
 
 pub const SPEC_V2_ID: &str = "renderflow/v2";
 pub const SPEC_V2_SCHEMA_PATH: &str = "schemas/renderflow-v2.schema.json";
@@ -48,6 +50,7 @@ pub enum SourceKind {
     Collection,
     Composition,
     Presentation,
+    Briefing,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -568,6 +571,8 @@ pub struct ExecutionPolicy {
     /// Explicit frozen presentation adapter, independent of ordinary JSON intake.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub presentation: Option<PresentationBuildPolicy>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub briefing: Option<BriefingBuildPolicy>,
     #[serde(default)]
     pub optimization: OptimizationMode,
     #[serde(default)]
@@ -758,6 +763,7 @@ impl Default for ExecutionPolicy {
             lyrics: None,
             composition: None,
             presentation: None,
+            briefing: None,
             optimization: OptimizationMode::default(),
             derivative_planning: DerivativePlanningPolicy::default(),
             max_parallel: default_max_parallel(),
@@ -1076,7 +1082,7 @@ impl SpecV2 {
             match source.kind {
                 // This source uses the bounded native composition contract,
                 // validated separately from artifact and collection locators.
-                SourceKind::Composition | SourceKind::Presentation => {},
+                SourceKind::Composition | SourceKind::Presentation | SourceKind::Briefing => {},
                 SourceKind::Artifact => {
                     let locator_count =
                         usize::from(source.path.is_some()) + usize::from(source.uri.is_some());
@@ -1478,6 +1484,7 @@ impl SpecV2 {
 
         composition::validate(self, &mut diagnostics);
         presentation::validate(self, &mut diagnostics);
+        briefing::validate(self, &mut diagnostics);
         diagnostics
     }
 }
@@ -2521,6 +2528,7 @@ pub fn json_schema() -> Value {
     });
     composition::extend_schema(&mut schema);
     presentation::extend_schema(&mut schema);
+    briefing::extend_schema(&mut schema);
     schema
 }
 

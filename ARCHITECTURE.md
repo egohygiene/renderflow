@@ -69,8 +69,9 @@ capabilities and records expected work; execution records what actually
 happened. Artifact checks and human review remain distinct from plan intent,
 provider success and telemetry.
 
-The current ordinary build boundary dispatches to the existing format-graph
-engine or the layered-composition engine. These engines retain their own
+The current ordinary build boundary dispatches to the existing format graph,
+layered composition, frozen presentation or frozen local briefing owner. These
+engines retain their own
 execution state and target identities. A locale/output branch is not reduced
 to a format name, and a requested target is not a published derivative. The
 [composition integration decision](docs/work/406/PLANNER_INTEGRATION.md) and
