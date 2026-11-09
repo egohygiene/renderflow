@@ -46,15 +46,33 @@ The [request schema](../../schemas/renderflow-sonic-request-v1.schema.json) uses
   evidence file. Source hash, size, stream, zero-origin sample clock and exact
   frame count must match the selected WAV. Provider/capability/evidence IDs,
   scopes, supported kinds/units and confidence classes are cross-checked.
-- The mapping consumes sample-rate/channel-count observations and tempo/key
-  candidates. Timeline, semantic-artifact, excerpt and extension payloads remain
-  explicitly counted as unprojected. This is a bounded projection of the
+- The mapping consumes sample-rate/channel-count observations, tempo/key
+  candidates and selected `aniflow/audio-musical-structure` timelines. Musical
+  events retain exact half-open source sample ranges, labels, timeline kind,
+  original uncertainty and provider/evidence pointers. Markers occupy one sample;
+  ordering, distinct IDs, source extent and explicit overlap policy are checked.
+  Each selected timeline has at most 256 events and the existing total-fact bound
+  still applies. Other timeline families, semantic-artifact, excerpt and extension
+  payloads remain explicitly counted as unprojected. This is a bounded projection of the
   [pinned public contract](https://github.com/egohygiene/aniflow/blob/8008e0176f45b34d2a9e74d8a26d9b3fd374b81f/docs/contracts/audio-analysis-v1.schema.json),
   not Aniflow's complete native validator or proof that a provider was executed.
 - `companions` are exact byte-bound references with explicit kinds and authority
   declarations. Reviewed lyrics remain distinct from transcript candidates;
-  artist-MIDI remains distinct from inferred MIDI. Their contents are not decoded,
-  promoted to canonical material or sent to a model by this operation. A declared
+  artist-MIDI remains distinct from inferred MIDI. By default their contents are
+  not decoded, promoted to canonical material or sent to a model. An explicit
+  `timed_text_context` on a reviewed-lyrics or transcript-candidate reference can
+  select the existing plain SRT/WebVTT parser for structural context only:
+
+  ```json
+  "timed_text_context": {"format": "srt", "maximum_cues": 128}
+  ```
+
+  This lane admits at most 1 MiB and 256 cues, bounds all cues to the exact selected
+  audio sample clock, and emits only declared role, count, first/last time, overlap
+  and source sample extent. It does not expose cue words/IDs/speakers to DNA or
+  model input, infer lyric accuracy/alignment, authenticate the supplied review,
+  or interpret MIDI. Syntax does not establish musical meaning. Raw words remain
+  private captured input, with no implicit companion-role fallback. A declared
   reference is not authenticated authorship, review, alignment or semantic proof.
 - `corrections` can append declared human tempo/key corrections to existing fact
   IDs shown in plan/DNA. Each keeps its original estimate, a separate origin,
@@ -65,6 +83,18 @@ Paths stay confined to the selected recipe directory; no arbitrary metadata
 string becomes a filesystem path. Mismatched, missing, duplicate or unobserved
 references fail before model work. Native source status remains in the output:
 failed/unavailable analysis is not a successful analyzer observation.
+
+The normalizer revision `sonic-evidence-mappings/2` participates in intent
+identity, and extractor version 2 distinguishes the extended mapping from the
+earlier scalar-only projection. Existing JSON requests may omit context. Rust
+callers constructing `Companion` literals supply `timed_text_context: None` for
+the prior byte-binding behavior. Existing core Artifact DNA is unchanged; the
+selected context/facts remain in its namespaced Sonic extension.
+
+Six focused temporal/companion/privacy/refusal cases are authored, uncompiled
+and unrun. Native/provider/model quality and broader media/semantic/companion
+mapping remain #397 scope; final execution is deferred to flow #88. No actual
+analyzer, model, lyric review or media-processing run is claimed.
 
 ## Confidence and evidence descriptions
 

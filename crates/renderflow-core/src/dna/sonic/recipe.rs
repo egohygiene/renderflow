@@ -22,6 +22,13 @@ pub struct AnalysisInput {pub file:FileInput, pub evidence_files:Vec<FileInput>}
 #[serde(rename_all="snake_case")]
 pub enum CompanionKind {ReviewedLyrics, TranscriptCandidate, ArtistMidi, InferredMidi, StemManifest, VisualDna, Metadata}
 
+#[derive(Debug,Clone,Copy,Serialize,Deserialize)]
+#[serde(rename_all="snake_case")]
+pub enum CompanionTextFormat {Srt,Webvtt}
+#[derive(Debug,Clone,Serialize,Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TimedTextContext {pub format:CompanionTextFormat,pub maximum_cues:usize}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Companion {
@@ -30,6 +37,9 @@ pub struct Companion {
     pub kind:CompanionKind,
     /// A declared authority record; its authenticity is not inferred from bytes.
     pub authority_reference:String,
+    /// Explicit structural inspection only; never expose words or infer approval.
+    #[serde(default,skip_serializing_if="Option::is_none")]
+    pub timed_text_context:Option<TimedTextContext>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -101,6 +111,10 @@ pub fn parse(bytes:&[u8])->Result<SonicRecipe> {
         ensure!(ids.insert(&companion.file.id),"sonic.input.duplicate");
         ensure!(companion.source_sha256==recipe.audio.sha256,"sonic.companion.source.changed");
         local::text(&companion.authority_reference,4096)?;
+        if let Some(context)=&companion.timed_text_context {
+            ensure!(matches!(companion.kind,CompanionKind::ReviewedLyrics|CompanionKind::TranscriptCandidate)
+                &&(1..=256).contains(&context.maximum_cues),"sonic.companion.context.policy");
+        }
     }
     let mut corrections=BTreeSet::new();
     for correction in &recipe.corrections {

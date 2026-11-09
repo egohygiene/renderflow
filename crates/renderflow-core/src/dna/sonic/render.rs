@@ -8,6 +8,8 @@ fn topic(dimension:&str)->&'static str {
     if dimension.starts_with("sonic.technical.") {"technical"}
     else if dimension.starts_with("sonic.rhythm.") {"rhythm"}
     else if dimension.starts_with("sonic.harmony.") {"harmony"}
+    else if dimension.starts_with("sonic.arrangement.") {"arrangement"}
+    else if dimension.starts_with("sonic.lyrics.") {"lyrics"}
     else {"other"}
 }
 

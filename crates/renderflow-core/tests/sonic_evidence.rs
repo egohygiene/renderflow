@@ -40,6 +40,9 @@ fn mutate_analysis(root:&Path,input:&Path,recipe:&mut SonicRecipe,change:impl Fn
     recipe.analyses[0].file.sha256=hash(&bytes);save(input,recipe);
 }
 
+#[path="sonic_evidence/context.rs"]
+mod context;
+
 #[test]
 fn plan_observes_bindings_without_creating_artifacts_or_model_results() {
     let root=tempfile::tempdir().unwrap();let (input,_)=fixture(root.path());
@@ -130,7 +133,7 @@ fn companion_authorities_stay_distinct_and_payloads_stay_out_of_model_input() {
         let bytes=format!("Synthetic reference bytes {index}; authority is a fixture declaration only.");
         let path=format!("companion-{index}.txt");fs::write(root.path().join(&path),bytes.as_bytes()).unwrap();
         recipe.companions.push(Companion {file:FileInput {id:format!("companion-{index}"),path,sha256:hash(bytes.as_bytes())},
-            source_sha256:recipe.audio.sha256.clone(),kind,authority_reference:"synthetic declared authority; not authenticated review or authorship".into()});
+            source_sha256:recipe.audio.sha256.clone(),kind,authority_reference:"synthetic declared authority; not authenticated review or authorship".into(),timed_text_context:None});
     }
     save(&input,&recipe);let output=root.path().join("bundle");sonic::build(&request(&input,&output),None,token()).unwrap();
     let dna=read(&output.join("sonic-dna.json"));let companions=dna["provider_extensions"]["renderflow.sonic"]["companions"].as_array().unwrap();
