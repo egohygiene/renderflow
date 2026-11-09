@@ -1,0 +1,1039 @@
+group,family,source,target,kind,surface,status,via,providers,flags,source_revision
+documents.pandoc,Documents & ebooks,markdown,html,direct,Build / SDK,source_registered,,Pandoc; Tectonic for PDF,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+documents.pandoc,Documents & ebooks,markdown,pdf,direct,Build / SDK,source_registered,,Pandoc; Tectonic for PDF,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+documents.pandoc,Documents & ebooks,markdown,docx,direct,Build / SDK,source_registered,,Pandoc; Tectonic for PDF,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+documents.pandoc,Documents & ebooks,markdown,epub,direct,Build / SDK,source_registered,,Pandoc; Tectonic for PDF,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+documents.pandoc,Documents & ebooks,html,pdf,direct,Build / SDK,source_registered,,Pandoc; Tectonic for PDF,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+documents.pandoc,Documents & ebooks,html,docx,direct,Build / SDK,source_registered,,Pandoc; Tectonic for PDF,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+documents.pandoc,Documents & ebooks,html,epub,direct,Build / SDK,source_registered,,Pandoc; Tectonic for PDF,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+documents.pandoc,Documents & ebooks,docx,html,direct,Build / SDK,source_registered,,Pandoc; Tectonic for PDF,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+documents.pandoc,Documents & ebooks,docx,pdf,direct,Build / SDK,source_registered,,Pandoc; Tectonic for PDF,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+documents.pandoc,Documents & ebooks,docx,epub,direct,Build / SDK,source_registered,,Pandoc; Tectonic for PDF,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+documents.pandoc,Documents & ebooks,epub,html,direct,Build / SDK,source_registered,,Pandoc; Tectonic for PDF,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+documents.pandoc,Documents & ebooks,epub,pdf,direct,Build / SDK,source_registered,,Pandoc; Tectonic for PDF,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+documents.pandoc,Documents & ebooks,epub,docx,direct,Build / SDK,source_registered,,Pandoc; Tectonic for PDF,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+documents.pandoc,Documents & ebooks,kepub,html,direct,Build / SDK,source_registered,,Pandoc; Tectonic for PDF,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+documents.pandoc,Documents & ebooks,kepub,pdf,direct,Build / SDK,source_registered,,Pandoc; Tectonic for PDF,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+documents.pandoc,Documents & ebooks,kepub,docx,direct,Build / SDK,source_registered,,Pandoc; Tectonic for PDF,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+documents.pandoc,Documents & ebooks,kepub,epub,direct,Build / SDK,source_registered,,Pandoc; Tectonic for PDF,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+documents.pandoc,Documents & ebooks,rst,html,direct,Build / SDK,source_registered,,Pandoc; Tectonic for PDF,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+documents.pandoc,Documents & ebooks,rst,pdf,direct,Build / SDK,source_registered,,Pandoc; Tectonic for PDF,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+documents.pandoc,Documents & ebooks,rst,docx,direct,Build / SDK,source_registered,,Pandoc; Tectonic for PDF,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+documents.pandoc,Documents & ebooks,rst,epub,direct,Build / SDK,source_registered,,Pandoc; Tectonic for PDF,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+documents.pandoc,Documents & ebooks,latex,html,direct,Build / SDK,source_registered,,Pandoc; Tectonic for PDF,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+documents.pandoc,Documents & ebooks,latex,pdf,direct,Build / SDK,source_registered,,Pandoc; Tectonic for PDF,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+documents.pandoc,Documents & ebooks,latex,docx,direct,Build / SDK,source_registered,,Pandoc; Tectonic for PDF,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+documents.pandoc,Documents & ebooks,latex,epub,direct,Build / SDK,source_registered,,Pandoc; Tectonic for PDF,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+ebooks.kepub,Documents & ebooks,epub,kepub,direct,Build / SDK,source_registered,,Kepubify,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+ebooks.reflow.chain,Documents & ebooks,markdown,kepub,scoped_chain,Build / SDK,source_registered,epub,Pandoc; Kepubify,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+ebooks.reflow.chain,Documents & ebooks,html,kepub,scoped_chain,Build / SDK,source_registered,epub,Pandoc; Kepubify,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+ebooks.reflow.chain,Documents & ebooks,docx,kepub,scoped_chain,Build / SDK,source_registered,epub,Pandoc; Kepubify,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+ebooks.reflow.chain,Documents & ebooks,rst,kepub,scoped_chain,Build / SDK,source_registered,epub,Pandoc; Kepubify,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+ebooks.reflow.chain,Documents & ebooks,latex,kepub,scoped_chain,Build / SDK,source_registered,epub,Pandoc; Kepubify,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+documents.editorial,Documents & ebooks,markdown,html,profile,Build / SDK,source_registered,,Pandoc >=3.6.1; Tectonic for PDF; Bundled templates/fonts,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+documents.editorial,Documents & ebooks,markdown,pdf,profile,Build / SDK,source_registered,,Pandoc >=3.6.1; Tectonic for PDF; Bundled templates/fonts,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+documents.editorial,Documents & ebooks,markdown,docx,profile,Build / SDK,source_registered,,Pandoc >=3.6.1; Tectonic for PDF; Bundled templates/fonts,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+documents.editorial,Documents & ebooks,markdown,epub,profile,Build / SDK,source_registered,,Pandoc >=3.6.1; Tectonic for PDF; Bundled templates/fonts,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+images.ffmpeg,Images,jpeg,png,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+images.ffmpeg,Images,jpeg,tiff,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+images.ffmpeg,Images,jpeg,webp,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+images.ffmpeg,Images,jpeg,gif,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+images.ffmpeg,Images,jpeg,bmp,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+images.ffmpeg,Images,jpeg,avif,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+images.ffmpeg,Images,png,jpeg,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+images.ffmpeg,Images,png,tiff,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+images.ffmpeg,Images,png,webp,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+images.ffmpeg,Images,png,gif,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+images.ffmpeg,Images,png,bmp,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+images.ffmpeg,Images,png,avif,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+images.ffmpeg,Images,tiff,jpeg,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+images.ffmpeg,Images,tiff,png,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+images.ffmpeg,Images,tiff,webp,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+images.ffmpeg,Images,tiff,gif,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+images.ffmpeg,Images,tiff,bmp,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+images.ffmpeg,Images,tiff,avif,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+images.ffmpeg,Images,webp,jpeg,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+images.ffmpeg,Images,webp,png,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+images.ffmpeg,Images,webp,tiff,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+images.ffmpeg,Images,webp,gif,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+images.ffmpeg,Images,webp,bmp,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+images.ffmpeg,Images,webp,avif,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+images.ffmpeg,Images,gif,jpeg,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+images.ffmpeg,Images,gif,png,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+images.ffmpeg,Images,gif,tiff,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+images.ffmpeg,Images,gif,webp,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+images.ffmpeg,Images,gif,bmp,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+images.ffmpeg,Images,gif,avif,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+images.ffmpeg,Images,bmp,jpeg,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+images.ffmpeg,Images,bmp,png,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+images.ffmpeg,Images,bmp,tiff,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+images.ffmpeg,Images,bmp,webp,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+images.ffmpeg,Images,bmp,gif,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+images.ffmpeg,Images,bmp,avif,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+images.ffmpeg,Images,avif,jpeg,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+images.ffmpeg,Images,avif,png,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+images.ffmpeg,Images,avif,tiff,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+images.ffmpeg,Images,avif,webp,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+images.ffmpeg,Images,avif,gif,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+images.ffmpeg,Images,avif,bmp,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,wav,aiff,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,wav,bwf,direct,Build / SDK,mapping_gap,,FFmpeg,BWF target maps to WAV/PCM without explicit bext authoring; broadcast metadata conformance is not established.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,wav,pcm,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,wav,flac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,wav,m4a_alac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,wav,wv,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,wav,ape,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,wav,tta,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,wav,mp3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,wav,m4a,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,wav,aac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,wav,ogg,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,wav,opus,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,wav,wma,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,wav,amr,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,wav,mp2,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,wav,ac3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,wav,ec3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,wav,dts,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,wav,midi,direct,Build / SDK,mapping_gap,,FFmpeg,Symbolic MIDI: generic FFmpeg declaration only; no dedicated transcription/synthesis adapter.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,aiff,wav,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,aiff,bwf,direct,Build / SDK,mapping_gap,,FFmpeg,BWF target maps to WAV/PCM without explicit bext authoring; broadcast metadata conformance is not established.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,aiff,pcm,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,aiff,flac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,aiff,m4a_alac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,aiff,wv,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,aiff,ape,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,aiff,tta,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,aiff,mp3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,aiff,m4a,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,aiff,aac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,aiff,ogg,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,aiff,opus,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,aiff,wma,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,aiff,amr,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,aiff,mp2,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,aiff,ac3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,aiff,ec3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,aiff,dts,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,aiff,midi,direct,Build / SDK,mapping_gap,,FFmpeg,Symbolic MIDI: generic FFmpeg declaration only; no dedicated transcription/synthesis adapter.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,bwf,wav,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,bwf,aiff,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,bwf,pcm,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,bwf,flac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,bwf,m4a_alac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,bwf,wv,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,bwf,ape,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,bwf,tta,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,bwf,mp3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,bwf,m4a,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,bwf,aac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,bwf,ogg,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,bwf,opus,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,bwf,wma,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,bwf,amr,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,bwf,mp2,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,bwf,ac3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,bwf,ec3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,bwf,dts,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,bwf,midi,direct,Build / SDK,mapping_gap,,FFmpeg,Symbolic MIDI: generic FFmpeg declaration only; no dedicated transcription/synthesis adapter.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,pcm,wav,direct,Build / SDK,mapping_gap,,FFmpeg,Raw input clock/format admission gap: generic argv has no explicit raw input -f/-ar/-ac.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,pcm,aiff,direct,Build / SDK,mapping_gap,,FFmpeg,Raw input clock/format admission gap: generic argv has no explicit raw input -f/-ar/-ac.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,pcm,bwf,direct,Build / SDK,mapping_gap,,FFmpeg,Raw input clock/format admission gap: generic argv has no explicit raw input -f/-ar/-ac.; BWF target maps to WAV/PCM without explicit bext authoring; broadcast metadata conformance is not established.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,pcm,flac,direct,Build / SDK,mapping_gap,,FFmpeg,Raw input clock/format admission gap: generic argv has no explicit raw input -f/-ar/-ac.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,pcm,m4a_alac,direct,Build / SDK,mapping_gap,,FFmpeg,Raw input clock/format admission gap: generic argv has no explicit raw input -f/-ar/-ac.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,pcm,wv,direct,Build / SDK,mapping_gap,,FFmpeg,Raw input clock/format admission gap: generic argv has no explicit raw input -f/-ar/-ac.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,pcm,ape,direct,Build / SDK,mapping_gap,,FFmpeg,Raw input clock/format admission gap: generic argv has no explicit raw input -f/-ar/-ac.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,pcm,tta,direct,Build / SDK,mapping_gap,,FFmpeg,Raw input clock/format admission gap: generic argv has no explicit raw input -f/-ar/-ac.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,pcm,mp3,direct,Build / SDK,mapping_gap,,FFmpeg,Raw input clock/format admission gap: generic argv has no explicit raw input -f/-ar/-ac.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,pcm,m4a,direct,Build / SDK,mapping_gap,,FFmpeg,Raw input clock/format admission gap: generic argv has no explicit raw input -f/-ar/-ac.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,pcm,aac,direct,Build / SDK,mapping_gap,,FFmpeg,Raw input clock/format admission gap: generic argv has no explicit raw input -f/-ar/-ac.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,pcm,ogg,direct,Build / SDK,mapping_gap,,FFmpeg,Raw input clock/format admission gap: generic argv has no explicit raw input -f/-ar/-ac.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,pcm,opus,direct,Build / SDK,mapping_gap,,FFmpeg,Raw input clock/format admission gap: generic argv has no explicit raw input -f/-ar/-ac.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,pcm,wma,direct,Build / SDK,mapping_gap,,FFmpeg,Raw input clock/format admission gap: generic argv has no explicit raw input -f/-ar/-ac.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,pcm,amr,direct,Build / SDK,mapping_gap,,FFmpeg,Raw input clock/format admission gap: generic argv has no explicit raw input -f/-ar/-ac.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,pcm,mp2,direct,Build / SDK,mapping_gap,,FFmpeg,Raw input clock/format admission gap: generic argv has no explicit raw input -f/-ar/-ac.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,pcm,ac3,direct,Build / SDK,mapping_gap,,FFmpeg,Raw input clock/format admission gap: generic argv has no explicit raw input -f/-ar/-ac.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,pcm,ec3,direct,Build / SDK,mapping_gap,,FFmpeg,Raw input clock/format admission gap: generic argv has no explicit raw input -f/-ar/-ac.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,pcm,dts,direct,Build / SDK,mapping_gap,,FFmpeg,Raw input clock/format admission gap: generic argv has no explicit raw input -f/-ar/-ac.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,pcm,midi,direct,Build / SDK,mapping_gap,,FFmpeg,Symbolic MIDI: generic FFmpeg declaration only; no dedicated transcription/synthesis adapter.; Raw input clock/format admission gap: generic argv has no explicit raw input -f/-ar/-ac.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,flac,wav,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,flac,aiff,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,flac,bwf,direct,Build / SDK,mapping_gap,,FFmpeg,BWF target maps to WAV/PCM without explicit bext authoring; broadcast metadata conformance is not established.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,flac,pcm,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,flac,m4a_alac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,flac,wv,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,flac,ape,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,flac,tta,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,flac,mp3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,flac,m4a,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,flac,aac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,flac,ogg,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,flac,opus,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,flac,wma,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,flac,amr,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,flac,mp2,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,flac,ac3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,flac,ec3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,flac,dts,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,flac,midi,direct,Build / SDK,mapping_gap,,FFmpeg,Symbolic MIDI: generic FFmpeg declaration only; no dedicated transcription/synthesis adapter.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,m4a_alac,wav,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,m4a_alac,aiff,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,m4a_alac,bwf,direct,Build / SDK,mapping_gap,,FFmpeg,BWF target maps to WAV/PCM without explicit bext authoring; broadcast metadata conformance is not established.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,m4a_alac,pcm,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,m4a_alac,flac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,m4a_alac,wv,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,m4a_alac,ape,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,m4a_alac,tta,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,m4a_alac,mp3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,m4a_alac,m4a,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,m4a_alac,aac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,m4a_alac,ogg,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,m4a_alac,opus,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,m4a_alac,wma,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,m4a_alac,amr,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,m4a_alac,mp2,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,m4a_alac,ac3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,m4a_alac,ec3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,m4a_alac,dts,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,m4a_alac,midi,direct,Build / SDK,mapping_gap,,FFmpeg,Symbolic MIDI: generic FFmpeg declaration only; no dedicated transcription/synthesis adapter.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,wv,wav,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,wv,aiff,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,wv,bwf,direct,Build / SDK,mapping_gap,,FFmpeg,BWF target maps to WAV/PCM without explicit bext authoring; broadcast metadata conformance is not established.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,wv,pcm,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,wv,flac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,wv,m4a_alac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,wv,ape,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,wv,tta,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,wv,mp3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,wv,m4a,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,wv,aac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,wv,ogg,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,wv,opus,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,wv,wma,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,wv,amr,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,wv,mp2,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,wv,ac3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,wv,ec3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,wv,dts,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,wv,midi,direct,Build / SDK,mapping_gap,,FFmpeg,Symbolic MIDI: generic FFmpeg declaration only; no dedicated transcription/synthesis adapter.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ape,wav,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ape,aiff,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ape,bwf,direct,Build / SDK,mapping_gap,,FFmpeg,BWF target maps to WAV/PCM without explicit bext authoring; broadcast metadata conformance is not established.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ape,pcm,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ape,flac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ape,m4a_alac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ape,wv,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ape,tta,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ape,mp3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ape,m4a,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ape,aac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ape,ogg,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ape,opus,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ape,wma,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ape,amr,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ape,mp2,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ape,ac3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ape,ec3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ape,dts,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ape,midi,direct,Build / SDK,mapping_gap,,FFmpeg,Symbolic MIDI: generic FFmpeg declaration only; no dedicated transcription/synthesis adapter.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,tta,wav,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,tta,aiff,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,tta,bwf,direct,Build / SDK,mapping_gap,,FFmpeg,BWF target maps to WAV/PCM without explicit bext authoring; broadcast metadata conformance is not established.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,tta,pcm,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,tta,flac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,tta,m4a_alac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,tta,wv,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,tta,ape,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,tta,mp3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,tta,m4a,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,tta,aac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,tta,ogg,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,tta,opus,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,tta,wma,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,tta,amr,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,tta,mp2,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,tta,ac3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,tta,ec3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,tta,dts,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,tta,midi,direct,Build / SDK,mapping_gap,,FFmpeg,Symbolic MIDI: generic FFmpeg declaration only; no dedicated transcription/synthesis adapter.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dsf,wav,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dsf,aiff,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dsf,bwf,direct,Build / SDK,mapping_gap,,FFmpeg,BWF target maps to WAV/PCM without explicit bext authoring; broadcast metadata conformance is not established.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dsf,pcm,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dsf,flac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dsf,m4a_alac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dsf,wv,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dsf,ape,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dsf,tta,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dsf,mp3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dsf,m4a,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dsf,aac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dsf,ogg,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dsf,opus,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dsf,wma,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dsf,amr,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dsf,mp2,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dsf,ac3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dsf,ec3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dsf,dts,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dsf,midi,direct,Build / SDK,mapping_gap,,FFmpeg,Symbolic MIDI: generic FFmpeg declaration only; no dedicated transcription/synthesis adapter.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dff,wav,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dff,aiff,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dff,bwf,direct,Build / SDK,mapping_gap,,FFmpeg,BWF target maps to WAV/PCM without explicit bext authoring; broadcast metadata conformance is not established.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dff,pcm,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dff,flac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dff,m4a_alac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dff,wv,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dff,ape,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dff,tta,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dff,mp3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dff,m4a,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dff,aac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dff,ogg,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dff,opus,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dff,wma,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dff,amr,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dff,mp2,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dff,ac3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dff,ec3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dff,dts,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dff,midi,direct,Build / SDK,mapping_gap,,FFmpeg,Symbolic MIDI: generic FFmpeg declaration only; no dedicated transcription/synthesis adapter.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,shn,wav,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,shn,aiff,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,shn,bwf,direct,Build / SDK,mapping_gap,,FFmpeg,BWF target maps to WAV/PCM without explicit bext authoring; broadcast metadata conformance is not established.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,shn,pcm,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,shn,flac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,shn,m4a_alac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,shn,wv,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,shn,ape,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,shn,tta,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,shn,mp3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,shn,m4a,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,shn,aac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,shn,ogg,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,shn,opus,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,shn,wma,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,shn,amr,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,shn,mp2,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,shn,ac3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,shn,ec3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,shn,dts,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,shn,midi,direct,Build / SDK,mapping_gap,,FFmpeg,Symbolic MIDI: generic FFmpeg declaration only; no dedicated transcription/synthesis adapter.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,mp3,wav,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,mp3,aiff,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,mp3,bwf,direct,Build / SDK,mapping_gap,,FFmpeg,BWF target maps to WAV/PCM without explicit bext authoring; broadcast metadata conformance is not established.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,mp3,pcm,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,mp3,flac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,mp3,m4a_alac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,mp3,wv,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,mp3,ape,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,mp3,tta,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,mp3,m4a,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,mp3,aac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,mp3,ogg,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,mp3,opus,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,mp3,wma,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,mp3,amr,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,mp3,mp2,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,mp3,ac3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,mp3,ec3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,mp3,dts,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,mp3,midi,direct,Build / SDK,mapping_gap,,FFmpeg,Symbolic MIDI: generic FFmpeg declaration only; no dedicated transcription/synthesis adapter.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,m4a,wav,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,m4a,aiff,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,m4a,bwf,direct,Build / SDK,mapping_gap,,FFmpeg,BWF target maps to WAV/PCM without explicit bext authoring; broadcast metadata conformance is not established.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,m4a,pcm,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,m4a,flac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,m4a,m4a_alac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,m4a,wv,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,m4a,ape,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,m4a,tta,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,m4a,mp3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,m4a,aac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,m4a,ogg,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,m4a,opus,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,m4a,wma,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,m4a,amr,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,m4a,mp2,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,m4a,ac3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,m4a,ec3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,m4a,dts,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,m4a,midi,direct,Build / SDK,mapping_gap,,FFmpeg,Symbolic MIDI: generic FFmpeg declaration only; no dedicated transcription/synthesis adapter.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,aac,wav,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,aac,aiff,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,aac,bwf,direct,Build / SDK,mapping_gap,,FFmpeg,BWF target maps to WAV/PCM without explicit bext authoring; broadcast metadata conformance is not established.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,aac,pcm,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,aac,flac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,aac,m4a_alac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,aac,wv,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,aac,ape,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,aac,tta,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,aac,mp3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,aac,m4a,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,aac,ogg,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,aac,opus,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,aac,wma,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,aac,amr,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,aac,mp2,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,aac,ac3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,aac,ec3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,aac,dts,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,aac,midi,direct,Build / SDK,mapping_gap,,FFmpeg,Symbolic MIDI: generic FFmpeg declaration only; no dedicated transcription/synthesis adapter.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ogg,wav,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ogg,aiff,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ogg,bwf,direct,Build / SDK,mapping_gap,,FFmpeg,BWF target maps to WAV/PCM without explicit bext authoring; broadcast metadata conformance is not established.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ogg,pcm,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ogg,flac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ogg,m4a_alac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ogg,wv,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ogg,ape,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ogg,tta,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ogg,mp3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ogg,m4a,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ogg,aac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ogg,opus,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ogg,wma,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ogg,amr,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ogg,mp2,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ogg,ac3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ogg,ec3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ogg,dts,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ogg,midi,direct,Build / SDK,mapping_gap,,FFmpeg,Symbolic MIDI: generic FFmpeg declaration only; no dedicated transcription/synthesis adapter.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,opus,wav,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,opus,aiff,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,opus,bwf,direct,Build / SDK,mapping_gap,,FFmpeg,BWF target maps to WAV/PCM without explicit bext authoring; broadcast metadata conformance is not established.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,opus,pcm,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,opus,flac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,opus,m4a_alac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,opus,wv,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,opus,ape,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,opus,tta,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,opus,mp3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,opus,m4a,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,opus,aac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,opus,ogg,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,opus,wma,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,opus,amr,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,opus,mp2,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,opus,ac3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,opus,ec3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,opus,dts,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,opus,midi,direct,Build / SDK,mapping_gap,,FFmpeg,Symbolic MIDI: generic FFmpeg declaration only; no dedicated transcription/synthesis adapter.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,wma,wav,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,wma,aiff,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,wma,bwf,direct,Build / SDK,mapping_gap,,FFmpeg,BWF target maps to WAV/PCM without explicit bext authoring; broadcast metadata conformance is not established.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,wma,pcm,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,wma,flac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,wma,m4a_alac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,wma,wv,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,wma,ape,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,wma,tta,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,wma,mp3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,wma,m4a,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,wma,aac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,wma,ogg,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,wma,opus,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,wma,amr,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,wma,mp2,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,wma,ac3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,wma,ec3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,wma,dts,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,wma,midi,direct,Build / SDK,mapping_gap,,FFmpeg,Symbolic MIDI: generic FFmpeg declaration only; no dedicated transcription/synthesis adapter.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,amr,wav,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,amr,aiff,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,amr,bwf,direct,Build / SDK,mapping_gap,,FFmpeg,BWF target maps to WAV/PCM without explicit bext authoring; broadcast metadata conformance is not established.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,amr,pcm,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,amr,flac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,amr,m4a_alac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,amr,wv,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,amr,ape,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,amr,tta,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,amr,mp3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,amr,m4a,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,amr,aac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,amr,ogg,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,amr,opus,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,amr,wma,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,amr,mp2,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,amr,ac3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,amr,ec3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,amr,dts,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,amr,midi,direct,Build / SDK,mapping_gap,,FFmpeg,Symbolic MIDI: generic FFmpeg declaration only; no dedicated transcription/synthesis adapter.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,mp2,wav,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,mp2,aiff,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,mp2,bwf,direct,Build / SDK,mapping_gap,,FFmpeg,BWF target maps to WAV/PCM without explicit bext authoring; broadcast metadata conformance is not established.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,mp2,pcm,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,mp2,flac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,mp2,m4a_alac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,mp2,wv,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,mp2,ape,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,mp2,tta,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,mp2,mp3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,mp2,m4a,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,mp2,aac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,mp2,ogg,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,mp2,opus,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,mp2,wma,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,mp2,amr,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,mp2,ac3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,mp2,ec3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,mp2,dts,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,mp2,midi,direct,Build / SDK,mapping_gap,,FFmpeg,Symbolic MIDI: generic FFmpeg declaration only; no dedicated transcription/synthesis adapter.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ra,wav,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ra,aiff,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ra,bwf,direct,Build / SDK,mapping_gap,,FFmpeg,BWF target maps to WAV/PCM without explicit bext authoring; broadcast metadata conformance is not established.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ra,pcm,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ra,flac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ra,m4a_alac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ra,wv,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ra,ape,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ra,tta,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ra,mp3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ra,m4a,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ra,aac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ra,ogg,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ra,opus,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ra,wma,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ra,amr,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ra,mp2,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ra,ac3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ra,ec3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ra,dts,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ra,midi,direct,Build / SDK,mapping_gap,,FFmpeg,Symbolic MIDI: generic FFmpeg declaration only; no dedicated transcription/synthesis adapter.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,oma,wav,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,oma,aiff,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,oma,bwf,direct,Build / SDK,mapping_gap,,FFmpeg,BWF target maps to WAV/PCM without explicit bext authoring; broadcast metadata conformance is not established.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,oma,pcm,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,oma,flac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,oma,m4a_alac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,oma,wv,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,oma,ape,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,oma,tta,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,oma,mp3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,oma,m4a,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,oma,aac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,oma,ogg,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,oma,opus,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,oma,wma,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,oma,amr,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,oma,mp2,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,oma,ac3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,oma,ec3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,oma,dts,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,oma,midi,direct,Build / SDK,mapping_gap,,FFmpeg,Symbolic MIDI: generic FFmpeg declaration only; no dedicated transcription/synthesis adapter.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ac3,wav,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ac3,aiff,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ac3,bwf,direct,Build / SDK,mapping_gap,,FFmpeg,BWF target maps to WAV/PCM without explicit bext authoring; broadcast metadata conformance is not established.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ac3,pcm,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ac3,flac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ac3,m4a_alac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ac3,wv,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ac3,ape,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ac3,tta,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ac3,mp3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ac3,m4a,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ac3,aac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ac3,ogg,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ac3,opus,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ac3,wma,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ac3,amr,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ac3,mp2,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ac3,ec3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ac3,dts,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ac3,midi,direct,Build / SDK,mapping_gap,,FFmpeg,Symbolic MIDI: generic FFmpeg declaration only; no dedicated transcription/synthesis adapter.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ec3,wav,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ec3,aiff,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ec3,bwf,direct,Build / SDK,mapping_gap,,FFmpeg,BWF target maps to WAV/PCM without explicit bext authoring; broadcast metadata conformance is not established.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ec3,pcm,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ec3,flac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ec3,m4a_alac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ec3,wv,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ec3,ape,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ec3,tta,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ec3,mp3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ec3,m4a,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ec3,aac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ec3,ogg,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ec3,opus,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ec3,wma,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ec3,amr,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ec3,mp2,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ec3,ac3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ec3,dts,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,ec3,midi,direct,Build / SDK,mapping_gap,,FFmpeg,Symbolic MIDI: generic FFmpeg declaration only; no dedicated transcription/synthesis adapter.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,thd,wav,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,thd,aiff,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,thd,bwf,direct,Build / SDK,mapping_gap,,FFmpeg,BWF target maps to WAV/PCM without explicit bext authoring; broadcast metadata conformance is not established.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,thd,pcm,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,thd,flac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,thd,m4a_alac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,thd,wv,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,thd,ape,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,thd,tta,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,thd,mp3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,thd,m4a,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,thd,aac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,thd,ogg,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,thd,opus,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,thd,wma,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,thd,amr,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,thd,mp2,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,thd,ac3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,thd,ec3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,thd,dts,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,thd,midi,direct,Build / SDK,mapping_gap,,FFmpeg,Symbolic MIDI: generic FFmpeg declaration only; no dedicated transcription/synthesis adapter.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dts,wav,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dts,aiff,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dts,bwf,direct,Build / SDK,mapping_gap,,FFmpeg,BWF target maps to WAV/PCM without explicit bext authoring; broadcast metadata conformance is not established.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dts,pcm,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dts,flac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dts,m4a_alac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dts,wv,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dts,ape,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dts,tta,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dts,mp3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dts,m4a,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dts,aac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dts,ogg,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dts,opus,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dts,wma,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dts,amr,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dts,mp2,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dts,ac3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dts,ec3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dts,midi,direct,Build / SDK,mapping_gap,,FFmpeg,Symbolic MIDI: generic FFmpeg declaration only; no dedicated transcription/synthesis adapter.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dtshd,wav,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dtshd,aiff,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dtshd,bwf,direct,Build / SDK,mapping_gap,,FFmpeg,BWF target maps to WAV/PCM without explicit bext authoring; broadcast metadata conformance is not established.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dtshd,pcm,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dtshd,flac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dtshd,m4a_alac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dtshd,wv,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dtshd,ape,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dtshd,tta,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dtshd,mp3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dtshd,m4a,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dtshd,aac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dtshd,ogg,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dtshd,opus,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dtshd,wma,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dtshd,amr,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dtshd,mp2,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dtshd,ac3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dtshd,ec3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dtshd,dts,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,dtshd,midi,direct,Build / SDK,mapping_gap,,FFmpeg,Symbolic MIDI: generic FFmpeg declaration only; no dedicated transcription/synthesis adapter.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,midi,wav,direct,Build / SDK,mapping_gap,,FFmpeg,Symbolic MIDI: generic FFmpeg declaration only; no dedicated transcription/synthesis adapter.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,midi,aiff,direct,Build / SDK,mapping_gap,,FFmpeg,Symbolic MIDI: generic FFmpeg declaration only; no dedicated transcription/synthesis adapter.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,midi,bwf,direct,Build / SDK,mapping_gap,,FFmpeg,Symbolic MIDI: generic FFmpeg declaration only; no dedicated transcription/synthesis adapter.; BWF target maps to WAV/PCM without explicit bext authoring; broadcast metadata conformance is not established.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,midi,pcm,direct,Build / SDK,mapping_gap,,FFmpeg,Symbolic MIDI: generic FFmpeg declaration only; no dedicated transcription/synthesis adapter.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,midi,flac,direct,Build / SDK,mapping_gap,,FFmpeg,Symbolic MIDI: generic FFmpeg declaration only; no dedicated transcription/synthesis adapter.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,midi,m4a_alac,direct,Build / SDK,mapping_gap,,FFmpeg,Symbolic MIDI: generic FFmpeg declaration only; no dedicated transcription/synthesis adapter.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,midi,wv,direct,Build / SDK,mapping_gap,,FFmpeg,Symbolic MIDI: generic FFmpeg declaration only; no dedicated transcription/synthesis adapter.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,midi,ape,direct,Build / SDK,mapping_gap,,FFmpeg,Symbolic MIDI: generic FFmpeg declaration only; no dedicated transcription/synthesis adapter.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,midi,tta,direct,Build / SDK,mapping_gap,,FFmpeg,Symbolic MIDI: generic FFmpeg declaration only; no dedicated transcription/synthesis adapter.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,midi,mp3,direct,Build / SDK,mapping_gap,,FFmpeg,Symbolic MIDI: generic FFmpeg declaration only; no dedicated transcription/synthesis adapter.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,midi,m4a,direct,Build / SDK,mapping_gap,,FFmpeg,Symbolic MIDI: generic FFmpeg declaration only; no dedicated transcription/synthesis adapter.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,midi,aac,direct,Build / SDK,mapping_gap,,FFmpeg,Symbolic MIDI: generic FFmpeg declaration only; no dedicated transcription/synthesis adapter.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,midi,ogg,direct,Build / SDK,mapping_gap,,FFmpeg,Symbolic MIDI: generic FFmpeg declaration only; no dedicated transcription/synthesis adapter.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,midi,opus,direct,Build / SDK,mapping_gap,,FFmpeg,Symbolic MIDI: generic FFmpeg declaration only; no dedicated transcription/synthesis adapter.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,midi,wma,direct,Build / SDK,mapping_gap,,FFmpeg,Symbolic MIDI: generic FFmpeg declaration only; no dedicated transcription/synthesis adapter.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,midi,amr,direct,Build / SDK,mapping_gap,,FFmpeg,Symbolic MIDI: generic FFmpeg declaration only; no dedicated transcription/synthesis adapter.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,midi,mp2,direct,Build / SDK,mapping_gap,,FFmpeg,Symbolic MIDI: generic FFmpeg declaration only; no dedicated transcription/synthesis adapter.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,midi,ac3,direct,Build / SDK,mapping_gap,,FFmpeg,Symbolic MIDI: generic FFmpeg declaration only; no dedicated transcription/synthesis adapter.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,midi,ec3,direct,Build / SDK,mapping_gap,,FFmpeg,Symbolic MIDI: generic FFmpeg declaration only; no dedicated transcription/synthesis adapter.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,midi,dts,direct,Build / SDK,mapping_gap,,FFmpeg,Symbolic MIDI: generic FFmpeg declaration only; no dedicated transcription/synthesis adapter.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,mod,wav,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,mod,aiff,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,mod,bwf,direct,Build / SDK,mapping_gap,,FFmpeg,BWF target maps to WAV/PCM without explicit bext authoring; broadcast metadata conformance is not established.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,mod,pcm,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,mod,flac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,mod,m4a_alac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,mod,wv,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,mod,ape,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,mod,tta,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,mod,mp3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,mod,m4a,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,mod,aac,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,mod,ogg,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,mod,opus,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,mod,wma,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,mod,amr,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,mod,mp2,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,mod,ac3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,mod,ec3,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,mod,dts,direct,Build / SDK,provider_dependent,,FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+audio.ffmpeg,Audio,mod,midi,direct,Build / SDK,mapping_gap,,FFmpeg,Symbolic MIDI: generic FFmpeg declaration only; no dedicated transcription/synthesis adapter.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+subtitles.import,Lyrics & subtitles,srt,timed_transcript_json,direct,Build / standalone / SDK,source_registered,,In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+subtitles.import,Lyrics & subtitles,vtt,timed_transcript_json,direct,Build / standalone / SDK,source_registered,,In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+subtitles.export,Lyrics & subtitles,timed_transcript_json,srt,direct,Build / standalone / SDK,source_registered,,In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+subtitles.export,Lyrics & subtitles,timed_transcript_json,vtt,direct,Build / standalone / SDK,source_registered,,In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+subtitles.export,Lyrics & subtitles,timed_transcript_json,text,direct,Build / standalone / SDK,source_registered,,In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+subtitles.roundtrip,Lyrics & subtitles,srt,srt,scoped_chain,Build / standalone / SDK,source_registered,timed_transcript_json,In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+subtitles.roundtrip,Lyrics & subtitles,srt,vtt,scoped_chain,Build / standalone / SDK,source_registered,timed_transcript_json,In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+subtitles.roundtrip,Lyrics & subtitles,srt,text,scoped_chain,Build / standalone / SDK,source_registered,timed_transcript_json,In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+subtitles.roundtrip,Lyrics & subtitles,vtt,srt,scoped_chain,Build / standalone / SDK,source_registered,timed_transcript_json,In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+subtitles.roundtrip,Lyrics & subtitles,vtt,vtt,scoped_chain,Build / standalone / SDK,source_registered,timed_transcript_json,In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+subtitles.roundtrip,Lyrics & subtitles,vtt,text,scoped_chain,Build / standalone / SDK,source_registered,timed_transcript_json,In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+subtitles.extract,Lyrics & subtitles,mkv,timed_transcript_json,extraction,Build / standalone / SDK,source_registered,,FFprobe; FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+subtitles.extract,Lyrics & subtitles,webm,timed_transcript_json,extraction,Build / standalone / SDK,source_registered,,FFprobe; FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+subtitles.extract,Lyrics & subtitles,mp4,timed_transcript_json,extraction,Build / standalone / SDK,source_registered,,FFprobe; FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+subtitles.extract,Lyrics & subtitles,mov,timed_transcript_json,extraction,Build / standalone / SDK,source_registered,,FFprobe; FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+subtitles.extract.exports,Lyrics & subtitles,mkv,srt,scoped_chain,Build / standalone / SDK,source_registered,timed_transcript_json,FFprobe; FFmpeg; In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+subtitles.extract.exports,Lyrics & subtitles,mkv,vtt,scoped_chain,Build / standalone / SDK,source_registered,timed_transcript_json,FFprobe; FFmpeg; In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+subtitles.extract.exports,Lyrics & subtitles,mkv,text,scoped_chain,Build / standalone / SDK,source_registered,timed_transcript_json,FFprobe; FFmpeg; In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+subtitles.extract.exports,Lyrics & subtitles,webm,srt,scoped_chain,Build / standalone / SDK,source_registered,timed_transcript_json,FFprobe; FFmpeg; In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+subtitles.extract.exports,Lyrics & subtitles,webm,vtt,scoped_chain,Build / standalone / SDK,source_registered,timed_transcript_json,FFprobe; FFmpeg; In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+subtitles.extract.exports,Lyrics & subtitles,webm,text,scoped_chain,Build / standalone / SDK,source_registered,timed_transcript_json,FFprobe; FFmpeg; In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+subtitles.extract.exports,Lyrics & subtitles,mp4,srt,scoped_chain,Build / standalone / SDK,source_registered,timed_transcript_json,FFprobe; FFmpeg; In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+subtitles.extract.exports,Lyrics & subtitles,mp4,vtt,scoped_chain,Build / standalone / SDK,source_registered,timed_transcript_json,FFprobe; FFmpeg; In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+subtitles.extract.exports,Lyrics & subtitles,mp4,text,scoped_chain,Build / standalone / SDK,source_registered,timed_transcript_json,FFprobe; FFmpeg; In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+subtitles.extract.exports,Lyrics & subtitles,mov,srt,scoped_chain,Build / standalone / SDK,source_registered,timed_transcript_json,FFprobe; FFmpeg; In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+subtitles.extract.exports,Lyrics & subtitles,mov,vtt,scoped_chain,Build / standalone / SDK,source_registered,timed_transcript_json,FFprobe; FFmpeg; In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+subtitles.extract.exports,Lyrics & subtitles,mov,text,scoped_chain,Build / standalone / SDK,source_registered,timed_transcript_json,FFprobe; FFmpeg; In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+subtitles.standalone.aliases,Lyrics & subtitles,mka,timed_transcript_json,extraction,Standalone / SDK,source_registered,,FFprobe; FFmpeg; In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+subtitles.standalone.aliases,Lyrics & subtitles,mka,srt,extraction,Standalone / SDK,source_registered,,FFprobe; FFmpeg; In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+subtitles.standalone.aliases,Lyrics & subtitles,mka,vtt,extraction,Standalone / SDK,source_registered,,FFprobe; FFmpeg; In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+subtitles.standalone.aliases,Lyrics & subtitles,mka,text,extraction,Standalone / SDK,source_registered,,FFprobe; FFmpeg; In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+subtitles.standalone.aliases,Lyrics & subtitles,m4v,timed_transcript_json,extraction,Standalone / SDK,source_registered,,FFprobe; FFmpeg; In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+subtitles.standalone.aliases,Lyrics & subtitles,m4v,srt,extraction,Standalone / SDK,source_registered,,FFprobe; FFmpeg; In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+subtitles.standalone.aliases,Lyrics & subtitles,m4v,vtt,extraction,Standalone / SDK,source_registered,,FFprobe; FFmpeg; In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+subtitles.standalone.aliases,Lyrics & subtitles,m4v,text,extraction,Standalone / SDK,source_registered,,FFprobe; FFmpeg; In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+lyrics.normalize,Lyrics & subtitles,srt,lyrics_json,direct,Build / SDK,source_registered,,In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+lyrics.normalize,Lyrics & subtitles,vtt,lyrics_json,direct,Build / SDK,source_registered,,In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+lyrics.normalize,Lyrics & subtitles,timed_transcript_json,lyrics_json,direct,Build / SDK,source_registered,,In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+lyrics.export,Lyrics & subtitles,srt,lyrics_json,scoped_chain,Build / SDK,source_registered,lyrics_json,In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+lyrics.export,Lyrics & subtitles,srt,yaml,scoped_chain,Build / SDK,source_registered,lyrics_json,In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+lyrics.export,Lyrics & subtitles,srt,srt,scoped_chain,Build / SDK,source_registered,lyrics_json,In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+lyrics.export,Lyrics & subtitles,srt,vtt,scoped_chain,Build / SDK,source_registered,lyrics_json,In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+lyrics.export,Lyrics & subtitles,srt,text,scoped_chain,Build / SDK,source_registered,lyrics_json,In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+lyrics.export,Lyrics & subtitles,srt,markdown,scoped_chain,Build / SDK,source_registered,lyrics_json,In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+lyrics.export,Lyrics & subtitles,srt,lrc,scoped_chain,Build / SDK,source_registered,lyrics_json,In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+lyrics.export,Lyrics & subtitles,srt,ttml,scoped_chain,Build / SDK,source_registered,lyrics_json,In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+lyrics.export,Lyrics & subtitles,vtt,lyrics_json,scoped_chain,Build / SDK,source_registered,lyrics_json,In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+lyrics.export,Lyrics & subtitles,vtt,yaml,scoped_chain,Build / SDK,source_registered,lyrics_json,In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+lyrics.export,Lyrics & subtitles,vtt,srt,scoped_chain,Build / SDK,source_registered,lyrics_json,In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+lyrics.export,Lyrics & subtitles,vtt,vtt,scoped_chain,Build / SDK,source_registered,lyrics_json,In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+lyrics.export,Lyrics & subtitles,vtt,text,scoped_chain,Build / SDK,source_registered,lyrics_json,In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+lyrics.export,Lyrics & subtitles,vtt,markdown,scoped_chain,Build / SDK,source_registered,lyrics_json,In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+lyrics.export,Lyrics & subtitles,vtt,lrc,scoped_chain,Build / SDK,source_registered,lyrics_json,In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+lyrics.export,Lyrics & subtitles,vtt,ttml,scoped_chain,Build / SDK,source_registered,lyrics_json,In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+lyrics.export,Lyrics & subtitles,timed_transcript_json,lyrics_json,scoped_chain,Build / SDK,source_registered,lyrics_json,In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+lyrics.export,Lyrics & subtitles,timed_transcript_json,yaml,scoped_chain,Build / SDK,source_registered,lyrics_json,In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+lyrics.export,Lyrics & subtitles,timed_transcript_json,srt,scoped_chain,Build / SDK,source_registered,lyrics_json,In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+lyrics.export,Lyrics & subtitles,timed_transcript_json,vtt,scoped_chain,Build / SDK,source_registered,lyrics_json,In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+lyrics.export,Lyrics & subtitles,timed_transcript_json,text,scoped_chain,Build / SDK,source_registered,lyrics_json,In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+lyrics.export,Lyrics & subtitles,timed_transcript_json,markdown,scoped_chain,Build / SDK,source_registered,lyrics_json,In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+lyrics.export,Lyrics & subtitles,timed_transcript_json,lrc,scoped_chain,Build / SDK,source_registered,lyrics_json,In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+lyrics.export,Lyrics & subtitles,timed_transcript_json,ttml,scoped_chain,Build / SDK,source_registered,lyrics_json,In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+lyrics.sdk,Lyrics & subtitles,lyrics_json,lyrics_json,sdk,SDK only,sdk_only,,In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+lyrics.sdk,Lyrics & subtitles,lyrics_json,yaml,sdk,SDK only,sdk_only,,In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+lyrics.sdk,Lyrics & subtitles,lyrics_json,srt,sdk,SDK only,sdk_only,,In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+lyrics.sdk,Lyrics & subtitles,lyrics_json,vtt,sdk,SDK only,sdk_only,,In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+lyrics.sdk,Lyrics & subtitles,lyrics_json,text,sdk,SDK only,sdk_only,,In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+lyrics.sdk,Lyrics & subtitles,lyrics_json,markdown,sdk,SDK only,sdk_only,,In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+lyrics.sdk,Lyrics & subtitles,lyrics_json,lrc,sdk,SDK only,sdk_only,,In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+lyrics.sdk,Lyrics & subtitles,lyrics_json,ttml,sdk,SDK only,sdk_only,,In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.prepare,Speech,wav,speech_pcm_wav,extraction,Standalone / SDK; internal build stage,source_registered,,Pinned FFprobe; Pinned FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.prepare,Speech,flac,speech_pcm_wav,extraction,Standalone / SDK; internal build stage,source_registered,,Pinned FFprobe; Pinned FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.prepare,Speech,mp3,speech_pcm_wav,extraction,Standalone / SDK; internal build stage,source_registered,,Pinned FFprobe; Pinned FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.prepare,Speech,m4a_alac,speech_pcm_wav,extraction,Standalone / SDK; internal build stage,source_registered,,Pinned FFprobe; Pinned FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.prepare,Speech,m4a,speech_pcm_wav,extraction,Standalone / SDK; internal build stage,source_registered,,Pinned FFprobe; Pinned FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.prepare,Speech,aac,speech_pcm_wav,extraction,Standalone / SDK; internal build stage,source_registered,,Pinned FFprobe; Pinned FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.prepare,Speech,ogg,speech_pcm_wav,extraction,Standalone / SDK; internal build stage,source_registered,,Pinned FFprobe; Pinned FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.prepare,Speech,opus,speech_pcm_wav,extraction,Standalone / SDK; internal build stage,source_registered,,Pinned FFprobe; Pinned FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.prepare,Speech,mkv,speech_pcm_wav,extraction,Standalone / SDK; internal build stage,source_registered,,Pinned FFprobe; Pinned FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.prepare,Speech,webm,speech_pcm_wav,extraction,Standalone / SDK; internal build stage,source_registered,,Pinned FFprobe; Pinned FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.prepare,Speech,mp4,speech_pcm_wav,extraction,Standalone / SDK; internal build stage,source_registered,,Pinned FFprobe; Pinned FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.prepare,Speech,mov,speech_pcm_wav,extraction,Standalone / SDK; internal build stage,source_registered,,Pinned FFprobe; Pinned FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.prepare,Speech,avi,speech_pcm_wav,extraction,Standalone / SDK; internal build stage,source_registered,,Pinned FFprobe; Pinned FFmpeg,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.recognize,Speech,wav,timed_transcript_json,inference,Build / standalone / SDK,source_registered,,Pinned whisper.cpp; Selected local model; FFmpeg/FFprobe when preparing audio,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.recognize,Speech,flac,timed_transcript_json,inference,Build / standalone / SDK,source_registered,,Pinned whisper.cpp; Selected local model; FFmpeg/FFprobe when preparing audio,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.recognize,Speech,mp3,timed_transcript_json,inference,Build / standalone / SDK,source_registered,,Pinned whisper.cpp; Selected local model; FFmpeg/FFprobe when preparing audio,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.recognize,Speech,m4a_alac,timed_transcript_json,inference,Build / standalone / SDK,source_registered,,Pinned whisper.cpp; Selected local model; FFmpeg/FFprobe when preparing audio,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.recognize,Speech,m4a,timed_transcript_json,inference,Build / standalone / SDK,source_registered,,Pinned whisper.cpp; Selected local model; FFmpeg/FFprobe when preparing audio,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.recognize,Speech,aac,timed_transcript_json,inference,Build / standalone / SDK,source_registered,,Pinned whisper.cpp; Selected local model; FFmpeg/FFprobe when preparing audio,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.recognize,Speech,ogg,timed_transcript_json,inference,Build / standalone / SDK,source_registered,,Pinned whisper.cpp; Selected local model; FFmpeg/FFprobe when preparing audio,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.recognize,Speech,opus,timed_transcript_json,inference,Build / standalone / SDK,source_registered,,Pinned whisper.cpp; Selected local model; FFmpeg/FFprobe when preparing audio,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.recognize,Speech,mkv,timed_transcript_json,inference,Build / standalone / SDK,source_registered,,Pinned whisper.cpp; Selected local model; FFmpeg/FFprobe when preparing audio,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.recognize,Speech,webm,timed_transcript_json,inference,Build / standalone / SDK,source_registered,,Pinned whisper.cpp; Selected local model; FFmpeg/FFprobe when preparing audio,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.recognize,Speech,mp4,timed_transcript_json,inference,Build / standalone / SDK,source_registered,,Pinned whisper.cpp; Selected local model; FFmpeg/FFprobe when preparing audio,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.recognize,Speech,mov,timed_transcript_json,inference,Build / standalone / SDK,source_registered,,Pinned whisper.cpp; Selected local model; FFmpeg/FFprobe when preparing audio,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.recognize,Speech,avi,timed_transcript_json,inference,Build / standalone / SDK,source_registered,,Pinned whisper.cpp; Selected local model; FFmpeg/FFprobe when preparing audio,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.exports,Speech,wav,srt,scoped_chain,Build / standalone / SDK,source_registered,timed_transcript_json,whisper.cpp + model; FFmpeg/FFprobe for selected preparation; In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.exports,Speech,wav,vtt,scoped_chain,Build / standalone / SDK,source_registered,timed_transcript_json,whisper.cpp + model; FFmpeg/FFprobe for selected preparation; In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.exports,Speech,wav,text,scoped_chain,Build / standalone / SDK,source_registered,timed_transcript_json,whisper.cpp + model; FFmpeg/FFprobe for selected preparation; In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.exports,Speech,flac,srt,scoped_chain,Build / standalone / SDK,source_registered,timed_transcript_json,whisper.cpp + model; FFmpeg/FFprobe for selected preparation; In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.exports,Speech,flac,vtt,scoped_chain,Build / standalone / SDK,source_registered,timed_transcript_json,whisper.cpp + model; FFmpeg/FFprobe for selected preparation; In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.exports,Speech,flac,text,scoped_chain,Build / standalone / SDK,source_registered,timed_transcript_json,whisper.cpp + model; FFmpeg/FFprobe for selected preparation; In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.exports,Speech,mp3,srt,scoped_chain,Build / standalone / SDK,source_registered,timed_transcript_json,whisper.cpp + model; FFmpeg/FFprobe for selected preparation; In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.exports,Speech,mp3,vtt,scoped_chain,Build / standalone / SDK,source_registered,timed_transcript_json,whisper.cpp + model; FFmpeg/FFprobe for selected preparation; In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.exports,Speech,mp3,text,scoped_chain,Build / standalone / SDK,source_registered,timed_transcript_json,whisper.cpp + model; FFmpeg/FFprobe for selected preparation; In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.exports,Speech,m4a_alac,srt,scoped_chain,Build / standalone / SDK,source_registered,timed_transcript_json,whisper.cpp + model; FFmpeg/FFprobe for selected preparation; In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.exports,Speech,m4a_alac,vtt,scoped_chain,Build / standalone / SDK,source_registered,timed_transcript_json,whisper.cpp + model; FFmpeg/FFprobe for selected preparation; In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.exports,Speech,m4a_alac,text,scoped_chain,Build / standalone / SDK,source_registered,timed_transcript_json,whisper.cpp + model; FFmpeg/FFprobe for selected preparation; In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.exports,Speech,m4a,srt,scoped_chain,Build / standalone / SDK,source_registered,timed_transcript_json,whisper.cpp + model; FFmpeg/FFprobe for selected preparation; In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.exports,Speech,m4a,vtt,scoped_chain,Build / standalone / SDK,source_registered,timed_transcript_json,whisper.cpp + model; FFmpeg/FFprobe for selected preparation; In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.exports,Speech,m4a,text,scoped_chain,Build / standalone / SDK,source_registered,timed_transcript_json,whisper.cpp + model; FFmpeg/FFprobe for selected preparation; In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.exports,Speech,aac,srt,scoped_chain,Build / standalone / SDK,source_registered,timed_transcript_json,whisper.cpp + model; FFmpeg/FFprobe for selected preparation; In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.exports,Speech,aac,vtt,scoped_chain,Build / standalone / SDK,source_registered,timed_transcript_json,whisper.cpp + model; FFmpeg/FFprobe for selected preparation; In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.exports,Speech,aac,text,scoped_chain,Build / standalone / SDK,source_registered,timed_transcript_json,whisper.cpp + model; FFmpeg/FFprobe for selected preparation; In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.exports,Speech,ogg,srt,scoped_chain,Build / standalone / SDK,source_registered,timed_transcript_json,whisper.cpp + model; FFmpeg/FFprobe for selected preparation; In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.exports,Speech,ogg,vtt,scoped_chain,Build / standalone / SDK,source_registered,timed_transcript_json,whisper.cpp + model; FFmpeg/FFprobe for selected preparation; In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.exports,Speech,ogg,text,scoped_chain,Build / standalone / SDK,source_registered,timed_transcript_json,whisper.cpp + model; FFmpeg/FFprobe for selected preparation; In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.exports,Speech,opus,srt,scoped_chain,Build / standalone / SDK,source_registered,timed_transcript_json,whisper.cpp + model; FFmpeg/FFprobe for selected preparation; In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.exports,Speech,opus,vtt,scoped_chain,Build / standalone / SDK,source_registered,timed_transcript_json,whisper.cpp + model; FFmpeg/FFprobe for selected preparation; In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.exports,Speech,opus,text,scoped_chain,Build / standalone / SDK,source_registered,timed_transcript_json,whisper.cpp + model; FFmpeg/FFprobe for selected preparation; In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.exports,Speech,mkv,srt,scoped_chain,Build / standalone / SDK,source_registered,timed_transcript_json,whisper.cpp + model; FFmpeg/FFprobe for selected preparation; In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.exports,Speech,mkv,vtt,scoped_chain,Build / standalone / SDK,source_registered,timed_transcript_json,whisper.cpp + model; FFmpeg/FFprobe for selected preparation; In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.exports,Speech,mkv,text,scoped_chain,Build / standalone / SDK,source_registered,timed_transcript_json,whisper.cpp + model; FFmpeg/FFprobe for selected preparation; In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.exports,Speech,webm,srt,scoped_chain,Build / standalone / SDK,source_registered,timed_transcript_json,whisper.cpp + model; FFmpeg/FFprobe for selected preparation; In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.exports,Speech,webm,vtt,scoped_chain,Build / standalone / SDK,source_registered,timed_transcript_json,whisper.cpp + model; FFmpeg/FFprobe for selected preparation; In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.exports,Speech,webm,text,scoped_chain,Build / standalone / SDK,source_registered,timed_transcript_json,whisper.cpp + model; FFmpeg/FFprobe for selected preparation; In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.exports,Speech,mp4,srt,scoped_chain,Build / standalone / SDK,source_registered,timed_transcript_json,whisper.cpp + model; FFmpeg/FFprobe for selected preparation; In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.exports,Speech,mp4,vtt,scoped_chain,Build / standalone / SDK,source_registered,timed_transcript_json,whisper.cpp + model; FFmpeg/FFprobe for selected preparation; In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.exports,Speech,mp4,text,scoped_chain,Build / standalone / SDK,source_registered,timed_transcript_json,whisper.cpp + model; FFmpeg/FFprobe for selected preparation; In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.exports,Speech,mov,srt,scoped_chain,Build / standalone / SDK,source_registered,timed_transcript_json,whisper.cpp + model; FFmpeg/FFprobe for selected preparation; In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.exports,Speech,mov,vtt,scoped_chain,Build / standalone / SDK,source_registered,timed_transcript_json,whisper.cpp + model; FFmpeg/FFprobe for selected preparation; In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.exports,Speech,mov,text,scoped_chain,Build / standalone / SDK,source_registered,timed_transcript_json,whisper.cpp + model; FFmpeg/FFprobe for selected preparation; In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.exports,Speech,avi,srt,scoped_chain,Build / standalone / SDK,source_registered,timed_transcript_json,whisper.cpp + model; FFmpeg/FFprobe for selected preparation; In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.exports,Speech,avi,vtt,scoped_chain,Build / standalone / SDK,source_registered,timed_transcript_json,whisper.cpp + model; FFmpeg/FFprobe for selected preparation; In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.exports,Speech,avi,text,scoped_chain,Build / standalone / SDK,source_registered,timed_transcript_json,whisper.cpp + model; FFmpeg/FFprobe for selected preparation; In-process codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.standalone.aliases,Speech,mka,speech_pcm_wav,profile,Standalone / SDK,source_registered,,Pinned FFprobe; Pinned FFmpeg; whisper.cpp + model when recognizing,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.standalone.aliases,Speech,mka,timed_transcript_json,profile,Standalone / SDK,source_registered,,Pinned FFprobe; Pinned FFmpeg; whisper.cpp + model when recognizing,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.standalone.aliases,Speech,mka,srt,profile,Standalone / SDK,source_registered,,Pinned FFprobe; Pinned FFmpeg; whisper.cpp + model when recognizing,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.standalone.aliases,Speech,mka,vtt,profile,Standalone / SDK,source_registered,,Pinned FFprobe; Pinned FFmpeg; whisper.cpp + model when recognizing,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.standalone.aliases,Speech,mka,text,profile,Standalone / SDK,source_registered,,Pinned FFprobe; Pinned FFmpeg; whisper.cpp + model when recognizing,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.standalone.aliases,Speech,m4v,speech_pcm_wav,profile,Standalone / SDK,source_registered,,Pinned FFprobe; Pinned FFmpeg; whisper.cpp + model when recognizing,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.standalone.aliases,Speech,m4v,timed_transcript_json,profile,Standalone / SDK,source_registered,,Pinned FFprobe; Pinned FFmpeg; whisper.cpp + model when recognizing,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.standalone.aliases,Speech,m4v,srt,profile,Standalone / SDK,source_registered,,Pinned FFprobe; Pinned FFmpeg; whisper.cpp + model when recognizing,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.standalone.aliases,Speech,m4v,vtt,profile,Standalone / SDK,source_registered,,Pinned FFprobe; Pinned FFmpeg; whisper.cpp + model when recognizing,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.standalone.aliases,Speech,m4v,text,profile,Standalone / SDK,source_registered,,Pinned FFprobe; Pinned FFmpeg; whisper.cpp + model when recognizing,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.standalone.aliases,Speech,oga,speech_pcm_wav,profile,Standalone / SDK,source_registered,,Pinned FFprobe; Pinned FFmpeg; whisper.cpp + model when recognizing,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.standalone.aliases,Speech,oga,timed_transcript_json,profile,Standalone / SDK,source_registered,,Pinned FFprobe; Pinned FFmpeg; whisper.cpp + model when recognizing,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.standalone.aliases,Speech,oga,srt,profile,Standalone / SDK,source_registered,,Pinned FFprobe; Pinned FFmpeg; whisper.cpp + model when recognizing,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.standalone.aliases,Speech,oga,vtt,profile,Standalone / SDK,source_registered,,Pinned FFprobe; Pinned FFmpeg; whisper.cpp + model when recognizing,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.standalone.aliases,Speech,oga,text,profile,Standalone / SDK,source_registered,,Pinned FFprobe; Pinned FFmpeg; whisper.cpp + model when recognizing,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.align,Speech,saved_speech_bundle_and_time_map,timed_transcript_json,profile,Standalone / SDK,source_registered,,In-process mapping/codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.align,Speech,saved_speech_bundle_and_time_map,srt,profile,Standalone / SDK,source_registered,,In-process mapping/codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.align,Speech,saved_speech_bundle_and_time_map,vtt,profile,Standalone / SDK,source_registered,,In-process mapping/codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+speech.align,Speech,saved_speech_bundle_and_time_map,text,profile,Standalone / SDK,source_registered,,In-process mapping/codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+screenplay.body,Screenplays,fountain,screenplay_json,profile,Build / SDK,source_registered,,In-process body codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+screenplay.body,Screenplays,fountain,fdx,profile,Build / SDK,source_registered,,In-process body codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+screenplay.body,Screenplays,fountain,fadein,profile,Build / SDK,source_registered,,In-process body codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+screenplay.body,Screenplays,fountain,osf,profile,Build / SDK,source_registered,,In-process body codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+screenplay.body,Screenplays,fountain,trelby,profile,Build / SDK,source_registered,,In-process body codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+screenplay.import,Screenplays,fdx,fountain,direct,Build / standalone / SDK,source_registered,,Pinned scripttool,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+screenplay.import,Screenplays,fadein,fountain,direct,Build / standalone / SDK,source_registered,,Pinned scripttool,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+screenplay.import,Screenplays,osf,fountain,direct,Build / standalone / SDK,source_registered,,Pinned scripttool,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+screenplay.pdf,Screenplays,fountain,pdf,profile,Build / standalone / SDK,source_registered,,Pinned Node.js; Pinned Afterwriting package,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+screenplay.recover,Screenplays,pdf,screenplay_recovery_candidate,recovery,Build / standalone / SDK,source_registered,,In-process heuristics; pdftotext for PDF; Optional pdftoppm + Tesseract + language data,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+screenplay.recover,Screenplays,text,screenplay_recovery_candidate,recovery,Build / standalone / SDK,source_registered,,In-process heuristics; pdftotext for PDF; Optional pdftoppm + Tesseract + language data,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+screenplay.recover.exports,Screenplays,pdf,fountain,scoped_chain,Build / standalone / SDK,source_registered,screenplay_recovery_candidate,Recovery providers; In-process bounded writers,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+screenplay.recover.exports,Screenplays,pdf,fdx,scoped_chain,Build / standalone / SDK,source_registered,screenplay_recovery_candidate,Recovery providers; In-process bounded writers,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+screenplay.recover.exports,Screenplays,pdf,fadein,scoped_chain,Build / standalone / SDK,source_registered,screenplay_recovery_candidate,Recovery providers; In-process bounded writers,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+screenplay.recover.exports,Screenplays,pdf,osf,scoped_chain,Build / standalone / SDK,source_registered,screenplay_recovery_candidate,Recovery providers; In-process bounded writers,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+screenplay.recover.exports,Screenplays,text,fountain,scoped_chain,Build / standalone / SDK,source_registered,screenplay_recovery_candidate,Recovery providers; In-process bounded writers,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+screenplay.recover.exports,Screenplays,text,fdx,scoped_chain,Build / standalone / SDK,source_registered,screenplay_recovery_candidate,Recovery providers; In-process bounded writers,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+screenplay.recover.exports,Screenplays,text,fadein,scoped_chain,Build / standalone / SDK,source_registered,screenplay_recovery_candidate,Recovery providers; In-process bounded writers,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+screenplay.recover.exports,Screenplays,text,osf,scoped_chain,Build / standalone / SDK,source_registered,screenplay_recovery_candidate,Recovery providers; In-process bounded writers,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+screenplay.sdk.parse,Screenplays,fountain,screenplay_json,sdk,SDK only,sdk_only,,In-process parsers,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+screenplay.sdk.parse,Screenplays,fdx,screenplay_json,sdk,SDK only,sdk_only,,In-process parsers,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+screenplay.sdk.parse,Screenplays,fadein,screenplay_json,sdk,SDK only,sdk_only,,In-process parsers,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+screenplay.sdk.parse,Screenplays,osf,screenplay_json,sdk,SDK only,sdk_only,,In-process parsers,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+screenplay.sdk.parse,Screenplays,trelby,screenplay_json,sdk,SDK only,sdk_only,,In-process parsers,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+publishing.print,Publishing & layouts,png_collection,pdf,collection,Build / SDK,source_registered,,Pinned img2pdf 0.6.3,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+publishing.print,Publishing & layouts,jpeg_collection,pdf,collection,Build / SDK,source_registered,,Pinned img2pdf 0.6.3,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+publishing.fixed_epub,Publishing & layouts,png_collection,epub_fixed_layout,collection,Build / SDK,source_registered,,In-process EPUB packager; Optional EPUBCheck,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+publishing.fixed_epub,Publishing & layouts,jpeg_collection,epub_fixed_layout,collection,Build / SDK,source_registered,,In-process EPUB packager; Optional EPUBCheck,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+composition.structural,Publishing & layouts,page_composition,svg,publication,Build / standalone / SDK,source_registered,,In-process composition/typography,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+composition.structural,Publishing & layouts,page_composition,html,publication,Build / standalone / SDK,source_registered,,In-process composition/typography,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+composition.structural,Publishing & layouts,page_composition,composition_transcript_json,publication,Build / standalone / SDK,source_registered,,In-process composition/typography,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+composition.structural,Publishing & layouts,page_composition,composition_transcript_text,publication,Build / standalone / SDK,source_registered,,In-process composition/typography,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+composition.raster,Publishing & layouts,page_composition,png,publication,Build / standalone / SDK,source_registered,,In-process bounded raster/PDF providers,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+composition.raster,Publishing & layouts,page_composition,pdf,publication,Build / standalone / SDK,source_registered,,In-process bounded raster/PDF providers,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+presentation.source,Publishing & layouts,presentation_model,presentation_source_zip,publication,Build / standalone / SDK,source_registered,,In-process source packager,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+presentation.source,Publishing & layouts,presentation_model,html,publication,Build / standalone / SDK,source_registered,,In-process source packager,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+presentation.render,Publishing & layouts,presentation_model,presentation_web_zip,publication,Build / standalone / SDK,source_registered,,Prepared pinned Slidev 53.0.0 runtime/browser,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+presentation.render,Publishing & layouts,presentation_model,pdf,publication,Build / standalone / SDK,source_registered,,Prepared pinned Slidev 53.0.0 runtime/browser,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+briefing.text,Publishing & layouts,briefing_model,briefing_script_json,publication,Build / standalone / SDK,source_registered,,In-process briefing renderer,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+briefing.text,Publishing & layouts,briefing_model,text,publication,Build / standalone / SDK,source_registered,,In-process briefing renderer,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+briefing.text,Publishing & layouts,briefing_model,html,publication,Build / standalone / SDK,source_registered,,In-process briefing renderer,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+briefing.text,Publishing & layouts,briefing_model,briefing_chapters_json,publication,Build / standalone / SDK,source_registered,,In-process briefing renderer,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+briefing.feed,Publishing & layouts,briefing_model_with_feed,rss,packaging,Build / standalone / SDK,source_registered,,In-process RSS writer and WAV inspector,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+briefing.narration,Publishing & layouts,briefing_model_with_narration,copied_narration_wav,packaging,Build / standalone / SDK,source_registered,,In-process copy and WAV inspector,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+video.handbrake,Video,avi,mp4,transcode,Standalone / SDK,source_registered,,HandBrakeCLI >=1.6.0,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+video.handbrake,Video,m4v,mp4,transcode,Standalone / SDK,source_registered,,HandBrakeCLI >=1.6.0,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+video.handbrake,Video,mkv,mp4,transcode,Standalone / SDK,source_registered,,HandBrakeCLI >=1.6.0,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+video.handbrake,Video,mov,mp4,transcode,Standalone / SDK,source_registered,,HandBrakeCLI >=1.6.0,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+video.handbrake,Video,mp4,mp4,transcode,Standalone / SDK,source_registered,,HandBrakeCLI >=1.6.0,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+video.handbrake,Video,webm,mp4,transcode,Standalone / SDK,source_registered,,HandBrakeCLI >=1.6.0,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.images,Lower-level SDK,provider_decodable_image,jpeg,sdk,SDK only,sdk_only,,FFmpeg build with selected codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.images,Lower-level SDK,provider_decodable_image,jpg,sdk,SDK only,sdk_only,,FFmpeg build with selected codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.images,Lower-level SDK,provider_decodable_image,png,sdk,SDK only,sdk_only,,FFmpeg build with selected codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.images,Lower-level SDK,provider_decodable_image,webp,sdk,SDK only,sdk_only,,FFmpeg build with selected codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.images,Lower-level SDK,provider_decodable_image,avif,sdk,SDK only,sdk_only,,FFmpeg build with selected codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.images,Lower-level SDK,provider_decodable_image,gif,sdk,SDK only,sdk_only,,FFmpeg build with selected codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.images,Lower-level SDK,provider_decodable_image,bmp,sdk,SDK only,sdk_only,,FFmpeg build with selected codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.images,Lower-level SDK,provider_decodable_image,tiff,sdk,SDK only,sdk_only,,FFmpeg build with selected codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.images,Lower-level SDK,provider_decodable_image,tif,sdk,SDK only,sdk_only,,FFmpeg build with selected codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.images,Lower-level SDK,provider_decodable_image,exr,sdk,SDK only,sdk_only,,FFmpeg build with selected codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.images,Lower-level SDK,provider_decodable_image,hdr,sdk,SDK only,sdk_only,,FFmpeg build with selected codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.images,Lower-level SDK,provider_decodable_image,dpx,sdk,SDK only,sdk_only,,FFmpeg build with selected codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.images,Lower-level SDK,provider_decodable_image,cin,sdk,SDK only,sdk_only,,FFmpeg build with selected codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.images,Lower-level SDK,provider_decodable_image,fits,sdk,SDK only,sdk_only,,FFmpeg build with selected codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.images,Lower-level SDK,provider_decodable_image,fit,sdk,SDK only,sdk_only,,FFmpeg build with selected codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.images,Lower-level SDK,provider_decodable_image,tga,sdk,SDK only,sdk_only,,FFmpeg build with selected codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.images,Lower-level SDK,provider_decodable_image,sgi,sdk,SDK only,sdk_only,,FFmpeg build with selected codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.images,Lower-level SDK,provider_decodable_image,rgb,sdk,SDK only,sdk_only,,FFmpeg build with selected codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.images,Lower-level SDK,provider_decodable_image,pcx,sdk,SDK only,sdk_only,,FFmpeg build with selected codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.images,Lower-level SDK,provider_decodable_image,pbm,sdk,SDK only,sdk_only,,FFmpeg build with selected codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.images,Lower-level SDK,provider_decodable_image,pgm,sdk,SDK only,sdk_only,,FFmpeg build with selected codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.images,Lower-level SDK,provider_decodable_image,ppm,sdk,SDK only,sdk_only,,FFmpeg build with selected codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.images,Lower-level SDK,provider_decodable_image,pnm,sdk,SDK only,sdk_only,,FFmpeg build with selected codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.images,Lower-level SDK,provider_decodable_image,pam,sdk,SDK only,sdk_only,,FFmpeg build with selected codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.images,Lower-level SDK,provider_decodable_image,xbm,sdk,SDK only,sdk_only,,FFmpeg build with selected codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.images,Lower-level SDK,provider_decodable_image,xpm,sdk,SDK only,sdk_only,,FFmpeg build with selected codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.images,Lower-level SDK,provider_decodable_image,wbmp,sdk,SDK only,sdk_only,,FFmpeg build with selected codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.images,Lower-level SDK,provider_decodable_image,ras,sdk,SDK only,sdk_only,,FFmpeg build with selected codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.images,Lower-level SDK,provider_decodable_image,sun,sdk,SDK only,sdk_only,,FFmpeg build with selected codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.images,Lower-level SDK,provider_decodable_image,jp2,sdk,SDK only,sdk_only,,FFmpeg build with selected codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.images,Lower-level SDK,provider_decodable_image,j2k,sdk,SDK only,sdk_only,,FFmpeg build with selected codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.images,Lower-level SDK,provider_decodable_image,jxl,sdk,SDK only,sdk_only,,FFmpeg build with selected codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.images,Lower-level SDK,provider_decodable_image,apng,sdk,SDK only,sdk_only,,FFmpeg build with selected codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.images,Lower-level SDK,provider_decodable_image,dds,sdk,SDK only,sdk_only,,FFmpeg build with selected codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.images,Lower-level SDK,provider_decodable_image,ico,sdk,SDK only,sdk_only,,FFmpeg build with selected codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.audio,Lower-level SDK,provider_decodable_audio,wav,sdk,SDK only,sdk_only,,FFmpeg build with selected codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.audio,Lower-level SDK,provider_decodable_audio,bwf,sdk,SDK only,mapping_gap,,FFmpeg build with selected codecs,BWF target maps to WAV/PCM without explicit bext authoring; broadcast metadata conformance is not established.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.audio,Lower-level SDK,provider_decodable_audio,aif,sdk,SDK only,sdk_only,,FFmpeg build with selected codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.audio,Lower-level SDK,provider_decodable_audio,aiff,sdk,SDK only,sdk_only,,FFmpeg build with selected codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.audio,Lower-level SDK,provider_decodable_audio,pcm,sdk,SDK only,sdk_only,,FFmpeg build with selected codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.audio,Lower-level SDK,provider_decodable_audio,flac,sdk,SDK only,sdk_only,,FFmpeg build with selected codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.audio,Lower-level SDK,provider_decodable_audio,m4a_alac,sdk,SDK only,sdk_only,,FFmpeg build with selected codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.audio,Lower-level SDK,provider_decodable_audio,wv,sdk,SDK only,sdk_only,,FFmpeg build with selected codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.audio,Lower-level SDK,provider_decodable_audio,ape,sdk,SDK only,sdk_only,,FFmpeg build with selected codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.audio,Lower-level SDK,provider_decodable_audio,tta,sdk,SDK only,sdk_only,,FFmpeg build with selected codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.audio,Lower-level SDK,provider_decodable_audio,mp3,sdk,SDK only,sdk_only,,FFmpeg build with selected codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.audio,Lower-level SDK,provider_decodable_audio,m4a,sdk,SDK only,sdk_only,,FFmpeg build with selected codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.audio,Lower-level SDK,provider_decodable_audio,aac,sdk,SDK only,sdk_only,,FFmpeg build with selected codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.audio,Lower-level SDK,provider_decodable_audio,ogg,sdk,SDK only,sdk_only,,FFmpeg build with selected codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.audio,Lower-level SDK,provider_decodable_audio,opus,sdk,SDK only,sdk_only,,FFmpeg build with selected codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.audio,Lower-level SDK,provider_decodable_audio,wma,sdk,SDK only,sdk_only,,FFmpeg build with selected codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.audio,Lower-level SDK,provider_decodable_audio,amr,sdk,SDK only,sdk_only,,FFmpeg build with selected codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.audio,Lower-level SDK,provider_decodable_audio,mp2,sdk,SDK only,sdk_only,,FFmpeg build with selected codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.audio,Lower-level SDK,provider_decodable_audio,ac3,sdk,SDK only,sdk_only,,FFmpeg build with selected codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.audio,Lower-level SDK,provider_decodable_audio,ec3,sdk,SDK only,sdk_only,,FFmpeg build with selected codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.audio,Lower-level SDK,provider_decodable_audio,dts,sdk,SDK only,sdk_only,,FFmpeg build with selected codecs,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.audio,Lower-level SDK,provider_decodable_audio,mid,sdk,SDK only,mapping_gap,,FFmpeg build with selected codecs,Symbolic MIDI: generic FFmpeg declaration only; no dedicated transcription/synthesis adapter.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.audio,Lower-level SDK,provider_decodable_audio,midi,sdk,SDK only,mapping_gap,,FFmpeg build with selected codecs,Symbolic MIDI: generic FFmpeg declaration only; no dedicated transcription/synthesis adapter.,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.upscayl,Lower-level SDK,upscayl_decodable_image,png,sdk,SDK only,sdk_only,,Upscayl NCNN; Complete model pair; Compatible local GPU/Vulkan runtime,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.upscayl,Lower-level SDK,upscayl_decodable_image,jpeg,sdk,SDK only,sdk_only,,Upscayl NCNN; Complete model pair; Compatible local GPU/Vulkan runtime,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.upscayl,Lower-level SDK,upscayl_decodable_image,webp,sdk,SDK only,sdk_only,,Upscayl NCNN; Complete model pair; Compatible local GPU/Vulkan runtime,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.standard_definitions,Lower-level SDK,markdown,html,definitions,SDK graph declarations,definitions_only,,Caller-supplied compatible executors,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.standard_definitions,Lower-level SDK,html,pdf,definitions,SDK graph declarations,definitions_only,,Caller-supplied compatible executors,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.standard_definitions,Lower-level SDK,html,docx,definitions,SDK graph declarations,definitions_only,,Caller-supplied compatible executors,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.standard_definitions,Lower-level SDK,markdown,pdf,definitions,SDK graph declarations,definitions_only,,Caller-supplied compatible executors,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.standard_definitions,Lower-level SDK,markdown,docx,definitions,SDK graph declarations,definitions_only,,Caller-supplied compatible executors,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.standard_definitions,Lower-level SDK,markdown,epub,definitions,SDK graph declarations,definitions_only,,Caller-supplied compatible executors,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.standard_definitions,Lower-level SDK,markdown,rst,definitions,SDK graph declarations,definitions_only,,Caller-supplied compatible executors,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+sdk.standard_definitions,Lower-level SDK,markdown,latex,definitions,SDK graph declarations,definitions_only,,Caller-supplied compatible executors,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+evidence.dna,Evidence & packages,source_artifact,artifact_dna_json,evidence,Standalone / SDK,source_registered,,In-process structural extractors; Explicit compatible AI extractor only if supplied,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+evidence.dna,Evidence & packages,source_artifact,artifact_dna_yaml,evidence,Standalone / SDK,source_registered,,In-process structural extractors; Explicit compatible AI extractor only if supplied,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+evidence.sonic,Evidence & packages,sonic_recipe,artifact_dna_json,evidence,Standalone / SDK,source_registered,,In-process Sonic/DNA/hygiene; Optional explicitly prepared model for structured evidence,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+evidence.sonic,Evidence & packages,sonic_recipe,sonic_description_json,evidence,Standalone / SDK,source_registered,,In-process Sonic/DNA/hygiene; Optional explicitly prepared model for structured evidence,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+evidence.sonic,Evidence & packages,sonic_recipe,markdown,evidence,Standalone / SDK,source_registered,,In-process Sonic/DNA/hygiene; Optional explicitly prepared model for structured evidence,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+evidence.sonic,Evidence & packages,sonic_recipe,sonic_guidance_json,evidence,Standalone / SDK,source_registered,,In-process Sonic/DNA/hygiene; Optional explicitly prepared model for structured evidence,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+evidence.summary,Evidence & packages,reviewed_summary,text,evidence,Standalone / SDK,source_registered,,In-process reviewed export; Model only in separately selected candidate generation,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+evidence.summary,Evidence & packages,reviewed_summary,accepted_summary_json,evidence,Standalone / SDK,source_registered,,In-process reviewed export; Model only in separately selected candidate generation,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+evidence.fonts,Evidence & packages,font_registry,css,evidence,Standalone / SDK,source_registered,,In-process font-role resolution,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+evidence.portable,Evidence & packages,native_run_and_artifact_store,portable_forest_directory,packaging,Standalone / SDK,source_registered,,In-process verified copy/index writer,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+reports.graph,Evidence & packages,resolved_build_plan,plan_text,report,CLI / SDK reports,source_registered,,In-process plan renderers,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+reports.graph,Evidence & packages,resolved_build_plan,plan_json,report,CLI / SDK reports,source_registered,,In-process plan renderers,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+reports.graph,Evidence & packages,resolved_build_plan,plan_yaml,report,CLI / SDK reports,source_registered,,In-process plan renderers,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+reports.graph,Evidence & packages,resolved_build_plan,plan_mermaid,report,CLI / SDK reports,source_registered,,In-process plan renderers,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+reports.graph,Evidence & packages,resolved_build_plan,plan_dot,report,CLI / SDK reports,source_registered,,In-process plan renderers,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+reports.graph,Evidence & packages,resolved_build_plan,plan_markdown,report,CLI / SDK reports,source_registered,,In-process plan renderers,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+reports.screenplay,Evidence & packages,fountain,screenplay_analysis_json,report,Standalone / SDK,source_registered,,In-process Fountain analyzer,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+custom.transforms,Configured extensions,configured_format,configured_format,configured,Configured command / plugin / AI,configured_only,,Explicit user-selected command/plugin/provider,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.data,No stock route,json,yaml,recognition,Recognized / configured only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.data,No stock route,json,toml,recognition,Recognized / configured only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.data,No stock route,json,csv,recognition,Recognized / configured only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.data,No stock route,json,tsv,recognition,Recognized / configured only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.data,No stock route,json,xml,recognition,Recognized / configured only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.data,No stock route,yaml,json,recognition,Recognized / configured only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.data,No stock route,yaml,toml,recognition,Recognized / configured only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.data,No stock route,yaml,csv,recognition,Recognized / configured only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.data,No stock route,yaml,tsv,recognition,Recognized / configured only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.data,No stock route,yaml,xml,recognition,Recognized / configured only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.data,No stock route,toml,json,recognition,Recognized / configured only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.data,No stock route,toml,yaml,recognition,Recognized / configured only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.data,No stock route,toml,csv,recognition,Recognized / configured only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.data,No stock route,toml,tsv,recognition,Recognized / configured only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.data,No stock route,toml,xml,recognition,Recognized / configured only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.data,No stock route,csv,json,recognition,Recognized / configured only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.data,No stock route,csv,yaml,recognition,Recognized / configured only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.data,No stock route,csv,toml,recognition,Recognized / configured only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.data,No stock route,csv,tsv,recognition,Recognized / configured only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.data,No stock route,csv,xml,recognition,Recognized / configured only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.data,No stock route,tsv,json,recognition,Recognized / configured only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.data,No stock route,tsv,yaml,recognition,Recognized / configured only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.data,No stock route,tsv,toml,recognition,Recognized / configured only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.data,No stock route,tsv,csv,recognition,Recognized / configured only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.data,No stock route,tsv,xml,recognition,Recognized / configured only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.data,No stock route,xml,json,recognition,Recognized / configured only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.data,No stock route,xml,yaml,recognition,Recognized / configured only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.data,No stock route,xml,toml,recognition,Recognized / configured only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.data,No stock route,xml,csv,recognition,Recognized / configured only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.data,No stock route,xml,tsv,recognition,Recognized / configured only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.archives,No stock route,zip,tar.gz,recognition,Recognized / configured only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.archives,No stock route,zip,tar.xz,recognition,Recognized / configured only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.archives,No stock route,zip,cbz,recognition,Recognized / configured only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.archives,No stock route,tar.gz,zip,recognition,Recognized / configured only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.archives,No stock route,tar.gz,tar.xz,recognition,Recognized / configured only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.archives,No stock route,tar.gz,cbz,recognition,Recognized / configured only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.archives,No stock route,tar.xz,zip,recognition,Recognized / configured only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.archives,No stock route,tar.xz,tar.gz,recognition,Recognized / configured only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.archives,No stock route,tar.xz,cbz,recognition,Recognized / configured only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.archives,No stock route,cbz,zip,recognition,Recognized / configured only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.archives,No stock route,cbz,tar.gz,recognition,Recognized / configured only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.archives,No stock route,cbz,tar.xz,recognition,Recognized / configured only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.subtitle,No stock route,ass,timed_transcript_json,recognition,Recognized / configured only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.subtitle,No stock route,ass,srt,recognition,Recognized / configured only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.subtitle,No stock route,ass,vtt,recognition,Recognized / configured only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.subtitle,No stock route,ssa,timed_transcript_json,recognition,Recognized / configured only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.subtitle,No stock route,ssa,srt,recognition,Recognized / configured only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.subtitle,No stock route,ssa,vtt,recognition,Recognized / configured only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.subtitle,No stock route,ttml,timed_transcript_json,recognition,Recognized / configured only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.subtitle,No stock route,ttml,srt,recognition,Recognized / configured only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.subtitle,No stock route,ttml,vtt,recognition,Recognized / configured only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.subtitle,No stock route,lrc,timed_transcript_json,recognition,Recognized / configured only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.subtitle,No stock route,lrc,srt,recognition,Recognized / configured only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.subtitle,No stock route,lrc,vtt,recognition,Recognized / configured only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.subtitle,No stock route,text,timed_transcript_json,recognition,Recognized / configured only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.subtitle,No stock route,text,srt,recognition,Recognized / configured only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.subtitle,No stock route,text,vtt,recognition,Recognized / configured only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.editable,No stock route,page_composition,ora,recognition,Recognized or deferred,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.editable,No stock route,page_composition,psd,recognition,Recognized or deferred,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.editable,No stock route,page_composition,idml,recognition,Recognized or deferred,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.editable,No stock route,presentation_model,pptx,recognition,Recognized or deferred,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.editable,No stock route,presentation_model,keynote,recognition,Recognized or deferred,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.editable,No stock route,video_source,mkv,recognition,Recognized or deferred,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.editable,No stock route,video_source,webm,recognition,Recognized or deferred,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.images,No stock route,svg,jpeg,recognition,Recognized / configured or SDK only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.images,No stock route,svg,png,recognition,Recognized / configured or SDK only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.images,No stock route,svg,webp,recognition,Recognized / configured or SDK only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.images,No stock route,heic,jpeg,recognition,Recognized / configured or SDK only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.images,No stock route,heic,png,recognition,Recognized / configured or SDK only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.images,No stock route,heic,webp,recognition,Recognized / configured or SDK only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.images,No stock route,heif,jpeg,recognition,Recognized / configured or SDK only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.images,No stock route,heif,png,recognition,Recognized / configured or SDK only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.images,No stock route,heif,webp,recognition,Recognized / configured or SDK only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.images,No stock route,psd,jpeg,recognition,Recognized / configured or SDK only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.images,No stock route,psd,png,recognition,Recognized / configured or SDK only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.images,No stock route,psd,webp,recognition,Recognized / configured or SDK only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.images,No stock route,eps,jpeg,recognition,Recognized / configured or SDK only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.images,No stock route,eps,png,recognition,Recognized / configured or SDK only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.images,No stock route,eps,webp,recognition,Recognized / configured or SDK only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.images,No stock route,jxl,jpeg,recognition,Recognized / configured or SDK only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.images,No stock route,jxl,png,recognition,Recognized / configured or SDK only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
+not-stock.images,No stock route,jxl,webp,recognition,Recognized / configured or SDK only,recognition_only,,,,9bfb49446f6cf570af01e33412b48cbd4ff03763
