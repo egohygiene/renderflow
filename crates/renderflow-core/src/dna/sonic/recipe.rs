@@ -84,7 +84,7 @@ pub fn parse(bytes:&[u8])->Result<SonicRecipe> {
     validate_file(&recipe.audio)?;
     ensure!(recipe.analyses.len()<=8 && recipe.companions.len()<=32 && recipe.corrections.len()<=64,"sonic.inputs.count");
     ensure!(1+recipe.analyses.iter().map(|analysis|1+analysis.evidence_files.len()).sum::<usize>()+recipe.companions.len()<=256,"sonic.inputs.total_count");
-    ensure!(recipe.policy.enabled && recipe.policy.max_source_bytes>0 && recipe.policy.max_source_bytes<=32*1024*1024
+    ensure!(recipe.policy.enabled && recipe.policy.max_source_bytes>0 && recipe.policy.max_source_bytes<=256*1024*1024
         && recipe.policy.max_observations>=16 && recipe.policy.max_observations<=1024,"sonic.policy.bounds");
     local::text(&recipe.policy.policy_id,256)?;
     ensure!(recipe.policy.policy_id.bytes().all(|ch|ch.is_ascii_alphanumeric() || matches!(ch,b'.'|b'-'|b'_'|b'/')),"sonic.policy.id");

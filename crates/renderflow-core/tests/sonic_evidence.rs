@@ -42,6 +42,8 @@ fn mutate_analysis(root:&Path,input:&Path,recipe:&mut SonicRecipe,change:impl Fn
 
 #[path="sonic_evidence/context.rs"]
 mod context;
+#[path="sonic_evidence/native_wav.rs"]
+mod native_wav;
 
 #[test]
 fn plan_observes_bindings_without_creating_artifacts_or_model_results() {

@@ -48,6 +48,12 @@ dependency or second media runtime is added. Provider/review declarations remain
 unauthenticated, source frame ranges stay exact, and companion words remain
 outside model input. See [Sonic evidence](docs/user-guide/sonic-dna.md).
 
+Sonic owns bounded native music WAV byte inspection and original sample-frame
+clocks without conversion. Speech retains its stricter source profile. Larger
+Sonic source policies explicitly select bounded shared capture limits; other
+publication callers and outgoing bundles retain their current limits. Existing
+DNA, hygiene, artifact store and model runtime owners remain unchanged.
+
 1. **Intent and contracts** — identity, policy, specifications, schemas, and accepted decisions.
 2. **Domain** — canonical concepts and pure domain behavior.
 3. **Application** — planning, orchestration, use cases, and state transitions.

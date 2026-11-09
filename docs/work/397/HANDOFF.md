@@ -96,3 +96,15 @@ baseline/release ownership. #405's shared ADR scheduling is unchanged.
 Next: continue the approved #406 local gap pass against its six merged
 checkpoints. Do not invent typography/interchange features without a concrete
 gap or consumer requirement; keep deferred qualification distinct from source.
+
+## November 9 native music WAV checkpoint (draft, source only)
+
+Sonic admits original PCM16/24/32 or finite float32 RIFF/WAVE, 1..8 channels,
+8..192 kHz, <=10 minutes and <=256 MiB selected source policy. No conversion or
+Speech profile change. Exact native channels/rate/frame/encoding facts and
+source-clock timeline/SRT mappings; original confidence/authority limitations
+remain. Existing Capture gains explicit finite total admission for Sonic only
+(up to source+64 MiB, max320 MiB); new/default/output paths retain prior bounds.
+Normalizer/extractor revision3 participates in intent. Six useful synthetic
+cases authored uncompiled/unrun, schema/docs updated, no execution or CI.
+This remains partial #397 source scope; flow88 owns the final deep pass.

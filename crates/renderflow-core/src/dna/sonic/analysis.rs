@@ -8,7 +8,7 @@ use serde_json::{json,Value};
 use crate::dna::{DnaDeterminism,DnaEvidenceOrigin};
 use crate::evidence::files;
 use crate::publication::local;
-use crate::speech::provider::PcmWavInspection;
+use super::wav::WavInspection;
 use super::facts::{Confidence,SonicFact};
 
 pub const CONTRACT_PIN:&str="8008e0176f45b34d2a9e74d8a26d9b3fd374b81f";
@@ -69,13 +69,13 @@ fn status(value:&str)->Result<()> {
 }
 
 pub(super) fn project(bytes:&[u8],source_sha256:&str,source_size:u64,
-    pcm:PcmWavInspection,retained:&BTreeMap<String,(String,u64)>)->Result<Projection> {
+    pcm:WavInspection,retained:&BTreeMap<String,(String,u64)>)->Result<Projection> {
     let value:Analysis=local::parse(bytes)?;
     ensure!(value.schema=="aniflow.audio-analysis/v1","sonic.aniflow.schema");
     status(&value.status)?;
     ensure!(value.source.artifact.sha256==source_sha256 && value.source.artifact.byte_size==source_size,
         "sonic.aniflow.source.changed");
-    ensure!(value.source.stream_index==0 && value.source.sample_rate_hz==16000 && value.source.channels==1
+    ensure!(value.source.stream_index==0 && value.source.sample_rate_hz==pcm.sample_rate_hz && value.source.channels==u32::from(pcm.channels)
         && value.source.frame_count==pcm.frame_count && value.source.origin.numerator==0
         && value.source.origin.denominator==1 && value.source.stem.is_none(),"sonic.aniflow.source.clock: only the selected original zero-origin PCM stream is admitted");
     for count in [value.artifacts.len(),value.providers.len(),value.capabilities.len(),value.observations.len(),
@@ -134,7 +134,7 @@ pub(super) fn project(bytes:&[u8],source_sha256:&str,source_size:u64,
         ensure!(!observation.provenance.evidence_artifact_ids.is_empty(),"sonic.aniflow.evidence.empty");
         refs(&observation.provenance.evidence_artifact_ids,|id|
             artifacts.contains_key(id) && capability.evidence_artifact_ids.iter().any(|candidate|candidate==id))?;
-        ensure!(observation.scope.channels==[0] && observation.scope.stem_id.is_none(),"sonic.aniflow.observation.scope");
+        validate_scope(&observation.scope,pcm)?;
         observation.provenance.confidence.validate(observation.provenance.class)?;
         let (dimension,expected_capability)=match observation.kind.as_str() {
             "sample_rate"=>("sonic.technical.sample_rate_hz","aniflow/audio-technical-inspection"),
@@ -145,12 +145,12 @@ pub(super) fn project(bytes:&[u8],source_sha256:&str,source_size:u64,
         };
         ensure!(observation.capability_id==expected_capability,"sonic.aniflow.observation.kind_capability");
         let scalar=observation.value.get("value").context("sonic.aniflow.observation.value")?.clone();
-        validate_value(&observation.kind,&observation.value,observation.provenance.class)?;
+        validate_value(&observation.kind,&observation.value,observation.provenance.class,pcm)?;
         facts.push(SonicFact {id:format!("analysis.{manifest_sha256}.observation.{index}"),dimension:dimension.into(),value:scalar,
             origin:DnaEvidenceOrigin::SourceReported,class:observation.provenance.class,
             confidence:observation.provenance.confidence.clone(),
             evidence:json!({"manifest_sha256":manifest_sha256,"pointer":format!("/observations/{index}"),
-                "native_observation_id":observation.id,"provider_declaration":provider,
+                "native_observation_id":observation.id,"provider_declaration":provider,"channel_scope":observation.scope.channels,
                 "provider_authentication":"not_established","native_validation":"bounded_projection_only",
                 "evidence_artifacts":observation.provenance.evidence_artifact_ids.iter().map(|id|{
                     let (sha256,size)=artifacts[id.as_str()];json!({"sha256":sha256,"size_bytes":size})}).collect::<Vec<_>>()}),
@@ -165,7 +165,7 @@ pub(super) fn project(bytes:&[u8],source_sha256:&str,source_size:u64,
         local::identifier(&timeline.id)?;ensure!(seen.insert(timeline.id.clone()),"sonic.aniflow.timeline.duplicate");
         let capability=capabilities.get(timeline.capability_id.as_str()).context("sonic.aniflow.timeline.capability")?;
         ensure!(matches!(capability.status.as_str(),"complete"|"partial"),"sonic.aniflow.timeline.unobserved");
-        ensure!(timeline.scope.channels==[0]&&timeline.scope.stem_id.is_none(),"sonic.aniflow.timeline.scope");
+        validate_scope(&timeline.scope,pcm)?;
         ensure!(matches!(timeline.kind.as_str(),"markers"|"disjoint_regions"|"overlapping_regions")
             &&!timeline.events.is_empty()&&timeline.events.len()<=256&&facts.len()+timeline.events.len()<=500,"sonic.aniflow.timeline.bounds");
         let mut previous:Option<&Event>=None;
@@ -184,7 +184,7 @@ pub(super) fn project(bytes:&[u8],source_sha256:&str,source_size:u64,
             refs(&provenance.evidence_artifact_ids,|id|artifacts.contains_key(id)&&capability.evidence_artifact_ids.iter().any(|candidate|candidate==id))?;
             provenance.confidence.validate(provenance.class)?;
             facts.push(SonicFact {id:format!("analysis.{manifest_sha256}.timeline.{timeline_index}.event.{event_index}"),dimension:"sonic.arrangement.reported_event".into(),
-                value:json!({"label":event.label,"source_frame_range":{"start":event.range.start,"end":event.range.end},"sample_rate_hz":16000,"timeline_kind":timeline.kind}),
+                value:json!({"label":event.label,"source_frame_range":{"start":event.range.start,"end":event.range.end},"sample_rate_hz":pcm.sample_rate_hz,"channel_scope":timeline.scope.channels,"timeline_kind":timeline.kind}),
                 origin:DnaEvidenceOrigin::SourceReported,class:provenance.class,confidence:provenance.confidence.clone(),
                 evidence:json!({"manifest_sha256":manifest_sha256,"pointer":format!("/timelines/{timeline_index}/events/{event_index}"),"native_timeline_id":timeline.id,
                     "native_event_id":event.id,"provider_declaration":provider,"provider_authentication":"not_established","native_validation":"bounded_projection_only",
@@ -207,14 +207,18 @@ fn refs(ids:&[String],exists:impl Fn(&str)->bool)->Result<()> {
     Ok(())
 }
 
-fn validate_value(kind:&str,value:&Value,class:DnaDeterminism)->Result<()> {
+fn validate_scope(scope:&Scope,pcm:WavInspection)->Result<()> {
+    ensure!(!scope.channels.is_empty()&&scope.channels.len()<=usize::from(pcm.channels)&&scope.channels.iter().all(|c|*c<u32::from(pcm.channels))&&scope.channels.windows(2).all(|w|w[0]<w[1])&&scope.stem_id.is_none(),"sonic.aniflow.channel_scope");Ok(())
+}
+
+fn validate_value(kind:&str,value:&Value,class:DnaDeterminism,pcm:WavInspection)->Result<()> {
     let object=value.as_object().context("sonic.aniflow.value.object")?;
     let expected=if kind=="key" {vec!["kind","value"]} else {vec!["kind","unit","value"]};
     ensure!(object.keys().map(String::as_str).collect::<BTreeSet<_>>()==expected.into_iter().collect(),"sonic.aniflow.value.fields");
     match kind {
-        "sample_rate"=>ensure!(value["kind"]=="quantity" && value["unit"]=="hertz" && value["value"].as_f64()==Some(16000.0)
+        "sample_rate"=>ensure!(value["kind"]=="quantity" && value["unit"]=="hertz" && value["value"].as_f64()==Some(f64::from(pcm.sample_rate_hz))
             && class==DnaDeterminism::Deterministic,"sonic.aniflow.sample_rate"),
-        "channel_count"=>ensure!(value["kind"]=="count" && value["unit"]=="channels" && value["value"].as_u64()==Some(1)
+        "channel_count"=>ensure!(value["kind"]=="count" && value["unit"]=="channels" && value["value"].as_u64()==Some(u64::from(pcm.channels))
             && class==DnaDeterminism::Deterministic,"sonic.aniflow.channel_count"),
         "tempo"=>ensure!(value["kind"]=="quantity" && value["unit"]=="beats_per_minute"
             && value["value"].as_f64().is_some_and(|number|number>0.0 && number<=1000.0)

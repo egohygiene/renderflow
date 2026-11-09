@@ -70,12 +70,27 @@
           },
           "timed_text_context": {
             "description": "Explicit structural inspection only; source-bound plain SRT/WebVTT syntax/timing is not authenticated text review or alignment. Raw words never enter DNA/model input.",
-            "type": ["object", "null"],
+            "type": [
+              "object",
+              "null"
+            ],
             "additionalProperties": false,
-            "required": ["format", "maximum_cues"],
+            "required": [
+              "format",
+              "maximum_cues"
+            ],
             "properties": {
-              "format": {"enum": ["srt", "webvtt"]},
-              "maximum_cues": {"type": "integer", "minimum": 1, "maximum": 256}
+              "format": {
+                "enum": [
+                  "srt",
+                  "webvtt"
+                ]
+              },
+              "maximum_cues": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 256
+              }
             }
           }
         },
@@ -143,7 +158,7 @@
         "max_source_bytes": {
           "type": "integer",
           "minimum": 1,
-          "maximum": 33554432
+          "maximum": 268435456
         },
         "max_observations": {
           "type": "integer",
@@ -289,5 +304,5 @@
       ]
     }
   },
-  "$comment": "Runtime checks exact selected bytes, native evidence membership/clock and all bounds. Wave input is the existing ten-minute mono 16000 Hz PCM16 profile. Authority references are declarations; no inferred lyrical/MIDI approval."
+  "$comment": "Runtime checks exact selected bytes, native evidence membership/clock and finite bounds. Sonic admits native RIFF/WAVE PCM16/24/32 or finite float32, 1..8 channels, 8..192 kHz, at most ten minutes and selected source bytes <=256 MiB; no conversion. Speech remains strict 16 kHz mono PCM16. Authority references remain declarations."
 }

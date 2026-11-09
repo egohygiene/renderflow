@@ -39,9 +39,10 @@ The [request schema](../../schemas/renderflow-sonic-request-v1.schema.json) uses
 `renderflow.sonic-request/v1`:
 
 - `audio` pins one local relative path and exact SHA-256. This first profile
-  admits the existing strict mono 16,000 Hz signed PCM16 RIFF/WAVE subset, up to
-  ten minutes. Compressed/extensible WAVE, containers, multiple streams and
-  implicit conversion are refused. Prepare other audio separately.
+  admits native little-endian RIFF/WAVE PCM16/24/32 or finite IEEE float32,
+  1..8 interleaved channels and 8..192 kHz, up to ten minutes. Sample frames
+  count simultaneous channel frames. Compressed/extensible WAVE, RF64, multiple
+  data streams and implicit conversion are refused. Prepare other audio separately.
 - `analyses` optionally pins `aniflow.audio-analysis/v1` JSON and every declared
   evidence file. Source hash, size, stream, zero-origin sample clock and exact
   frame count must match the selected WAV. Provider/capability/evidence IDs,
@@ -84,9 +85,9 @@ string becomes a filesystem path. Mismatched, missing, duplicate or unobserved
 references fail before model work. Native source status remains in the output:
 failed/unavailable analysis is not a successful analyzer observation.
 
-The normalizer revision `sonic-evidence-mappings/2` participates in intent
-identity, and extractor version 2 distinguishes the extended mapping from the
-earlier scalar-only projection. Existing JSON requests may omit context. Rust
+The normalizer revision `sonic-evidence-mappings/3` participates in intent
+identity, and extractor version 3 distinguishes native music WAV admission
+from the earlier 16 kHz mono projection. Existing JSON requests may omit context. Rust
 callers constructing `Companion` literals supply `timed_text_context: None` for
 the prior byte-binding behavior. Existing core Artifact DNA is unchanged; the
 selected context/facts remain in its namespaced Sonic extension.
@@ -196,9 +197,12 @@ can use versioned candidate artifacts without importing sibling source.
 
 Recipe/native JSON is capped at 2 MiB per file. There are at most 8 analyses,
 32 companions, 64 corrections, 256 selected input files and 500 imported/corrected
-facts; expanded facts are capped at 2 MiB. Source capture/output uses the shared
-64 MiB budget and cooperative 120-second I/O phases. Selected PCM/evidence-file
-caps and stricter native limits also apply. Native opaque provider declarations
+facts; expanded facts are capped at 2 MiB. Source admission is selected by `policy.max_source_bytes` (at most 256 MiB).
+For policies above the earlier 32 MiB ceiling, Sonic explicitly selects source
+budget plus 64 MiB of supporting capture (at most 320 MiB); smaller policies
+retain 64 MiB total capture. Outgoing bundles and other local publication
+callers retain 64 MiB. Cooperative 120-second I/O phases and per-evidence bounds
+remain. Copies for capture/CAS/DNA can require more memory than the byte budget. Native opaque provider declarations
 are hash-bound once rather than multiplied into every fact. These are not hard
 RSS/syscall limits or a hostile concurrent filesystem sandbox.
 
@@ -208,3 +212,26 @@ validators, product/native/provider/audio/model execution or CI ran. Full native
 analysis validation, broader audio/musical/timeline/companion interpretation,
 direct-audio models, measured grounding/quality, live local/remote operation and
 platform/release proof remain under existing #397 and #458/#419 acceptance.
+
+## Native music WAV source checkpoint
+
+The `native_music_wav/v1` structural profile preserves exact original sample
+rate, channels, frame count, bit depth and encoding. Nothing resamples, downmixes,
+quantizes, clips or repairs data. Float samples must be finite; finite headroom
+outside [-1,1] is retained. RIFF lengths, unique format/data chunks, block/byte
+rates, padding, partial frames and optional fact counts are checked. Ancillary
+chunks remain hash-bound source bytes without exposing their text. Speech's
+existing 16 kHz mono PCM16 admission is unchanged.
+
+Analyzer source clocks and ascending, unique, in-range channel scopes match the
+actual selected source. Timed-text structure maps millisecond half-open bounds
+onto that original sample grid with exact integer ceiling, including 44.1 kHz;
+this does not prove text/audio alignment. Native plan fields expose selected
+source/capture limits. Set an explicit adequate `policy.max_source_bytes` for a
+full music master; this is finite admission, not a streaming or RSS guarantee.
+Historical technical schemas remain readable without promoting old outputs.
+
+Six new synthetic format/clock/channel/privacy/refusal cases are authored,
+uncompiled/unrun. No tests, compiler/builds, dependencies, format/schema checks,
+product/native/media/model execution or CI ran. Broader #397 and release #419
+acceptance remain open; deep suite qualification stays flow #88, scheduled last.
