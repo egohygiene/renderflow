@@ -253,7 +253,7 @@
         "size_bytes": {
           "type": "integer",
           "minimum": 0,
-          "maximum": 33554432
+          "maximum": 268435456
         }
       },
       "required": [
