@@ -42,6 +42,15 @@ struct Provenance {class:DnaDeterminism,confidence:Confidence,provider_evidence_
 struct Observation {id:String,capability_id:String,kind:String,value:Value,scope:Scope,provenance:Provenance}
 #[derive(Debug,Clone,Deserialize)]
 #[serde(deny_unknown_fields)]
+struct FrameRange {start:u64,end:u64}
+#[derive(Debug,Clone,Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Event {id:String,range:FrameRange,label:String,provenance:Provenance}
+#[derive(Debug,Clone,Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Timeline {id:String,capability_id:String,kind:String,scope:Scope,events:Vec<Event>}
+#[derive(Debug,Clone,Deserialize)]
+#[serde(deny_unknown_fields)]
 struct Analysis {schema:String,status:String,source:Source,artifacts:Vec<ArtifactRef>,providers:Vec<Provider>,
     capabilities:Vec<Capability>,observations:Vec<Observation>,timelines:Vec<Value>,semantic_artifacts:Vec<Value>,
     excerpts:Vec<Value>,diagnostics:Vec<Value>,extensions:BTreeMap<String,Value>}
@@ -49,6 +58,8 @@ struct Analysis {schema:String,status:String,source:Source,artifacts:Vec<Artifac
 pub(super) struct Projection {
     pub status:String,
     pub facts:Vec<SonicFact>,
+    pub scalar_count:usize,
+    pub timeline_count:usize,
     pub unprojected:Value,
 }
 
@@ -115,7 +126,7 @@ pub(super) fn project(bytes:&[u8],source_sha256:&str,source_size:u64,
     let manifest_sha256=local::sha256(bytes);
     for (index,observation) in value.observations.iter().enumerate() {
         local::identifier(&observation.id)?;
-        ensure!(seen.insert(&observation.id),"sonic.aniflow.observation.duplicate");
+        ensure!(seen.insert(observation.id.clone()),"sonic.aniflow.observation.duplicate");
         let capability=capabilities.get(observation.capability_id.as_str()).context("sonic.aniflow.observation.capability")?;
         ensure!(matches!(capability.status.as_str(),"complete"|"partial"),"sonic.aniflow.unobserved.capability");
         let provider=providers.get(observation.provenance.provider_evidence_id.as_str()).context("sonic.aniflow.observation.provider")?;
@@ -145,10 +156,48 @@ pub(super) fn project(bytes:&[u8],source_sha256:&str,source_size:u64,
                     let (sha256,size)=artifacts[id.as_str()];json!({"sha256":sha256,"size_bytes":size})}).collect::<Vec<_>>()}),
             correction_of:None});
     }
-    Ok(Projection {status:value.status,facts,unprojected:json!({"timelines":value.timelines.len(),
+    let scalar_count=facts.len();let mut projected_timelines=0;
+    for (timeline_index,raw) in value.timelines.iter().enumerate() {
+        // Admit only the existing musical family. Other temporal/semantic
+        // families remain explicitly unprojected, with no extracted meaning.
+        if raw.get("capability_id").and_then(Value::as_str)!=Some("aniflow/audio-musical-structure") {continue;}
+        let timeline:Timeline=serde_json::from_value(raw.clone()).context("sonic.aniflow.timeline.shape")?;
+        local::identifier(&timeline.id)?;ensure!(seen.insert(timeline.id.clone()),"sonic.aniflow.timeline.duplicate");
+        let capability=capabilities.get(timeline.capability_id.as_str()).context("sonic.aniflow.timeline.capability")?;
+        ensure!(matches!(capability.status.as_str(),"complete"|"partial"),"sonic.aniflow.timeline.unobserved");
+        ensure!(timeline.scope.channels==[0]&&timeline.scope.stem_id.is_none(),"sonic.aniflow.timeline.scope");
+        ensure!(matches!(timeline.kind.as_str(),"markers"|"disjoint_regions"|"overlapping_regions")
+            &&!timeline.events.is_empty()&&timeline.events.len()<=256&&facts.len()+timeline.events.len()<=500,"sonic.aniflow.timeline.bounds");
+        let mut previous:Option<&Event>=None;
+        for (event_index,event) in timeline.events.iter().enumerate() {
+            local::identifier(&event.id)?;local::text(&event.label,4096)?;
+            ensure!(seen.insert(event.id.clone()),"sonic.aniflow.event.duplicate");
+            ensure!(event.range.start<event.range.end&&event.range.end<=pcm.frame_count,"sonic.aniflow.event.range");
+            ensure!(timeline.kind!="markers"||event.range.end-event.range.start==1,"sonic.aniflow.event.marker");
+            if let Some(prior)=previous {
+                ensure!((event.range.start,event.range.end,event.id.as_str())>(prior.range.start,prior.range.end,prior.id.as_str()),"sonic.aniflow.event.order");
+                ensure!(timeline.kind=="overlapping_regions"||event.range.start>=prior.range.end,"sonic.aniflow.event.overlap");
+            }
+            let provenance=&event.provenance;
+            let provider=providers.get(provenance.provider_evidence_id.as_str()).context("sonic.aniflow.event.provider")?;
+            ensure!(capability.provider_evidence_ids.contains(&provenance.provider_evidence_id)&&!provenance.evidence_artifact_ids.is_empty(),"sonic.aniflow.event.authority");
+            refs(&provenance.evidence_artifact_ids,|id|artifacts.contains_key(id)&&capability.evidence_artifact_ids.iter().any(|candidate|candidate==id))?;
+            provenance.confidence.validate(provenance.class)?;
+            facts.push(SonicFact {id:format!("analysis.{manifest_sha256}.timeline.{timeline_index}.event.{event_index}"),dimension:"sonic.arrangement.reported_event".into(),
+                value:json!({"label":event.label,"source_frame_range":{"start":event.range.start,"end":event.range.end},"sample_rate_hz":16000,"timeline_kind":timeline.kind}),
+                origin:DnaEvidenceOrigin::SourceReported,class:provenance.class,confidence:provenance.confidence.clone(),
+                evidence:json!({"manifest_sha256":manifest_sha256,"pointer":format!("/timelines/{timeline_index}/events/{event_index}"),"native_timeline_id":timeline.id,
+                    "native_event_id":event.id,"provider_declaration":provider,"provider_authentication":"not_established","native_validation":"bounded_projection_only",
+                    "evidence_artifacts":provenance.evidence_artifact_ids.iter().map(|id|{let (sha256,size)=artifacts[id.as_str()];json!({"sha256":sha256,"size_bytes":size})}).collect::<Vec<_>>()}),correction_of:None});
+            previous=Some(event);
+        }
+        projected_timelines+=1;
+    }
+    let timeline_count=facts.len()-scalar_count;
+    Ok(Projection {status:value.status,facts,scalar_count,timeline_count,unprojected:json!({"timelines":value.timelines.len()-projected_timelines,
         "semantic_artifacts":value.semantic_artifacts.len(),"excerpts":value.excerpts.len(),
         "diagnostics":value.diagnostics.len(),"extensions":value.extensions.len(),
-        "scope":"Counts only; native temporal/semantic payloads remain outside this projection."})})
+        "scope":"Only selected musical timelines are projected; other temporal/semantic/excerpt payloads remain counts only."})})
 }
 
 fn refs(ids:&[String],exists:impl Fn(&str)->bool)->Result<()> {

@@ -2,6 +2,7 @@
 //! Aniflow owns extraction; existing DNA/AI services own hygiene and execution.
 
 mod analysis;
+mod companion;
 mod facts;
 mod recipe;
 mod render;
@@ -27,7 +28,7 @@ use crate::publication::local::{self,Capture};
 use crate::speech::provider::{inspect_pcm_wav_details,PcmWavInspection};
 
 pub use facts::{Confidence,SonicFact};
-pub use recipe::{parse,AnalysisInput,Companion,CompanionKind,Correction,FileInput,SemanticMode,SemanticPolicy,SonicRecipe,PROFILE,SCHEMA};
+pub use recipe::{parse,AnalysisInput,Companion,CompanionKind,CompanionTextFormat,TimedTextContext,Correction,FileInput,SemanticMode,SemanticPolicy,SonicRecipe,PROFILE,SCHEMA};
 pub use semantic::{DescriptionCandidate,DescriptionSection,EvidenceText,SemanticReport};
 
 #[derive(Debug,Clone)]
@@ -89,7 +90,7 @@ fn capture(input:&Path,token:ProcessCancellationToken)->Result<Captured> {
         }
         let projected=analysis::project(&file.bytes,&recipe.audio.sha256,source_size,pcm,&retained)?;
         analyses.push(json!({"manifest_sha256":file.subject.sha256,"status":projected.status,
-            "normalized_scalar_facts":projected.facts.len(),"unprojected":projected.unprojected,
+            "normalized_scalar_facts":projected.scalar_count,"normalized_timeline_facts":projected.timeline_count,"unprojected":projected.unprojected,
             "native_validation":"bounded_projection_only","provider_authentication":"not_established",
             "contract_revision":analysis::CONTRACT_PIN}));
         ensure!(facts.len()+projected.facts.len()<=500,"sonic.facts.total_count");
@@ -97,11 +98,15 @@ fn capture(input:&Path,token:ProcessCancellationToken)->Result<Captured> {
         files.push(file);
     }
     let mut companions=Vec::new();
-    for companion in &recipe.companions {
-        let file=read(&mut root,&companion.file,format!("companion.{}",companion.file.id),"companion",8*1024*1024)?;
+    for (index,companion) in recipe.companions.iter().enumerate() {
+        let maximum=if companion.timed_text_context.is_some() {1_048_576}else{8*1024*1024};
+        let file=read(&mut root,&companion.file,format!("companion.{}",companion.file.id),"companion",maximum)?;
+        let context=companion::project(companion,&file.bytes,index,pcm)?;
         companions.push(json!({"sha256":file.subject.sha256,"size_bytes":file.subject.size_bytes,"kind":companion.kind,
             "source_sha256":companion.source_sha256,"authority_reference":companion.authority_reference,
-            "authority_is_declared":true,"validation":"byte_binding_only","payload_exposed_to_model":false}));
+            "authority_is_declared":true,"validation":if context.is_some() {"syntax_and_source_clock_only"}else{"byte_binding_only"},
+            "structural_context":context.as_ref().map(|fact|&fact.value),"payload_exposed_to_model":false}));
+        if let Some(fact)=context {facts.push(fact);}
         files.push(file);
     }
     for (index,correction) in recipe.corrections.iter().enumerate() {
@@ -130,6 +135,7 @@ fn capture(input:&Path,token:ProcessCancellationToken)->Result<Captured> {
     let intent_sha256=local::sha256(&serde_json::to_vec(&json!({"schema_version":"renderflow.sonic-intent/v1",
         "profile":PROFILE,"engine_version":env!("CARGO_PKG_VERSION"),"request_sha256":input_sha256,
         "inputs":files.iter().map(|file|&file.subject).collect::<Vec<_>>(),"aniflow_contract_revision":analysis::CONTRACT_PIN,
+        "normalizer_revision":"sonic-evidence-mappings/2",
         "semantic_skill_sha256":local::sha256(semantic::SKILL_SOURCE.as_bytes())}))?);
     Ok(Captured {recipe,files,pcm,facts,analyses,companions,input_sha256,intent_sha256})
 }
@@ -143,7 +149,7 @@ fn plan_captured(captured:&Captured,runtime:Option<&AiSkillRuntime<'_>>)->Result
             "duration_ms":captured.pcm.duration_ms,"timestamp_origin":"selected_input_samples_from_zero"}),
         analyses:captured.analyses.clone(),declared_companions:captured.companions.iter().map(|companion|json!({
             "kind":companion["kind"],"sha256":companion["sha256"],"authority_is_declared":true,
-            "validation":"byte_binding_only","payload_exposed_to_model":false})).collect(),
+            "validation":companion["validation"],"structural_context":companion["structural_context"],"payload_exposed_to_model":false})).collect(),
         fact_ids:["pcm.duration","pcm.frames","pcm.sample-rate","pcm.channels","pcm.bits"].into_iter().map(str::to_string)
             .chain(captured.facts.iter().map(|fact|fact.id.clone())).collect(),
         semantic:semantic::availability(&captured.recipe,&request,runtime),direct_audio_inference:"unsupported_by_this_profile".into(),
@@ -160,7 +166,7 @@ pub fn plan(input:&Path,runtime:Option<&AiSkillRuntime<'_>>,token:ProcessCancell
 struct SonicExtractor {source_sha256:String,pcm:PcmWavInspection,facts:Vec<SonicFact>,analyses:Vec<Value>,companions:Vec<Value>}
 impl ArtifactDnaExtractor for SonicExtractor {
     fn id(&self)->&str {"renderflow.sonic.evidence-normalizer"}
-    fn version(&self)->&str {"1"}
+    fn version(&self)->&str {"2"}
     fn locality(&self)->crate::dna::DnaProviderLocality {crate::dna::DnaProviderLocality::Local}
     fn determinism(&self)->DnaDeterminism {DnaDeterminism::Deterministic}
     fn ai_assisted(&self)->bool {false}
@@ -186,7 +192,7 @@ impl ArtifactDnaExtractor for SonicExtractor {
             "facts":self.facts,"analyses":self.analyses,"companions":self.companions,
             "confidence_contract":"Unknown/not-applicable/uncalibrated values retain their tags; no musical confidence is synthesized."}));
         batch.omissions.push(DnaOmission {code:"sonic.direct_audio.not_executed".into(),class:"unsupported_input_modality".into(),
-            message:"No model listened to the audio. Native timeline/semantic/excerpt payloads and companion contents were not interpreted by this projection.".into()});
+            message:"No model listened to audio. Selected musical events and explicitly selected timed-text structure are projected; other native semantic/excerpt and companion word payloads remain uninterpreted.".into()});
         Ok(batch)
     }
 }

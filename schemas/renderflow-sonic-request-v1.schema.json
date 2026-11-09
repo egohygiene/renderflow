@@ -67,6 +67,16 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 4096
+          },
+          "timed_text_context": {
+            "description": "Explicit structural inspection only; source-bound plain SRT/WebVTT syntax/timing is not authenticated text review or alignment. Raw words never enter DNA/model input.",
+            "type": ["object", "null"],
+            "additionalProperties": false,
+            "required": ["format", "maximum_cues"],
+            "properties": {
+              "format": {"enum": ["srt", "webvtt"]},
+              "maximum_cues": {"type": "integer", "minimum": 1, "maximum": 256}
+            }
           }
         },
         "required": [

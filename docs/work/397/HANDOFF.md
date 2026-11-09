@@ -1,5 +1,25 @@
 # #397 — bounded Sonic evidence checkpoint
 
+## November 8, 2026 — selected time-scoped context source checkpoint
+
+The approved next source batch starts from main f90936d89a52748dda85926cf0225614e45ad614
+on codex/397-timed-sonic-20261108. The existing bounded normalizer now projects
+selected musical-structure events with exact source sample ranges and original
+uncertainty, plus explicitly selected reviewed-lyrics/transcript-candidate plain
+SRT/WebVTT structural context. Companion words stay private; role/review/provider
+declarations are not authenticated. Other temporal/semantic/MIDI families remain
+unprojected; no analyzers, sibling imports, runtime/model or review authority is
+introduced. The mapping revision enters intent identity; existing JSON omits the
+optional context for prior behavior. Root canonical architecture and contracts
+describe the same existing owner boundary; no ADR is ratified.
+
+Six new synthetic cases are authored, uncompiled/unrun. All tests/builds/Cargo/
+dependency/lint/format/schema/docs/corpus/native/provider/media/model/CLI/SDK/CI
+execution stays deferred to flow #88, scheduled last. No install, paid request,
+source mutation/disposal, actual review, release or publication. Save a separate
+draft PR, then continue the approved flow #62 / aniflow #83/#108/#110 batch.
+Earlier dated draft/next markers below are historical; original scope is retained.
+
 Authored November 3, 2026 (America/New_York).
 Branch: `codex/397-sonic-dna`, stacked after briefing draft #476 at
 `10b2c46d551a3cdb565ee679f196522fc92e6563`.

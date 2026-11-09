@@ -41,6 +41,13 @@ and original contents preserved.
 
 ## Layer model
 
+The existing Sonic evidence boundary projects selected source-clock musical
+events and explicitly selected timed-text structural context through its current
+DNA/hygiene owner. Aniflow remains the analysis producer; no analyzer, sibling
+dependency or second media runtime is added. Provider/review declarations remain
+unauthenticated, source frame ranges stay exact, and companion words remain
+outside model input. See [Sonic evidence](docs/user-guide/sonic-dna.md).
+
 1. **Intent and contracts** — identity, policy, specifications, schemas, and accepted decisions.
 2. **Domain** — canonical concepts and pure domain behavior.
 3. **Application** — planning, orchestration, use cases, and state transitions.
