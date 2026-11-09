@@ -54,6 +54,12 @@ Sonic source policies explicitly select bounded shared capture limits; other
 publication callers and outgoing bundles retain their current limits. Existing
 DNA, hygiene, artifact store and model runtime owners remain unchanged.
 
+Explicit Sonic analysis contexts project bounded inferred-note and selected-stem
+relationship fields from pinned public Aniflow reports. Exact source clocks,
+unknown musical confidence and declared original-mix lineage stay separate;
+raw native acceptance is not replayed. Unselected semantic/MIDI payloads remain
+uninterpreted. No sibling source dependency or second analyzer runtime is added.
+
 1. **Intent and contracts** — identity, policy, specifications, schemas, and accepted decisions.
 2. **Domain** — canonical concepts and pure domain behavior.
 3. **Application** — planning, orchestration, use cases, and state transitions.

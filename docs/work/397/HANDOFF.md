@@ -108,3 +108,19 @@ remain. Existing Capture gains explicit finite total admission for Sonic only
 Normalizer/extractor revision3 participates in intent. Six useful synthetic
 cases authored uncompiled/unrun, schema/docs updated, no execution or CI.
 This remains partial #397 source scope; flow88 owns the final deep pass.
+
+## November 9 selected note/stem checkpoint (draft, source only)
+
+Optional AnalysisInput midi_context/stem_context borrow exact retained evidence
+bytes and project public Aniflow MIDI candidate/selected-stem relationship
+contracts pinned8edb41... through existing Sonic owner. Notes keep rational
+times/tickserialization/pitch/velocity/activation and unavailable confidence;
+limits1..128 refuse overflow, currentnativecandidate22.05kmono16/120s/8MiB only.
+Stem context requires exact selectedsource, all retained authority references
+and declared duration tolerance, keeping originalmixunobserved/samplealignment
+unestablished. No actual native/probe/checkpoint replay, binary MIDI parser,
+authenticated artist/review, downmix/resample/modelruntime or sibling imports.
+Source scopes keep stem/channel identities; unselected semantic families remain
+counts. Mapping/extractor4 intent-bound, existing JSON omission preserved. Five
+new meaningful synthetic cases authored uncompiled/unrun; no execution or CI.
+#397 broader scope/release419 and aggregate flow88 final deep pass remain open.

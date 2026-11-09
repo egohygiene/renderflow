@@ -55,7 +55,7 @@ The [request schema](../../schemas/renderflow-sonic-request-v1.schema.json) uses
   Each selected timeline has at most 256 events and the existing total-fact bound
   still applies. Other timeline families, semantic-artifact, excerpt and extension
   payloads remain explicitly counted as unprojected. This is a bounded projection of the
-  [pinned public contract](https://github.com/egohygiene/aniflow/blob/8008e0176f45b34d2a9e74d8a26d9b3fd374b81f/docs/contracts/audio-analysis-v1.schema.json),
+  [pinned public contract](https://github.com/egohygiene/aniflow/blob/8edb41e3a81ea0015e725144757f6efcb7d4fb0c/docs/contracts/audio-analysis-v1.schema.json),
   not Aniflow's complete native validator or proof that a provider was executed.
 - `companions` are exact byte-bound references with explicit kinds and authority
   declarations. Reviewed lyrics remain distinct from transcript candidates;
@@ -85,8 +85,8 @@ string becomes a filesystem path. Mismatched, missing, duplicate or unobserved
 references fail before model work. Native source status remains in the output:
 failed/unavailable analysis is not a successful analyzer observation.
 
-The normalizer revision `sonic-evidence-mappings/3` participates in intent
-identity, and extractor version 3 distinguishes native music WAV admission
+The normalizer revision `sonic-evidence-mappings/4` participates in intent
+identity, and extractor version 4 distinguishes native music WAV and selected note/stem admission
 from the earlier 16 kHz mono projection. Existing JSON requests may omit context. Rust
 callers constructing `Companion` literals supply `timed_text_context: None` for
 the prior byte-binding behavior. Existing core Artifact DNA is unchanged; the
@@ -235,3 +235,60 @@ Six new synthetic format/clock/channel/privacy/refusal cases are authored,
 uncompiled/unrun. No tests, compiler/builds, dependencies, format/schema checks,
 product/native/media/model execution or CI ran. Broader #397 and release #419
 acceptance remain open; deep suite qualification stays flow #88, scheduled last.
+
+## Explicit note and selected-stem context
+
+An analysis may opt into these bounded contexts while retaining every declared
+evidence file and its exact digest:
+
+```json
+"midi_context": {"artifact_id": "midi", "maximum_notes": 64},
+"stem_context": {"lineage_artifact_id": "stem_lineage"}
+```
+
+Omit unneeded contexts. Existing JSON keeps prior byte-binding/unprojected
+behavior; Rust `AnalysisInput` literals supply `midi_context: None` and
+`stem_context: None`. A source that declares a stem requires explicit matching
+stem context. Every analysis in one recipe still describes the exact selected
+WAV, rather than silently combining unrelated source clocks.
+
+MIDI selection follows one matching `candidate_midi` semantic reference into
+the retained `aniflow.audio-midi/v1` JSON report. It checks source/clock, exact
+provider and upstream evidence bindings, current fixed method, native/normalized
+note mapping, rational microsecond times, tick serialization, pitch/velocity
+bounds, ordering and same-pitch overlap. The initial native Aniflow candidate
+profile remains PCM16 mono 22.05 kHz, at most 120 seconds/8 MiB. Broader music
+WAV admission does not make this analyzer available on every music master.
+Nothing resamples or rebinds a different source to satisfy it. Explicit limits
+of 1..128 notes refuse excess notes without truncation. Unselected semantic
+families remain counted as unprojected; raw artist/inferred MIDI companions
+remain opaque. No MIDI binary parser or analyzer invocation is added.
+
+Each `sonic.score.inferred_note` keeps exact rational start/end, pitch, velocity,
+activation, original unavailable confidence and report pointer. Activation and
+velocity are not confidence. The 960 PPQ / 500000 microsecond-quarter tick clock
+is serialization, not a detected tempo. Candidates are unreviewed, with no
+instrument/voice interpretation or score authorship/review authority. Embedded
+raw-note mappings are checked; separately referenced raw observation bytes are
+not claimed observed. Native runtime/probe/method authenticity is unestablished.
+
+Stem selection reads the retained `aniflow.audio-stem-lineage/v1` report and
+exact root stem identity, provider, upstream, separation and 7..14 retained
+authority artifact references. Whole-stem scope and declared zero-origin
+duration tolerance (at most 20 ms) are checked with integer clock arithmetic.
+The selected stem bytes are observed; original-mix bytes remain unobserved
+declarations. The relationship fact keeps each source's own hash, rate, channel
+count and frame count and explicitly denies established sample alignment. Raw
+plan/checkpoint/provider-lock digests are retained metadata, not replayed native
+acceptance, separator authentication or an inferred instrument/stem role.
+
+These are bounded projections of public contracts pinned at Aniflow commit
+`8edb41e3a81ea0015e725144757f6efcb7d4fb0c`, without sibling source imports. Exact
+selected payload snapshots are borrowed within existing capture; raw settings,
+commands, authority file payloads and companion words do not enter facts/model
+input. Existing DNA/hygiene/artifact/model owners and total-fact/byte caps remain.
+Normalizer/extractor revision4 is intent-bound. Five meaningful synthetic
+projection/privacy/clock/refusal cases are authored, uncompiled/unrun. Tests,
+builds/dependencies, lint/format/schema/docs/native/provider/media/model execution
+and CI remain deferred. #397 keeps full analysis/semantic/direct-audio/quality
+acceptance; flow #88 owns the final deep pass, scheduled last.

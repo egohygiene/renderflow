@@ -29,7 +29,7 @@ use crate::publication::local::{self,Capture};
 use wav::WavInspection;
 
 pub use facts::{Confidence,SonicFact};
-pub use recipe::{parse,AnalysisInput,Companion,CompanionKind,CompanionTextFormat,TimedTextContext,Correction,FileInput,SemanticMode,SemanticPolicy,SonicRecipe,PROFILE,SCHEMA};
+pub use recipe::{parse,AnalysisInput,MidiContext,StemContext,Companion,CompanionKind,CompanionTextFormat,TimedTextContext,Correction,FileInput,SemanticMode,SemanticPolicy,SonicRecipe,PROFILE,SCHEMA};
 pub use semantic::{DescriptionCandidate,DescriptionSection,EvidenceText,SemanticReport};
 
 #[derive(Debug,Clone)]
@@ -84,15 +84,16 @@ fn capture(input:&Path,token:ProcessCancellationToken)->Result<Captured> {
     let mut analyses=Vec::new();
     for analysis in &recipe.analyses {
         let file=read(&mut root,&analysis.file,format!("analysis.{}",analysis.file.id),"analysis",local::MAX_JSON)?;
-        let mut retained=BTreeMap::new();
+        let mut retained=BTreeMap::new();let evidence_start=files.len();
         for evidence in &analysis.evidence_files {
             let captured=read(&mut root,evidence,format!("analysis.{}.evidence.{}",analysis.file.id,evidence.id),"analysis_evidence",8*1024*1024)?;
             retained.insert(evidence.id.clone(),(captured.subject.sha256.clone(),captured.subject.size_bytes));
             files.push(captured);
         }
-        let projected=analysis::project(&file.bytes,&recipe.audio.sha256,source_size,pcm,&retained)?;
+        let payloads=analysis.evidence_files.iter().zip(&files[evidence_start..]).map(|(declared,file)|(declared.id.as_str(),file.bytes.as_slice())).collect::<BTreeMap<_,_>>();
+        let projected=analysis::project(&file.bytes,&recipe.audio.sha256,source_size,pcm,&retained,&payloads,analysis)?;
         analyses.push(json!({"manifest_sha256":file.subject.sha256,"status":projected.status,
-            "normalized_scalar_facts":projected.scalar_count,"normalized_timeline_facts":projected.timeline_count,"unprojected":projected.unprojected,
+            "normalized_scalar_facts":projected.scalar_count,"normalized_timeline_facts":projected.timeline_count,"normalized_note_facts":projected.note_count,"normalized_stem_facts":projected.stem_count,"unprojected":projected.unprojected,
             "native_validation":"bounded_projection_only","provider_authentication":"not_established",
             "contract_revision":analysis::CONTRACT_PIN}));
         ensure!(facts.len()+projected.facts.len()<=500,"sonic.facts.total_count");
@@ -137,7 +138,7 @@ fn capture(input:&Path,token:ProcessCancellationToken)->Result<Captured> {
     let intent_sha256=local::sha256(&serde_json::to_vec(&json!({"schema_version":"renderflow.sonic-intent/v1",
         "profile":PROFILE,"engine_version":env!("CARGO_PKG_VERSION"),"request_sha256":input_sha256,
         "inputs":files.iter().map(|file|&file.subject).collect::<Vec<_>>(),"aniflow_contract_revision":analysis::CONTRACT_PIN,
-        "normalizer_revision":"sonic-evidence-mappings/3",
+        "normalizer_revision":"sonic-evidence-mappings/4",
         "semantic_skill_sha256":local::sha256(semantic::SKILL_SOURCE.as_bytes())}))?);
     Ok(Captured {recipe,files,pcm,facts,analyses,companions,input_sha256,intent_sha256})
 }
@@ -168,7 +169,7 @@ pub fn plan(input:&Path,runtime:Option<&AiSkillRuntime<'_>>,token:ProcessCancell
 struct SonicExtractor {source_sha256:String,pcm:WavInspection,facts:Vec<SonicFact>,analyses:Vec<Value>,companions:Vec<Value>}
 impl ArtifactDnaExtractor for SonicExtractor {
     fn id(&self)->&str {"renderflow.sonic.evidence-normalizer"}
-    fn version(&self)->&str {"3"}
+    fn version(&self)->&str {"4"}
     fn locality(&self)->crate::dna::DnaProviderLocality {crate::dna::DnaProviderLocality::Local}
     fn determinism(&self)->DnaDeterminism {DnaDeterminism::Deterministic}
     fn ai_assisted(&self)->bool {false}
