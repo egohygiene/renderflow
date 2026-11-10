@@ -1,5 +1,33 @@
 # #397 — bounded Sonic evidence checkpoint
 
+## November 10, 2026 — native context integration against current readback
+
+Branch `codex/397-native-context-integration-20261110` starts with the exact tree
+of main `ed122c1bbff2596b7ad3407d02bd7cf8c36786f7`
+(`86e654c5566b606f8afb3ecb20e715847074a762`). It reconciles the source from older
+WAV draft #498 (tree `d0f5f7657357c59b961c7a52577f5b8e20dad81d`) and MIDI/stem
+draft #499 (tree `70f75caf8ec12a9f6d25900ec24f8db7026652c4`). The only replay
+conflict was the user guide's append point; both complete sections are retained.
+Main's saved-bundle reader and CLI remain the existing owners. There are no
+new sibling dependencies, extraction tools, model routes or approval owners.
+
+Three new synthetic cases connect original 44.1 kHz stereo PCM24 and explicit
+capture policy, selected MIDI report changes, and selected stem relationships
+to current saved readback. They preserve candidate-only state, unavailable
+confidence, separate clocks and unchanged retained bytes. The capture-policy
+case uses a small fixture, not a memory/performance qualification. Together
+with eleven cases from the older drafts, all fourteen remain uncompiled/unrun.
+
+Only source inspection/editing/manual review and Git/GitHub metadata/publication
+are authorized for this checkpoint. All tests, compiler/build/dependency,
+lint/format/schema/docs/corpus, native/provider/media/model/CLI/SDK/browser/
+container and CI execution remain deferred. No private media, actual review,
+source replacement/disposal, release or publication occurred. #397 remains
+open; Flow #88 stays last with its original ledger untouched. Older drafts
+#498/#499 remain open for review; conversion-map #500 is unchanged/outside scope.
+No new draft merge or ADR ratification is authorized. Earlier dated notes below
+retain their original historical scope and ordering.
+
 ## November 8, 2026 — selected time-scoped context source checkpoint
 
 The approved next source batch starts from main f90936d89a52748dda85926cf0225614e45ad614
@@ -96,3 +124,31 @@ baseline/release ownership. #405's shared ADR scheduling is unchanged.
 Next: continue the approved #406 local gap pass against its six merged
 checkpoints. Do not invent typography/interchange features without a concrete
 gap or consumer requirement; keep deferred qualification distinct from source.
+
+## November 9 native music WAV checkpoint (draft, source only)
+
+Sonic admits original PCM16/24/32 or finite float32 RIFF/WAVE, 1..8 channels,
+8..192 kHz, <=10 minutes and <=256 MiB selected source policy. No conversion or
+Speech profile change. Exact native channels/rate/frame/encoding facts and
+source-clock timeline/SRT mappings; original confidence/authority limitations
+remain. Existing Capture gains explicit finite total admission for Sonic only
+(up to source+64 MiB, max320 MiB); new/default/output paths retain prior bounds.
+Normalizer/extractor revision3 participates in intent. Six useful synthetic
+cases authored uncompiled/unrun, schema/docs updated, no execution or CI.
+This remains partial #397 source scope; flow88 owns the final deep pass.
+
+## November 9 selected note/stem checkpoint (draft, source only)
+
+Optional AnalysisInput midi_context/stem_context borrow exact retained evidence
+bytes and project public Aniflow MIDI candidate/selected-stem relationship
+contracts pinned8edb41... through existing Sonic owner. Notes keep rational
+times/tickserialization/pitch/velocity/activation and unavailable confidence;
+limits1..128 refuse overflow, currentnativecandidate22.05kmono16/120s/8MiB only.
+Stem context requires exact selectedsource, all retained authority references
+and declared duration tolerance, keeping originalmixunobserved/samplealignment
+unestablished. No actual native/probe/checkpoint replay, binary MIDI parser,
+authenticated artist/review, downmix/resample/modelruntime or sibling imports.
+Source scopes keep stem/channel identities; unselected semantic families remain
+counts. Mapping/extractor4 intent-bound, existing JSON omission preserved. Five
+new meaningful synthetic cases authored uncompiled/unrun; no execution or CI.
+#397 broader scope/release419 and aggregate flow88 final deep pass remain open.

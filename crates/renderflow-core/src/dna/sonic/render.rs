@@ -26,9 +26,10 @@ pub(super) fn deterministic(facts:&[SonicFact])->DescriptionCandidate {
             if fact.correction_of.is_some() {" This is a separately declared correction; the original observation is retained."} else {""}),
             evidence_ids:vec![fact.id.clone()]}
     }).collect();
-    DescriptionCandidate {summary:EvidenceText {text:"A supplied PCM audio snapshot has verified structural metadata. Musical estimates, when supplied, remain source-reported observations with their original uncertainty.".into(),
+    DescriptionCandidate {summary:EvidenceText {text:"A supplied native WAV snapshot has verified structural metadata. Musical estimates, when supplied, remain source-reported observations with their original uncertainty.".into(),
         evidence_ids:facts.iter().filter(|fact|fact.dimension.starts_with("sonic.technical.")).take(8).map(|fact|fact.id.clone()).collect()},
         sections,uncertainty:vec!["No model heard the audio. Instrumentation, vocal identity, mood, lyrical meaning and score semantics were not inferred.".into(),
+            "Selected provider-reported notes remain unreviewed candidates; velocities/activations are not calibrated confidence. Stem duration relationships do not prove mix sample alignment.".into(),
             "Hash/source binding does not authenticate an analyzer or prove the musical estimates accurate. Conflicting observations remain separate.".into(),
             format!("The evidence description displays at most 32 of {} admitted facts; full sanitized facts remain in Sonic DNA.",facts.len())],review_required:true}
 }

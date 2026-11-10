@@ -61,7 +61,14 @@ pub(crate) struct Capture {
 
 impl Capture {
     pub(crate) fn new(root: &Path, token: ProcessCancellationToken) -> Result<Self> {
-        let limits = limits();
+        Self::with_maximum_total(root,token,MAX_TOTAL)
+    }
+
+    /// Explicit bounded capture admission for selected larger local sources.
+    /// Existing callers retain the original 64 MiB limit via `new`.
+    pub(crate) fn with_maximum_total(root:&Path,token:ProcessCancellationToken,maximum:u64)->Result<Self> {
+        ensure!((MAX_TOTAL..=512*1024*1024).contains(&maximum),"publication.inputs.limit");
+        let mut limits = limits();limits.max_file_bytes=maximum;limits.max_total_bytes=maximum;
         let started = Instant::now();
         files::check_budget(started, &limits, &token)?;
         Ok(Self {root: BundleRoot::new(root)?, limits, started, token, total: 0, count: 0})
@@ -74,7 +81,7 @@ impl Capture {
         let path = self.root.resolve(relative, &self.limits)?;
         let size = fs::symlink_metadata(&path)?.len();
         self.total = self.total.checked_add(size).context("publication.inputs.overflow")?;
-        ensure!(self.total <= MAX_TOTAL, "publication.inputs.bytes");
+        ensure!(self.total <= self.limits.max_total_bytes, "publication.inputs.bytes");
         let bytes = read_file(&path, maximum)?;
         self.root.recheck()?;
         self.check()?;

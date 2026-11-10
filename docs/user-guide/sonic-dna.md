@@ -39,9 +39,10 @@ The [request schema](../../schemas/renderflow-sonic-request-v1.schema.json) uses
 `renderflow.sonic-request/v1`:
 
 - `audio` pins one local relative path and exact SHA-256. This first profile
-  admits the existing strict mono 16,000 Hz signed PCM16 RIFF/WAVE subset, up to
-  ten minutes. Compressed/extensible WAVE, containers, multiple streams and
-  implicit conversion are refused. Prepare other audio separately.
+  admits native little-endian RIFF/WAVE PCM16/24/32 or finite IEEE float32,
+  1..8 interleaved channels and 8..192 kHz, up to ten minutes. Sample frames
+  count simultaneous channel frames. Compressed/extensible WAVE, RF64, multiple
+  data streams and implicit conversion are refused. Prepare other audio separately.
 - `analyses` optionally pins `aniflow.audio-analysis/v1` JSON and every declared
   evidence file. Source hash, size, stream, zero-origin sample clock and exact
   frame count must match the selected WAV. Provider/capability/evidence IDs,
@@ -54,7 +55,7 @@ The [request schema](../../schemas/renderflow-sonic-request-v1.schema.json) uses
   Each selected timeline has at most 256 events and the existing total-fact bound
   still applies. Other timeline families, semantic-artifact, excerpt and extension
   payloads remain explicitly counted as unprojected. This is a bounded projection of the
-  [pinned public contract](https://github.com/egohygiene/aniflow/blob/8008e0176f45b34d2a9e74d8a26d9b3fd374b81f/docs/contracts/audio-analysis-v1.schema.json),
+  [pinned public contract](https://github.com/egohygiene/aniflow/blob/8edb41e3a81ea0015e725144757f6efcb7d4fb0c/docs/contracts/audio-analysis-v1.schema.json),
   not Aniflow's complete native validator or proof that a provider was executed.
 - `companions` are exact byte-bound references with explicit kinds and authority
   declarations. Reviewed lyrics remain distinct from transcript candidates;
@@ -84,9 +85,9 @@ string becomes a filesystem path. Mismatched, missing, duplicate or unobserved
 references fail before model work. Native source status remains in the output:
 failed/unavailable analysis is not a successful analyzer observation.
 
-The normalizer revision `sonic-evidence-mappings/2` participates in intent
-identity, and extractor version 2 distinguishes the extended mapping from the
-earlier scalar-only projection. Existing JSON requests may omit context. Rust
+The normalizer revision `sonic-evidence-mappings/4` participates in intent
+identity, and extractor version 4 distinguishes native music WAV and selected note/stem admission
+from the earlier 16 kHz mono projection. Existing JSON requests may omit context. Rust
 callers constructing `Companion` literals supply `timed_text_context: None` for
 the prior byte-binding behavior. Existing core Artifact DNA is unchanged; the
 selected context/facts remain in its namespaced Sonic extension.
@@ -196,9 +197,12 @@ can use versioned candidate artifacts without importing sibling source.
 
 Recipe/native JSON is capped at 2 MiB per file. There are at most 8 analyses,
 32 companions, 64 corrections, 256 selected input files and 500 imported/corrected
-facts; expanded facts are capped at 2 MiB. Source capture/output uses the shared
-64 MiB budget and cooperative 120-second I/O phases. Selected PCM/evidence-file
-caps and stricter native limits also apply. Native opaque provider declarations
+facts; expanded facts are capped at 2 MiB. Source admission is selected by `policy.max_source_bytes` (at most 256 MiB).
+For policies above the earlier 32 MiB ceiling, Sonic explicitly selects source
+budget plus 64 MiB of supporting capture (at most 320 MiB); smaller policies
+retain 64 MiB total capture. Outgoing bundles and other local publication
+callers retain 64 MiB. Cooperative 120-second I/O phases and per-evidence bounds
+remain. Copies for capture/CAS/DNA can require more memory than the byte budget. Native opaque provider declarations
 are hash-bound once rather than multiplied into every fact. These are not hard
 RSS/syscall limits or a hostile concurrent filesystem sandbox.
 
@@ -208,3 +212,134 @@ validators, product/native/provider/audio/model execution or CI ran. Full native
 analysis validation, broader audio/musical/timeline/companion interpretation,
 direct-audio models, measured grounding/quality, live local/remote operation and
 platform/release proof remain under existing #397 and #458/#419 acceptance.
+
+## Inspect a retained candidate bundle
+
+`dna::sonic::readback::inspect` and `dna sonic status` read a saved v1 bundle
+against the actual `sonic-run.json` SHA-256 retained separately by the caller:
+
+```console
+renderflow dna sonic status --directory sonic-candidate --receipt-sha256 EXTERNAL_RECEIPT_SHA256 --input sonic.json
+```
+
+The optional current recipe is recaptured through the existing bounded source
+reader only. Status never creates a store, runs extraction, resolves a model or
+launches inference. It checks exact files/CAS membership and bytes, record IDs,
+ordered lineage, DNA/source/intent bindings, description citations/Markdown and
+candidate-only semantics. `complete`/`partial` retain the saved semantic outcome;
+provider readiness is explicitly not reobserved. Source state is `current`,
+`stale`, `unavailable`, `unavailable_or_changed`, or `not_supplied`. These are
+byte/evidence relationships, never authenticated provider execution or musical
+accuracy. Missing/malformed receipts and unknown or symbolic members refuse;
+no partial directory is adopted. Changed source leaves retained bytes untouched.
+
+Closed request/report schemas are `renderflow.sonic-readback-request/v1` and
+`renderflow.sonic-readback/v1`. Existing plan's `inspect` alias keeps its meaning.
+Five focused SDK cases and one CLI parser case are authored, uncompiled/unrun.
+All standing checks/native/model/CI deferrals persist; flow #88 remains last.
+
+## Native music WAV source checkpoint
+
+The `native_music_wav/v1` structural profile preserves exact original sample
+rate, channels, frame count, bit depth and encoding. Nothing resamples, downmixes,
+quantizes, clips or repairs data. Float samples must be finite; finite headroom
+outside [-1,1] is retained. RIFF lengths, unique format/data chunks, block/byte
+rates, padding, partial frames and optional fact counts are checked. Ancillary
+chunks remain hash-bound source bytes without exposing their text. Speech's
+existing 16 kHz mono PCM16 admission is unchanged.
+
+Analyzer source clocks and ascending, unique, in-range channel scopes match the
+actual selected source. Timed-text structure maps millisecond half-open bounds
+onto that original sample grid with exact integer ceiling, including 44.1 kHz;
+this does not prove text/audio alignment. Native plan fields expose selected
+source/capture limits. Set an explicit adequate `policy.max_source_bytes` for a
+full music master; this is finite admission, not a streaming or RSS guarantee.
+Historical technical schemas remain readable without promoting old outputs.
+
+Six new synthetic format/clock/channel/privacy/refusal cases are authored,
+uncompiled/unrun. No tests, compiler/builds, dependencies, format/schema checks,
+product/native/media/model execution or CI ran. Broader #397 and release #419
+acceptance remain open; deep suite qualification stays flow #88, scheduled last.
+
+## Explicit note and selected-stem context
+
+An analysis may opt into these bounded contexts while retaining every declared
+evidence file and its exact digest:
+
+```json
+"midi_context": {"artifact_id": "midi", "maximum_notes": 64},
+"stem_context": {"lineage_artifact_id": "stem_lineage"}
+```
+
+Omit unneeded contexts. Existing JSON keeps prior byte-binding/unprojected
+behavior; Rust `AnalysisInput` literals supply `midi_context: None` and
+`stem_context: None`. A source that declares a stem requires explicit matching
+stem context. Every analysis in one recipe still describes the exact selected
+WAV, rather than silently combining unrelated source clocks.
+
+MIDI selection follows one matching `candidate_midi` semantic reference into
+the retained `aniflow.audio-midi/v1` JSON report. It checks source/clock, exact
+provider and upstream evidence bindings, current fixed method, native/normalized
+note mapping, rational microsecond times, tick serialization, pitch/velocity
+bounds, ordering and same-pitch overlap. The initial native Aniflow candidate
+profile remains PCM16 mono 22.05 kHz, at most 120 seconds/8 MiB. Broader music
+WAV admission does not make this analyzer available on every music master.
+Nothing resamples or rebinds a different source to satisfy it. Explicit limits
+of 1..128 notes refuse excess notes without truncation. Unselected semantic
+families remain counted as unprojected; raw artist/inferred MIDI companions
+remain opaque. No MIDI binary parser or analyzer invocation is added.
+
+Each `sonic.score.inferred_note` keeps exact rational start/end, pitch, velocity,
+activation, original unavailable confidence and report pointer. Activation and
+velocity are not confidence. The 960 PPQ / 500000 microsecond-quarter tick clock
+is serialization, not a detected tempo. Candidates are unreviewed, with no
+instrument/voice interpretation or score authorship/review authority. Embedded
+raw-note mappings are checked; separately referenced raw observation bytes are
+not claimed observed. Native runtime/probe/method authenticity is unestablished.
+
+Stem selection reads the retained `aniflow.audio-stem-lineage/v1` report and
+exact root stem identity, provider, upstream, separation and 7..14 retained
+authority artifact references. Whole-stem scope and declared zero-origin
+duration tolerance (at most 20 ms) are checked with integer clock arithmetic.
+The selected stem bytes are observed; original-mix bytes remain unobserved
+declarations. The relationship fact keeps each source's own hash, rate, channel
+count and frame count and explicitly denies established sample alignment. Raw
+plan/checkpoint/provider-lock digests are retained metadata, not replayed native
+acceptance, separator authentication or an inferred instrument/stem role.
+
+These are bounded projections of public contracts pinned at Aniflow commit
+`8edb41e3a81ea0015e725144757f6efcb7d4fb0c`, without sibling source imports. Exact
+selected payload snapshots are borrowed within existing capture; raw settings,
+commands, authority file payloads and companion words do not enter facts/model
+input. Existing DNA/hygiene/artifact/model owners and total-fact/byte caps remain.
+Normalizer/extractor revision4 is intent-bound. Five meaningful synthetic
+projection/privacy/clock/refusal cases are authored, uncompiled/unrun. Tests,
+builds/dependencies, lint/format/schema/docs/native/provider/media/model execution
+and CI remain deferred. #397 keeps full analysis/semantic/direct-audio/quality
+acceptance; flow #88 owns the final deep pass, scheduled last.
+
+## Native context and saved-bundle integration
+
+The November 10, 2026 source checkpoint reconciles the older WAV draft #498 and
+MIDI/stem draft #499 with main's retained-bundle reader. Use the existing
+explicit receipt pin and optional original recipe in a Sonic readback request;
+the reader uses the same native WAV inspection, finite capture admission and
+selected contexts as planning/building. It does not execute an analyzer or
+model. Existing JSON may omit `midi_context` and `stem_context`; Rust
+`AnalysisInput` literals must supply both optional fields (usually `None`).
+
+Retained integrity and current-source comparison remain separate. Changing a
+selected report or recipe makes the source stale without rewriting the saved
+candidate. Reinterpreting old inputs under a new intent-bound normalizer may
+also yield a stale source comparison. Candidate state, unavailable MIDI
+confidence and distinct stem/original-mix clocks do not become human review,
+sample alignment or publication approval through readback.
+
+Three additional synthetic integration cases are authored, uncompiled/unrun,
+alongside the eleven cases carried from those older drafts. The larger capture
+case uses a small synthetic WAV with an explicit larger admission policy; it
+does not establish large-master memory/performance qualification. No tests,
+builds, schema checks, runtime/provider/media/model or CI execution occurred.
+The older drafts remain open until reviewed for reconciliation, and conversion
+map draft #500 is outside this integration. #397 acceptance and the final
+qualification pass under Flow #88 remain open.

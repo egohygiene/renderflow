@@ -16,7 +16,19 @@ pub struct FileInput {pub id:String, pub path:String, pub sha256:String}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct AnalysisInput {pub file:FileInput, pub evidence_files:Vec<FileInput>}
+pub struct AnalysisInput {
+    pub file:FileInput, pub evidence_files:Vec<FileInput>,
+    #[serde(default,skip_serializing_if="Option::is_none")]
+    pub midi_context:Option<MidiContext>,
+    #[serde(default,skip_serializing_if="Option::is_none")]
+    pub stem_context:Option<StemContext>,
+}
+#[derive(Debug,Clone,Serialize,Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MidiContext {pub artifact_id:String,pub maximum_notes:usize}
+#[derive(Debug,Clone,Serialize,Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct StemContext {pub lineage_artifact_id:String}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all="snake_case")]
@@ -84,7 +96,7 @@ pub fn parse(bytes:&[u8])->Result<SonicRecipe> {
     validate_file(&recipe.audio)?;
     ensure!(recipe.analyses.len()<=8 && recipe.companions.len()<=32 && recipe.corrections.len()<=64,"sonic.inputs.count");
     ensure!(1+recipe.analyses.iter().map(|analysis|1+analysis.evidence_files.len()).sum::<usize>()+recipe.companions.len()<=256,"sonic.inputs.total_count");
-    ensure!(recipe.policy.enabled && recipe.policy.max_source_bytes>0 && recipe.policy.max_source_bytes<=32*1024*1024
+    ensure!(recipe.policy.enabled && recipe.policy.max_source_bytes>0 && recipe.policy.max_source_bytes<=256*1024*1024
         && recipe.policy.max_observations>=16 && recipe.policy.max_observations<=1024,"sonic.policy.bounds");
     local::text(&recipe.policy.policy_id,256)?;
     ensure!(recipe.policy.policy_id.bytes().all(|ch|ch.is_ascii_alphanumeric() || matches!(ch,b'.'|b'-'|b'_'|b'/')),"sonic.policy.id");
@@ -100,11 +112,13 @@ pub fn parse(bytes:&[u8])->Result<SonicRecipe> {
         ensure!(ids.insert(&analysis.file.id),"sonic.input.duplicate");
         ensure!(digests.insert(&analysis.file.sha256),"sonic.analysis.repeated_content");
         ensure!(analysis.evidence_files.len()<=128,"sonic.evidence.count");
-        let mut evidence=BTreeSet::new();
+        let mut evidence=BTreeSet::<&str>::new();
         for file in &analysis.evidence_files {
             validate_file(file)?;
-            ensure!(evidence.insert(&file.id),"sonic.evidence.duplicate");
+            ensure!(evidence.insert(file.id.as_str()),"sonic.evidence.duplicate");
         }
+        if let Some(context)=&analysis.midi_context {local::identifier(&context.artifact_id)?;ensure!((1..=128).contains(&context.maximum_notes)&&evidence.contains(context.artifact_id.as_str()),"sonic.midi.selection");}
+        if let Some(context)=&analysis.stem_context {local::identifier(&context.lineage_artifact_id)?;ensure!(evidence.contains(context.lineage_artifact_id.as_str()),"sonic.stem.selection");}
     }
     for companion in &recipe.companions {
         validate_file(&companion.file)?;

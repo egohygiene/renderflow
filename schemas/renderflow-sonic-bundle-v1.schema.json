@@ -18,14 +18,78 @@
   ],
   "$defs": {
     "timed_text_context": {
-      "description":"Only explicitly selected plain-cue structure is measured. Role/review authority is declared; words are omitted.",
-      "type":["object","null"],"additionalProperties":false,
-      "required":["declared_role","cue_count","first_start_ms","last_end_ms","overlap_present","sample_rate_hz","source_frame_range","words_exposed"],
-      "properties":{
-        "declared_role":{"enum":["reviewed_lyrics","transcript_candidate"]},"cue_count":{"type":"integer","minimum":1,"maximum":256},
-        "first_start_ms":{"type":"integer","minimum":0,"maximum":600000},"last_end_ms":{"type":"integer","minimum":1,"maximum":600000},
-        "overlap_present":{"type":"boolean"},"sample_rate_hz":{"const":16000},"words_exposed":{"const":false},
-        "source_frame_range":{"type":"object","additionalProperties":false,"required":["start","end"],"properties":{"start":{"type":"integer","minimum":0,"maximum":9600000},"end":{"type":"integer","minimum":1,"maximum":9600000}}}
+      "description": "Only explicitly selected plain-cue structure is measured. Role/review authority is declared; words are omitted.",
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "declared_role",
+        "cue_count",
+        "first_start_ms",
+        "last_end_ms",
+        "overlap_present",
+        "sample_rate_hz",
+        "source_frame_range",
+        "words_exposed"
+      ],
+      "properties": {
+        "declared_role": {
+          "enum": [
+            "reviewed_lyrics",
+            "transcript_candidate"
+          ]
+        },
+        "cue_count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 256
+        },
+        "first_start_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 600000
+        },
+        "last_end_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 600000
+        },
+        "overlap_present": {
+          "type": "boolean"
+        },
+        "sample_rate_hz": {
+          "type": "integer",
+          "minimum": 8000,
+          "maximum": 192000
+        },
+        "words_exposed": {
+          "const": false
+        },
+        "source_frame_range": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "start",
+            "end"
+          ],
+          "properties": {
+            "start": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 115200000
+            },
+            "end": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 115200000
+            }
+          }
+        },
+        "sample_grid_mapping": {
+          "const": "ceil_half_open_millisecond_intervals_to_original_sample_grid"
+        }
       }
     },
     "confidence": {
@@ -189,7 +253,7 @@
         "size_bytes": {
           "type": "integer",
           "minimum": 0,
-          "maximum": 33554432
+          "maximum": 268435456
         }
       },
       "required": [
@@ -266,7 +330,11 @@
           "minimum": 0,
           "maximum": 256
         },
-        "normalized_timeline_facts": {"type":"integer","minimum":0,"maximum":500},
+        "normalized_timeline_facts": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 500
+        },
         "unprojected": {
           "$ref": "#/$defs/unprojected"
         },
@@ -277,7 +345,20 @@
           "const": "not_established"
         },
         "contract_revision": {
-          "const": "8008e0176f45b34d2a9e74d8a26d9b3fd374b81f"
+          "enum": [
+            "8008e0176f45b34d2a9e74d8a26d9b3fd374b81f",
+            "8edb41e3a81ea0015e725144757f6efcb7d4fb0c"
+          ]
+        },
+        "normalized_note_facts": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 128
+        },
+        "normalized_stem_facts": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1
         }
       },
       "required": [
@@ -327,9 +408,14 @@
           "const": true
         },
         "validation": {
-          "enum": ["byte_binding_only", "syntax_and_source_clock_only"]
+          "enum": [
+            "byte_binding_only",
+            "syntax_and_source_clock_only"
+          ]
         },
-        "structural_context": {"$ref":"#/$defs/timed_text_context"},
+        "structural_context": {
+          "$ref": "#/$defs/timed_text_context"
+        },
         "payload_exposed_to_model": {
           "const": false
         }
@@ -429,30 +515,106 @@
           }
         },
         "technical": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "profile": {
-              "const": "mono_16000_hz_pcm_s16le"
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "profile": {
+                  "const": "mono_16000_hz_pcm_s16le"
+                },
+                "frame_count": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "duration_ms": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 600000
+                },
+                "timestamp_origin": {
+                  "const": "selected_input_samples_from_zero"
+                }
+              },
+              "required": [
+                "profile",
+                "frame_count",
+                "duration_ms",
+                "timestamp_origin"
+              ]
             },
-            "frame_count": {
-              "type": "integer",
-              "minimum": 1
-            },
-            "duration_ms": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 600000
-            },
-            "timestamp_origin": {
-              "const": "selected_input_samples_from_zero"
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "profile": {
+                  "const": "native_music_wav/v1"
+                },
+                "frame_count": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "duration_ms": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 600000
+                },
+                "timestamp_origin": {
+                  "const": "selected_input_sample_frames_from_zero"
+                },
+                "sample_rate_hz": {
+                  "type": "integer",
+                  "minimum": 8000,
+                  "maximum": 192000
+                },
+                "channels": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 8
+                },
+                "bits_per_sample": {
+                  "enum": [
+                    16,
+                    24,
+                    32
+                  ]
+                },
+                "sample_encoding": {
+                  "enum": [
+                    "pcm_s16le",
+                    "pcm_s24le",
+                    "pcm_s32le",
+                    "ieee_float32_le"
+                  ]
+                },
+                "sample_conversion": {
+                  "const": "none"
+                },
+                "maximum_source_bytes": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 268435456
+                },
+                "maximum_capture_bytes": {
+                  "type": "integer",
+                  "minimum": 67108864,
+                  "maximum": 335544320
+                }
+              },
+              "required": [
+                "profile",
+                "frame_count",
+                "duration_ms",
+                "timestamp_origin",
+                "sample_rate_hz",
+                "channels",
+                "bits_per_sample",
+                "sample_encoding",
+                "sample_conversion",
+                "maximum_source_bytes",
+                "maximum_capture_bytes"
+              ]
             }
-          },
-          "required": [
-            "profile",
-            "frame_count",
-            "duration_ms",
-            "timestamp_origin"
           ]
         },
         "analyses": {
@@ -488,9 +650,14 @@
                 "const": true
               },
               "validation": {
-                "enum": ["byte_binding_only", "syntax_and_source_clock_only"]
+                "enum": [
+                  "byte_binding_only",
+                  "syntax_and_source_clock_only"
+                ]
               },
-              "structural_context": {"$ref":"#/$defs/timed_text_context"},
+              "structural_context": {
+                "$ref": "#/$defs/timed_text_context"
+              },
               "payload_exposed_to_model": {
                 "const": false
               }

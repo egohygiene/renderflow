@@ -1,12 +1,14 @@
 //! Source-bound Sonic DNA and reviewable descriptions over supplied evidence.
 //! Aniflow owns extraction; existing DNA/AI services own hygiene and execution.
 
+pub mod readback;
 mod analysis;
 mod companion;
 mod facts;
 mod recipe;
 mod render;
 mod semantic;
+mod wav;
 
 use std::collections::{BTreeMap,BTreeSet};
 use std::fs;
@@ -25,10 +27,10 @@ use crate::evidence::DigestEvidence;
 use crate::graph::Format;
 use crate::process::ProcessCancellationToken;
 use crate::publication::local::{self,Capture};
-use crate::speech::provider::{inspect_pcm_wav_details,PcmWavInspection};
+use wav::WavInspection;
 
 pub use facts::{Confidence,SonicFact};
-pub use recipe::{parse,AnalysisInput,Companion,CompanionKind,CompanionTextFormat,TimedTextContext,Correction,FileInput,SemanticMode,SemanticPolicy,SonicRecipe,PROFILE,SCHEMA};
+pub use recipe::{parse,AnalysisInput,MidiContext,StemContext,Companion,CompanionKind,CompanionTextFormat,TimedTextContext,Correction,FileInput,SemanticMode,SemanticPolicy,SonicRecipe,PROFILE,SCHEMA};
 pub use semantic::{DescriptionCandidate,DescriptionSection,EvidenceText,SemanticReport};
 
 #[derive(Debug,Clone)]
@@ -58,7 +60,7 @@ pub struct SonicPlan {
 }
 
 struct CapturedFile {subject:ObservedInput,bytes:Vec<u8>}
-struct Captured {recipe:SonicRecipe,files:Vec<CapturedFile>,pcm:PcmWavInspection,
+struct Captured {recipe:SonicRecipe,files:Vec<CapturedFile>,pcm:WavInspection,
     facts:Vec<SonicFact>,analyses:Vec<Value>,companions:Vec<Value>,input_sha256:String,intent_sha256:String}
 
 fn read(root:&mut Capture,file:&FileInput,id:String,role:&str,maximum:usize)->Result<CapturedFile> {
@@ -73,24 +75,26 @@ fn capture(input:&Path,token:ProcessCancellationToken)->Result<Captured> {
     let bytes=local::read_file(input,local::MAX_JSON)?;
     let recipe=parse(&bytes)?;
     let parent=input.parent().filter(|path|!path.as_os_str().is_empty()).unwrap_or(Path::new("."));
-    let mut root=Capture::new(parent,token)?;
+    let maximum_capture=if recipe.policy.max_source_bytes>32*1024*1024 {recipe.policy.max_source_bytes+local::MAX_TOTAL}else{local::MAX_TOTAL};
+    let mut root=Capture::with_maximum_total(parent,token.clone(),maximum_capture)?;
     let audio=read(&mut root,&recipe.audio,"audio".into(),"audio",recipe.policy.max_source_bytes as usize)?;
-    let pcm=inspect_pcm_wav_details(&audio.bytes)?;
+    let pcm=wav::inspect(&audio.bytes,&token)?;
     let source_size=audio.bytes.len() as u64;
     let mut files=vec![audio];
     let mut facts=Vec::new();
     let mut analyses=Vec::new();
     for analysis in &recipe.analyses {
         let file=read(&mut root,&analysis.file,format!("analysis.{}",analysis.file.id),"analysis",local::MAX_JSON)?;
-        let mut retained=BTreeMap::new();
+        let mut retained=BTreeMap::new();let evidence_start=files.len();
         for evidence in &analysis.evidence_files {
             let captured=read(&mut root,evidence,format!("analysis.{}.evidence.{}",analysis.file.id,evidence.id),"analysis_evidence",8*1024*1024)?;
             retained.insert(evidence.id.clone(),(captured.subject.sha256.clone(),captured.subject.size_bytes));
             files.push(captured);
         }
-        let projected=analysis::project(&file.bytes,&recipe.audio.sha256,source_size,pcm,&retained)?;
+        let payloads=analysis.evidence_files.iter().zip(&files[evidence_start..]).map(|(declared,file)|(declared.id.as_str(),file.bytes.as_slice())).collect::<BTreeMap<_,_>>();
+        let projected=analysis::project(&file.bytes,&recipe.audio.sha256,source_size,pcm,&retained,&payloads,analysis)?;
         analyses.push(json!({"manifest_sha256":file.subject.sha256,"status":projected.status,
-            "normalized_scalar_facts":projected.scalar_count,"normalized_timeline_facts":projected.timeline_count,"unprojected":projected.unprojected,
+            "normalized_scalar_facts":projected.scalar_count,"normalized_timeline_facts":projected.timeline_count,"normalized_note_facts":projected.note_count,"normalized_stem_facts":projected.stem_count,"unprojected":projected.unprojected,
             "native_validation":"bounded_projection_only","provider_authentication":"not_established",
             "contract_revision":analysis::CONTRACT_PIN}));
         ensure!(facts.len()+projected.facts.len()<=500,"sonic.facts.total_count");
@@ -128,14 +132,14 @@ fn capture(input:&Path,token:ProcessCancellationToken)->Result<Captured> {
     for file in &files {ensure!(names.insert(&file.subject.id),"sonic.input.ambiguous_id");}
     let known=facts.iter().map(|fact|fact.dimension.as_str()).chain([
         "sonic.technical.duration_ms","sonic.technical.frame_count","sonic.technical.sample_rate_hz",
-        "sonic.technical.channels","sonic.technical.bits_per_sample"]).collect::<BTreeSet<_>>();
+        "sonic.technical.channels","sonic.technical.bits_per_sample","sonic.technical.sample_encoding"]).collect::<BTreeSet<_>>();
     for dimension in recipe.dimension_weights.keys() {ensure!(known.contains(dimension.as_str()),"sonic.weight.unknown_dimension");}
     root.check()?;
     let input_sha256=local::sha256(&bytes);
     let intent_sha256=local::sha256(&serde_json::to_vec(&json!({"schema_version":"renderflow.sonic-intent/v1",
         "profile":PROFILE,"engine_version":env!("CARGO_PKG_VERSION"),"request_sha256":input_sha256,
         "inputs":files.iter().map(|file|&file.subject).collect::<Vec<_>>(),"aniflow_contract_revision":analysis::CONTRACT_PIN,
-        "normalizer_revision":"sonic-evidence-mappings/2",
+        "normalizer_revision":"sonic-evidence-mappings/4",
         "semantic_skill_sha256":local::sha256(semantic::SKILL_SOURCE.as_bytes())}))?);
     Ok(Captured {recipe,files,pcm,facts,analyses,companions,input_sha256,intent_sha256})
 }
@@ -145,12 +149,12 @@ fn plan_captured(captured:&Captured,runtime:Option<&AiSkillRuntime<'_>>)->Result
     Ok(SonicPlan {schema_version:"renderflow.sonic-plan/v1".into(),profile:PROFILE.into(),engine_version:env!("CARGO_PKG_VERSION").into(),
         input_sha256:captured.input_sha256.clone(),intent_sha256:captured.intent_sha256.clone(),
         inputs:captured.files.iter().map(|file|file.subject.clone()).collect(),
-        technical:json!({"profile":"mono_16000_hz_pcm_s16le","frame_count":captured.pcm.frame_count,
-            "duration_ms":captured.pcm.duration_ms,"timestamp_origin":"selected_input_samples_from_zero"}),
+        technical:json!({"profile":"native_music_wav/v1","sample_rate_hz":captured.pcm.sample_rate_hz,"channels":captured.pcm.channels,"bits_per_sample":captured.pcm.bits_per_sample,"sample_encoding":captured.pcm.encoding,"frame_count":captured.pcm.frame_count,
+            "duration_ms":captured.pcm.duration_ms,"timestamp_origin":"selected_input_sample_frames_from_zero","sample_conversion":"none","maximum_source_bytes":captured.recipe.policy.max_source_bytes,"maximum_capture_bytes":if captured.recipe.policy.max_source_bytes>32*1024*1024 {captured.recipe.policy.max_source_bytes+local::MAX_TOTAL}else{local::MAX_TOTAL}}),
         analyses:captured.analyses.clone(),declared_companions:captured.companions.iter().map(|companion|json!({
             "kind":companion["kind"],"sha256":companion["sha256"],"authority_is_declared":true,
             "validation":companion["validation"],"structural_context":companion["structural_context"],"payload_exposed_to_model":false})).collect(),
-        fact_ids:["pcm.duration","pcm.frames","pcm.sample-rate","pcm.channels","pcm.bits"].into_iter().map(str::to_string)
+        fact_ids:["pcm.duration","pcm.frames","pcm.sample-rate","pcm.channels","pcm.bits","pcm.encoding"].into_iter().map(str::to_string)
             .chain(captured.facts.iter().map(|fact|fact.id.clone())).collect(),
         semantic:semantic::availability(&captured.recipe,&request,runtime),direct_audio_inference:"unsupported_by_this_profile".into(),
         expected_outputs:vec!["sonic-dna.json".into(),"audio-description.json".into(),"audio-description.md".into(),"prompt-guidance.json".into(),"lineage.json".into()],
@@ -163,10 +167,10 @@ pub fn plan(input:&Path,runtime:Option<&AiSkillRuntime<'_>>,token:ProcessCancell
     plan_captured(&capture(input,token)?,runtime)
 }
 
-struct SonicExtractor {source_sha256:String,pcm:PcmWavInspection,facts:Vec<SonicFact>,analyses:Vec<Value>,companions:Vec<Value>}
+struct SonicExtractor {source_sha256:String,pcm:WavInspection,facts:Vec<SonicFact>,analyses:Vec<Value>,companions:Vec<Value>}
 impl ArtifactDnaExtractor for SonicExtractor {
     fn id(&self)->&str {"renderflow.sonic.evidence-normalizer"}
-    fn version(&self)->&str {"2"}
+    fn version(&self)->&str {"4"}
     fn locality(&self)->crate::dna::DnaProviderLocality {crate::dna::DnaProviderLocality::Local}
     fn determinism(&self)->DnaDeterminism {DnaDeterminism::Deterministic}
     fn ai_assisted(&self)->bool {false}
@@ -179,15 +183,17 @@ impl ArtifactDnaExtractor for SonicExtractor {
         for (id,dimension,value) in [
             ("pcm.duration","sonic.technical.duration_ms",self.pcm.duration_ms),
             ("pcm.frames","sonic.technical.frame_count",self.pcm.frame_count),
-            ("pcm.sample-rate","sonic.technical.sample_rate_hz",16000),
-            ("pcm.channels","sonic.technical.channels",1),
-            ("pcm.bits","sonic.technical.bits_per_sample",16),
+            ("pcm.sample-rate","sonic.technical.sample_rate_hz",u64::from(self.pcm.sample_rate_hz)),
+            ("pcm.channels","sonic.technical.channels",u64::from(self.pcm.channels)),
+            ("pcm.bits","sonic.technical.bits_per_sample",u64::from(self.pcm.bits_per_sample)),
         ] {
             batch.observations.push(DnaObservation {id:id.into(),modality:DnaModality::Sonic,dimension:dimension.into(),value:json!(value),description:None,
                 evidence:DnaObservationEvidence {origin:DnaEvidenceOrigin::ProviderObserved,provider_id:self.id().into(),provider_version:self.version().into(),
                     determinism:DnaDeterminism::Deterministic,confidence:1.0,scope:BTreeMap::from([("confidence_scope".into(),json!("structural byte inspection, not musical accuracy"))])},
                 similarity_eligible:false});
         }
+        batch.observations.push(DnaObservation {id:"pcm.encoding".into(),modality:DnaModality::Sonic,dimension:"sonic.technical.sample_encoding".into(),value:json!(self.pcm.encoding),description:None,
+            evidence:DnaObservationEvidence {origin:DnaEvidenceOrigin::ProviderObserved,provider_id:self.id().into(),provider_version:self.version().into(),determinism:DnaDeterminism::Deterministic,confidence:1.0,scope:BTreeMap::from([("confidence_scope".into(),json!("structural byte inspection, not musical accuracy"))])},similarity_eligible:false});
         batch.provider_extensions.insert("renderflow.sonic".into(),json!({"schema_version":"renderflow.sonic-evidence/v1",
             "facts":self.facts,"analyses":self.analyses,"companions":self.companions,
             "confidence_contract":"Unknown/not-applicable/uncalibrated values retain their tags; no musical confidence is synthesized."}));
