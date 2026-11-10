@@ -345,7 +345,20 @@
           "const": "not_established"
         },
         "contract_revision": {
-          "const": "8008e0176f45b34d2a9e74d8a26d9b3fd374b81f"
+          "enum": [
+            "8008e0176f45b34d2a9e74d8a26d9b3fd374b81f",
+            "8edb41e3a81ea0015e725144757f6efcb7d4fb0c"
+          ]
+        },
+        "normalized_note_facts": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 128
+        },
+        "normalized_stem_facts": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1
         }
       },
       "required": [

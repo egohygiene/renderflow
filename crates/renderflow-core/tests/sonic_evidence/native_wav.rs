@@ -3,7 +3,7 @@ use super::*;
 fn stereo24(rate:u32,frames:u32)->Vec<u8> {
     let size=frames*6;let mut bytes=b"RIFF".to_vec();bytes.extend((36+size).to_le_bytes());bytes.extend(b"WAVEfmt ");bytes.extend(16u32.to_le_bytes());bytes.extend(1u16.to_le_bytes());bytes.extend(2u16.to_le_bytes());bytes.extend(rate.to_le_bytes());bytes.extend((rate*6).to_le_bytes());bytes.extend(6u16.to_le_bytes());bytes.extend(24u16.to_le_bytes());bytes.extend(b"data");bytes.extend(size.to_le_bytes());bytes.resize(44+size as usize,0);bytes
 }
-fn native(root:&Path,input:&Path,recipe:&mut SonicRecipe) {
+pub(super) fn native(root:&Path,input:&Path,recipe:&mut SonicRecipe) {
     let bytes=stereo24(44_100,4410);fs::write(root.join("source.wav"),&bytes).unwrap();recipe.audio.sha256=hash(&bytes);
     mutate_analysis(root,input,recipe,|v|{v["source"]["artifact"]["sha256"]=json!(hash(&bytes));v["source"]["artifact"]["byte_size"]=json!(bytes.len());v["source"]["sample_rate_hz"]=json!(44_100);v["source"]["channels"]=json!(2);v["source"]["frame_count"]=json!(4410);for observation in v["observations"].as_array_mut().unwrap(){observation["scope"]["channels"]=json!([0,1]);}});
 }

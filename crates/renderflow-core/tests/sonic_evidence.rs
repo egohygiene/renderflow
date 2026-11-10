@@ -44,6 +44,8 @@ fn mutate_analysis(root:&Path,input:&Path,recipe:&mut SonicRecipe,change:impl Fn
 mod context;
 #[path="sonic_evidence/native_wav.rs"]
 mod native_wav;
+#[path="sonic_evidence/note_stem.rs"]
+mod note_stem;
 
 #[test]
 fn plan_observes_bindings_without_creating_artifacts_or_model_results() {
@@ -255,3 +257,6 @@ fn cancellation_and_existing_destination_leave_sources_and_prior_files_intact() 
     assert!(sonic::build(&request(&input,&output),None,token()).is_err());assert_eq!(fs::read(output.join("keep")).unwrap(),b"prior");
     assert_eq!(fs::read(root.path().join("source.wav")).unwrap(),wave());
 }
+
+#[path="sonic_evidence/readback.rs"]
+mod readback;
