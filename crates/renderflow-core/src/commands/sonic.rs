@@ -16,9 +16,20 @@ pub fn run(command:SonicCommands)->Result<()> {
     let token=ProcessCancellationToken::new();
     let signal=token.clone();
     ctrlc::set_handler(move||signal.cancel())?;
+    let command=match command {
+        SonicCommands::Status {directory,receipt_sha256,input}=>{
+            let request=sonic::readback::ReadbackRequest {schema_version:"renderflow.sonic-readback-request/v1".into(),
+                directory:directory.into(),receipt_sha256,input:input.map(Into::into)};
+            let result=sonic::readback::inspect(&request,token)?;
+            let mut bytes=serde_json::to_vec_pretty(&result)?;bytes.push(b'\n');std::io::stdout().write_all(&bytes)?;
+            return Ok(());
+        },
+        other=>other,
+    };
     let (arguments,output)=match command {
         SonicCommands::Plan(arguments)=>(arguments,None),
         SonicCommands::Build(arguments)=>(arguments.source,Some(arguments.output_dir)),
+        SonicCommands::Status {..}=>unreachable!("status returned above"),
     };
     let result=with_runtime(&arguments,|runtime|{
         if let Some(output)=&output {
@@ -56,4 +67,16 @@ fn loopback(endpoint:&str)->Result<()> {
         else {authority.parse::<SocketAddr>().is_ok_and(|address|address.ip().is_loopback() && address.port()>0)};
     ensure!(local,"sonic.endpoint: expected an explicit loopback host and port without a path, credentials, query or fragment");
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use clap::Parser;
+    use crate::cli::Cli;
+    #[test]
+    fn retained_sonic_status_requires_a_pin_and_does_not_select_ai() {
+        assert!(Cli::try_parse_from(["renderflow","dna","sonic","status","--directory","bundle"]).is_err());
+        assert!(Cli::try_parse_from(["renderflow","dna","sonic","status","--directory","bundle","--receipt-sha256",&"a".repeat(64)]).is_ok());
+        assert!(Cli::try_parse_from(["renderflow","dna","sonic","status","--directory","bundle","--receipt-sha256",&"a".repeat(64),"--ai-catalog","catalog.json"]).is_err());
+    }
 }

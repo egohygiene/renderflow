@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "renderflow.sonic-readback-request/v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "directory",
+    "receipt_sha256",
+    "input"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "renderflow.sonic-readback-request/v1"
+    },
+    "directory": {
+      "type": "string",
+      "minLength": 1
+    },
+    "receipt_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "input": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}
