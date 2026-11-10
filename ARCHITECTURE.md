@@ -3,12 +3,12 @@ schema: aether.architecture-document/v1
 id: renderflow-architecture
 title: Renderflow Architecture
 kind: architecture-document
-version: 0.1.1
+version: 0.1.2
 status: draft
 owners:
   - egohygiene
 created: 2026-08-19
-updated: 2026-10-26
+updated: 2026-11-10
 governed_by:
   - architecture-architecture
 depends_on:
@@ -57,6 +57,18 @@ DNA/hygiene owner. Aniflow remains the analysis producer; no analyzer, sibling
 dependency or second media runtime is added. Provider/review declarations remain
 unauthenticated, source frame ranges stay exact, and companion words remain
 outside model input. See [Sonic evidence](docs/user-guide/sonic-dna.md).
+
+Sonic owns bounded native music WAV byte inspection and original sample-frame
+clocks without conversion. Speech retains its stricter source profile. Larger
+Sonic source policies explicitly select bounded shared capture limits; other
+publication callers and outgoing bundles retain their current limits. Existing
+DNA, hygiene, artifact store and model runtime owners remain unchanged.
+
+Explicit Sonic analysis contexts project bounded inferred-note and selected-stem
+relationship fields from pinned public Aniflow reports. Exact source clocks,
+unknown musical confidence and declared original-mix lineage stay separate;
+raw native acceptance is not replayed. Unselected semantic/MIDI payloads remain
+uninterpreted. No sibling source dependency or second analyzer runtime is added.
 
 1. **Intent and contracts** — identity, policy, specifications, schemas, and accepted decisions.
 2. **Domain** — canonical concepts and pure domain behavior.
@@ -125,6 +137,16 @@ boundaries concrete.
 The architecture favors independently usable local and self-hosted operation. Optional managed services may add availability, collaboration, support, and hosted infrastructure without becoming the canonical holder of portable state.
 
 ## Evidence and evolution
+
+The #397 native WAV and explicitly selected MIDI/stem projections share the
+current retained Sonic bundle reader. Bundle integrity and current-source
+comparison remain separate: readback verifies the selected receipt, inventory,
+CAS and candidate relationships before optionally recapturing the exact recipe
+with its declared finite source limit. It never invokes an analyzer or model,
+replays a provider, infers sample alignment, or grants publication approval.
+Normalizer revision 4 is intent-bound; an older saved candidate can remain
+internally intact while its current-source plan is stale under newer mappings.
+This integration is source work awaiting compilation and qualification.
 
 - **Current source:** the workspace exposes reusable planning, execution,
   composition, provider and SDK contracts. Merged implementation is not a
