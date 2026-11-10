@@ -213,6 +213,31 @@ analysis validation, broader audio/musical/timeline/companion interpretation,
 direct-audio models, measured grounding/quality, live local/remote operation and
 platform/release proof remain under existing #397 and #458/#419 acceptance.
 
+## Inspect a retained candidate bundle
+
+`dna::sonic::readback::inspect` and `dna sonic status` read a saved v1 bundle
+against the actual `sonic-run.json` SHA-256 retained separately by the caller:
+
+```console
+renderflow dna sonic status --directory sonic-candidate --receipt-sha256 EXTERNAL_RECEIPT_SHA256 --input sonic.json
+```
+
+The optional current recipe is recaptured through the existing bounded source
+reader only. Status never creates a store, runs extraction, resolves a model or
+launches inference. It checks exact files/CAS membership and bytes, record IDs,
+ordered lineage, DNA/source/intent bindings, description citations/Markdown and
+candidate-only semantics. `complete`/`partial` retain the saved semantic outcome;
+provider readiness is explicitly not reobserved. Source state is `current`,
+`stale`, `unavailable`, `unavailable_or_changed`, or `not_supplied`. These are
+byte/evidence relationships, never authenticated provider execution or musical
+accuracy. Missing/malformed receipts and unknown or symbolic members refuse;
+no partial directory is adopted. Changed source leaves retained bytes untouched.
+
+Closed request/report schemas are `renderflow.sonic-readback-request/v1` and
+`renderflow.sonic-readback/v1`. Existing plan's `inspect` alias keeps its meaning.
+Five focused SDK cases and one CLI parser case are authored, uncompiled/unrun.
+All standing checks/native/model/CI deferrals persist; flow #88 remains last.
+
 ## Native music WAV source checkpoint
 
 The `native_music_wav/v1` structural profile preserves exact original sample
@@ -292,3 +317,29 @@ projection/privacy/clock/refusal cases are authored, uncompiled/unrun. Tests,
 builds/dependencies, lint/format/schema/docs/native/provider/media/model execution
 and CI remain deferred. #397 keeps full analysis/semantic/direct-audio/quality
 acceptance; flow #88 owns the final deep pass, scheduled last.
+
+## Native context and saved-bundle integration
+
+The November 10, 2026 source checkpoint reconciles the older WAV draft #498 and
+MIDI/stem draft #499 with main's retained-bundle reader. Use the existing
+explicit receipt pin and optional original recipe in a Sonic readback request;
+the reader uses the same native WAV inspection, finite capture admission and
+selected contexts as planning/building. It does not execute an analyzer or
+model. Existing JSON may omit `midi_context` and `stem_context`; Rust
+`AnalysisInput` literals must supply both optional fields (usually `None`).
+
+Retained integrity and current-source comparison remain separate. Changing a
+selected report or recipe makes the source stale without rewriting the saved
+candidate. Reinterpreting old inputs under a new intent-bound normalizer may
+also yield a stale source comparison. Candidate state, unavailable MIDI
+confidence and distinct stem/original-mix clocks do not become human review,
+sample alignment or publication approval through readback.
+
+Three additional synthetic integration cases are authored, uncompiled/unrun,
+alongside the eleven cases carried from those older drafts. The larger capture
+case uses a small synthetic WAV with an explicit larger admission policy; it
+does not establish large-master memory/performance qualification. No tests,
+builds, schema checks, runtime/provider/media/model or CI execution occurred.
+The older drafts remain open until reviewed for reconciliation, and conversion
+map draft #500 is outside this integration. #397 acceptance and the final
+qualification pass under Flow #88 remain open.

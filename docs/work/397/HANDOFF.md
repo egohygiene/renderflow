@@ -1,5 +1,33 @@
 # #397 — bounded Sonic evidence checkpoint
 
+## November 10, 2026 — native context integration against current readback
+
+Branch `codex/397-native-context-integration-20261110` starts with the exact tree
+of main `ed122c1bbff2596b7ad3407d02bd7cf8c36786f7`
+(`86e654c5566b606f8afb3ecb20e715847074a762`). It reconciles the source from older
+WAV draft #498 (tree `d0f5f7657357c59b961c7a52577f5b8e20dad81d`) and MIDI/stem
+draft #499 (tree `70f75caf8ec12a9f6d25900ec24f8db7026652c4`). The only replay
+conflict was the user guide's append point; both complete sections are retained.
+Main's saved-bundle reader and CLI remain the existing owners. There are no
+new sibling dependencies, extraction tools, model routes or approval owners.
+
+Three new synthetic cases connect original 44.1 kHz stereo PCM24 and explicit
+capture policy, selected MIDI report changes, and selected stem relationships
+to current saved readback. They preserve candidate-only state, unavailable
+confidence, separate clocks and unchanged retained bytes. The capture-policy
+case uses a small fixture, not a memory/performance qualification. Together
+with eleven cases from the older drafts, all fourteen remain uncompiled/unrun.
+
+Only source inspection/editing/manual review and Git/GitHub metadata/publication
+are authorized for this checkpoint. All tests, compiler/build/dependency,
+lint/format/schema/docs/corpus, native/provider/media/model/CLI/SDK/browser/
+container and CI execution remain deferred. No private media, actual review,
+source replacement/disposal, release or publication occurred. #397 remains
+open; Flow #88 stays last with its original ledger untouched. Older drafts
+#498/#499 remain open for review; conversion-map #500 is unchanged/outside scope.
+No new draft merge or ADR ratification is authorized. Earlier dated notes below
+retain their original historical scope and ordering.
+
 ## November 8, 2026 — selected time-scoped context source checkpoint
 
 The approved next source batch starts from main f90936d89a52748dda85926cf0225614e45ad614

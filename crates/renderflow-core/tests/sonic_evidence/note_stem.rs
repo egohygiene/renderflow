@@ -11,7 +11,7 @@ fn source(root:&Path,recipe:&mut SonicRecipe,analysis:&mut Value) {
 }
 fn provider(value:&mut Value,id:&str,native:&str)->Value {let mut provider=value["providers"][0].clone();provider["id"]=json!(id);provider["provider"]=json!({"id":native,"version":"1.0.0"});value["providers"].as_array_mut().unwrap().push(provider.clone());provider}
 fn method()->Value {json!({"sample_rate_hz":22050,"downmix":"none","backend":"onnxruntime_cpu","gpu":false,"pitch_bends":false,"instrument":"unavailable","native_time_quantization":"nearest_microsecond_ties_up","maximum_native_time_error_nanoseconds":500,"velocity_mapping":"round_ties_even_127_times_activation","minimum_pitch":21,"maximum_pitch":108})}
-fn midi(root:&Path,input:&Path,recipe:&mut SonicRecipe)->Value {
+pub(super) fn midi(root:&Path,input:&Path,recipe:&mut SonicRecipe)->Value {
     let mut analysis=read(&root.join("analysis.json"));source(root,recipe,&mut analysis);let technical=evidence(root,recipe,&mut analysis,"technical",b"synthetic technical only");let upstream=evidence(root,recipe,&mut analysis,"analysis",b"synthetic upstream only");
     let provider=provider(&mut analysis,"midi_provider","org.egohygiene.aniflow.audio-midi");let confidence=json!({"kind":"unavailable","reason":"Note activations and MIDI velocities are not calibrated confidence; inferred notes are unreviewed candidates."});
     let report=json!({"schema":"aniflow.audio-midi/v1","source":analysis["source"],"scope":{"channels":[0],"stem_id":null},"technical_artifact":technical,"upstream_analysis_artifact":upstream,"raw_observation":{"id":"midi_observation","sha256":"d".repeat(64),"byte_size":400},"provider":provider["provider"],"implementation_sha256":provider["implementation_sha256"],"configuration_sha256":provider["configuration_sha256"],"provider_lock_sha256":"e".repeat(64),"settings":{"private_marker":"Private MIDI settings payload"},"probe":{},"commands":[],"method":method(),"provenance":"probabilistic","confidence":confidence,
@@ -21,7 +21,7 @@ fn midi(root:&Path,input:&Path,recipe:&mut SonicRecipe)->Value {
     analysis["semantic_artifacts"]=json!([{"artifact_id":"midi","capability_id":"aniflow/audio-midi-extraction","kind":"candidate_midi","provenance":{"class":"probabilistic","confidence":confidence,"provider_evidence_id":"midi_provider","evidence_artifact_ids":refs},"authority":null}]);
     recipe.analyses[0].midi_context=Some(sonic::MidiContext {artifact_id:"midi".into(),maximum_notes:4});save_analysis(root,input,recipe,&analysis);report
 }
-fn replace_report(root:&Path,input:&Path,recipe:&mut SonicRecipe,id:&str,change:impl FnOnce(&mut Value)) {
+pub(super) fn replace_report(root:&Path,input:&Path,recipe:&mut SonicRecipe,id:&str,change:impl FnOnce(&mut Value)) {
     let mut analysis=read(&root.join("analysis.json"));let file=recipe.analyses[0].evidence_files.iter_mut().find(|f|f.id==id).unwrap();let path=root.join(&file.path);let mut value=read(&path);change(&mut value);let bytes=serde_json::to_vec(&value).unwrap();fs::write(path,&bytes).unwrap();file.sha256=hash(&bytes);
     let reference=analysis["artifacts"].as_array_mut().unwrap().iter_mut().find(|r|r["id"]==id).unwrap();reference["sha256"]=json!(hash(&bytes));reference["byte_size"]=json!(bytes.len());save_analysis(root,input,recipe,&analysis);
 }
@@ -44,7 +44,7 @@ fn selected_note_limit_and_uncertainty_cannot_be_replaced_by_truncation_or_score
         assert!(sonic::plan(&input,None,token()).is_err());
     }
 }
-fn stem(root:&Path,input:&Path,recipe:&mut SonicRecipe) {
+pub(super) fn stem(root:&Path,input:&Path,recipe:&mut SonicRecipe) {
     let mut analysis=read(&root.join("analysis.json"));source(root,recipe,&mut analysis);let original=json!({"artifact":{"id":"original_mix","sha256":"f".repeat(64),"byte_size":19244},"stream_index":0,"sample_rate_hz":48000,"channels":2,"frame_count":4800,"origin":{"numerator":0,"denominator":1},"stem":null});
     analysis["source"]["stem"]=json!({"id":"voice_layer","original_mix":original["artifact"],"relationship_evidence_id":"stem_lineage"});for o in analysis["observations"].as_array_mut().unwrap(){o["scope"]["stem_id"]=json!("voice_layer");}
     let upstream=evidence(root,recipe,&mut analysis,"analysis",b"synthetic upstream");let relationship=evidence(root,recipe,&mut analysis,"separation_evidence",b"synthetic separation reference");let mut authority=Vec::new();for name in ["plan","manifest","checkpoint","lock","report","validation_0","validation_1"] {authority.push(evidence(root,recipe,&mut analysis,&format!("stem_authority_{name}"),b"Private stem authority payload"));}

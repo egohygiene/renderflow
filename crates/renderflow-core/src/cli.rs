@@ -1492,6 +1492,13 @@ pub enum DnaCommands {
 
 #[derive(Subcommand)]
 pub enum SonicCommands {
+    /// Verify an existing candidate bundle against its separately retained receipt digest.
+    Status {
+        #[arg(long)] directory: String,
+        #[arg(long)] receipt_sha256: String,
+        /// Optional current source recipe; no model/provider is resolved.
+        #[arg(long)] input: Option<String>,
+    },
     /// Capture exact inputs and report compatibility; no model/provider is invoked.
     #[command(visible_alias = "inspect")]
     Plan(SonicArguments),

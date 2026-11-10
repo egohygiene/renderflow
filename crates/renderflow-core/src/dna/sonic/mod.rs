@@ -1,6 +1,7 @@
 //! Source-bound Sonic DNA and reviewable descriptions over supplied evidence.
 //! Aniflow owns extraction; existing DNA/AI services own hygiene and execution.
 
+pub mod readback;
 mod analysis;
 mod companion;
 mod facts;

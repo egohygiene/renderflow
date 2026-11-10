@@ -3,12 +3,12 @@ schema: aether.architecture-document/v1
 id: renderflow-architecture
 title: Renderflow Architecture
 kind: architecture-document
-version: 0.1.1
+version: 0.1.2
 status: draft
 owners:
   - egohygiene
 created: 2026-08-19
-updated: 2026-10-26
+updated: 2026-11-10
 governed_by:
   - architecture-architecture
 depends_on:
@@ -38,6 +38,16 @@ this navigation correction does not ratify a new organization policy. The older
 foundation documents under `docs/architecture/foundation/` remain historical
 reference, with [current destinations](docs/architecture/overview.md#historical-foundation-documents)
 and original contents preserved.
+
+## Saved Sonic evidence readback
+
+The existing Sonic owner also reads a retained bundle against an externally
+supplied receipt digest. Bounded exact file/CAS membership, artifact lineage,
+DNA/source/intent bindings and candidate-only semantics are checked without
+creating an artifact store or invoking extraction/inference. Optional current
+recipe observation distinguishes current, stale and unavailable sources. The
+readback establishes retained byte relationships only; it does not authenticate
+providers, refresh model readiness, approve content or publish a release.
 
 ## Layer model
 
@@ -127,6 +137,16 @@ boundaries concrete.
 The architecture favors independently usable local and self-hosted operation. Optional managed services may add availability, collaboration, support, and hosted infrastructure without becoming the canonical holder of portable state.
 
 ## Evidence and evolution
+
+The #397 native WAV and explicitly selected MIDI/stem projections share the
+current retained Sonic bundle reader. Bundle integrity and current-source
+comparison remain separate: readback verifies the selected receipt, inventory,
+CAS and candidate relationships before optionally recapturing the exact recipe
+with its declared finite source limit. It never invokes an analyzer or model,
+replays a provider, infers sample alignment, or grants publication approval.
+Normalizer revision 4 is intent-bound; an older saved candidate can remain
+internally intact while its current-source plan is stale under newer mappings.
+This integration is source work awaiting compilation and qualification.
 
 - **Current source:** the workspace exposes reusable planning, execution,
   composition, provider and SDK contracts. Merged implementation is not a
