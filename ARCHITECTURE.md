@@ -39,6 +39,16 @@ foundation documents under `docs/architecture/foundation/` remain historical
 reference, with [current destinations](docs/architecture/overview.md#historical-foundation-documents)
 and original contents preserved.
 
+## Saved Sonic evidence readback
+
+The existing Sonic owner also reads a retained bundle against an externally
+supplied receipt digest. Bounded exact file/CAS membership, artifact lineage,
+DNA/source/intent bindings and candidate-only semantics are checked without
+creating an artifact store or invoking extraction/inference. Optional current
+recipe observation distinguishes current, stale and unavailable sources. The
+readback establishes retained byte relationships only; it does not authenticate
+providers, refresh model readiness, approve content or publish a release.
+
 ## Layer model
 
 The existing Sonic evidence boundary projects selected source-clock musical

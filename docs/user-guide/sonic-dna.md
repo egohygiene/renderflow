@@ -208,3 +208,28 @@ validators, product/native/provider/audio/model execution or CI ran. Full native
 analysis validation, broader audio/musical/timeline/companion interpretation,
 direct-audio models, measured grounding/quality, live local/remote operation and
 platform/release proof remain under existing #397 and #458/#419 acceptance.
+
+## Inspect a retained candidate bundle
+
+`dna::sonic::readback::inspect` and `dna sonic status` read a saved v1 bundle
+against the actual `sonic-run.json` SHA-256 retained separately by the caller:
+
+```console
+renderflow dna sonic status --directory sonic-candidate --receipt-sha256 EXTERNAL_RECEIPT_SHA256 --input sonic.json
+```
+
+The optional current recipe is recaptured through the existing bounded source
+reader only. Status never creates a store, runs extraction, resolves a model or
+launches inference. It checks exact files/CAS membership and bytes, record IDs,
+ordered lineage, DNA/source/intent bindings, description citations/Markdown and
+candidate-only semantics. `complete`/`partial` retain the saved semantic outcome;
+provider readiness is explicitly not reobserved. Source state is `current`,
+`stale`, `unavailable`, `unavailable_or_changed`, or `not_supplied`. These are
+byte/evidence relationships, never authenticated provider execution or musical
+accuracy. Missing/malformed receipts and unknown or symbolic members refuse;
+no partial directory is adopted. Changed source leaves retained bytes untouched.
+
+Closed request/report schemas are `renderflow.sonic-readback-request/v1` and
+`renderflow.sonic-readback/v1`. Existing plan's `inspect` alias keeps its meaning.
+Five focused SDK cases and one CLI parser case are authored, uncompiled/unrun.
+All standing checks/native/model/CI deferrals persist; flow #88 remains last.
