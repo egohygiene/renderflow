@@ -31,6 +31,11 @@ pub fn init_logging(cli: &Cli) {
 /// Dispatch a parsed CLI command.
 pub fn run_cli(cli: Cli) -> Result<()> {
     match cli.command {
+        Some(Commands::ReleaseContract) => println!("{}", serde_json::to_string_pretty(&crate::release_contract::describe()?)?),
+        Some(Commands::PublicationStatus { manifest, manifest_sha256, output_root }) => {
+            let report = crate::release_contract::publication_status(std::path::Path::new(&manifest), &manifest_sha256, std::path::Path::new(&output_root))?;
+            println!("{}", serde_json::to_string_pretty(&report)?);
+        },
         Some(Commands::Build {
             config,
             dry_run,

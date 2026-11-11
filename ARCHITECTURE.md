@@ -3,12 +3,12 @@ schema: aether.architecture-document/v1
 id: renderflow-architecture
 title: Renderflow Architecture
 kind: architecture-document
-version: 0.1.2
+version: 0.1.3
 status: draft
 owners:
   - egohygiene
 created: 2026-08-19
-updated: 2026-11-10
+updated: 2026-11-11
 governed_by:
   - architecture-architecture
 depends_on:
@@ -23,6 +23,23 @@ supersedes: []
 ---
 
 # Renderflow Architecture
+
+## Compiled release inventory and native publication readback
+
+`release_contract` describes the actual canonical built-in graph declarations,
+embedded provider requirements, creative route catalog and versioned interfaces
+without ambient discovery or provider execution. It shares graph registration
+with the canonical planner instead of copying conversion edges. The additive
+`renderflow.release-manifest/v2` preparation path records independently hashed
+target binaries/descriptors and retains missing platform objectives. The older
+Linux/PDF/EPUB v1 receipt remains unchanged. Neither descriptor nor preparation
+asserts publication, installed tools or native qualification.
+
+The thin `publication-status` command uses the existing pinned native receipt and
+root-confined publication verifier. It preserves complete/partial/validation and
+fidelity state, and provides current payload observations for independent Flow
+translation. It adds no execution engine, implicit installation, sibling crate
+dependency, creative approval or release authority.
 
 ## Purpose and scope
 

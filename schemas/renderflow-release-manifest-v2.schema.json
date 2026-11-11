@@ -1,0 +1,202 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://egohygiene.github.io/renderflow/schemas/renderflow-release-manifest-v2.schema.json",
+  "description": "Supplied multi-target assets and full compiled interface inventory; separate native/supply-chain/release verification required.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "repository",
+    "version",
+    "source_revision",
+    "targets",
+    "retained_target_objectives",
+    "unavailable_targets",
+    "qualification",
+    "publication",
+    "owner_issue"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "renderflow.release-manifest/v2"
+    },
+    "repository": {
+      "const": "egohygiene/renderflow"
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_revision": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "targets": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "target",
+          "state",
+          "binary",
+          "descriptor",
+          "native_build_evidence",
+          "contracts"
+        ],
+        "properties": {
+          "target": {
+            "type": "string",
+            "minLength": 1
+          },
+          "state": {
+            "const": "prepared_bytes_only"
+          },
+          "binary": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "sha256",
+              "byte_count"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "byte_count": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 536870912
+              }
+            }
+          },
+          "descriptor": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "sha256",
+              "byte_count"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "byte_count": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 536870912
+              }
+            }
+          },
+          "native_build_evidence": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "sha256",
+              "byte_count"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "byte_count": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 536870912
+              }
+            }
+          },
+          "contracts": {
+            "type": "object",
+            "required": [
+              "schema_version",
+              "tool",
+              "version",
+              "library_version",
+              "routes",
+              "profiles",
+              "schemas",
+              "qualification"
+            ],
+            "properties": {
+              "schema_version": {
+                "const": "renderflow.release-contract/v2"
+              },
+              "tool": {
+                "const": "renderflow"
+              },
+              "version": {
+                "type": "string",
+                "minLength": 1
+              },
+              "library_version": {
+                "type": "string",
+                "minLength": 1
+              },
+              "routes": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 100000
+              },
+              "profiles": {
+                "type": "array",
+                "minItems": 1
+              },
+              "schemas": {
+                "type": "array",
+                "minItems": 1
+              },
+              "qualification": {
+                "const": "not_established_by_contract_description"
+              }
+            }
+          }
+        }
+      }
+    },
+    "retained_target_objectives": {
+      "const": [
+        "aarch64-apple-darwin",
+        "x86_64-unknown-linux-gnu",
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-msvc"
+      ]
+    },
+    "unavailable_targets": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "qualification": {
+      "const": "not_established_by_asset_inventory"
+    },
+    "publication": {
+      "const": "not_established"
+    },
+    "owner_issue": {
+      "const": "https://github.com/egohygiene/renderflow/issues/419"
+    }
+  }
+}

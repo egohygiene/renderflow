@@ -42,6 +42,7 @@ pub mod process;
 pub mod presentation;
 pub mod lyrics;
 pub mod publication;
+pub mod release_contract;
 pub mod screenplay;
 mod sdk;
 pub mod spec;
