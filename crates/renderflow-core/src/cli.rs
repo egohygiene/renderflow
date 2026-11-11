@@ -53,6 +53,14 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Commands {
+    /// Describe compiled release interfaces and declared routes without discovery.
+    ReleaseContract,
+    /// Reobserve exact native run publications, retaining their validation state.
+    PublicationStatus {
+        #[arg(long)] manifest: String,
+        #[arg(long)] manifest_sha256: String,
+        #[arg(long)] output_root: String,
+    },
     /// Build rendered documents from a renderflow configuration file
     #[command(after_help = "Examples:\n  \
             renderflow build                        Build using renderflow.yaml\n  \

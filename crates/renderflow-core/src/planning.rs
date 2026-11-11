@@ -3715,7 +3715,7 @@ fn register_speech_executors(
     Ok(())
 }
 
-fn register_builtin_strategy_edges(
+pub(crate) fn register_builtin_strategy_edges(
     graph: &mut TransformGraph,
     tools: &mut ToolRegistry,
 ) -> Result<()> {
