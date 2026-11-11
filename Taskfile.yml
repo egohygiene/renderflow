@@ -343,3 +343,37 @@ tasks:
     desc: Run all web quality checks
     cmds:
       - pnpm web:check
+
+  release:cohort:build:
+    desc: Prepare one native v2 binary/contract/SBOM part; never publish
+    requires:
+      vars: [TARGET, VERSION, SOURCE_REVISION, WORK, OUTPUT]
+    env:
+      RF_COHORT_TARGET: '{{.TARGET}}'
+      RF_COHORT_VERSION: '{{.VERSION}}'
+      RF_COHORT_REVISION: '{{.SOURCE_REVISION}}'
+      RF_COHORT_WORK: '{{.WORK}}'
+      RF_COHORT_OUTPUT: '{{.OUTPUT}}'
+    cmds:
+      - python3 scripts/release/release_assets.py cohort-build --target "$RF_COHORT_TARGET" --version "$RF_COHORT_VERSION" --commit "$RF_COHORT_REVISION" --work-directory "$RF_COHORT_WORK" --artifact-dir "$RF_COHORT_OUTPUT"
+
+  release:cohort:assemble:
+    desc: Assemble explicitly supplied native v2 parts into fresh candidate bytes
+    requires:
+      vars: [PARTS_REQUEST, OUTPUT]
+    env:
+      RF_COHORT_PARTS: '{{.PARTS_REQUEST}}'
+      RF_COHORT_OUTPUT: '{{.OUTPUT}}'
+    cmds:
+      - python3 scripts/release/release_assets.py cohort-assemble --parts-request "$RF_COHORT_PARTS" --artifact-dir "$RF_COHORT_OUTPUT"
+
+  release:cohort:handoff:
+    desc: Print a v2 publication handoff; does not create a tag or release
+    requires:
+      vars: [ASSETS, MANIFEST, MANIFEST_SHA256]
+    env:
+      RF_COHORT_ASSETS: '{{.ASSETS}}'
+      RF_COHORT_MANIFEST: '{{.MANIFEST}}'
+      RF_COHORT_MANIFEST_SHA256: '{{.MANIFEST_SHA256}}'
+    cmds:
+      - python3 scripts/release/release_assets.py cohort-handoff --artifact-dir "$RF_COHORT_ASSETS" --manifest "$RF_COHORT_MANIFEST" --manifest-sha256 "$RF_COHORT_MANIFEST_SHA256"

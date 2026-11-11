@@ -90,11 +90,11 @@ def check_checksum(root: Path, name: str) -> None:
     require(line == f"{digest(asset(root, name))}  {name}\n", f"checksum mismatch or malformed record: {name}")
 
 
-def identity(args: argparse.Namespace) -> None:
+def identity(args: argparse.Namespace, allowed_targets=(TARGET,)) -> None:
     require(bool(VERSION.fullmatch(args.version)), "candidate version must be SemVer prerelease")
     require(args.tag == f"v{args.version}", "version/tag mismatch")
     require(bool(HEX40.fullmatch(args.commit)), "commit must be an exact lowercase 40-hex SHA")
-    require(args.target == TARGET, "only the verified Linux x86_64 GNU target is supported")
+    require(args.target in allowed_targets, "target is outside this release preparation profile")
     require(args.repository == REPOSITORY, "repository mismatch")
 
 
@@ -153,8 +153,8 @@ def license_texts(package: dict) -> list[tuple[str, str]]:
     return result
 
 
-def prepare(args: argparse.Namespace) -> None:
-    identity(args)
+def prepare(args: argparse.Namespace, allowed_targets=(TARGET,)) -> None:
+    identity(args, allowed_targets)
     source = Path(args.source_dir).resolve()
     source_version(source, args.version)
     root = Path(args.artifact_dir).resolve()
@@ -549,6 +549,8 @@ def verify(args: argparse.Namespace) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
+    import native_cohort
+    native_cohort.arguments(commands)
     for action in ("prepare", "manifest", "verify"):
         cmd = commands.add_parser(action)
         cmd.add_argument("--artifact-dir", required=True)
@@ -570,7 +572,10 @@ def main() -> None:
             cmd.add_argument("--installer-script", help="Test scripts/install.sh via file:// pinned assets in a clean temporary install")
     args = parser.parse_args()
     try:
-        {"prepare": prepare, "manifest": manifest, "verify": verify}[args.command](args)
+        if args.command.startswith("cohort-"):
+            native_cohort.dispatch(args)
+        else:
+            {"prepare": prepare, "manifest": manifest, "verify": verify}[args.command](args)
     except (ValueError, KeyError, OSError, json.JSONDecodeError, subprocess.TimeoutExpired) as error:
         print(f"release receipt {args.command}: {error}", file=sys.stderr)
         raise SystemExit(1) from error

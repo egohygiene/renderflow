@@ -75,6 +75,8 @@ def prepare(root, source, request):
         target = entry["target"]
         require(target in OBJECTIVES and target not in seen, "duplicate or unknown target")
         seen.add(target)
+        support = entry.get("support_assets", [])
+        require(len(support) <= 16 and len(set(support)) == len(support), "support asset bounds/identity")
         binary = asset(root, entry["binary"])
         contract = asset(root, entry["descriptor"])
         value = descriptor(root, contract, version)
@@ -87,7 +89,8 @@ def prepare(root, source, request):
             path = source / "schemas" / (schema["name"] + ".schema.json")
             require(sha(read(path, MAX_JSON)) == schema["sha256"], "compiled contract schema differs from represented source")
         rows.append({"target": target, "state": "prepared_bytes_only", "binary": binary, "descriptor": contract,
-                     "native_build_evidence": build, "contracts": value})
+                     "native_build_evidence": build, "contracts": value,
+                     "support_assets": [asset(root, name) for name in support]})
     require(rows, "no target assets selected")
     return {"schema_version": SCHEMA, "repository": "egohygiene/renderflow", "version": version,
             "source_revision": request["source_revision"], "targets": rows,
@@ -107,6 +110,10 @@ def verify(root, manifest):
         seen.add(row["target"])
         for kind in ["binary", "descriptor", "native_build_evidence"]:
             require(asset(root, row[kind]["name"]) == row[kind], "release asset digest/size differs")
+        supports = row.get("support_assets", [])
+        require(len(supports) <= 16 and len({s["name"] for s in supports}) == len(supports), "support asset bounds/identity")
+        for support in supports:
+            require(asset(root, support["name"]) == support, "support asset digest/size differs")
         value = descriptor(root, row["descriptor"], manifest["version"])
         require(value == row["contracts"], "release descriptor projection differs")
         evidence = json.loads(read(root / row["native_build_evidence"]["name"], MAX_JSON))

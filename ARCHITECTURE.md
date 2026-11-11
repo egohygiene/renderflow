@@ -3,7 +3,7 @@ schema: aether.architecture-document/v1
 id: renderflow-architecture
 title: Renderflow Architecture
 kind: architecture-document
-version: 0.1.3
+version: 0.1.4
 status: draft
 owners:
   - egohygiene
@@ -23,6 +23,19 @@ supersedes: []
 ---
 
 # Renderflow Architecture
+
+## Native cohort preparation and installation
+
+The existing `release_assets.py` delivery owner also exposes explicit v2 cohort
+build/assembly/readback/installation handoffs. Native target preparation checks
+the actual host and two isolated frozen builds, captures the compiled descriptor,
+and reuses existing Cargo/SBOM/notice preparation. Assembly binds native parts,
+retained platform objectives and support assets through the existing v2 inventory.
+An explicit pinned offline installer copies a selected host's exact bytes into a
+fresh owned directory without launching it. Candidate installation is not release
+authentication or native qualification. The existing v1 manual release workflow
+and its signature/native gates remain unchanged; publication is only a printed
+manual handoff, never an automatic side effect of these source tasks.
 
 ## Compiled release inventory and native publication readback
 

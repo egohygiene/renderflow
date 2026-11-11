@@ -90,6 +90,18 @@ resolve_base_url() {
 }
 
 main() {
+  if [ -n "${RENDERFLOW_COHORT_MANIFEST:-}" ]; then
+    if [ -z "${RENDERFLOW_COHORT_SHA256:-}" ] || [ -z "${RENDERFLOW_COHORT_ASSETS:-}" ] || [ -z "${RENDERFLOW_INSTALL_DIR:-}" ] || [ "${RENDERFLOW_ACKNOWLEDGE_UNQUALIFIED_CANDIDATE:-}" != "1" ]; then
+      err "v2 candidate installation requires an exact manifest digest, local assets, fresh explicit install directory and candidate acknowledgement"
+      exit 1
+    fi
+    need_cmd python3 || { err "v2 installation requires already installed Python 3.11+"; exit 1; }
+    script_directory="$(CDPATH= cd "$(dirname "$0")" && pwd)"
+    exec python3 "$script_directory/release/release_assets.py" cohort-install \
+      --manifest "$RENDERFLOW_COHORT_MANIFEST" --manifest-sha256 "$RENDERFLOW_COHORT_SHA256" \
+      --artifact-dir "$RENDERFLOW_COHORT_ASSETS" --install-directory "$RENDERFLOW_INSTALL_DIR" \
+      --acknowledge-unqualified-candidate
+  fi
   case "$VERSION" in
     ""|latest|*[!a-zA-Z0-9.+-]*)
       err "set RENDERFLOW_VERSION to an exact release tag (for example v0.3.0-rc.1)"
