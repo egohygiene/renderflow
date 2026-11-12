@@ -1,5 +1,21 @@
 # #397 — bounded Sonic evidence checkpoint
 
+## November 12, 2026 — grouped source-grounded descriptions
+
+Current merged base is `50dda7a227a25a14ea860cee164f7a28165a0f11`. This source
+checkpoint groups existing admitted musical/note/stem/timed-text context into
+bounded cited deterministic sections, preserves distinct values/corrections and
+original scopes/confidence, and applies explicit dimension importance to guidance
+selection with stable ties. No new native/audio format/analysis family or model
+inference is added. Separate description/guidance revisions enter intent identity;
+normalizer mapping revision 4 and retained bundle contracts remain unchanged.
+
+Three focused source cases are authored, uncompiled/unrun; all normal product,
+native/model/media/SDK/CLI/browser/CI checks remain deferred. No actual review,
+original mutation/disposal, release/signature/timestamp/publication or ADR
+ratification occurs. #397 retains its full remaining scope, and Flow #88 remains
+last and untouched. Older source/draft observations below retain their dates.
+
 ## November 10, 2026 — native context integration against current readback
 
 Branch `codex/397-native-context-integration-20261110` starts with the exact tree

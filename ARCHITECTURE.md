@@ -3,12 +3,12 @@ schema: aether.architecture-document/v1
 id: renderflow-architecture
 title: Renderflow Architecture
 kind: architecture-document
-version: 0.1.5
+version: 0.1.6
 status: draft
 owners:
   - egohygiene
 created: 2026-08-19
-updated: 2026-11-11
+updated: 2026-11-12
 governed_by:
   - architecture-architecture
 depends_on:
@@ -23,6 +23,17 @@ supersedes: []
 ---
 
 # Renderflow Architecture
+
+## Source-grounded Sonic description delivery
+
+The existing Sonic evidence owner groups admitted technical, musical, note,
+lineage and timed-text facts into bounded cited candidate sections. Original
+scope, uncertainty and declared corrections remain data, with no preferred
+estimate or inferred listening/review. Explicit dimension importance controls
+guidance selection without becoming confidence. Description/guidance renderer
+revisions enter intent identity; retained bundles keep their original bytes and
+readback contract. No new analyzer, model, sibling dependency or approval owner
+is introduced. Full audio/model/native and publishing qualification stays open.
 
 ## Independent owner report handoff
 
