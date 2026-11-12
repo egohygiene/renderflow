@@ -170,6 +170,34 @@
                 "const": "not_established_by_contract_description"
               }
             }
+          },
+          "support_assets": {
+            "type": "array",
+            "maxItems": 16,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "name",
+                "sha256",
+                "byte_count"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "byte_count": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 536870912
+                }
+              }
+            }
           }
         }
       }
