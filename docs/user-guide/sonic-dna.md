@@ -1,5 +1,34 @@
 # Sonic DNA from supplied audio evidence
 
+## Grouped descriptions and selected context
+
+Deterministic evidence descriptions now include bounded groups for technical,
+rhythm, harmony, arrangement, note-candidate, stem-lineage and timed-text context.
+At most three facts per family are displayed, so a long event list cannot hide
+later selected note/stem/lyric context. Note and lineage groups retain the
+existing public `arrangement` topic; the description v1 schema is unchanged.
+Each section cites the actual selected fact IDs and retains original confidence,
+provenance, channel/stem scope and separately declared correction references.
+Different reported tempi/keys are not collapsed or resolved into a preferred
+answer. Values/text are bounded on UTF-8 boundaries, with explicit excerpt labels;
+complete normalized facts remain in Sonic DNA.
+
+Prompt-guidance components and tags now follow explicit dimension importance,
+descending with stable original order for ties. Importance does not alter or
+average calibrated/uncalibrated/unavailable confidence and is never an accuracy
+score. Original observations/corrections, note activation caveats, separate stem
+clocks and manual cue structure remain intact. No mood, genre, instrument, voice,
+lyric meaning, listening result, human approval or copyright clearance is inferred.
+
+`sonic-evidence-description/2` and `renderflow.sonic-guidance/2` enter the new
+intent identity. Projection remains `sonic-evidence-mappings/4`: this checkpoint
+improves existing admitted context's description/selection, not analyzer coverage.
+Previously retained bundles keep their original bytes and readback meanings.
+Three useful conflict/citation, context/Unicode-bound and importance/confidence
+cases are authored, uncompiled/unrun. No media/analyzer/model/CLI/SDK, compiler,
+tests/builds/dependencies/validators or CI ran. Native/model/music-quality/release
+qualification and actual human review remain open; final Flow #88 stays last.
+
 The `sonic-evidence-v1` profile turns a bounded audio snapshot and optional
 supplied analyzer artifacts into Sonic DNA, evidence descriptions and prompt
 guidance. It reuses the existing DNA engine, artifact store, hygiene and optional

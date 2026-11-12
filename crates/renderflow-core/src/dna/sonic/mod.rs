@@ -140,6 +140,7 @@ fn capture(input:&Path,token:ProcessCancellationToken)->Result<Captured> {
         "profile":PROFILE,"engine_version":env!("CARGO_PKG_VERSION"),"request_sha256":input_sha256,
         "inputs":files.iter().map(|file|&file.subject).collect::<Vec<_>>(),"aniflow_contract_revision":analysis::CONTRACT_PIN,
         "normalizer_revision":"sonic-evidence-mappings/4",
+        "description_renderer_revision":render::DESCRIPTION_REVISION,"guidance_renderer_revision":render::GUIDANCE_REVISION,
         "semantic_skill_sha256":local::sha256(semantic::SKILL_SOURCE.as_bytes())}))?);
     Ok(Captured {recipe,files,pcm,facts,analyses,companions,input_sha256,intent_sha256})
 }
