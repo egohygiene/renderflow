@@ -507,6 +507,13 @@ pub fn run_cli(cli: Cli) -> Result<()> {
     Ok(())
 }
 
+/// Return the existing semantic root-help result without printing, logging,
+/// configuration loading or domain work. Decorative presentation stays in the binary.
+pub fn root_help_error_from_args(arguments:&[std::ffi::OsString])->Option<clap::Error>{
+    if arguments.len()!=2||!(arguments[1]=="--help"||arguments[1]=="-h"){return None;}
+    match Cli::try_parse_from(arguments){Err(e) if e.kind()==clap::error::ErrorKind::DisplayHelp=>Some(e),_=>None}
+}
+
 /// Parse CLI arguments from the process environment, initialize logging,
 /// and run the command dispatch.
 pub fn run_cli_from_env() -> Result<()> {
