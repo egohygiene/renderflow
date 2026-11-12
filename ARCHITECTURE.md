@@ -3,7 +3,7 @@ schema: aether.architecture-document/v1
 id: renderflow-architecture
 title: Renderflow Architecture
 kind: architecture-document
-version: 0.1.4
+version: 0.1.5
 status: draft
 owners:
   - egohygiene
@@ -23,6 +23,15 @@ supersedes: []
 ---
 
 # Renderflow Architecture
+
+## Independent owner report handoff
+
+The existing v2 release owner binds its raw binary, descriptor and native part
+inventory before delegating unsigned publisher/positive-evidence report assembly
+to the repository-local offline adapter. Raw binary assets and separate contract
+assets keep their identities. No archive repacking, native proof, signature or
+publication is inferred. Flow consumes the versioned report without a sibling
+source dependency; original native, release and signing gates remain required.
 
 ## Native cohort preparation and installation
 

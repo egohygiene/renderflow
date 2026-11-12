@@ -227,11 +227,15 @@ def arguments(commands):
     assembly.add_argument("--artifact-dir", required=True)
     assembly.add_argument("--parts-request", required=True)
     assembly.add_argument("--source-dir", default=str(Path(__file__).resolve().parents[2]))
-    for name in ["cohort-verify", "cohort-install", "cohort-handoff"]:
+    for name in ["cohort-verify", "cohort-install", "cohort-handoff", "cohort-report"]:
         parser = commands.add_parser(name)
         parser.add_argument("--artifact-dir", required=True)
         parser.add_argument("--manifest", required=True)
         parser.add_argument("--manifest-sha256", required=True)
+        if name == "cohort-report":
+            parser.add_argument("--request", required=True)
+            parser.add_argument("--output-directory", required=True)
+            parser.add_argument("--kind", choices=["publisher", "qualified"], required=True)
         if name == "cohort-install":
             parser.add_argument("--install-directory", required=True)
             parser.add_argument("--acknowledge-unqualified-candidate", action="store_true")
@@ -244,6 +248,8 @@ def dispatch(args):
         assemble(args)
     elif args.command == "cohort-install":
         install(args)
+    elif args.command == "cohort-report":
+        report(args)
     else:
         root, manifest = pinned(args)
         result = {"verification":"exact_supplied_asset_bytes_only", "native_qualified":False, "publication_performed":False}
@@ -251,3 +257,28 @@ def dispatch(args):
             result["required_before_publication"] = "retain the existing exact-source native, supply-chain, installation and release gates; this command does not satisfy them"
             result["manual_argv"] = ["gh","release","create","v"+manifest["version"],"--repo","egohygiene/renderflow","--target",manifest["source_revision"],"--draft","--prerelease","--latest=false"] + [str(p) for p in sorted(root.iterdir()) if p.is_file()]
         print(json.dumps(result, sort_keys=True))
+
+
+def report(args):
+    """Bind the selected existing v2 cohort before offline owner report assembly."""
+    import importlib.util
+    root, manifest = pinned(args)
+    source = Path(__file__).resolve().parents[2] / "scripts/owner_reports.py"
+    spec = importlib.util.spec_from_file_location("renderflow_owner_reports", source)
+    adapter = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(adapter)
+    request_file = adapter.file_pin(Path(args.request).absolute(), adapter.MAX_JSON)
+    request = adapter.document(request_file)
+    selected = request["publisher_request"] if args.kind == "qualified" else request
+    row, _, _ = adapter.select(selected)
+    represented = [r for r in manifest["targets"] if r["target"] == row["target"]]
+    assets.require(len(represented) == 1, "report target absent from selected v2 cohort")
+    native = represented[0]
+    assets.require(adapter.native_path(selected["archive"]["path"]) == root / native["binary"]["name"] and selected["archive"]["sha256"] == native["binary"]["sha256"] and selected.get("asset_kind") == "raw_binary", "report does not bind selected raw v2 binary")
+    assets.require(any(c.get("identifier") == "renderflow.release-contract/v2" and c.get("file", {}).get("sha256") == native["descriptor"]["sha256"] and adapter.native_path(c["file"]["path"]) == root / native["descriptor"]["name"] for c in selected["contract_members"]), "report omits exact v2 descriptor")
+    output = Path(args.output_directory).absolute()
+    assets.require(not output.is_relative_to(root) and not root.is_relative_to(output), "report output overlaps immutable cohort")
+    result = adapter.emit(args.kind, request, output)
+    assets.require(adapter.file_pin(Path(args.request).absolute(), adapter.MAX_JSON) == request_file, "report request changed")
+    pinned(args)
+    print(json.dumps(result, sort_keys=True))
