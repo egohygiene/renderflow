@@ -91,7 +91,7 @@ def build(args):
                                     target=args.target, repository=legacy.REPOSITORY), TARGETS)
     assets.require(host_target() == args.target, "native build requires its real target host")
     source_identity(source, args.commit, args.version)
-    rustc = command(["rustup", "run", "1.94", "rustc", "--version", "--verbose"], source).decode()
+    rustc = command(["rustup", "run", "1.94.0", "rustc", "--version", "--verbose"], source).decode()
     assets.require(rustc.startswith("rustc 1.94.") and "host: " + args.target + "\n" in rustc, "installed native Rust toolchain differs")
     work = fresh(args.work_directory, source)
     output = Path(args.artifact_dir).absolute()
@@ -101,7 +101,7 @@ def build(args):
         target = work / ("build-" + str(index))
         environment = dict(os.environ)
         environment.pop("RUSTFLAGS", None)
-        environment.update({"RUSTUP_TOOLCHAIN":"1.94", "RUSTUP_AUTO_INSTALL":"0", "CARGO_TARGET_DIR":str(target), "CARGO_NET_OFFLINE":"true", "CARGO_INCREMENTAL":"0",
+        environment.update({"RUSTUP_TOOLCHAIN":"1.94.0", "RUSTUP_AUTO_INSTALL":"0", "CARGO_TARGET_DIR":str(target), "CARGO_NET_OFFLINE":"true", "CARGO_INCREMENTAL":"0",
                             "CARGO_ENCODED_RUSTFLAGS":"--remap-path-prefix="+str(source)+"=/renderflow/source\x1f--remap-path-prefix="+str(target)+"=/renderflow/target"})
         command(["cargo", "build", "--frozen", "--release", "--package", "renderflow-cli", "--bin", "renderflow", "--target", args.target], source, environment, 2400)
         executable = target / args.target / "release/renderflow"
@@ -128,7 +128,7 @@ def build(args):
         "qualification":"build_and_contract_capture_only", "isolated_builds":2})
     metadata_file = args.metadata_file
     if metadata_file is None:
-        metadata = command(["rustup", "run", "1.94", "cargo", "metadata", "--frozen", "--format-version", "1", "--filter-platform", args.target], source, environment)
+        metadata = command(["rustup", "run", "1.94.0", "cargo", "metadata", "--frozen", "--format-version", "1", "--filter-platform", args.target], source, environment)
         metadata_file = str(work / "cargo-metadata.json")
         put(Path(metadata_file), metadata)
     legacy.prepare(SimpleNamespace(artifact_dir=str(output), source_dir=str(source), version=args.version,

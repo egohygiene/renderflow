@@ -3,6 +3,7 @@
 # The placeholder checksum deliberately prevents installation.
 pkgname=renderflow
 pkgver=0.3.0rc1
+_source_version=0.3.0-rc.1
 pkgrel=1
 pkgdesc="Spec-driven document rendering engine"
 arch=('x86_64' 'aarch64')
@@ -10,17 +11,17 @@ url="https://github.com/egohygiene/renderflow"
 license=('MIT')
 depends=('pandoc')
 makedepends=('rust')
-source=("$pkgname-$pkgver.tar.gz::https://github.com/egohygiene/renderflow/archive/refs/tags/v0.3.0-rc.1.tar.gz")
+source=("$pkgname-$pkgver.tar.gz::https://github.com/egohygiene/renderflow/archive/refs/tags/v$_source_version.tar.gz")
 sha256sums=('PLACEHOLDER_SHA256')
 
 build() {
-	cd "$pkgname-$pkgver"
+	cd "$pkgname-$_source_version"
 	export CARGO_TARGET_DIR="$srcdir/target"
-	cargo build --release --locked
+	cargo build --release --locked --package renderflow-cli --bin renderflow
 }
 
 package() {
-	cd "$pkgname-$pkgver"
+	cd "$pkgname-$_source_version"
 	install -Dm755 "$srcdir/target/release/renderflow" "$pkgdir/usr/bin/renderflow"
 	install -Dm644 "LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }

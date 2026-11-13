@@ -1,0 +1,18 @@
+{
+  "cli_binary": "renderflow",
+  "cli_manifest": "crates/renderflow-cli/Cargo.toml",
+  "cli_package": "renderflow-cli",
+  "installer_observed": false,
+  "native_build_observed": false,
+  "packages": {
+    "renderflow": "crates/renderflow-core/Cargo.toml",
+    "renderflow-api": "crates/renderflow-api/Cargo.toml",
+    "renderflow-cli": "crates/renderflow-cli/Cargo.toml",
+    "renderflow-plugin-sdk": "crates/renderflow-plugin-sdk/Cargo.toml"
+  },
+  "qualification": "source_metadata_only",
+  "rust_toolchain": "1.94.0",
+  "schema_version": "renderflow.packaging-source-check/v1",
+  "snap_observed": false,
+  "version": "0.3.0-rc.1"
+}

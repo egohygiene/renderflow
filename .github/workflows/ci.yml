@@ -16,6 +16,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
+      - name: Check workspace packaging declarations
+        run: python3 -B scripts/check-packaging.py check
+
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -133,10 +136,10 @@ jobs:
         run: ../../target/release/renderflow build --dry-run
 
       - name: Run library embedding example
-        run: cargo run --package renderflow --example library_basic
+        run: cargo run --locked --package renderflow --example library_basic
 
       - name: Run plugin registration example
-        run: cargo run --package renderflow --example plugin_registration
+        run: cargo run --locked --package renderflow --example plugin_registration
 
   validate-pkgbuild:
     name: Validate PKGBUILD git (Arch Linux)
@@ -192,17 +195,22 @@ jobs:
 
       - name: Prepare local release assets with checksum
         run: |
-          mkdir -p /tmp/renderflow-release
-          cp target/release/renderflow /tmp/renderflow-release/renderflow-x86_64-unknown-linux-gnu
-          sha256sum /tmp/renderflow-release/renderflow-x86_64-unknown-linux-gnu > /tmp/renderflow-release/renderflow-x86_64-unknown-linux-gnu.sha256
+          set -euo pipefail
+          asset_dir="$RUNNER_TEMP/renderflow-release"
+          mkdir -- "$asset_dir"
+          cp target/release/renderflow "$asset_dir/renderflow-x86_64-unknown-linux-gnu"
+          (cd "$asset_dir" && sha256sum renderflow-x86_64-unknown-linux-gnu > renderflow-x86_64-unknown-linux-gnu.sha256)
 
       - name: Install from portable installer script
         run: |
-          mkdir -p /tmp/renderflow-bin
-          RENDERFLOW_DOWNLOAD_BASE_URL="file:///tmp/renderflow-release" \
-          RENDERFLOW_INSTALL_DIR="/tmp/renderflow-bin" \
+          set -euo pipefail
+          version="$(python3 -B scripts/check-packaging.py version)"
+          install_dir="$RUNNER_TEMP/renderflow-bin"
+          RENDERFLOW_VERSION="v$version" \
+          RENDERFLOW_DOWNLOAD_BASE_URL="file://$RUNNER_TEMP/renderflow-release" \
+          RENDERFLOW_INSTALL_DIR="$install_dir" \
           sh scripts/install.sh
-          /tmp/renderflow-bin/renderflow --version
+          test "$("$install_dir/renderflow" --version)" = "renderflow $version"
 
   validate-snap:
     name: Validate Snap package
@@ -221,7 +229,8 @@ jobs:
       - name: Install and smoke test Snap
         run: |
           sudo snap install --dangerous --classic "${{ steps.snapcraft.outputs.snap }}"
-          /snap/bin/renderflow --version
+          version="$(python3 -B scripts/check-packaging.py version)"
+          test "$(/snap/bin/renderflow --version)" = "renderflow $version"
 
       - name: Upload Snap artifact
         uses: actions/upload-artifact@v6
