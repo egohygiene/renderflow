@@ -6,6 +6,7 @@
 #![recursion_limit = "256"]
 
 pub mod adapters;
+pub mod diagnostics;
 pub mod ai;
 pub mod api_contract;
 pub mod app;

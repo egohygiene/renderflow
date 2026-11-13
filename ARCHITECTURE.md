@@ -3,12 +3,12 @@ schema: aether.architecture-document/v1
 id: renderflow-architecture
 title: Renderflow Architecture
 kind: architecture-document
-version: 0.1.6
+version: 0.1.7
 status: draft
 owners:
   - egohygiene
 created: 2026-08-19
-updated: 2026-11-12
+updated: 2026-11-13
 governed_by:
   - architecture-architecture
 depends_on:
@@ -23,6 +23,15 @@ supersedes: []
 ---
 
 # Renderflow Architecture
+
+## Local support diagnostics
+
+A product-owned metadata-only support adapter implements the versioned suite
+diagnostic profile without sibling dependencies. Explicit preview, creation,
+inspection and health commands use generated allowlisted fields and existing
+hashing. They do not initialize logging, export telemetry, read raw logs or
+contact collectors. Compiled capabilities and unknown runtime health remain
+separate; support records grant no domain/release authority.
 
 ## Source-grounded Sonic description delivery
 

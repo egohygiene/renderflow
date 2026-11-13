@@ -25,3 +25,4 @@ pub mod system;
 pub mod tools;
 pub mod video;
 pub mod watch;
+pub(crate) mod diagnostics;

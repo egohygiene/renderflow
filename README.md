@@ -744,3 +744,9 @@ package-manager templates do not establish supported distribution.
 ## License
 
 MIT © [Ego Hygiene](https://github.com/egohygiene)
+
+## Local support diagnostics
+
+See the [metadata-only support pilot](docs/support/README.md) for explicit
+preview, creation, inspection and capability commands. No telemetry or upload is
+enabled by this source addition.
