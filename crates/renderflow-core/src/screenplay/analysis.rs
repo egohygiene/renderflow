@@ -91,7 +91,10 @@ pub struct ScreenplayAnalysisError {
 }
 
 fn failure(code: &'static str, message: impl Into<String>) -> ScreenplayAnalysisError {
-    ScreenplayAnalysisError { code, message: message.into() }
+    ScreenplayAnalysisError {
+        code,
+        message: message.into(),
+    }
 }
 
 /// Analyze actual Fountain source bytes without launching any provider.
@@ -102,15 +105,27 @@ fn failure(code: &'static str, message: impl Into<String>) -> ScreenplayAnalysis
 /// from elsewhere is merely a claim until independently recomputed from source.
 pub fn analyze_fountain(bytes: &[u8]) -> Result<ScreenplayAnalysis, ScreenplayAnalysisError> {
     if bytes.is_empty() || bytes.len() > MAX_INPUT_BYTES {
-        return Err(failure("screenplay.analysis.bounds", "Fountain input must contain between one byte and 16 MiB"));
+        return Err(failure(
+            "screenplay.analysis.bounds",
+            "Fountain input must contain between one byte and 16 MiB",
+        ));
     }
-    if bytes.iter().any(|byte| *byte != b'\n' && !(0x20..=0x7e).contains(byte)) {
+    if bytes
+        .iter()
+        .any(|byte| *byte != b'\n' && !(0x20..=0x7e).contains(byte))
+    {
         return Err(failure("screenplay.analysis.encoding", "this analysis profile accepts only printable ASCII and LF; tabs, CR, BOMs and non-ASCII text are unsupported"));
     }
     // afterwriting uses this substring to dispatch input to its FDX parser,
     // including when it appears in an otherwise ordinary action paragraph.
-    if bytes.windows(b"<?xml".len()).any(|window| window == b"<?xml") {
-        return Err(failure("screenplay.analysis.xml_dispatch", "Fountain containing <?xml is unsupported because afterwriting may dispatch it as FDX"));
+    if bytes
+        .windows(b"<?xml".len())
+        .any(|window| window == b"<?xml")
+    {
+        return Err(failure(
+            "screenplay.analysis.xml_dispatch",
+            "Fountain containing <?xml is unsupported because afterwriting may dispatch it as FDX",
+        ));
     }
     let screenplay = parse_native(bytes, NativeScreenplayFormat::Fountain)
         .map_err(|error| failure("screenplay.analysis.profile", error.to_string()))?;
@@ -141,10 +156,12 @@ pub fn analyze_fountain(bytes: &[u8]) -> Result<ScreenplayAnalysis, ScreenplayAn
         match element.kind {
             ScreenplayElementKind::SceneHeading => {
                 report.element_counts.scene_heading += 1;
-                report.scene_headings.push(ScreenplaySceneHeadingOccurrence {
-                    element_index: index as u64,
-                    text: element.text.clone(),
-                });
+                report
+                    .scene_headings
+                    .push(ScreenplaySceneHeadingOccurrence {
+                        element_index: index as u64,
+                        text: element.text.clone(),
+                    });
             }
             ScreenplayElementKind::Action => {
                 report.element_counts.action += 1;
@@ -153,23 +170,44 @@ pub fn analyze_fountain(bytes: &[u8]) -> Result<ScreenplayAnalysis, ScreenplayAn
             ScreenplayElementKind::Character => {
                 report.element_counts.character += 1;
                 character_cues_by_id.insert(element.id.as_str(), element.text.as_str());
-                report.characters.entry(element.text.clone()).or_default().cue_occurrences += 1;
+                report
+                    .characters
+                    .entry(element.text.clone())
+                    .or_default()
+                    .cue_occurrences += 1;
             }
             ScreenplayElementKind::Dialogue => {
                 report.element_counts.dialogue += 1;
                 let word_count = element.text.split_ascii_whitespace().count() as u64;
                 report.dialogue_word_count += word_count;
-                let cue = element.character_id.as_deref()
-                    .and_then(|id| character_cues_by_id.get(id)).copied()
-                    .ok_or_else(|| failure("screenplay.analysis.ownership", "dialogue must reference an already observed character cue"))?;
-                let counts = report.characters.get_mut(cue)
-                    .ok_or_else(|| failure("screenplay.analysis.ownership", "dialogue owner is missing from the exact cue map"))?;
+                let cue = element
+                    .character_id
+                    .as_deref()
+                    .and_then(|id| character_cues_by_id.get(id))
+                    .copied()
+                    .ok_or_else(|| {
+                        failure(
+                            "screenplay.analysis.ownership",
+                            "dialogue must reference an already observed character cue",
+                        )
+                    })?;
+                let counts = report.characters.get_mut(cue).ok_or_else(|| {
+                    failure(
+                        "screenplay.analysis.ownership",
+                        "dialogue owner is missing from the exact cue map",
+                    )
+                })?;
                 counts.dialogue_count += 1;
                 counts.dialogue_word_count += word_count;
             }
             ScreenplayElementKind::Parenthetical => report.element_counts.parenthetical += 1,
             ScreenplayElementKind::Transition => report.element_counts.transition += 1,
-            _ => return Err(failure("screenplay.analysis.profile", "parsed element is outside the six-kind analysis profile")),
+            _ => {
+                return Err(failure(
+                    "screenplay.analysis.profile",
+                    "parsed element is outside the six-kind analysis profile",
+                ))
+            }
         }
     }
     Ok(report)
@@ -179,8 +217,11 @@ pub fn analyze_fountain(bytes: &[u8]) -> Result<ScreenplayAnalysis, ScreenplayAn
 mod tests {
     use super::*;
 
-    const STRICT_FOUNTAIN: &[u8] = include_bytes!("../../../../tests/fixtures/screenplay/afterwriting-425/strict.fountain");
-    const EXPECTED_ANALYSIS: &str = include_str!("../../../../tests/fixtures/screenplay/afterwriting-425/expected-analysis.json");
+    const STRICT_FOUNTAIN: &[u8] =
+        include_bytes!("../../../../tests/fixtures/screenplay/afterwriting-425/strict.fountain");
+    const EXPECTED_ANALYSIS: &str = include_str!(
+        "../../../../tests/fixtures/screenplay/afterwriting-425/expected-analysis.json"
+    );
 
     #[test]
     fn fixture_matches_independently_authored_expected_counts() {
@@ -212,7 +253,14 @@ mod tests {
     fn exact_character_cues_are_sorted_and_not_normalized() {
         let source = b"INT. ROOM - DAY\n\nZOE (V.O.)\nHello, world!\n\nADA\nHi.\n\nZOE\nOne-two three.\n\nZOE (V.O.)\nBye!\n";
         let report = analyze_fountain(source).unwrap();
-        assert_eq!(report.characters.keys().map(String::as_str).collect::<Vec<_>>(), ["ADA", "ZOE", "ZOE (V.O.)"]);
+        assert_eq!(
+            report
+                .characters
+                .keys()
+                .map(String::as_str)
+                .collect::<Vec<_>>(),
+            ["ADA", "ZOE", "ZOE (V.O.)"]
+        );
         assert_eq!(report.characters["ZOE (V.O.)"].cue_occurrences, 2);
         assert_eq!(report.characters["ZOE (V.O.)"].dialogue_word_count, 3);
         assert_eq!(report.characters["ZOE"].dialogue_word_count, 2);
@@ -230,7 +278,13 @@ mod tests {
     #[test]
     fn reports_all_six_count_fields_even_when_zero() {
         let report = analyze_fountain(b"INT. ROOM - DAY\n").unwrap();
-        assert_eq!(report.element_counts, ScreenplayElementCounts { scene_heading: 1, ..Default::default() });
+        assert_eq!(
+            report.element_counts,
+            ScreenplayElementCounts {
+                scene_heading: 1,
+                ..Default::default()
+            }
+        );
         assert!(report.characters.is_empty());
         assert_eq!(report.qualification, "unqualified");
         assert_eq!(report.algorithm.origin, "renderflow-core");
@@ -245,7 +299,10 @@ mod tests {
             "INT. ROOM - DAY\n\nA\tword.\n",
             "INT. ROOM - DAY\n\nA\u{7f}word.\n",
         ] {
-            assert_eq!(analyze_fountain(source.as_bytes()).unwrap_err().code, "screenplay.analysis.encoding");
+            assert_eq!(
+                analyze_fountain(source.as_bytes()).unwrap_err().code,
+                "screenplay.analysis.encoding"
+            );
         }
     }
 
@@ -256,7 +313,10 @@ mod tests {
             "INT. ROOM - DAY\n\nA sign says <?xml in small type.\n",
             "INT. ROOM - DAY\n\nADA\nI say <?xml aloud.\n",
         ] {
-            assert_eq!(analyze_fountain(source.as_bytes()).unwrap_err().code, "screenplay.analysis.xml_dispatch");
+            assert_eq!(
+                analyze_fountain(source.as_bytes()).unwrap_err().code,
+                "screenplay.analysis.xml_dispatch"
+            );
         }
     }
 
@@ -266,14 +326,30 @@ mod tests {
             "INT. ROOM - DAY\n\nADA\nFirst line.\nSecond line.\n",
             "INT. ROOM - DAY\n\nFirst action line.\nSecond action line.\n",
         ] {
-            assert_eq!(analyze_fountain(source.as_bytes()).unwrap_err().code, "screenplay.analysis.profile");
+            assert_eq!(
+                analyze_fountain(source.as_bytes()).unwrap_err().code,
+                "screenplay.analysis.profile"
+            );
         }
     }
 
     #[test]
     fn refuses_empty_oversize_and_title_pages() {
-        assert_eq!(analyze_fountain(b"").unwrap_err().code, "screenplay.analysis.bounds");
-        assert_eq!(analyze_fountain(&vec![b'A'; MAX_INPUT_BYTES + 1]).unwrap_err().code, "screenplay.analysis.bounds");
-        assert_eq!(analyze_fountain(b"Title: Example\n\nINT. ROOM - DAY\n").unwrap_err().code, "screenplay.analysis.profile");
+        assert_eq!(
+            analyze_fountain(b"").unwrap_err().code,
+            "screenplay.analysis.bounds"
+        );
+        assert_eq!(
+            analyze_fountain(&vec![b'A'; MAX_INPUT_BYTES + 1])
+                .unwrap_err()
+                .code,
+            "screenplay.analysis.bounds"
+        );
+        assert_eq!(
+            analyze_fountain(b"Title: Example\n\nINT. ROOM - DAY\n")
+                .unwrap_err()
+                .code,
+            "screenplay.analysis.profile"
+        );
     }
 }

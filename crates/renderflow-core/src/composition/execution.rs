@@ -10,14 +10,20 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
 
-use super::{hash_bytes, hash_json, plan, render, CompositionBranchState, CompositionDiagnostic,
+use super::{
+    hash_bytes, hash_json, plan, render, CompositionBranchState, CompositionDiagnostic,
     CompositionPlan, CompositionRequest, DiagnosticSeverity, LoadedComposition,
-    COMPOSITION_PROFILE, COMPOSITION_RUN_SCHEMA_V5};
-use crate::artifact::{Artifact, ArtifactDescriptor, ArtifactId, ArtifactStorageClass, ArtifactStore,
-    CanonicalFormat, MediaType};
-use crate::evidence::{ArtifactEvidence, ArtifactManifest, ArtifactRole, CacheDisposition,
-    FidelityDeclaration, ProducerEvidence, RunManifest, ValidationState, unix_time_ms,
-    ARTIFACT_MANIFEST_SCHEMA_V1};
+    COMPOSITION_PROFILE, COMPOSITION_RUN_SCHEMA_V5,
+};
+use crate::artifact::{
+    Artifact, ArtifactDescriptor, ArtifactId, ArtifactStorageClass, ArtifactStore, CanonicalFormat,
+    MediaType,
+};
+use crate::evidence::{
+    unix_time_ms, ArtifactEvidence, ArtifactManifest, ArtifactRole, CacheDisposition,
+    FidelityDeclaration, ProducerEvidence, RunManifest, ValidationState,
+    ARTIFACT_MANIFEST_SCHEMA_V1,
+};
 use crate::process::ProcessCancellationToken;
 
 const MAX_OUTPUT_BYTES: usize = 64 * 1024 * 1024;
@@ -26,11 +32,22 @@ const CACHE_SCHEMA: &str = "renderflow.composition-cache-entry/v5";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum CompositionRunState { Complete, Partial, Failed, Cancelled }
+pub enum CompositionRunState {
+    Complete,
+    Partial,
+    Failed,
+    Cancelled,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum CompositionBranchOutcome { Published, Blocked, Unavailable, Failed, Cancelled }
+pub enum CompositionBranchOutcome {
+    Published,
+    Blocked,
+    Unavailable,
+    Failed,
+    Cancelled,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -67,7 +84,9 @@ pub struct CompositionRun {
 }
 
 impl CompositionRun {
-    pub fn successful(&self) -> bool { self.state == CompositionRunState::Complete }
+    pub fn successful(&self) -> bool {
+        self.state == CompositionRunState::Complete
+    }
 
     /// Project correlated native evidence into the shared orchestration
     /// contract. Consumers must still verify payload bytes and retain this
@@ -95,7 +114,9 @@ pub fn execute(
     cache_directory: Option<&Path>,
     cancellation: &ProcessCancellationToken,
 ) -> Result<CompositionRun> {
-    if cancellation.is_cancelled() { bail!("composition.cancelled: cancelled before planning"); }
+    if cancellation.is_cancelled() {
+        bail!("composition.cancelled: cancelled before planning");
+    }
     let plan = plan(snapshot, request)?;
     execute_planned(snapshot, plan, output, cache_directory, cancellation)
 }
@@ -111,21 +132,38 @@ pub(crate) fn execute_planned(
     cancellation: &ProcessCancellationToken,
 ) -> Result<CompositionRun> {
     let started_at_unix_ms = unix_time_ms();
-    if cancellation.is_cancelled() { bail!("composition.cancelled: cancelled before execution"); }
+    if cancellation.is_cancelled() {
+        bail!("composition.cancelled: cancelled before execution");
+    }
     let plan_bytes = json_bytes(&plan)?;
     let execution_plan = crate::planning::composition::build_execution_plan(&plan)?;
     let execution_plan_bytes = json_bytes(&execution_plan)?;
     let plan_sha256 = hash_bytes(&plan_bytes);
     let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos();
-    let run_id = format!("run:sha256:{}", hash_json(&(plan_sha256.as_str(), now, std::process::id()))?);
+    let run_id = format!(
+        "run:sha256:{}",
+        hash_json(&(plan_sha256.as_str(), now, std::process::id()))?
+    );
     refuse_links(output)?;
-    if fs::symlink_metadata(output).is_ok() { bail!("composition.output.exists: output directory must be new"); }
-    let parent = output.parent().filter(|value| !value.as_os_str().is_empty()).unwrap_or(Path::new("."));
-    if !parent.is_dir() { bail!("composition.output.parent: output parent must exist"); }
-    if cancellation.is_cancelled() { bail!("composition.cancelled: cancelled before publication"); }
-    fs::create_dir(output).context("composition.output.create: cannot create new output directory")?;
+    if fs::symlink_metadata(output).is_ok() {
+        bail!("composition.output.exists: output directory must be new");
+    }
+    let parent = output
+        .parent()
+        .filter(|value| !value.as_os_str().is_empty())
+        .unwrap_or(Path::new("."));
+    if !parent.is_dir() {
+        bail!("composition.output.parent: output parent must exist");
+    }
+    if cancellation.is_cancelled() {
+        bail!("composition.cancelled: cancelled before publication");
+    }
+    fs::create_dir(output)
+        .context("composition.output.create: cannot create new output directory")?;
     let output = output.canonicalize()?;
-    let cache_root = cache_directory.map(Path::to_path_buf).unwrap_or_else(|| output.join(".artifact-store"));
+    let cache_root = cache_directory
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|| output.join(".artifact-store"));
     refuse_links(&cache_root)?;
     fs::create_dir_all(&cache_root)?;
     let cache_root = cache_root.canonicalize()?;
@@ -142,24 +180,47 @@ pub(crate) fn execute_planned(
     let mut source_ids = Vec::<ArtifactId>::new();
     let mut copied_inputs = BTreeSet::new();
     for input in &snapshot.inputs {
-        if cancellation.is_cancelled() { break; }
+        if cancellation.is_cancelled() {
+            break;
+        }
         let key = format!("{}:{}", input.kind, input.id);
-        let bytes = snapshot.input_bytes.get(&key).context("composition.input.snapshot_missing")?;
+        let bytes = snapshot
+            .input_bytes
+            .get(&key)
+            .context("composition.input.snapshot_missing")?;
         if hash_bytes(bytes) != input.sha256 || bytes.len() as u64 != input.size_bytes {
-            bail!("composition.input.snapshot_changed: captured input no longer matches its evidence");
+            bail!(
+                "composition.input.snapshot_changed: captured input no longer matches its evidence"
+            );
         }
         let (format, media) = input_type(snapshot, &input.kind, &input.id);
         check_store_paths(store.root(), Some(&input.sha256))?;
-        let artifact = store.put_bytes(bytes, ArtifactDescriptor::new(
-            CanonicalFormat::new(format)?, MediaType::new(media)?, ArtifactStorageClass::Source))?;
+        let artifact = store.put_bytes(
+            bytes,
+            ArtifactDescriptor::new(
+                CanonicalFormat::new(format)?,
+                MediaType::new(media)?,
+                ArtifactStorageClass::Source,
+            ),
+        )?;
         store.verify(&artifact)?;
         source_ids.push(artifact.id().clone());
         let relative = format!("inputs/{}", input.sha256);
-        if copied_inputs.insert(input.sha256.clone()) { write_new(&output.join(&relative), bytes)?; }
-        let mut evidence = ArtifactEvidence::from_artifact(&artifact, key, ArtifactRole::Source,
-            format!("bundle:{relative}"), ProducerEvidence::source(), ValidationState::ValidWithWarnings,
-            FidelityDeclaration::Lossless);
-        evidence.warnings.push("composition.source.validation_scoped".into());
+        if copied_inputs.insert(input.sha256.clone()) {
+            write_new(&output.join(&relative), bytes)?;
+        }
+        let mut evidence = ArtifactEvidence::from_artifact(
+            &artifact,
+            key,
+            ArtifactRole::Source,
+            format!("bundle:{relative}"),
+            ProducerEvidence::source(),
+            ValidationState::ValidWithWarnings,
+            FidelityDeclaration::Lossless,
+        );
+        evidence
+            .warnings
+            .push("composition.source.validation_scoped".into());
         evidence.metadata.insert("renderflow.composition.source_validation".into(), serde_json::json!({
             "captured_bytes_and_digest_verified": true,
             "validation_scope": "contract structure, confined bounded bytes, source-specific signature/metadata checks; not complete raster/font decoding, glyph coverage, visual fidelity or creative approval",
@@ -187,26 +248,40 @@ pub(crate) fn execute_planned(
             prepared_locale = Some(&branch.locale);
         }
         let mut result = CompositionBranchRun {
-            target_id: branch.target_id.clone(), outcome: CompositionBranchOutcome::Failed,
-            started_at_unix_ms: unix_time_ms(), completed_at_unix_ms: 0,
-            cache: CacheDisposition::NotApplicable, artifact_evidence_index: None,
-            artifact_id: None, locator: None, diagnostics: branch.diagnostics.clone(),
+            target_id: branch.target_id.clone(),
+            outcome: CompositionBranchOutcome::Failed,
+            started_at_unix_ms: unix_time_ms(),
+            completed_at_unix_ms: 0,
+            cache: CacheDisposition::NotApplicable,
+            artifact_evidence_index: None,
+            artifact_id: None,
+            locator: None,
+            diagnostics: branch.diagnostics.clone(),
         };
-        if cancellation.is_cancelled() { result.outcome = CompositionBranchOutcome::Cancelled; }
-        else if branch.state == CompositionBranchState::Blocked { result.outcome = CompositionBranchOutcome::Blocked; }
-        else if branch.state == CompositionBranchState::Unavailable { result.outcome = CompositionBranchOutcome::Unavailable; }
-        else {
+        if cancellation.is_cancelled() {
+            result.outcome = CompositionBranchOutcome::Cancelled;
+        } else if branch.state == CompositionBranchState::Blocked {
+            result.outcome = CompositionBranchOutcome::Blocked;
+        } else if branch.state == CompositionBranchState::Unavailable {
+            result.outcome = CompositionBranchOutcome::Unavailable;
+        } else {
             let publish = (|| -> Result<()> {
-                let cache_path = cache_root.join("entries").join(format!("{}.json", branch.cache_key));
+                let cache_path = cache_root
+                    .join("entries")
+                    .join(format!("{}.json", branch.cache_key));
                 // Keep the full measured report in the embedded plan. Cache
                 // records and terminal evidence retain its exact digest and
                 // provider identity, not a second copy of every glyph.
-                let typography = branch.typography.as_ref().map(|report| -> Result<_> {
-                    Ok(serde_json::json!({
-                        "schema": report.schema, "provider_profile": report.provider_profile,
-                        "report_sha256": hash_json(report)?, "runtime_qualified": false,
-                    }))
-                }).transpose()?;
+                let typography = branch
+                    .typography
+                    .as_ref()
+                    .map(|report| -> Result<_> {
+                        Ok(serde_json::json!({
+                            "schema": report.schema, "provider_profile": report.provider_profile,
+                            "report_sha256": hash_json(report)?, "runtime_qualified": false,
+                        }))
+                    })
+                    .transpose()?;
                 let expected_metadata = serde_json::json!({
                     "schema": "renderflow.composition-artifact/v5", "profile": COMPOSITION_PROFILE,
                     "version": env!("CARGO_PKG_VERSION"), "target_id": branch.target_id,
@@ -227,53 +302,108 @@ pub(crate) fn execute_planned(
                     } else if branch.output.visual() { vec!["no_native_layered_round_trip", "visual_text_serialized_as_outlines", "raster_color_and_visual_appearance_unqualified"] }
                         else { vec!["visual_artwork_and_layout_omitted"] },
                 });
-                let cached = read_cache(&cache_path, &store, &branch.cache_key, branch.output.name(),
-                    branch.output.media_type(), &source_ids, &expected_metadata, branch.raster.as_ref(), branch.pdf.as_ref());
+                let cached = read_cache(CacheReadInputs {
+                    path: &cache_path,
+                    store: &store,
+                    key: &branch.cache_key,
+                    format: branch.output.name(),
+                    media: branch.output.media_type(),
+                    sources: &source_ids,
+                    metadata: &expected_metadata,
+                    raster: branch.raster.as_ref(),
+                    pdf: branch.pdf.as_ref(),
+                });
                 let (artifact, bytes, cache) = match cached {
                     Ok(Some((artifact, bytes))) => (artifact, bytes, CacheDisposition::Hit),
                     other => {
                         if let Err(error) = other {
-                            result.diagnostics.push(CompositionDiagnostic::new(DiagnosticSeverity::Warning,
-                                "composition.cache.rejected", format!("{error:#}"), Some(&branch.locale), None));
+                            result.diagnostics.push(CompositionDiagnostic::new(
+                                DiagnosticSeverity::Warning,
+                                "composition.cache.rejected",
+                                format!("{error:#}"),
+                                Some(&branch.locale),
+                                None,
+                            ));
                         }
-                        let renderer = prepared.get_or_insert_with(|| render::PreparedLocale::new(&branch.locale));
+                        let renderer = prepared
+                            .get_or_insert_with(|| render::PreparedLocale::new(&branch.locale));
                         let rendered = renderer.render(snapshot, branch)?;
-                        if rendered.bytes.len() > MAX_OUTPUT_BYTES { bail!("composition.output.byte_limit: output exceeds 64 MiB"); }
-                        if rendered.media_type != branch.output.media_type() || rendered.extension != branch.output.extension() {
+                        if rendered.bytes.len() > MAX_OUTPUT_BYTES {
+                            bail!("composition.output.byte_limit: output exceeds 64 MiB");
+                        }
+                        if rendered.media_type != branch.output.media_type()
+                            || rendered.extension != branch.output.extension()
+                        {
                             bail!("composition.output.contract: renderer output disagrees with selected target");
                         }
-                        let descriptor = ArtifactDescriptor::new(CanonicalFormat::new(branch.output.name())?,
-                            MediaType::new(branch.output.media_type())?, ArtifactStorageClass::Terminal)
-                            .with_sources(source_ids.clone()).with_metadata("renderflow.composition", expected_metadata.clone());
+                        let descriptor = ArtifactDescriptor::new(
+                            CanonicalFormat::new(branch.output.name())?,
+                            MediaType::new(branch.output.media_type())?,
+                            ArtifactStorageClass::Terminal,
+                        )
+                        .with_sources(source_ids.clone())
+                        .with_metadata("renderflow.composition", expected_metadata.clone());
                         check_store_paths(store.root(), Some(&hash_bytes(&rendered.bytes)))?;
                         let artifact = store.put_bytes(&rendered.bytes, descriptor)?;
                         store.verify(&artifact)?;
-                        let entry = CacheEntry { schema: CACHE_SCHEMA.into(), key: branch.cache_key.clone(),
-                            profile: COMPOSITION_PROFILE.into(), artifact: artifact.clone() };
+                        let entry = CacheEntry {
+                            schema: CACHE_SCHEMA.into(),
+                            key: branch.cache_key.clone(),
+                            profile: COMPOSITION_PROFILE.into(),
+                            artifact: artifact.clone(),
+                        };
                         if let Err(error) = write_cache(&cache_path, &json_bytes(&entry)?) {
-                            result.diagnostics.push(CompositionDiagnostic::new(DiagnosticSeverity::Warning,
-                                "composition.cache.write_failed", format!("{error:#}"), Some(&branch.locale), None));
+                            result.diagnostics.push(CompositionDiagnostic::new(
+                                DiagnosticSeverity::Warning,
+                                "composition.cache.write_failed",
+                                format!("{error:#}"),
+                                Some(&branch.locale),
+                                None,
+                            ));
                         }
                         (artifact, rendered.bytes, CacheDisposition::Miss)
-                    },
+                    }
                 };
-                let new_total = total_bytes.checked_add(bytes.len()).context("composition.output.byte_limit")?;
-                if new_total > MAX_BUNDLE_OUTPUT_BYTES { bail!("composition.output.byte_limit: total derivative output exceeds 512 MiB"); }
-                if cancellation.is_cancelled() { bail!("composition.cancelled: cancelled before target publication"); }
+                let new_total = total_bytes
+                    .checked_add(bytes.len())
+                    .context("composition.output.byte_limit")?;
+                if new_total > MAX_BUNDLE_OUTPUT_BYTES {
+                    bail!("composition.output.byte_limit: total derivative output exceeds 512 MiB");
+                }
+                if cancellation.is_cancelled() {
+                    bail!("composition.cancelled: cancelled before target publication");
+                }
                 let directory = output.join("outputs").join(&branch.locale);
                 fs::create_dir_all(&directory)?;
-                let relative = format!("outputs/{}/page.{}", branch.locale, branch.output.extension());
+                let relative = format!(
+                    "outputs/{}/page.{}",
+                    branch.locale,
+                    branch.output.extension()
+                );
                 write_new(&output.join(&relative), &bytes)?;
                 total_bytes = new_total;
                 let locator = format!("bundle:{relative}");
-                let mut evidence = ArtifactEvidence::from_artifact(&artifact, branch.target_id.clone(),
-                    ArtifactRole::Terminal, &locator, ProducerEvidence {
-                        system: "renderflow".into(), transform: Some(COMPOSITION_PROFILE.into()),
+                let mut evidence = ArtifactEvidence::from_artifact(
+                    &artifact,
+                    branch.target_id.clone(),
+                    ArtifactRole::Terminal,
+                    &locator,
+                    ProducerEvidence {
+                        system: "renderflow".into(),
+                        transform: Some(COMPOSITION_PROFILE.into()),
                         capability: Some(format!("composition.{}", branch.output.name())),
-                        provider: Some("renderflow.core-composition".into()), version: Some(env!("CARGO_PKG_VERSION").into()),
-                    }, ValidationState::ValidWithWarnings, FidelityDeclaration::Partial);
+                        provider: Some("renderflow.core-composition".into()),
+                        version: Some(env!("CARGO_PKG_VERSION").into()),
+                    },
+                    ValidationState::ValidWithWarnings,
+                    FidelityDeclaration::Partial,
+                );
                 evidence.cache = cache;
-                evidence.warnings = result.diagnostics.iter().map(|item| item.code.clone()).collect();
+                evidence.warnings = result
+                    .diagnostics
+                    .iter()
+                    .map(|item| item.code.clone())
+                    .collect();
                 result.artifact_evidence_index = Some(records.len());
                 result.artifact_id = Some(artifact.id().to_string());
                 result.locator = Some(locator);
@@ -284,10 +414,18 @@ pub(crate) fn execute_planned(
                 Ok(())
             })();
             if let Err(error) = publish {
-                result.outcome = if cancellation.is_cancelled() { CompositionBranchOutcome::Cancelled }
-                    else { CompositionBranchOutcome::Failed };
-                result.diagnostics.push(CompositionDiagnostic::new(DiagnosticSeverity::Error,
-                    "composition.branch.failed", format!("{error:#}"), Some(&branch.locale), None));
+                result.outcome = if cancellation.is_cancelled() {
+                    CompositionBranchOutcome::Cancelled
+                } else {
+                    CompositionBranchOutcome::Failed
+                };
+                result.diagnostics.push(CompositionDiagnostic::new(
+                    DiagnosticSeverity::Error,
+                    "composition.branch.failed",
+                    format!("{error:#}"),
+                    Some(&branch.locale),
+                    None,
+                ));
             }
         }
         result.completed_at_unix_ms = unix_time_ms().max(result.started_at_unix_ms);
@@ -296,18 +434,44 @@ pub(crate) fn execute_planned(
     if let Some(previous) = prepared.take() {
         shared_intermediates.extend(previous.observations());
     }
-    let published = branches.iter().filter(|branch| branch.outcome == CompositionBranchOutcome::Published).count();
-    let state = if cancellation.is_cancelled() { CompositionRunState::Cancelled }
-        else if published == branches.len() { CompositionRunState::Complete }
-        else if published > 0 { CompositionRunState::Partial } else { CompositionRunState::Failed };
-    let completed_at_unix_ms = branches.iter().fold(unix_time_ms().max(started_at_unix_ms),
-        |latest, branch| latest.max(branch.completed_at_unix_ms));
+    let published = branches
+        .iter()
+        .filter(|branch| branch.outcome == CompositionBranchOutcome::Published)
+        .count();
+    let state = if cancellation.is_cancelled() {
+        CompositionRunState::Cancelled
+    } else if published == branches.len() {
+        CompositionRunState::Complete
+    } else if published > 0 {
+        CompositionRunState::Partial
+    } else {
+        CompositionRunState::Failed
+    };
+    let completed_at_unix_ms = branches
+        .iter()
+        .fold(unix_time_ms().max(started_at_unix_ms), |latest, branch| {
+            latest.max(branch.completed_at_unix_ms)
+        });
     let run = CompositionRun {
-        schema: COMPOSITION_RUN_SCHEMA_V5.into(), run_id: run_id.clone(), state, plan_sha256, plan,
-        started_at_unix_ms, completed_at_unix_ms,
-        artifact_manifest: ArtifactManifest { schema_version: ARTIFACT_MANIFEST_SCHEMA_V1.into(),
-            run_id, output_dir: ".".into(), outputs, artifacts: records }, branches, shared_intermediates,
-        runtime_qualified: false, review_required: true, visual_determinism_qualified: false,
+        schema: COMPOSITION_RUN_SCHEMA_V5.into(),
+        run_id: run_id.clone(),
+        state,
+        plan_sha256,
+        plan,
+        started_at_unix_ms,
+        completed_at_unix_ms,
+        artifact_manifest: ArtifactManifest {
+            schema_version: ARTIFACT_MANIFEST_SCHEMA_V1.into(),
+            run_id,
+            output_dir: ".".into(),
+            outputs,
+            artifacts: records,
+        },
+        branches,
+        shared_intermediates,
+        runtime_qualified: false,
+        review_required: true,
+        visual_determinism_qualified: false,
     };
     let manifest = run.run_manifest()?;
     // A failed/partial/cancelled receipt is still evidence. The common receipt
@@ -321,50 +485,101 @@ fn input_type(snapshot: &LoadedComposition, kind: &str, id: &str) -> (String, St
     if kind == "asset" {
         if let Some(asset) = snapshot.assets.get(id) {
             let format = match asset.declaration.format {
-                super::model::AssetFormat::Png => "png", super::model::AssetFormat::Jpeg => "jpeg",
+                super::model::AssetFormat::Png => "png",
+                super::model::AssetFormat::Jpeg => "jpeg",
                 super::model::AssetFormat::Svg => "svg",
             };
             return (format.into(), asset.declaration.format.media_type().into());
         }
     }
     if kind == "font" {
-        if let Some(font) = snapshot.fonts.registry.assets.iter().find(|font| font.id == id) {
+        if let Some(font) = snapshot
+            .fonts
+            .registry
+            .assets
+            .iter()
+            .find(|font| font.id == id)
+        {
             return (font.format.to_string(), font.format.media_type().into());
         }
     }
     if matches!(kind, "manifest" | "content" | "font_registry") {
         ("json".into(), "application/json".into())
-    } else { ("binary".into(), "application/octet-stream".into()) }
+    } else {
+        ("binary".into(), "application/octet-stream".into())
+    }
 }
 
-fn read_cache(path: &Path, store: &ArtifactStore, key: &str, format: &str, media: &str,
-    sources: &[ArtifactId], metadata: &serde_json::Value,
-    raster: Option<&super::RasterPlan>, pdf: Option<&super::PdfPlan>) -> Result<Option<(Artifact, Vec<u8>)>> {
-    if !path.try_exists()? { return Ok(None); }
+struct CacheReadInputs<'a> {
+    path: &'a Path,
+    store: &'a ArtifactStore,
+    key: &'a str,
+    format: &'a str,
+    media: &'a str,
+    sources: &'a [ArtifactId],
+    metadata: &'a serde_json::Value,
+    raster: Option<&'a super::RasterPlan>,
+    pdf: Option<&'a super::PdfPlan>,
+}
+
+fn read_cache(input: CacheReadInputs<'_>) -> Result<Option<(Artifact, Vec<u8>)>> {
+    let CacheReadInputs {
+        path,
+        store,
+        key,
+        format,
+        media,
+        sources,
+        metadata,
+        raster,
+        pdf,
+    } = input;
+    if !path.try_exists()? {
+        return Ok(None);
+    }
     let entry: CacheEntry = serde_json::from_slice(&read_regular(path, 1024 * 1024)?)?;
     let digest = entry.artifact.digest().value();
-    if digest.len() != 64 || !digest.bytes().all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte)) {
+    if digest.len() != 64
+        || !digest
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+    {
         bail!("cached digest is not canonical lowercase SHA-256");
     }
-    let expected_payload = Path::new("objects").join("sha256").join(&digest[..2]).join(digest);
-    if entry.schema != CACHE_SCHEMA || entry.key != key || entry.profile != COMPOSITION_PROFILE
-        || entry.artifact.format().as_str() != format || entry.artifact.media_type().as_str() != media
-        || entry.artifact.sources() != sources || entry.artifact.metadata().get("renderflow.composition") != Some(metadata)
+    let expected_payload = Path::new("objects")
+        .join("sha256")
+        .join(&digest[..2])
+        .join(digest);
+    if entry.schema != CACHE_SCHEMA
+        || entry.key != key
+        || entry.profile != COMPOSITION_PROFILE
+        || entry.artifact.format().as_str() != format
+        || entry.artifact.media_type().as_str() != media
+        || entry.artifact.sources() != sources
+        || entry.artifact.metadata().get("renderflow.composition") != Some(metadata)
         || entry.artifact.storage_class() != ArtifactStorageClass::Terminal
         || entry.artifact.payload().relative_path() != expected_payload
-        || entry.artifact.id() != &ArtifactId::from_record(entry.artifact.digest(), entry.artifact.format(), sources)
-        || entry.artifact.size_bytes() > MAX_OUTPUT_BYTES as u64 {
+        || entry.artifact.id()
+            != &ArtifactId::from_record(entry.artifact.digest(), entry.artifact.format(), sources)
+        || entry.artifact.size_bytes() > MAX_OUTPUT_BYTES as u64
+    {
         bail!("cached record does not match frozen composition branch");
     }
     let bytes = read_regular(&store.payload_path(&entry.artifact)?, MAX_OUTPUT_BYTES)?;
-    if hash_bytes(&bytes) != entry.artifact.digest().value() || bytes.len() as u64 != entry.artifact.size_bytes() {
+    if hash_bytes(&bytes) != entry.artifact.digest().value()
+        || bytes.len() as u64 != entry.artifact.size_bytes()
+    {
         bail!("cached payload digest or size differs from its record");
     }
     // A self-consistent cache record cannot establish an encoded output's
     // dimensions, page boxes, or decodability. Apply the fresh-output contract
     // checks before accepting a hit; rejected entries are regenerated.
-    if let Some(plan) = raster { super::raster::validate_output(&bytes, plan)?; }
-    if let Some(plan) = pdf { super::pdf::validate_output(&bytes, plan)?; }
+    if let Some(plan) = raster {
+        super::raster::validate_output(&bytes, plan)?;
+    }
+    if let Some(plan) = pdf {
+        super::pdf::validate_output(&bytes, plan)?;
+    }
     Ok(Some((entry.artifact, bytes)))
 }
 
@@ -375,7 +590,11 @@ fn check_store_paths(root: &Path, digest: Option<&str>) -> Result<()> {
         refuse_links(&root.join(relative))?;
     }
     if let Some(digest) = digest {
-        if digest.len() != 64 || !digest.bytes().all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte)) {
+        if digest.len() != 64
+            || !digest
+                .bytes()
+                .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+        {
             bail!("composition.store.digest: expected canonical lowercase SHA-256");
         }
         refuse_links(&root.join("objects/sha256").join(&digest[..2]).join(digest))?;
@@ -386,23 +605,34 @@ fn check_store_paths(root: &Path, digest: Option<&str>) -> Result<()> {
 fn read_regular(path: &Path, maximum: usize) -> Result<Vec<u8>> {
     refuse_links(path)?;
     let before = fs::symlink_metadata(path)?;
-    if !before.is_file() || before.len() > maximum as u64 { bail!("bounded regular file required"); }
+    if !before.is_file() || before.len() > maximum as u64 {
+        bail!("bounded regular file required");
+    }
     let file = File::open(path)?;
-    if !file.metadata()?.is_file() { bail!("bounded regular file required"); }
+    if !file.metadata()?.is_file() {
+        bail!("bounded regular file required");
+    }
     let mut bytes = Vec::new();
     file.take(maximum as u64 + 1).read_to_end(&mut bytes)?;
-    if bytes.len() > maximum { bail!("file byte limit exceeded"); }
+    if bytes.len() > maximum {
+        bail!("file byte limit exceeded");
+    }
     Ok(bytes)
 }
 
 fn refuse_links(path: &Path) -> Result<()> {
     let mut current = std::path::PathBuf::new();
     for component in path.components() {
-        if component == Component::ParentDir { bail!("composition.path.parent: parent traversal is refused"); }
+        if component == Component::ParentDir {
+            bail!("composition.path.parent: parent traversal is refused");
+        }
         current.push(component.as_os_str());
         match fs::symlink_metadata(&current) {
-            Ok(metadata) if metadata.file_type().is_symlink() => bail!("composition.path.symlink: linked output/cache paths are refused"),
-            Ok(_) => {}, Err(error) if error.kind() == std::io::ErrorKind::NotFound => {},
+            Ok(metadata) if metadata.file_type().is_symlink() => {
+                bail!("composition.path.symlink: linked output/cache paths are refused")
+            }
+            Ok(_) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
             Err(error) => return Err(error.into()),
         }
     }
@@ -421,7 +651,9 @@ fn write_new(path: &Path, bytes: &[u8]) -> Result<()> {
     let mut temporary = tempfile::NamedTempFile::new_in(parent)?;
     temporary.write_all(bytes)?;
     temporary.as_file().sync_all()?;
-    temporary.persist_noclobber(path).map_err(|error| error.error)?;
+    temporary
+        .persist_noclobber(path)
+        .map_err(|error| error.error)?;
     Ok(())
 }
 

@@ -30,10 +30,10 @@ use renderflow::{IntakeBudgets, IntakeEngine, IntakeRequest};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-#[path = "common/golden_contract.rs"]
-mod contract;
 #[path = "common/golden_comic.rs"]
 mod comic;
+#[path = "common/golden_contract.rs"]
+mod contract;
 
 const CORPUS_SCHEMA: &str = "renderflow.golden-corpus/v1";
 const REPORT_SCHEMA: &str = "renderflow.conformance-report/v1";
@@ -504,9 +504,19 @@ fn golden_artifact_forest_conformance() -> Result<()> {
             other => anyhow::bail!("unknown expected fixture outcome '{other}'"),
         }
         intake_store.verify(&report.source)?;
-        assert_eq!(fs::read(&path)?, before, "intake must not mutate source {}", fixture.id);
+        assert_eq!(
+            fs::read(&path)?,
+            before,
+            "intake must not mutate source {}",
+            fixture.id
+        );
         if let Some(expected) = fixture.expected_discovered {
-            assert_eq!(report.discovered.len(), expected, "unexpected extraction for {}", fixture.id);
+            assert_eq!(
+                report.discovered.len(),
+                expected,
+                "unexpected extraction for {}",
+                fixture.id
+            );
         }
         if let Some(limits) = &fixture.extraction_limits {
             assert!(report.budget_usage.artifacts <= limits.max_artifacts);
@@ -514,8 +524,13 @@ fn golden_artifact_forest_conformance() -> Result<()> {
             assert!(report.budget_usage.deepest_level <= limits.max_depth);
         }
         for child in &report.discovered {
-            assert!(child.parent_artifact_id == report.source.id().as_str()
-                || report.discovered.iter().any(|parent| parent.artifact.id().as_str() == child.parent_artifact_id));
+            assert!(
+                child.parent_artifact_id == report.source.id().as_str()
+                    || report
+                        .discovered
+                        .iter()
+                        .any(|parent| parent.artifact.id().as_str() == child.parent_artifact_id)
+            );
             intake_store.verify(&child.artifact)?;
         }
         observed_families.insert(fixture.family.as_str());
@@ -532,8 +547,15 @@ fn golden_artifact_forest_conformance() -> Result<()> {
         });
         paths.insert(fixture.id.clone(), path);
     }
-    assert_eq!(fs::read_dir(&fixture_root)?.count(), corpus.fixtures.len(), "intake must not add source files");
-    assert!(!work.path().join("escaped.txt").exists(), "archive path may not escape the source root");
+    assert_eq!(
+        fs::read_dir(&fixture_root)?.count(),
+        corpus.fixtures.len(),
+        "intake must not add source files"
+    );
+    assert!(
+        !work.path().join("escaped.txt").exists(),
+        "archive path may not escape the source root"
+    );
     assert_eq!(
         observed_families,
         BTreeSet::from([
@@ -1114,7 +1136,8 @@ fn golden_artifact_forest_conformance() -> Result<()> {
             reason: if requested_rank == 0 {
                 Some("tool-backed probing was not requested".to_string())
             } else {
-                (!all_tools_available).then(|| "one or more optional tool providers were not installed".to_string())
+                (!all_tools_available)
+                    .then(|| "one or more optional tool providers were not installed".to_string())
             },
         },
     ));
@@ -1187,7 +1210,10 @@ fn golden_artifact_forest_conformance() -> Result<()> {
     let encoded = serde_json::to_vec_pretty(&report)?;
     let decoded: serde_json::Value = serde_json::from_slice(&encoded)?;
     assert_eq!(decoded["schema_version"], REPORT_SCHEMA);
-    assert_eq!(decoded["fixtures"].as_array().map(Vec::len), Some(fixture_count));
+    assert_eq!(
+        decoded["fixtures"].as_array().map(Vec::len),
+        Some(fixture_count)
+    );
     if let Some(path) = std::env::var_os("RENDERFLOW_CONFORMANCE_REPORT") {
         fs::write(path, encoded)?;
     }

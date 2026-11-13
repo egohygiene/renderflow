@@ -27,9 +27,18 @@ impl PlanRenderer for TextRenderer {
             let _ = writeln!(out, "Artifact Forest ({})", forest.schema);
             let _ = writeln!(out, "Identity: {}", forest.identity);
             let _ = writeln!(out, "Policy: {}", forest.policy);
-            let _ = writeln!(out, "Branch routes below are authoritative; the format graph is a projection.");
+            let _ = writeln!(
+                out,
+                "Branch routes below are authoritative; the format graph is a projection."
+            );
             for branch in &forest.branches {
-                let _ = writeln!(out, "  {}  {}  [{}]", branch.target_id, branch.format, branch.state.as_str());
+                let _ = writeln!(
+                    out,
+                    "  {}  {}  [{}]",
+                    branch.target_id,
+                    branch.format,
+                    branch.state.as_str()
+                );
                 let _ = writeln!(out, "    {}: {}", branch.reason_code, branch.reason);
                 if let Some(preset) = &branch.preset {
                     let _ = writeln!(out, "    preset: {preset}");
@@ -50,7 +59,10 @@ impl PlanRenderer for TextRenderer {
                         route.weighted_cost, route.explored_candidates);
                     let _ = writeln!(out, "    ranking: {}", route.ranking);
                     if route.source_identity {
-                        let _ = writeln!(out, "    route: original source identity (no transformation)");
+                        let _ = writeln!(
+                            out,
+                            "    route: original source identity (no transformation)"
+                        );
                     }
                     for step in &route.steps {
                         let _ = writeln!(out, "    {} → {} [provider: {}; capability: {}; variant: {}; transform: {}]",

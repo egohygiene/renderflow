@@ -209,7 +209,10 @@ mod tests {
             ("scene.xml", Format::Xml),
         ] {
             assert_eq!(detect_from_extension(path), Some(format));
-            assert_eq!(detect_from_path(path, None), DetectionResult::ExtensionOnly { format });
+            assert_eq!(
+                detect_from_path(path, None),
+                DetectionResult::ExtensionOnly { format }
+            );
         }
     }
 
@@ -219,13 +222,22 @@ mod tests {
             ("captions.ass", Format::Ass),
             ("captions.SSA", Format::Ssa),
             ("captions.ttml", Format::Ttml),
-            ("captions.timed-transcript.json", Format::TimedTranscriptJson),
-            ("CAPTIONS.TIMED-TRANSCRIPT.JSON", Format::TimedTranscriptJson),
+            (
+                "captions.timed-transcript.json",
+                Format::TimedTranscriptJson,
+            ),
+            (
+                "CAPTIONS.TIMED-TRANSCRIPT.JSON",
+                Format::TimedTranscriptJson,
+            ),
             ("captions.json", Format::Json),
             ("captions.xml", Format::Xml),
         ] {
             assert_eq!(detect_from_extension(path), Some(format));
-            assert_eq!(detect_from_path(path, None), DetectionResult::ExtensionOnly { format });
+            assert_eq!(
+                detect_from_path(path, None),
+                DetectionResult::ExtensionOnly { format }
+            );
         }
     }
 
@@ -233,7 +245,10 @@ mod tests {
     fn trelby_bom_and_version_signal_remains_distinct_from_plain_text() {
         let native = b"\xEF\xBB\xBF#Version 3\n#Start-Script \n";
         assert_eq!(detect_from_bytes(native), Some(Format::Trelby));
-        assert_eq!(detect_from_bytes(b"\xEF\xBB\xBF#Version 3\r\n"), Some(Format::Trelby));
+        assert_eq!(
+            detect_from_bytes(b"\xEF\xBB\xBF#Version 3\r\n"),
+            Some(Format::Trelby)
+        );
         for unsupported in [
             &b"#Version 3\n"[..],
             &b"\xEF\xBB\xBF#Version 30\n"[..],
@@ -242,11 +257,15 @@ mod tests {
         ] {
             assert_eq!(detect_from_bytes(unsupported), None);
         }
-        assert_eq!(detect_from_path("scene.trelby", Some(native)),
+        assert_eq!(
+            detect_from_path("scene.trelby", Some(native)),
             DetectionResult::ConfidentMatch {
-                format: Format::Trelby, signal: DetectionSignal::MagicBytes,
-            });
-        let DetectionResult::Conflict(conflict) = detect_from_path("scene.txt", Some(native)) else {
+                format: Format::Trelby,
+                signal: DetectionSignal::MagicBytes,
+            }
+        );
+        let DetectionResult::Conflict(conflict) = detect_from_path("scene.txt", Some(native))
+        else {
             panic!("a plain-text extension must retain the native content conflict");
         };
         assert_eq!(conflict.extension_format, Format::Text);

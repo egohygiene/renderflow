@@ -11,11 +11,14 @@ use std::path::Path;
 use anyhow::{Context, Result};
 use sha2::{Digest, Sha256};
 
+use super::{OutputStrategy, PandocArgs, RenderContext};
 use crate::config::OutputType;
 use crate::font::{resolve_from_variables, FontTarget, FONT_REGISTRY_VARIABLE};
 use crate::input_format::InputFormat;
-use crate::process::{ProcessEnvironment, ProcessExecutor, ProcessExpectedOutput, ProcessNetworkPolicy, ProcessRequest};
-use super::{OutputStrategy, PandocArgs, RenderContext};
+use crate::process::{
+    ProcessEnvironment, ProcessExecutor, ProcessExpectedOutput, ProcessNetworkPolicy,
+    ProcessRequest,
+};
 
 pub const EDITORIAL_PRESET: &str = "editorial-v1";
 pub const MIN_PANDOC_VERSION: &str = "3.6.1";
@@ -24,24 +27,78 @@ pub(crate) const ASSET_ROOT_VARIABLE: &str = "renderflow-editorial-asset-root";
 // The complete presentation bundle travels in the binary. Shared LaTeX sources
 // remain canonical in templates/latex and are staged without CWD assumptions.
 const BUNDLE: &[(&str, &[u8])] = &[
-    ("article.html", include_bytes!("../../data/editorial/article.html")),
-    ("article.tex", include_bytes!("../../data/editorial/article.tex")),
-    ("article.css", include_bytes!("../../data/editorial/article.css")),
-    ("article.lua", include_bytes!("../../data/editorial/article.lua")),
-    ("fonts/registry.json", include_bytes!("../../data/editorial/fonts/registry.json")),
-    ("fonts/LICENSE.txt", include_bytes!("../../data/editorial/fonts/LICENSE.txt")),
-    ("fonts/DejaVuSerif.ttf", include_bytes!("../../data/editorial/fonts/DejaVuSerif.ttf")),
-    ("fonts/DejaVuSans.ttf", include_bytes!("../../data/editorial/fonts/DejaVuSans.ttf")),
-    ("fonts/DejaVuSansMono.ttf", include_bytes!("../../data/editorial/fonts/DejaVuSansMono.ttf")),
-    ("latex/renderflow-core.sty", include_bytes!("../../../../templates/latex/renderflow-core.sty")),
-    ("latex/renderflow-color.sty", include_bytes!("../../../../templates/latex/renderflow-color.sty")),
-    ("latex/renderflow-typography.sty", include_bytes!("../../../../templates/latex/renderflow-typography.sty")),
-    ("latex/renderflow-layout.sty", include_bytes!("../../../../templates/latex/renderflow-layout.sty")),
-    ("latex/renderflow-figures.sty", include_bytes!("../../../../templates/latex/renderflow-figures.sty")),
-    ("latex/renderflow-tables.sty", include_bytes!("../../../../templates/latex/renderflow-tables.sty")),
-    ("latex/renderflow-code.sty", include_bytes!("../../../../templates/latex/renderflow-code.sty")),
-    ("latex/renderflow-callouts.sty", include_bytes!("../../../../templates/latex/renderflow-callouts.sty")),
-    ("latex/renderflow-metadata.sty", include_bytes!("../../../../templates/latex/renderflow-metadata.sty")),
+    (
+        "article.html",
+        include_bytes!("../../data/editorial/article.html"),
+    ),
+    (
+        "article.tex",
+        include_bytes!("../../data/editorial/article.tex"),
+    ),
+    (
+        "article.css",
+        include_bytes!("../../data/editorial/article.css"),
+    ),
+    (
+        "article.lua",
+        include_bytes!("../../data/editorial/article.lua"),
+    ),
+    (
+        "fonts/registry.json",
+        include_bytes!("../../data/editorial/fonts/registry.json"),
+    ),
+    (
+        "fonts/LICENSE.txt",
+        include_bytes!("../../data/editorial/fonts/LICENSE.txt"),
+    ),
+    (
+        "fonts/DejaVuSerif.ttf",
+        include_bytes!("../../data/editorial/fonts/DejaVuSerif.ttf"),
+    ),
+    (
+        "fonts/DejaVuSans.ttf",
+        include_bytes!("../../data/editorial/fonts/DejaVuSans.ttf"),
+    ),
+    (
+        "fonts/DejaVuSansMono.ttf",
+        include_bytes!("../../data/editorial/fonts/DejaVuSansMono.ttf"),
+    ),
+    (
+        "latex/renderflow-core.sty",
+        include_bytes!("../../../../templates/latex/renderflow-core.sty"),
+    ),
+    (
+        "latex/renderflow-color.sty",
+        include_bytes!("../../../../templates/latex/renderflow-color.sty"),
+    ),
+    (
+        "latex/renderflow-typography.sty",
+        include_bytes!("../../../../templates/latex/renderflow-typography.sty"),
+    ),
+    (
+        "latex/renderflow-layout.sty",
+        include_bytes!("../../../../templates/latex/renderflow-layout.sty"),
+    ),
+    (
+        "latex/renderflow-figures.sty",
+        include_bytes!("../../../../templates/latex/renderflow-figures.sty"),
+    ),
+    (
+        "latex/renderflow-tables.sty",
+        include_bytes!("../../../../templates/latex/renderflow-tables.sty"),
+    ),
+    (
+        "latex/renderflow-code.sty",
+        include_bytes!("../../../../templates/latex/renderflow-code.sty"),
+    ),
+    (
+        "latex/renderflow-callouts.sty",
+        include_bytes!("../../../../templates/latex/renderflow-callouts.sty"),
+    ),
+    (
+        "latex/renderflow-metadata.sty",
+        include_bytes!("../../../../templates/latex/renderflow-metadata.sty"),
+    ),
 ];
 
 /// Identity of the actual bundled templates, filter, styles and font bytes.
@@ -67,24 +124,47 @@ fn stage_bundle(root: &Path) -> Result<()> {
 
 fn article_toc(path: &str) -> Result<bool> {
     let mut source = String::new();
-    fs::File::open(path)?.take(4 * 1024 * 1024 + 1).read_to_string(&mut source)?;
-    anyhow::ensure!(source.len() <= 4 * 1024 * 1024, "editorial.input.limit: article exceeds 4 MiB");
+    fs::File::open(path)?
+        .take(4 * 1024 * 1024 + 1)
+        .read_to_string(&mut source)?;
+    anyhow::ensure!(
+        source.len() <= 4 * 1024 * 1024,
+        "editorial.input.limit: article exceeds 4 MiB"
+    );
     let mut lines = source.lines();
-    anyhow::ensure!(lines.next() == Some("---"), "editorial.metadata: Markdown must begin with YAML front matter");
+    anyhow::ensure!(
+        lines.next() == Some("---"),
+        "editorial.metadata: Markdown must begin with YAML front matter"
+    );
     let mut header = String::new();
     let mut closed = false;
     for line in lines {
-        if matches!(line, "---" | "...") { closed = true; break; }
+        if matches!(line, "---" | "...") {
+            closed = true;
+            break;
+        }
         header.push_str(line);
         header.push('\n');
-        anyhow::ensure!(header.len() <= 64 * 1024, "editorial.metadata.limit: header exceeds 64 KiB");
+        anyhow::ensure!(
+            header.len() <= 64 * 1024,
+            "editorial.metadata.limit: header exceeds 64 KiB"
+        );
     }
-    anyhow::ensure!(closed, "editorial.metadata: missing closing front matter fence");
-    let metadata: serde_yaml_ng::Value = serde_yaml_ng::from_str(&header).context("editorial.metadata.invalid_yaml")?;
-    anyhow::ensure!(metadata.is_mapping(), "editorial.metadata: expected a mapping");
+    anyhow::ensure!(
+        closed,
+        "editorial.metadata: missing closing front matter fence"
+    );
+    let metadata: serde_yaml_ng::Value =
+        serde_yaml_ng::from_str(&header).context("editorial.metadata.invalid_yaml")?;
+    anyhow::ensure!(
+        metadata.is_mapping(),
+        "editorial.metadata: expected a mapping"
+    );
     match metadata.get("toc") {
         None => Ok(false),
-        Some(value) => value.as_bool().context("editorial.metadata.toc: expected true or false"),
+        Some(value) => value
+            .as_bool()
+            .context("editorial.metadata.toc: expected true or false"),
     }
 }
 
@@ -95,14 +175,23 @@ pub struct EditorialStrategy {
 
 impl EditorialStrategy {
     pub fn new(output: &OutputType) -> Result<Self> {
-        anyhow::ensure!(matches!(output, OutputType::Html | OutputType::Pdf | OutputType::Docx | OutputType::Epub),
-            "editorial.output: supported derivatives are html, pdf, docx and epub");
-        Ok(Self { output: output.clone() })
+        anyhow::ensure!(
+            matches!(
+                output,
+                OutputType::Html | OutputType::Pdf | OutputType::Docx | OutputType::Epub
+            ),
+            "editorial.output: supported derivatives are html, pdf, docx and epub"
+        );
+        Ok(Self {
+            output: output.clone(),
+        })
     }
 
     fn args(&self, ctx: &RenderContext, bundle: &Path) -> Result<Vec<String>> {
-        anyhow::ensure!(ctx.input_format == InputFormat::Markdown,
-            "editorial.input: the article preset consumes canonical Markdown directly");
+        anyhow::ensure!(
+            ctx.input_format == InputFormat::Markdown,
+            "editorial.input: the article preset consumes canonical Markdown directly"
+        );
         anyhow::ensure!(ctx.variables.keys().all(|key|
             key == FONT_REGISTRY_VARIABLE || key == ASSET_ROOT_VARIABLE),
             "editorial.variables: put content metadata in Markdown; only renderflow-font-registry is configurable");
@@ -113,34 +202,64 @@ impl EditorialStrategy {
             _ => FontTarget::Epub,
         };
         let mut variables = HashMap::new();
-        variables.insert(FONT_REGISTRY_VARIABLE.to_string(), ctx.variables.get(FONT_REGISTRY_VARIABLE)
-            .cloned().unwrap_or_else(|| bundle.join("fonts/registry.json").to_string_lossy().into_owned()));
-        let fonts = resolve_from_variables(&variables, target)?.context("editorial.fonts.missing")?;
+        variables.insert(
+            FONT_REGISTRY_VARIABLE.to_string(),
+            ctx.variables
+                .get(FONT_REGISTRY_VARIABLE)
+                .cloned()
+                .unwrap_or_else(|| {
+                    bundle
+                        .join("fonts/registry.json")
+                        .to_string_lossy()
+                        .into_owned()
+                }),
+        );
+        let fonts =
+            resolve_from_variables(&variables, target)?.context("editorial.fonts.missing")?;
         let css = bundle.join("fonts.css");
         fs::write(&css, fonts.css())?;
-        let mut builder = PandocArgs::new("markdown", ctx.input_path, ctx.output_path).with_standalone();
-        let mut extra = vec!["--lua-filter".to_string(), bundle.join("article.lua").to_string_lossy().into_owned(),
-            "--fail-if-warnings".to_string()];
-        if article_toc(ctx.input_path)? { extra.push("--table-of-contents".to_string()); }
+        let mut builder =
+            PandocArgs::new("markdown", ctx.input_path, ctx.output_path).with_standalone();
+        let mut extra = vec![
+            "--lua-filter".to_string(),
+            bundle.join("article.lua").to_string_lossy().into_owned(),
+            "--fail-if-warnings".to_string(),
+        ];
+        if article_toc(ctx.input_path)? {
+            extra.push("--table-of-contents".to_string());
+        }
         if let Some(root) = ctx.variables.get(ASSET_ROOT_VARIABLE) {
             extra.extend(["--resource-path".to_string(), root.clone()]);
         }
         match self.output {
             OutputType::Html => {
-                builder = builder.with_template(bundle.join("article.html").to_string_lossy())
-                    .with_css(bundle.join("article.css").to_string_lossy()).with_css(css.to_string_lossy())
+                builder = builder
+                    .with_template(bundle.join("article.html").to_string_lossy())
+                    .with_css(bundle.join("article.css").to_string_lossy())
+                    .with_css(css.to_string_lossy())
                     .with_embed_resources();
                 extra.extend(["--to".to_string(), "html5".to_string()]);
             }
             OutputType::Pdf => {
-                let mut latex: HashMap<String, String> = fonts.latex_variables().into_iter().collect();
-                latex.insert("renderflow-style-root".to_string(), bundle.join("latex").to_string_lossy().into_owned());
-                builder = builder.with_template(bundle.join("article.tex").to_string_lossy())
-                    .with_pdf_engine("tectonic").with_variables(&latex);
-                extra.extend(["--pdf-engine-opt=--only-cached".to_string(), "--pdf-engine-opt=--untrusted".to_string()]);
+                let mut latex: HashMap<String, String> =
+                    fonts.latex_variables().into_iter().collect();
+                latex.insert(
+                    "renderflow-style-root".to_string(),
+                    bundle.join("latex").to_string_lossy().into_owned(),
+                );
+                builder = builder
+                    .with_template(bundle.join("article.tex").to_string_lossy())
+                    .with_pdf_engine("tectonic")
+                    .with_variables(&latex);
+                extra.extend([
+                    "--pdf-engine-opt=--only-cached".to_string(),
+                    "--pdf-engine-opt=--untrusted".to_string(),
+                ]);
             }
             OutputType::Epub => {
-                builder = builder.with_css(bundle.join("article.css").to_string_lossy()).with_css(css.to_string_lossy());
+                builder = builder
+                    .with_css(bundle.join("article.css").to_string_lossy())
+                    .with_css(css.to_string_lossy());
                 for path in fonts.embeddable_paths() {
                     builder = builder.with_epub_embed_font(path.to_string_lossy());
                 }
@@ -159,24 +278,35 @@ impl EditorialStrategy {
 
 impl OutputStrategy for EditorialStrategy {
     fn render(&self, ctx: &RenderContext) -> Result<()> {
-        if ctx.dry_run { return Ok(()); }
+        if ctx.dry_run {
+            return Ok(());
+        }
         let workspace = tempfile::tempdir().context("editorial.bundle.stage")?;
         stage_bundle(workspace.path())?;
         // The child runs beside source assets. Resolve staged paths first so
         // relative output/CAS paths cannot change meaning after that CWD switch.
         let input = fs::canonicalize(ctx.input_path)?;
         let output = Path::new(ctx.output_path);
-        let parent = output.parent().filter(|path| !path.as_os_str().is_empty()).unwrap_or(Path::new("."));
-        let output = fs::canonicalize(parent)?.join(output.file_name().context("editorial.output.name")?);
+        let parent = output
+            .parent()
+            .filter(|path| !path.as_os_str().is_empty())
+            .unwrap_or(Path::new("."));
+        let output =
+            fs::canonicalize(parent)?.join(output.file_name().context("editorial.output.name")?);
         let absolute = RenderContext {
             input_path: input.to_str().context("editorial.input.utf8")?,
             output_path: output.to_str().context("editorial.output.utf8")?,
-            input_format: ctx.input_format.clone(), variables: ctx.variables, dry_run: false,
+            input_format: ctx.input_format.clone(),
+            variables: ctx.variables,
+            dry_run: false,
         };
         let args = self.args(&absolute, workspace.path())?;
         let root = match ctx.variables.get(ASSET_ROOT_VARIABLE) {
             Some(root) => fs::canonicalize(root)?,
-            None => input.parent().context("editorial.input.parent")?.to_path_buf(),
+            None => input
+                .parent()
+                .context("editorial.input.parent")?
+                .to_path_buf(),
         };
         ProcessExecutor::new().execute_checked(ProcessRequest::direct("pandoc")
             .args(args).working_directory(root).network_policy(ProcessNetworkPolicy::Deny)
@@ -200,16 +330,39 @@ mod tests {
         fs::write(&input, "---\narticle-schema: renderflow.editorial/v1\ntitle: Example\nlang: en\ntoc: true\n---\n## Body\n").unwrap();
         let input = input.to_str().unwrap();
         let variables = HashMap::new();
-        let ctx = RenderContext { input_path: input, output_path: "output.html", input_format: InputFormat::Markdown, variables: &variables, dry_run: false };
-        for output in [OutputType::Html, OutputType::Pdf, OutputType::Docx, OutputType::Epub] {
-            let args = EditorialStrategy::new(&output).unwrap().args(&ctx, root.path()).unwrap();
+        let ctx = RenderContext {
+            input_path: input,
+            output_path: "output.html",
+            input_format: InputFormat::Markdown,
+            variables: &variables,
+            dry_run: false,
+        };
+        for output in [
+            OutputType::Html,
+            OutputType::Pdf,
+            OutputType::Docx,
+            OutputType::Epub,
+        ] {
+            let args = EditorialStrategy::new(&output)
+                .unwrap()
+                .args(&ctx, root.path())
+                .unwrap();
             assert!(args.iter().any(|arg| arg == "--table-of-contents"));
             assert!(args.iter().any(|arg| arg == "--lua-filter"));
-            if output == OutputType::Pdf { assert!(args.iter().any(|arg| arg == "--pdf-engine-opt=--only-cached")); }
-            if output == OutputType::Html { assert!(args.iter().any(|arg| arg == "--embed-resources")); }
+            if output == OutputType::Pdf {
+                assert!(args
+                    .iter()
+                    .any(|arg| arg == "--pdf-engine-opt=--only-cached"));
+            }
+            if output == OutputType::Html {
+                assert!(args.iter().any(|arg| arg == "--embed-resources"));
+            }
         }
         fs::write(input, "---\ntitle: Example\ntoc: false\n---\n## Body\n").unwrap();
-        let args = EditorialStrategy::new(&OutputType::Html).unwrap().args(&ctx, root.path()).unwrap();
+        let args = EditorialStrategy::new(&OutputType::Html)
+            .unwrap()
+            .args(&ctx, root.path())
+            .unwrap();
         assert!(!args.iter().any(|arg| arg == "--table-of-contents"));
     }
 
@@ -217,7 +370,12 @@ mod tests {
     fn malformed_or_missing_headers_fail_before_provider_execution() {
         let root = tempfile::tempdir().unwrap();
         let input = root.path().join("input.md");
-        for text in ["# Missing header", "---\ntitle: Unclosed", "---\n- list\n---\n", "---\ntoc: \"false\"\n---\n"] {
+        for text in [
+            "# Missing header",
+            "---\ntitle: Unclosed",
+            "---\n- list\n---\n",
+            "---\ntoc: \"false\"\n---\n",
+        ] {
             fs::write(&input, text).unwrap();
             assert!(article_toc(input.to_str().unwrap()).is_err());
         }

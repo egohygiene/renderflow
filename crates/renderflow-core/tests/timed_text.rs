@@ -14,7 +14,12 @@ use sha2::{Digest, Sha256};
 const SRT: &str = include_str!("../../../tests/fixtures/timed-text/plain-unicode.srt");
 const WEBVTT: &str = include_str!("../../../tests/fixtures/timed-text/identified.vtt");
 
-fn convert(input: &Path, source_format: &str, output: &Path, target_format: &str) -> anyhow::Result<()> {
+fn convert(
+    input: &Path,
+    source_format: &str,
+    output: &Path,
+    target_format: &str,
+) -> anyhow::Result<()> {
     let cli = Cli::try_parse_from([
         "renderflow",
         "subtitles",
@@ -44,7 +49,10 @@ fn cli_converts_original_unicode_srt_without_mutating_or_replacing_files() {
     let written = fs::read(&output).unwrap();
     let transcript = timed_text::parse(&written, TimedTextFormat::Json).unwrap();
     assert_eq!(transcript.schema_version, "renderflow.timed-transcript/v1");
-    assert_eq!(transcript.source.sha256, format!("{:x}", Sha256::digest(original.as_bytes())));
+    assert_eq!(
+        transcript.source.sha256,
+        format!("{:x}", Sha256::digest(original.as_bytes()))
+    );
     assert_eq!(transcript.source.format, "srt");
     assert_eq!(transcript.overlap_policy, OverlapPolicy::Preserve);
     assert_eq!(transcript.cues.len(), 2);
@@ -63,7 +71,10 @@ fn cli_converts_original_unicode_srt_without_mutating_or_replacing_files() {
     let webvtt = fs::read(&subtitles).unwrap();
     let converted = timed_text::parse(&webvtt, TimedTextFormat::WebVtt).unwrap();
     assert_eq!(converted.cues, transcript.cues);
-    assert_eq!(converted.source.sha256, format!("{:x}", Sha256::digest(&webvtt)));
+    assert_eq!(
+        converted.source.sha256,
+        format!("{:x}", Sha256::digest(&webvtt))
+    );
     assert_eq!(fs::read(&output).unwrap(), written);
     assert_eq!(fs::read(&input).unwrap(), original.as_bytes());
 
@@ -79,11 +90,27 @@ fn unsupported_or_malformed_cli_input_does_not_publish_a_destination() {
     let input = directory.path().join("broken.srt");
     let output = directory.path().join("captions.vtt");
     for (format, original) in [
-        ("srt", b"1\n00:00:03,000 --> 00:00:01,000\nReversed timing.\n".as_slice()),
-        ("srt", b"1\n00:00:01,000 --> 00:00:02,000\n\xff\n".as_slice()),
-        ("srt", b"1\n00:00:01,000 --> 00:00:02,000\n<i>Styled text.</i>\n".as_slice()),
-        ("vtt", b"WEBVTT\n\nSTYLE\n::cue { color: lime; }\n\n00:00:01.000 --> 00:00:02.000\nHello.\n".as_slice()),
-        ("vtt", b"WEBVTT\n\n00:00:01.000 --> 00:00:02.000 align:start\nHello.\n".as_slice()),
+        (
+            "srt",
+            b"1\n00:00:03,000 --> 00:00:01,000\nReversed timing.\n".as_slice(),
+        ),
+        (
+            "srt",
+            b"1\n00:00:01,000 --> 00:00:02,000\n\xff\n".as_slice(),
+        ),
+        (
+            "srt",
+            b"1\n00:00:01,000 --> 00:00:02,000\n<i>Styled text.</i>\n".as_slice(),
+        ),
+        (
+            "vtt",
+            b"WEBVTT\n\nSTYLE\n::cue { color: lime; }\n\n00:00:01.000 --> 00:00:02.000\nHello.\n"
+                .as_slice(),
+        ),
+        (
+            "vtt",
+            b"WEBVTT\n\n00:00:01.000 --> 00:00:02.000 align:start\nHello.\n".as_slice(),
+        ),
     ] {
         fs::write(&input, original).unwrap();
         assert!(convert(&input, format, &output, "vtt").is_err());
@@ -100,7 +127,10 @@ fn json_retains_editorial_metadata_and_plain_text_discloses_losses() {
     transcript.losses = vec![TimedTextLoss::Speakers];
     let original = transcript.clone();
     let json = timed_text::render(&transcript, TimedTextFormat::Json).unwrap();
-    assert_eq!(timed_text::parse(&json, TimedTextFormat::Json).unwrap(), original);
+    assert_eq!(
+        timed_text::parse(&json, TimedTextFormat::Json).unwrap(),
+        original
+    );
     assert!(timed_text::export_losses(&transcript, TimedTextFormat::Json).is_empty());
 
     let loss = timed_text::export_losses(&transcript, TimedTextFormat::Text);
@@ -113,13 +143,21 @@ fn json_retains_editorial_metadata_and_plain_text_discloses_losses() {
         TimedTextLoss::OverlapPolicy,
         TimedTextLoss::PriorLossEvidence,
     ] {
-        assert!(loss.contains(&expected), "missing export loss: {expected:?}");
+        assert!(
+            loss.contains(&expected),
+            "missing export loss: {expected:?}"
+        );
     }
-    assert_eq!(transcript, original, "loss disclosure must not alter the input");
+    assert_eq!(
+        transcript, original,
+        "loss disclosure must not alter the input"
+    );
     assert!(timed_text::export_losses(&transcript, TimedTextFormat::Srt)
         .contains(&TimedTextLoss::CueIds));
-    assert!(!timed_text::export_losses(&transcript, TimedTextFormat::WebVtt)
-        .contains(&TimedTextLoss::CueIds));
+    assert!(
+        !timed_text::export_losses(&transcript, TimedTextFormat::WebVtt)
+            .contains(&TimedTextLoss::CueIds)
+    );
 }
 
 #[test]
@@ -130,10 +168,16 @@ fn cli_honors_the_json_overlap_policy_without_silently_retiming() {
     let refused = directory.path().join("refused.vtt");
     let mut transcript = timed_text::parse(WEBVTT.as_bytes(), TimedTextFormat::WebVtt).unwrap();
     transcript.cues[1].start_ms = 3000;
-    fs::write(&input, timed_text::render(&transcript, TimedTextFormat::Json).unwrap()).unwrap();
+    fs::write(
+        &input,
+        timed_text::render(&transcript, TimedTextFormat::Json).unwrap(),
+    )
+    .unwrap();
     convert(&input, "json", &accepted, "vtt").unwrap();
     assert_eq!(
-        timed_text::parse(&fs::read(&accepted).unwrap(), TimedTextFormat::WebVtt).unwrap().cues,
+        timed_text::parse(&fs::read(&accepted).unwrap(), TimedTextFormat::WebVtt)
+            .unwrap()
+            .cues,
         transcript.cues
     );
 

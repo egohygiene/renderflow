@@ -8,7 +8,10 @@ use std::sync::{atomic::AtomicBool, Arc};
 
 use anyhow::{Context, Result};
 
-use super::{build_briefing, build_presentation, build_composition, CanonicalExecutionResult, PlanningRequest, ResolvedExecution};
+use super::{
+    build_briefing, build_composition, build_presentation, CanonicalExecutionResult,
+    PlanningRequest, ResolvedExecution,
+};
 use crate::graph::ExecutionPlan;
 use crate::spec::{load_spec, SourceKind, SourceSpecVersion, SpecV2};
 use crate::speech::graph::SpeechProgressObserver;
@@ -70,9 +73,18 @@ impl ResolvedBuild {
 
     pub fn target_formats(&self) -> Vec<String> {
         match &self.backend {
-            Backend::Graph(value) => value.target_formats().iter().map(ToString::to_string).collect(),
-            Backend::Composition(_) | Backend::Presentation(_) | Backend::Briefing(_) => self.spec().targets.exact.iter()
-                .filter_map(|target| target.format.clone()).collect(),
+            Backend::Graph(value) => value
+                .target_formats()
+                .iter()
+                .map(ToString::to_string)
+                .collect(),
+            Backend::Composition(_) | Backend::Presentation(_) | Backend::Briefing(_) => self
+                .spec()
+                .targets
+                .exact
+                .iter()
+                .filter_map(|target| target.format.clone())
+                .collect(),
         }
     }
 
@@ -91,7 +103,9 @@ impl ResolvedBuild {
         matches!(&self.backend, Backend::Composition(_))
     }
 
-    pub fn is_native(&self) -> bool { !matches!(&self.backend, Backend::Graph(_)) }
+    pub fn is_native(&self) -> bool {
+        !matches!(&self.backend, Backend::Graph(_))
+    }
 
     pub fn predicted_output_paths(&self) -> Result<Vec<PathBuf>> {
         match &self.backend {
@@ -108,25 +122,39 @@ impl ResolvedBuild {
         }
         self.backend = match self.backend {
             Backend::Graph(value) => Backend::Graph(Box::new((*value).with_resume(resume))),
-            value @ Backend::Composition(_) | value @ Backend::Presentation(_) | value @ Backend::Briefing(_) => value,
+            value @ Backend::Composition(_)
+            | value @ Backend::Presentation(_)
+            | value @ Backend::Briefing(_) => value,
         };
         Ok(self)
     }
 
     pub fn with_cancellation_flag(mut self, cancellation: Arc<AtomicBool>) -> Self {
         self.backend = match self.backend {
-            Backend::Graph(value) => Backend::Graph(Box::new((*value).with_cancellation_flag(cancellation))),
-            Backend::Composition(value) => Backend::Composition(Box::new((*value).with_cancellation_flag(cancellation))),
-            Backend::Presentation(value) => Backend::Presentation(Box::new((*value).with_cancellation_flag(cancellation))),
-            Backend::Briefing(value) => Backend::Briefing(Box::new((*value).with_cancellation_flag(cancellation))),
+            Backend::Graph(value) => {
+                Backend::Graph(Box::new((*value).with_cancellation_flag(cancellation)))
+            }
+            Backend::Composition(value) => {
+                Backend::Composition(Box::new((*value).with_cancellation_flag(cancellation)))
+            }
+            Backend::Presentation(value) => {
+                Backend::Presentation(Box::new((*value).with_cancellation_flag(cancellation)))
+            }
+            Backend::Briefing(value) => {
+                Backend::Briefing(Box::new((*value).with_cancellation_flag(cancellation)))
+            }
         };
         self
     }
 
     pub fn with_speech_observer(mut self, observer: Arc<dyn SpeechProgressObserver>) -> Self {
         self.backend = match self.backend {
-            Backend::Graph(value) => Backend::Graph(Box::new((*value).with_speech_observer(observer))),
-            value @ Backend::Composition(_) | value @ Backend::Presentation(_) | value @ Backend::Briefing(_) => value,
+            Backend::Graph(value) => {
+                Backend::Graph(Box::new((*value).with_speech_observer(observer)))
+            }
+            value @ Backend::Composition(_)
+            | value @ Backend::Presentation(_)
+            | value @ Backend::Briefing(_) => value,
         };
         self
     }
@@ -134,13 +162,35 @@ impl ResolvedBuild {
 
 /// Load and validate the config once, then capture the selected backend.
 pub fn resolve(request: PlanningRequest) -> Result<ResolvedBuild> {
-    let path = request.config_path.to_str().context("Config path contains non-UTF8 characters")?;
+    let path = request
+        .config_path
+        .to_str()
+        .context("Config path contains non-UTF8 characters")?;
     let loaded = load_spec(path)?;
-    let backend = if loaded.spec.sources.iter().any(|source| source.kind == SourceKind::Composition) {
-        Backend::Composition(Box::new(build_composition::resolve(request.config_path.clone(), loaded, &request)?))
-    } else if loaded.spec.sources.iter().any(|source| source.kind == SourceKind::Presentation) {
+    let backend = if loaded
+        .spec
+        .sources
+        .iter()
+        .any(|source| source.kind == SourceKind::Composition)
+    {
+        Backend::Composition(Box::new(build_composition::resolve(
+            request.config_path.clone(),
+            loaded,
+            &request,
+        )?))
+    } else if loaded
+        .spec
+        .sources
+        .iter()
+        .any(|source| source.kind == SourceKind::Presentation)
+    {
         Backend::Presentation(Box::new(build_presentation::resolve(loaded, &request)?))
-    } else if loaded.spec.sources.iter().any(|source| source.kind == SourceKind::Briefing) {
+    } else if loaded
+        .spec
+        .sources
+        .iter()
+        .any(|source| source.kind == SourceKind::Briefing)
+    {
         Backend::Briefing(Box::new(build_briefing::resolve(loaded, &request)?))
     } else {
         Backend::Graph(Box::new(super::resolve_loaded(request, loaded)?))

@@ -62,7 +62,14 @@ impl Fixture {
                 }
             }
         });
-        Self { directory, source, config, output, bytes: bytes.to_vec(), spec }
+        Self {
+            directory,
+            source,
+            config,
+            output,
+            bytes: bytes.to_vec(),
+            spec,
+        }
     }
 
     fn wav(targets: &[&str]) -> Self {
@@ -90,7 +97,12 @@ impl Fixture {
     fn assert_untouched(&self) {
         assert!(!self.output.exists(), "planning must not publish a bundle");
         assert_eq!(fs::read(&self.source).unwrap(), self.bytes);
-        for name in ["missing-whisper-cli", "missing-model.bin", "missing-ffprobe", "missing-ffmpeg"] {
+        for name in [
+            "missing-whisper-cli",
+            "missing-model.bin",
+            "missing-ffprobe",
+            "missing-ffmpeg",
+        ] {
             assert!(!self.directory.path().join(name).exists());
         }
     }
@@ -98,7 +110,9 @@ impl Fixture {
     fn assert_refused(&self) {
         self.write_config();
         let engine = EngineBuilder::new().build().unwrap();
-        let error = engine.plan(PlanRequest::from_path(&self.config)).unwrap_err();
+        let error = engine
+            .plan(PlanRequest::from_path(&self.config))
+            .unwrap_err();
         assert!(!error.to_string().is_empty());
         self.assert_untouched();
     }
@@ -127,7 +141,10 @@ fn synthetic_wav() -> Vec<u8> {
 
 fn assert_invalid_policy(value: Value) {
     if let Ok(policy) = serde_json::from_value::<SpeechPolicy>(value) {
-        assert!(policy.validate().is_err(), "malformed speech policy passed validation");
+        assert!(
+            policy.validate().is_err(),
+            "malformed speech policy passed validation"
+        );
     }
 }
 
@@ -136,23 +153,39 @@ fn speech_fanout_shares_one_recognition_edge_without_touching_tools_or_models() 
     let fixture = Fixture::wav(&["timed_transcript_json", "srt", "vtt"]);
     fixture.write_config();
     let engine = EngineBuilder::new().build().unwrap();
-    let plan = engine.plan(PlanRequest::from_path(&fixture.config)).unwrap();
+    let plan = engine
+        .plan(PlanRequest::from_path(&fixture.config))
+        .unwrap();
     assert_eq!(plan.source, "wav");
     assert_eq!(plan.edges.len(), 3);
-    let speech_edges = plan.edges.iter()
-        .filter(|edge| edge.evidence.get("transform_id").map(String::as_str) == Some("speech.transcribe"))
+    let speech_edges = plan
+        .edges
+        .iter()
+        .filter(|edge| {
+            edge.evidence.get("transform_id").map(String::as_str) == Some("speech.transcribe")
+        })
         .collect::<Vec<_>>();
-    assert_eq!(speech_edges.len(), 1, "one ASR run must feed every derivative");
+    assert_eq!(
+        speech_edges.len(),
+        1,
+        "one ASR run must feed every derivative"
+    );
     let speech = speech_edges[0];
     assert_eq!(speech.from, "wav");
     assert_eq!(speech.to, "timed_transcript_json");
-    assert_eq!(speech.provider_id.as_deref(), Some("adapter.speech.whisper_cpp"));
+    assert_eq!(
+        speech.provider_id.as_deref(),
+        Some("adapter.speech.whisper_cpp")
+    );
     assert_eq!(speech.capability_id.as_deref(), Some("speech.transcribe"));
     assert!(speech.required_provider_ids.is_empty());
     for target in ["srt", "vtt"] {
         let edge = plan.edges.iter().find(|edge| edge.to == target).unwrap();
         assert_eq!(edge.from, "timed_transcript_json");
-        assert_eq!(edge.evidence["transform_id"], format!("builtin.subtitle.timed_transcript_json.{target}"));
+        assert_eq!(
+            edge.evidence["transform_id"],
+            format!("builtin.subtitle.timed_transcript_json.{target}")
+        );
     }
     fixture.assert_untouched();
 }
@@ -163,16 +196,24 @@ fn explicit_ai_allow_can_plan_the_same_local_speech_route() {
     fixture.spec["execution"]["ai"] = json!("allow");
     fixture.write_config();
     let engine = EngineBuilder::new().build().unwrap();
-    let plan = engine.plan(PlanRequest::from_path(&fixture.config)).unwrap();
+    let plan = engine
+        .plan(PlanRequest::from_path(&fixture.config))
+        .unwrap();
     assert_eq!(plan.edges.len(), 1);
-    assert_eq!(plan.edges[0].provider_id.as_deref(), Some("adapter.speech.whisper_cpp"));
+    assert_eq!(
+        plan.edges[0].provider_id.as_deref(),
+        Some("adapter.speech.whisper_cpp")
+    );
     fixture.assert_untouched();
 }
 
 #[test]
 fn speech_is_never_selected_without_explicit_speech_policy() {
     let mut fixture = Fixture::wav(&["timed_transcript_json"]);
-    fixture.spec["execution"].as_object_mut().unwrap().remove("speech");
+    fixture.spec["execution"]
+        .as_object_mut()
+        .unwrap()
+        .remove("speech");
     fixture.assert_refused();
 }
 
@@ -183,7 +224,10 @@ fn default_and_explicit_ai_denial_block_speech() {
         if explicit {
             fixture.spec["execution"]["ai"] = json!("deny");
         } else {
-            fixture.spec["execution"].as_object_mut().unwrap().remove("ai");
+            fixture.spec["execution"]
+                .as_object_mut()
+                .unwrap()
+                .remove("ai");
         }
         fixture.assert_refused();
     }
@@ -198,7 +242,10 @@ fn deterministic_requirement_refuses_unqualified_asr() {
 
 #[test]
 fn speech_and_subtitle_export_transform_denials_are_respected() {
-    for transform in ["speech.transcribe", "builtin.subtitle.timed_transcript_json.srt"] {
+    for transform in [
+        "speech.transcribe",
+        "builtin.subtitle.timed_transcript_json.srt",
+    ] {
         let mut fixture = Fixture::wav(&["srt"]);
         fixture.spec["execution"]["transforms"] = json!({"deny": [transform]});
         fixture.assert_refused();
@@ -224,14 +271,25 @@ fn selected_container_audio_declares_both_preparation_dependencies() {
     fixture.with_audio_preparation();
     fixture.write_config();
     let engine = EngineBuilder::new().build().unwrap();
-    let plan = engine.plan(PlanRequest::from_path(&fixture.config)).unwrap();
+    let plan = engine
+        .plan(PlanRequest::from_path(&fixture.config))
+        .unwrap();
     assert_eq!(plan.edges.len(), 3);
     let speech = plan.edges.iter().find(|edge| edge.from == "mp4").unwrap();
     assert_eq!(speech.to, "timed_transcript_json");
-    assert_eq!(speech.provider_id.as_deref(), Some("adapter.speech.whisper_cpp"));
+    assert_eq!(
+        speech.provider_id.as_deref(),
+        Some("adapter.speech.whisper_cpp")
+    );
     assert_eq!(speech.required_provider_ids.len(), 2);
-    assert!(speech.required_provider_ids.iter().any(|provider| provider == "tool.ffmpeg"));
-    assert!(speech.required_provider_ids.iter().any(|provider| provider == "tool.ffprobe"));
+    assert!(speech
+        .required_provider_ids
+        .iter()
+        .any(|provider| provider == "tool.ffmpeg"));
+    assert!(speech
+        .required_provider_ids
+        .iter()
+        .any(|provider| provider == "tool.ffprobe"));
     fixture.assert_untouched();
 }
 
@@ -324,9 +382,14 @@ fn explicit_speech_options_and_audio_limits_are_bounded() {
 fn omitted_options_have_explicit_serialized_defaults() {
     let mut fixture = Fixture::new("mp4", MP4_HEADER, &["timed_transcript_json"]);
     fixture.with_audio_preparation();
-    let policy = serde_json::from_value::<SpeechPolicy>(fixture.spec["execution"]["speech"].clone()).unwrap();
+    let policy =
+        serde_json::from_value::<SpeechPolicy>(fixture.spec["execution"]["speech"].clone())
+            .unwrap();
     let serialized = serde_json::to_value(policy).unwrap();
-    assert_eq!(serialized["options"], json!({"language": "en", "threads": 4, "timeout_seconds": 900}));
+    assert_eq!(
+        serialized["options"],
+        json!({"language": "en", "threads": 4, "timeout_seconds": 900})
+    );
     assert_eq!(serialized["audio"]["timeout_seconds"], 300);
     assert_eq!(serialized["audio"]["stream_index"], 2);
     fixture.assert_untouched();
@@ -340,10 +403,17 @@ fn speech_policy_requires_objects_and_rejects_duplicate_fields() {
     for field in ["provider", "model", "options", "audio", "recovery"] {
         let mut malformed = policy.clone();
         malformed[field] = json!([]);
-        assert!(serde_json::from_value::<SpeechPolicy>(malformed).is_err(), "accepted positional {field}");
+        assert!(
+            serde_json::from_value::<SpeechPolicy>(malformed).is_err(),
+            "accepted positional {field}"
+        );
     }
     let serialized = serde_json::to_string(&policy).unwrap();
-    let duplicate = format!("{{\"source_sha256\":\"{}\",{}", "a".repeat(64), &serialized[1..]);
+    let duplicate = format!(
+        "{{\"source_sha256\":\"{}\",{}",
+        "a".repeat(64),
+        &serialized[1..]
+    );
     assert!(serde_json::from_str::<SpeechPolicy>(&duplicate).is_err());
 }
 
@@ -357,10 +427,15 @@ fn explicit_saved_result_is_planned_without_reading_receipt_or_native_files() {
     });
     fixture.write_config();
     let engine = EngineBuilder::new().build().unwrap();
-    let plan = engine.plan(PlanRequest::from_path(&fixture.config)).unwrap();
+    let plan = engine
+        .plan(PlanRequest::from_path(&fixture.config))
+        .unwrap();
     let speech = plan.edges.iter().find(|edge| edge.from == "wav").unwrap();
     assert_eq!(speech.evidence["speech_execution"], "explicit_saved_result");
-    assert_eq!(speech.evidence["provider_identity"], "historical_receipt_unverified");
+    assert_eq!(
+        speech.evidence["provider_identity"],
+        "historical_receipt_unverified"
+    );
     assert_eq!(speech.evidence["cache"], "disabled");
     assert!(!receipt.exists());
     fixture.assert_untouched();
@@ -388,8 +463,14 @@ fn saved_result_selection_rejects_ambiguous_or_unbounded_receipt_identity() {
     let parsed = serde_json::from_value::<SpeechPolicy>(valid.clone()).unwrap();
     assert!(parsed.validate().is_ok());
     let serialized = serde_json::to_string(&valid["recovery"]).unwrap();
-    let duplicate = format!("{{\"receipt_sha256\":\"{}\",{}", "a".repeat(64), &serialized[1..]);
-    let malformed = serde_json::to_string(&valid).unwrap().replace(&serialized, &duplicate);
+    let duplicate = format!(
+        "{{\"receipt_sha256\":\"{}\",{}",
+        "a".repeat(64),
+        &serialized[1..]
+    );
+    let malformed = serde_json::to_string(&valid)
+        .unwrap()
+        .replace(&serialized, &duplicate);
     assert!(serde_json::from_str::<SpeechPolicy>(&malformed).is_err());
     fixture.assert_untouched();
 }
@@ -399,37 +480,68 @@ fn selected_receipt_is_part_of_the_frozen_plan_identity() {
     let mut fixture = Fixture::wav(&["srt"]);
     let engine = EngineBuilder::new().build().unwrap();
     fixture.write_config();
-    let native = engine.plan(PlanRequest::from_path(&fixture.config)).unwrap();
+    let native = engine
+        .plan(PlanRequest::from_path(&fixture.config))
+        .unwrap();
     fixture.spec["execution"]["speech"]["recovery"] = json!({
         "receipt_path": fixture.directory.path().join("saved-result.json"),
         "receipt_sha256": "e".repeat(64)
     });
     fixture.write_config();
-    let replay = engine.plan(PlanRequest::from_path(&fixture.config)).unwrap();
+    let replay = engine
+        .plan(PlanRequest::from_path(&fixture.config))
+        .unwrap();
     let native_edge = native.edges.iter().find(|edge| edge.from == "wav").unwrap();
     let replay_edge = replay.edges.iter().find(|edge| edge.from == "wav").unwrap();
-    assert_ne!(native_edge.evidence["speech_policy_sha256"], replay_edge.evidence["speech_policy_sha256"]);
+    assert_ne!(
+        native_edge.evidence["speech_policy_sha256"],
+        replay_edge.evidence["speech_policy_sha256"]
+    );
     fixture.assert_untouched();
 }
 
 #[test]
 fn saved_result_discovery_is_opt_in_and_changes_only_selection_identity() {
     let mut fixture = Fixture::wav(&["srt"]);
-    let policy = serde_json::from_value::<SpeechPolicy>(fixture.spec["execution"]["speech"].clone()).unwrap();
+    let policy =
+        serde_json::from_value::<SpeechPolicy>(fixture.spec["execution"]["speech"].clone())
+            .unwrap();
     assert!(!policy.saved_results.is_enabled());
-    assert!(serde_json::to_value(&policy).unwrap().get("saved_results").is_none(),
-        "default selector must preserve historical receipt serialization");
+    assert!(
+        serde_json::to_value(&policy)
+            .unwrap()
+            .get("saved_results")
+            .is_none(),
+        "default selector must preserve historical receipt serialization"
+    );
     fixture.write_config();
     let engine = EngineBuilder::new().build().unwrap();
-    let native = engine.plan(PlanRequest::from_path(&fixture.config)).unwrap();
+    let native = engine
+        .plan(PlanRequest::from_path(&fixture.config))
+        .unwrap();
     fixture.spec["execution"]["speech"]["saved_results"] = json!("reuse_if_available");
     fixture.write_config();
-    let discovery = engine.plan(PlanRequest::from_path(&fixture.config)).unwrap();
+    let discovery = engine
+        .plan(PlanRequest::from_path(&fixture.config))
+        .unwrap();
     let native_edge = native.edges.iter().find(|edge| edge.from == "wav").unwrap();
-    let discovery_edge = discovery.edges.iter().find(|edge| edge.from == "wav").unwrap();
-    assert_ne!(native_edge.evidence["speech_policy_sha256"], discovery_edge.evidence["speech_policy_sha256"]);
-    assert_eq!(discovery_edge.evidence["speech_execution"], "reuse_saved_result_if_available");
-    assert_eq!(discovery_edge.evidence["provider_identity"], "historical_index_unverified");
+    let discovery_edge = discovery
+        .edges
+        .iter()
+        .find(|edge| edge.from == "wav")
+        .unwrap();
+    assert_ne!(
+        native_edge.evidence["speech_policy_sha256"],
+        discovery_edge.evidence["speech_policy_sha256"]
+    );
+    assert_eq!(
+        discovery_edge.evidence["speech_execution"],
+        "reuse_saved_result_if_available"
+    );
+    assert_eq!(
+        discovery_edge.evidence["provider_identity"],
+        "historical_index_unverified"
+    );
     assert_eq!(discovery_edge.evidence["cache"], "disabled");
     assert!(!fixture.directory.path().join(".renderflow").exists());
     fixture.assert_untouched();
@@ -438,8 +550,14 @@ fn saved_result_discovery_is_opt_in_and_changes_only_selection_identity() {
 #[test]
 fn discovery_rejects_unknown_modes_and_explicit_receipt_ambiguity() {
     let fixture = Fixture::wav(&["srt"]);
-    for mode in [json!("auto"), json!(null), json!(true), json!([]),
-        json!({"disabled": null}), json!({"reuse_if_available": null})] {
+    for mode in [
+        json!("auto"),
+        json!(null),
+        json!(true),
+        json!([]),
+        json!({"disabled": null}),
+        json!({"reuse_if_available": null}),
+    ] {
         let mut policy = fixture.spec["execution"]["speech"].clone();
         policy["saved_results"] = mode;
         assert_invalid_policy(policy);

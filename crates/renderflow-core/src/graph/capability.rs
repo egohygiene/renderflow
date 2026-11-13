@@ -1785,7 +1785,11 @@ mod tests {
         let descriptor = registry.get(Format::ScreenplayJson).unwrap();
         assert_eq!(
             descriptor.capabilities,
-            vec![ArtifactCapability::Detect, ArtifactCapability::Inspect, ArtifactCapability::Validate],
+            vec![
+                ArtifactCapability::Detect,
+                ArtifactCapability::Inspect,
+                ArtifactCapability::Validate
+            ],
         );
         assert!(descriptor.is_in_family(FormatFamily::Document));
         assert!(descriptor.is_in_family(FormatFamily::Data));
@@ -1799,14 +1803,18 @@ mod tests {
 
     #[test]
     fn trelby_descriptor_recognizes_only_the_native_version_envelope() {
-        let descriptor = FormatCapabilityRegistry::global().get(Format::Trelby).unwrap();
+        let descriptor = FormatCapabilityRegistry::global()
+            .get(Format::Trelby)
+            .unwrap();
         assert_eq!(descriptor.extensions, &["trelby"]);
         assert_eq!(descriptor.capabilities, vec![ArtifactCapability::Detect]);
         assert!(descriptor.is_in_family(FormatFamily::Document));
         assert!(descriptor.is_in_family(FormatFamily::Data));
         assert!(descriptor.external_requirements.is_empty());
-        assert_eq!(descriptor.media_types[0],
-            crate::artifact::MediaType::for_format(Format::Trelby).as_str());
+        assert_eq!(
+            descriptor.media_types[0],
+            crate::artifact::MediaType::for_format(Format::Trelby).as_str()
+        );
         assert!(descriptor.matches_magic(b"\xEF\xBB\xBF#Version 3\n#Start-Script \n"));
         assert!(descriptor.matches_magic(b"\xEF\xBB\xBF#Version 3\r\n#Start-Script \r\n"));
         assert!(!descriptor.matches_magic(b"#Version 3\n"));
@@ -1862,7 +1870,12 @@ mod tests {
                 assert!(!descriptor.has_capability(capability));
             }
         }
-        for format in [Format::Ass, Format::Ssa, Format::Ttml, Format::TimedTranscriptJson] {
+        for format in [
+            Format::Ass,
+            Format::Ssa,
+            Format::Ttml,
+            Format::TimedTranscriptJson,
+        ] {
             let descriptor = registry.get(format).unwrap();
             assert!(!descriptor.has_capability(ArtifactCapability::Inspect));
             assert!(descriptor.magic_signatures.is_empty());

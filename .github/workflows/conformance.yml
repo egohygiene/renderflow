@@ -23,7 +23,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: "1.94"
+          toolchain: "1.94.0"
 
       - name: Run focused conformance harness
         env:
@@ -49,7 +49,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: "1.94"
+          toolchain: "1.94.0"
 
       - name: Install optional conformance providers
         run: |

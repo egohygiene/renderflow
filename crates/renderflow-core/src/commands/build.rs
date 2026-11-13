@@ -120,12 +120,19 @@ pub(crate) fn run_selection(options: BuildOptions<'_>) -> Result<()> {
         if composition {
             // Keep the full native evidence in the receipt; show a bounded,
             // actionable summary rather than making users open JSON first.
-            for diagnostic in result.run_manifest.steps.iter()
+            for diagnostic in result
+                .run_manifest
+                .steps
+                .iter()
                 .flat_map(|step| &step.diagnostics)
-                .filter(|diagnostic| matches!(diagnostic.severity,
-                    crate::evidence::DiagnosticSeverity::FatalFailure
-                    | crate::evidence::DiagnosticSeverity::RecoverableFailure
-                    | crate::evidence::DiagnosticSeverity::Cancelled))
+                .filter(|diagnostic| {
+                    matches!(
+                        diagnostic.severity,
+                        crate::evidence::DiagnosticSeverity::FatalFailure
+                            | crate::evidence::DiagnosticSeverity::RecoverableFailure
+                            | crate::evidence::DiagnosticSeverity::Cancelled
+                    )
+                })
                 .take(8)
             {
                 warn!("{}: {}", diagnostic.code, diagnostic.message);
@@ -135,8 +142,10 @@ pub(crate) fn run_selection(options: BuildOptions<'_>) -> Result<()> {
             anyhow::bail!("renderflow execution finished with state {:?}; inspect '{}' for structured evidence",
                 result.run_manifest.state, path);
         }
-        anyhow::bail!("renderflow execution finished with state {:?}; no receipt was written",
-            result.run_manifest.state);
+        anyhow::bail!(
+            "renderflow execution finished with state {:?}; no receipt was written",
+            result.run_manifest.state
+        );
     }
     Ok(())
 }

@@ -37,9 +37,9 @@
 pub mod catalog;
 pub mod metrics;
 pub mod output;
+pub mod profile;
 pub mod provider;
 pub mod providers;
-pub mod profile;
 pub mod request;
 pub mod retry;
 pub mod runtime;

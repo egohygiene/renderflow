@@ -11,7 +11,10 @@ use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
 
 use crate::process::ProcessCancellationToken;
-use crate::timed_text::{self, StreamIdentity, TimedTextFormat, TimedTranscript, TranscriptSource, MAX_INPUT_BYTES, MAX_TIMESTAMP_MS};
+use crate::timed_text::{
+    self, StreamIdentity, TimedTextFormat, TimedTranscript, TranscriptSource, MAX_INPUT_BYTES,
+    MAX_TIMESTAMP_MS,
+};
 
 use super::provider::{ensure_not_cancelled, expected_digest, read_bounded, sha256};
 use super::recovery::{parse_exact, SavedSpeechResult};
@@ -80,9 +83,15 @@ pub struct AlignedSpeechResult {
 }
 
 impl AlignedSpeechResult {
-    pub fn transcript(&self) -> &TimedTranscript { &self.transcript }
-    pub fn mapping_bytes(&self) -> &[u8] { &self.mapping_bytes }
-    pub fn evidence(&self) -> &SpeechAlignmentEvidence { &self.evidence }
+    pub fn transcript(&self) -> &TimedTranscript {
+        &self.transcript
+    }
+    pub fn mapping_bytes(&self) -> &[u8] {
+        &self.mapping_bytes
+    }
+    pub fn evidence(&self) -> &SpeechAlignmentEvidence {
+        &self.evidence
+    }
 }
 
 /// Apply a pinned operator map to a verified prepared-media result, offline.
@@ -132,18 +141,24 @@ struct AlignmentInput<'a> {
 }
 
 fn read_mapping(
-    path: &Path, pin: &str, cancellation: &ProcessCancellationToken,
+    path: &Path,
+    pin: &str,
+    cancellation: &ProcessCancellationToken,
 ) -> Result<Vec<u8>> {
     ensure_not_cancelled(cancellation)?;
     expected_digest(pin, "speech time-map digest")?;
     let bytes = read_bounded(path, MAX_MAPPING_BYTES, cancellation)
         .context("cannot read bounded speech time map")?;
-    if sha256(&bytes) != pin { bail!("speech time-map bytes do not match the selected digest"); }
+    if sha256(&bytes) != pin {
+        bail!("speech time-map bytes do not match the selected digest");
+    }
     Ok(bytes)
 }
 
 fn align_bytes(
-    input: &AlignmentInput<'_>, bytes: Vec<u8>, pin: &str,
+    input: &AlignmentInput<'_>,
+    bytes: Vec<u8>,
+    pin: &str,
     cancellation: &ProcessCancellationToken,
 ) -> Result<AlignedSpeechResult> {
     ensure_not_cancelled(cancellation)?;
@@ -151,7 +166,9 @@ fn align_bytes(
     if bytes.is_empty() || bytes.len() as u64 > MAX_MAPPING_BYTES {
         bail!("speech time map must contain between 1 and {MAX_MAPPING_BYTES} bytes");
     }
-    if sha256(&bytes) != pin { bail!("speech time-map bytes do not match the selected digest"); }
+    if sha256(&bytes) != pin {
+        bail!("speech time-map bytes do not match the selected digest");
+    }
     let mapping: SpeechTimeMap = parse_exact(&bytes, "speech time map")?;
     validate_mapping(&mapping, input, cancellation)?;
     let mut transcript = input.transcript.clone();
@@ -166,7 +183,9 @@ fn align_bytes(
         {
             segment_index += 1;
         }
-        let segment = mapping.segments.get(segment_index)
+        let segment = mapping
+            .segments
+            .get(segment_index)
             .with_context(|| format!("speech cue {} has no mapped interval", cue.id))?;
         if cue.start_ms < segment.transcript_start_ms || cue.end_ms > segment.transcript_end_ms {
             bail!("speech cue {} is uncovered or crosses a mapping boundary; splitting and clipping are unsupported", cue.id);
@@ -176,8 +195,12 @@ fn align_bytes(
     }
     timed_text::validate(&transcript)?;
     let canonical = timed_text::render(&transcript, TimedTextFormat::Json)?;
-    let selected_stream_index = input.original_source.stream.as_ref()
-        .context("speech alignment requires a recorded selected audio stream")?.index;
+    let selected_stream_index = input
+        .original_source
+        .stream
+        .as_ref()
+        .context("speech alignment requires a recorded selected audio stream")?
+        .index;
     let result = AlignedSpeechResult {
         schema_version: SPEECH_ALIGNMENT_SCHEMA_V1.to_owned(),
         transcript,
@@ -214,31 +237,53 @@ fn align_bytes(
 }
 
 fn translate(timestamp: u64, segment: &TimeMapSegment) -> Result<u64> {
-    timestamp.checked_sub(segment.transcript_start_ms)
+    timestamp
+        .checked_sub(segment.transcript_start_ms)
         .and_then(|relative| segment.original_start_ms.checked_add(relative))
         .filter(|value| *value <= MAX_TIMESTAMP_MS)
         .context("speech mapping timestamp is outside the supported millisecond range")
 }
 
 fn validate_mapping(
-    mapping: &SpeechTimeMap, input: &AlignmentInput<'_>,
+    mapping: &SpeechTimeMap,
+    input: &AlignmentInput<'_>,
     cancellation: &ProcessCancellationToken,
 ) -> Result<()> {
     if mapping.schema_version != SPEECH_TIME_MAP_SCHEMA_V1
-        || mapping.profile != SPEECH_TIME_MAP_PROFILE || mapping.basis != "operator_supplied"
+        || mapping.profile != SPEECH_TIME_MAP_PROFILE
+        || mapping.basis != "operator_supplied"
     {
         bail!("unsupported speech time-map schema, profile, or basis");
     }
     for (name, selected, observed) in [
-        ("receipt_sha256", mapping.receipt_sha256.as_str(), input.receipt_sha256),
-        ("original_source_sha256", mapping.original_source_sha256.as_str(), input.original_source.sha256.as_str()),
-        ("transcript_source_sha256", mapping.transcript_source_sha256.as_str(), input.transcript.source.sha256.as_str()),
-        ("canonical_transcript_sha256", mapping.canonical_transcript_sha256.as_str(), input.canonical_transcript_sha256),
+        (
+            "receipt_sha256",
+            mapping.receipt_sha256.as_str(),
+            input.receipt_sha256,
+        ),
+        (
+            "original_source_sha256",
+            mapping.original_source_sha256.as_str(),
+            input.original_source.sha256.as_str(),
+        ),
+        (
+            "transcript_source_sha256",
+            mapping.transcript_source_sha256.as_str(),
+            input.transcript.source.sha256.as_str(),
+        ),
+        (
+            "canonical_transcript_sha256",
+            mapping.canonical_transcript_sha256.as_str(),
+            input.canonical_transcript_sha256,
+        ),
     ] {
         expected_digest(selected, name)?;
-        if selected != observed { bail!("speech time-map {name} does not match the verified saved result"); }
+        if selected != observed {
+            bail!("speech time-map {name} does not match the verified saved result");
+        }
     }
-    if mapping.note.trim().is_empty() || mapping.note.chars().count() > 2048
+    if mapping.note.trim().is_empty()
+        || mapping.note.chars().count() > 2048
         || mapping.note.chars().any(char::is_control)
     {
         bail!("speech time-map note must be nonempty, at most 2048 characters, and contain no controls");
@@ -256,8 +301,9 @@ fn validate_mapping(
             bail!("speech time-map interval {index} must have positive duration within the verified prepared audio");
         }
         let original_end = translate(segment.transcript_end_ms, segment)?;
-        if index > 0 && (segment.transcript_start_ms < previous_source_end
-            || segment.original_start_ms < previous_original_end)
+        if index > 0
+            && (segment.transcript_start_ms < previous_source_end
+                || segment.original_start_ms < previous_original_end)
         {
             bail!("speech time-map intervals must be sorted and nonoverlapping in both clocks");
         }
@@ -274,12 +320,30 @@ mod tests {
     use crate::timed_text::{OverlapPolicy, TimedCue};
 
     fn transcript() -> TimedTranscript {
-        let mut value = TimedTranscript::new(TranscriptSource {
-            sha256: "3".repeat(64), format: "wav".to_owned(), stream: None, extraction: None,
-        }, vec![
-            TimedCue { id: "first".to_owned(), start_ms: 100, end_ms: 1000, text: "First words".to_owned(), speaker: Some("speaker".to_owned()) },
-            TimedCue { id: "second".to_owned(), start_ms: 1000, end_ms: 2000, text: "Second words".to_owned(), speaker: None },
-        ]);
+        let mut value = TimedTranscript::new(
+            TranscriptSource {
+                sha256: "3".repeat(64),
+                format: "wav".to_owned(),
+                stream: None,
+                extraction: None,
+            },
+            vec![
+                TimedCue {
+                    id: "first".to_owned(),
+                    start_ms: 100,
+                    end_ms: 1000,
+                    text: "First words".to_owned(),
+                    speaker: Some("speaker".to_owned()),
+                },
+                TimedCue {
+                    id: "second".to_owned(),
+                    start_ms: 1000,
+                    end_ms: 2000,
+                    text: "Second words".to_owned(),
+                    speaker: None,
+                },
+            ],
+        );
         value.language = Some("en".to_owned());
         value.overlap_policy = OverlapPolicy::Reject;
         value
@@ -289,30 +353,49 @@ mod tests {
         AlignmentInput {
             transcript,
             original_source: TranscriptSource {
-                sha256: "2".repeat(64), format: "mkv".to_owned(),
-                stream: Some(StreamIdentity { index: 2, codec: "opus".to_owned(), language: Some("en".to_owned()) }),
+                sha256: "2".repeat(64),
+                format: "mkv".to_owned(),
+                stream: Some(StreamIdentity {
+                    index: 2,
+                    codec: "opus".to_owned(),
+                    language: Some("en".to_owned()),
+                }),
                 extraction: None,
             },
             receipt_sha256: "1111111111111111111111111111111111111111111111111111111111111111",
-            canonical_transcript_sha256: "4444444444444444444444444444444444444444444444444444444444444444",
+            canonical_transcript_sha256:
+                "4444444444444444444444444444444444444444444444444444444444444444",
             prepared_duration_ms: 3000,
         }
     }
 
     fn mapping() -> SpeechTimeMap {
         SpeechTimeMap {
-            schema_version: SPEECH_TIME_MAP_SCHEMA_V1.to_owned(), profile: SPEECH_TIME_MAP_PROFILE.to_owned(),
-            basis: "operator_supplied".to_owned(), receipt_sha256: "1".repeat(64), original_source_sha256: "2".repeat(64),
-            transcript_source_sha256: "3".repeat(64), canonical_transcript_sha256: "4".repeat(64),
+            schema_version: SPEECH_TIME_MAP_SCHEMA_V1.to_owned(),
+            profile: SPEECH_TIME_MAP_PROFILE.to_owned(),
+            basis: "operator_supplied".to_owned(),
+            receipt_sha256: "1".repeat(64),
+            original_source_sha256: "2".repeat(64),
+            transcript_source_sha256: "3".repeat(64),
+            canonical_transcript_sha256: "4".repeat(64),
             note: "Synthetic operator assertion; no recording was checked.".to_owned(),
-            segments: vec![TimeMapSegment { transcript_start_ms: 0, transcript_end_ms: 3000, original_start_ms: 9000 }],
+            segments: vec![TimeMapSegment {
+                transcript_start_ms: 0,
+                transcript_end_ms: 3000,
+                original_start_ms: 9000,
+            }],
         }
     }
 
     fn apply(transcript: &TimedTranscript, map: &SpeechTimeMap) -> Result<AlignedSpeechResult> {
         let bytes = serde_json::to_vec_pretty(map).unwrap();
         let pin = sha256(&bytes);
-        align_bytes(&input(transcript), bytes, &pin, &ProcessCancellationToken::default())
+        align_bytes(
+            &input(transcript),
+            bytes,
+            &pin,
+            &ProcessCancellationToken::default(),
+        )
     }
 
     #[test]
@@ -322,67 +405,183 @@ mod tests {
         let map = mapping();
         let result = apply(&original, &map).unwrap();
         assert_eq!(original, before);
-        assert_eq!((result.transcript().cues[0].start_ms, result.transcript().cues[0].end_ms), (9100, 10000));
+        assert_eq!(
+            (
+                result.transcript().cues[0].start_ms,
+                result.transcript().cues[0].end_ms
+            ),
+            (9100, 10000)
+        );
         assert_eq!(result.transcript().cues[0].id, original.cues[0].id);
         assert_eq!(result.transcript().cues[0].text, original.cues[0].text);
-        assert_eq!(result.transcript().cues[0].speaker, original.cues[0].speaker);
+        assert_eq!(
+            result.transcript().cues[0].speaker,
+            original.cues[0].speaker
+        );
         assert_eq!(result.transcript().language, original.language);
         assert_eq!(result.transcript().overlap_policy, original.overlap_policy);
         assert_eq!(result.transcript().source, input(&original).original_source);
         assert!(result.transcript().source.extraction.is_none());
-        assert_eq!(result.evidence().aligned_transcript_sha256, sha256(&timed_text::render(result.transcript(), TimedTextFormat::Json).unwrap()));
-        assert_eq!(result.evidence().mapping_sha256, sha256(result.mapping_bytes()));
+        assert_eq!(
+            result.evidence().aligned_transcript_sha256,
+            sha256(&timed_text::render(result.transcript(), TimedTextFormat::Json).unwrap())
+        );
+        assert_eq!(
+            result.evidence().mapping_sha256,
+            sha256(result.mapping_bytes())
+        );
         assert!(!result.evidence().human_reviewed);
         assert!(!result.evidence().original_source_reobserved);
         let wire = serde_json::to_value(&result).unwrap();
         assert!(wire.get("mapping_bytes").is_none());
-        assert_eq!(wire["evidence"]["timestamp_origin"], "operator_asserted_original_media");
+        assert_eq!(
+            wire["evidence"]["timestamp_origin"],
+            "operator_asserted_original_media"
+        );
     }
 
     #[test]
     fn adjacent_source_boundaries_can_insert_a_declared_original_gap() {
         let mut map = mapping();
         map.segments = vec![
-            TimeMapSegment { transcript_start_ms: 0, transcript_end_ms: 1000, original_start_ms: 0 },
-            TimeMapSegment { transcript_start_ms: 1000, transcript_end_ms: 3000, original_start_ms: 9000 },
+            TimeMapSegment {
+                transcript_start_ms: 0,
+                transcript_end_ms: 1000,
+                original_start_ms: 0,
+            },
+            TimeMapSegment {
+                transcript_start_ms: 1000,
+                transcript_end_ms: 3000,
+                original_start_ms: 9000,
+            },
         ];
         let result = apply(&transcript(), &map).unwrap();
-        assert_eq!((result.transcript().cues[0].start_ms, result.transcript().cues[0].end_ms), (100, 1000));
-        assert_eq!((result.transcript().cues[1].start_ms, result.transcript().cues[1].end_ms), (9000, 10000));
+        assert_eq!(
+            (
+                result.transcript().cues[0].start_ms,
+                result.transcript().cues[0].end_ms
+            ),
+            (100, 1000)
+        );
+        assert_eq!(
+            (
+                result.transcript().cues[1].start_ms,
+                result.transcript().cues[1].end_ms
+            ),
+            (9000, 10000)
+        );
     }
 
     #[test]
     fn translation_to_an_earlier_clock_does_not_require_negative_timestamps() {
         let mut map = mapping();
-        map.segments = vec![TimeMapSegment { transcript_start_ms: 100, transcript_end_ms: 3000, original_start_ms: 0 }];
+        map.segments = vec![TimeMapSegment {
+            transcript_start_ms: 100,
+            transcript_end_ms: 3000,
+            original_start_ms: 0,
+        }];
         let result = apply(&transcript(), &map).unwrap();
-        assert_eq!((result.transcript().cues[0].start_ms, result.transcript().cues[0].end_ms), (0, 900));
+        assert_eq!(
+            (
+                result.transcript().cues[0].start_ms,
+                result.transcript().cues[0].end_ms
+            ),
+            (0, 900)
+        );
     }
 
     #[test]
     fn uncovered_or_boundary_crossing_cues_are_not_silently_changed() {
         let mut map = mapping();
         map.segments = vec![
-            TimeMapSegment { transcript_start_ms: 0, transcript_end_ms: 500, original_start_ms: 0 },
-            TimeMapSegment { transcript_start_ms: 500, transcript_end_ms: 3000, original_start_ms: 500 },
+            TimeMapSegment {
+                transcript_start_ms: 0,
+                transcript_end_ms: 500,
+                original_start_ms: 0,
+            },
+            TimeMapSegment {
+                transcript_start_ms: 500,
+                transcript_end_ms: 3000,
+                original_start_ms: 500,
+            },
         ];
-        assert!(apply(&transcript(), &map).unwrap_err().to_string().contains("crosses a mapping boundary"));
-        map.segments = vec![TimeMapSegment { transcript_start_ms: 101, transcript_end_ms: 3000, original_start_ms: 0 }];
+        assert!(apply(&transcript(), &map)
+            .unwrap_err()
+            .to_string()
+            .contains("crosses a mapping boundary"));
+        map.segments = vec![TimeMapSegment {
+            transcript_start_ms: 101,
+            transcript_end_ms: 3000,
+            original_start_ms: 0,
+        }];
         assert!(apply(&transcript(), &map).is_err());
-        map.segments = vec![TimeMapSegment { transcript_start_ms: 0, transcript_end_ms: 1000, original_start_ms: 0 }];
+        map.segments = vec![TimeMapSegment {
+            transcript_start_ms: 0,
+            transcript_end_ms: 1000,
+            original_start_ms: 0,
+        }];
         assert!(apply(&transcript(), &map).is_err());
     }
 
     #[test]
     fn malformed_interval_order_duration_and_destination_bounds_are_refused() {
         let invalid_segments = [
-            vec![TimeMapSegment { transcript_start_ms: 0, transcript_end_ms: 0, original_start_ms: 0 }],
-            vec![TimeMapSegment { transcript_start_ms: 0, transcript_end_ms: 3001, original_start_ms: 0 }],
-            vec![TimeMapSegment { transcript_start_ms: 0, transcript_end_ms: 3000, original_start_ms: u64::MAX }],
-            vec![TimeMapSegment { transcript_start_ms: 0, transcript_end_ms: 3000, original_start_ms: MAX_TIMESTAMP_MS - 2999 }],
-            vec![TimeMapSegment { transcript_start_ms: 0, transcript_end_ms: 1000, original_start_ms: 0 }, TimeMapSegment { transcript_start_ms: 999, transcript_end_ms: 3000, original_start_ms: 1000 }],
-            vec![TimeMapSegment { transcript_start_ms: 0, transcript_end_ms: 1000, original_start_ms: 9000 }, TimeMapSegment { transcript_start_ms: 1000, transcript_end_ms: 3000, original_start_ms: 9999 }],
-            vec![TimeMapSegment { transcript_start_ms: 1000, transcript_end_ms: 3000, original_start_ms: 0 }, TimeMapSegment { transcript_start_ms: 0, transcript_end_ms: 1000, original_start_ms: 3000 }],
+            vec![TimeMapSegment {
+                transcript_start_ms: 0,
+                transcript_end_ms: 0,
+                original_start_ms: 0,
+            }],
+            vec![TimeMapSegment {
+                transcript_start_ms: 0,
+                transcript_end_ms: 3001,
+                original_start_ms: 0,
+            }],
+            vec![TimeMapSegment {
+                transcript_start_ms: 0,
+                transcript_end_ms: 3000,
+                original_start_ms: u64::MAX,
+            }],
+            vec![TimeMapSegment {
+                transcript_start_ms: 0,
+                transcript_end_ms: 3000,
+                original_start_ms: MAX_TIMESTAMP_MS - 2999,
+            }],
+            vec![
+                TimeMapSegment {
+                    transcript_start_ms: 0,
+                    transcript_end_ms: 1000,
+                    original_start_ms: 0,
+                },
+                TimeMapSegment {
+                    transcript_start_ms: 999,
+                    transcript_end_ms: 3000,
+                    original_start_ms: 1000,
+                },
+            ],
+            vec![
+                TimeMapSegment {
+                    transcript_start_ms: 0,
+                    transcript_end_ms: 1000,
+                    original_start_ms: 9000,
+                },
+                TimeMapSegment {
+                    transcript_start_ms: 1000,
+                    transcript_end_ms: 3000,
+                    original_start_ms: 9999,
+                },
+            ],
+            vec![
+                TimeMapSegment {
+                    transcript_start_ms: 1000,
+                    transcript_end_ms: 3000,
+                    original_start_ms: 0,
+                },
+                TimeMapSegment {
+                    transcript_start_ms: 0,
+                    transcript_end_ms: 1000,
+                    original_start_ms: 3000,
+                },
+            ],
         ];
         for segments in invalid_segments {
             let mut map = mapping();
@@ -393,11 +592,19 @@ mod tests {
 
     #[test]
     fn every_recorded_identity_must_match_the_selected_saved_result() {
-        for field in ["receipt_sha256", "original_source_sha256", "transcript_source_sha256", "canonical_transcript_sha256"] {
+        for field in [
+            "receipt_sha256",
+            "original_source_sha256",
+            "transcript_source_sha256",
+            "canonical_transcript_sha256",
+        ] {
             let mut wire = serde_json::to_value(mapping()).unwrap();
             wire[field] = serde_json::json!("5".repeat(64));
             let map: SpeechTimeMap = serde_json::from_value(wire).unwrap();
-            assert!(apply(&transcript(), &map).unwrap_err().to_string().contains(field));
+            assert!(apply(&transcript(), &map)
+                .unwrap_err()
+                .to_string()
+                .contains(field));
         }
         let mut map = mapping();
         map.receipt_sha256 = "A".repeat(64);
@@ -406,7 +613,12 @@ mod tests {
 
     #[test]
     fn mapping_profile_note_and_segment_count_are_bounded() {
-        for note in [String::new(), " ".to_owned(), "review\nassertion".to_owned(), "x".repeat(2049)] {
+        for note in [
+            String::new(),
+            " ".to_owned(),
+            "review\nassertion".to_owned(),
+            "x".repeat(2049),
+        ] {
             let mut map = mapping();
             map.note = note;
             assert!(apply(&transcript(), &map).is_err());
@@ -417,7 +629,14 @@ mod tests {
         map = mapping();
         map.segments.clear();
         assert!(apply(&transcript(), &map).is_err());
-        map.segments = vec![TimeMapSegment { transcript_start_ms: 0, transcript_end_ms: 1, original_start_ms: 0 }; MAX_MAPPING_SEGMENTS + 1];
+        map.segments = vec![
+            TimeMapSegment {
+                transcript_start_ms: 0,
+                transcript_end_ms: 1,
+                original_start_ms: 0
+            };
+            MAX_MAPPING_SEGMENTS + 1
+        ];
         assert!(apply(&transcript(), &map).is_err());
     }
 
@@ -433,7 +652,13 @@ mod tests {
         for value in bad {
             let bytes = value.into_bytes();
             let pin = sha256(&bytes);
-            assert!(align_bytes(&input(&transcript()), bytes, &pin, &ProcessCancellationToken::default()).is_err());
+            assert!(align_bytes(
+                &input(&transcript()),
+                bytes,
+                &pin,
+                &ProcessCancellationToken::default()
+            )
+            .is_err());
         }
     }
 
@@ -444,7 +669,10 @@ mod tests {
         let bytes = serde_json::to_vec_pretty(&mapping()).unwrap();
         std::fs::write(&path, &bytes).unwrap();
         let cancellation = ProcessCancellationToken::default();
-        assert_eq!(read_mapping(&path, &sha256(&bytes), &cancellation).unwrap(), bytes);
+        assert_eq!(
+            read_mapping(&path, &sha256(&bytes), &cancellation).unwrap(),
+            bytes
+        );
         assert!(read_mapping(&path, &"0".repeat(64), &cancellation).is_err());
         std::fs::write(&path, vec![b' '; MAX_MAPPING_BYTES as usize + 1]).unwrap();
         assert!(read_mapping(&path, &"0".repeat(64), &cancellation).is_err());
@@ -454,12 +682,23 @@ mod tests {
     fn cancellation_precedes_mapping_io_and_transform() {
         let cancellation = ProcessCancellationToken::default();
         cancellation.cancel();
-        let error = read_mapping(Path::new("absent-mapping.json"), &"0".repeat(64), &cancellation).unwrap_err();
-        assert!(matches!(error.downcast_ref::<SpeechError>(), Some(SpeechError::Cancelled)));
+        let error = read_mapping(
+            Path::new("absent-mapping.json"),
+            &"0".repeat(64),
+            &cancellation,
+        )
+        .unwrap_err();
+        assert!(matches!(
+            error.downcast_ref::<SpeechError>(),
+            Some(SpeechError::Cancelled)
+        ));
         let bytes = serde_json::to_vec(&mapping()).unwrap();
         let pin = sha256(&bytes);
         let error = align_bytes(&input(&transcript()), bytes, &pin, &cancellation).unwrap_err();
-        assert!(matches!(error.downcast_ref::<SpeechError>(), Some(SpeechError::Cancelled)));
+        assert!(matches!(
+            error.downcast_ref::<SpeechError>(),
+            Some(SpeechError::Cancelled)
+        ));
     }
 
     #[cfg(unix)]
@@ -471,6 +710,8 @@ mod tests {
         let bytes = serde_json::to_vec(&mapping()).unwrap();
         std::fs::write(&original, &bytes).unwrap();
         std::os::unix::fs::symlink(&original, &link).unwrap();
-        assert!(read_mapping(&link, &sha256(&bytes), &ProcessCancellationToken::default()).is_err());
+        assert!(
+            read_mapping(&link, &sha256(&bytes), &ProcessCancellationToken::default()).is_err()
+        );
     }
 }

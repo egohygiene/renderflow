@@ -18,24 +18,48 @@ const MAX_SOURCE_PIXELS: u64 = 16_777_216;
 /// Check the exact tree and uniform point-to-pixel transform used for PNG.
 /// The caller has already checked physical size and fully decoded image inputs.
 pub(crate) fn validate_tree(tree: &usvg::Tree, dpi: u32, width: u32, height: u32) -> Result<()> {
-    ensure!((36..=600).contains(&dpi) && width > 0 && height > 0,
-        "composition.raster.tree_geometry: invalid raster preflight dimensions or resolution");
-    ensure!(width <= 8192 && height <= 8192 && u64::from(width) * u64::from(height) <= MAX_SOURCE_PIXELS,
-        "composition.raster.tree_geometry: output exceeds the 8192-axis/16-Mpixel profile");
-    ensure!(tree.filters().is_empty() && tree.masks().is_empty(),
-        "composition.raster.tree_unsupported: filters and masks are unavailable in the PNG profile");
+    ensure!(
+        (36..=600).contains(&dpi) && width > 0 && height > 0,
+        "composition.raster.tree_geometry: invalid raster preflight dimensions or resolution"
+    );
+    ensure!(
+        width <= 8192
+            && height <= 8192
+            && u64::from(width) * u64::from(height) <= MAX_SOURCE_PIXELS,
+        "composition.raster.tree_geometry: output exceeds the 8192-axis/16-Mpixel profile"
+    );
+    ensure!(
+        tree.filters().is_empty() && tree.masks().is_empty(),
+        "composition.raster.tree_unsupported: filters and masks are unavailable in the PNG profile"
+    );
     let scale = dpi as f32 / 72.0;
     let surface = Surface { width, height };
-    let mut budget = Budget { width_limit: width + 8, height_limit: height + 8, nodes: 0, segments: 0 };
-    budget.children(tree.root(), tiny_skia::Transform::from_scale(scale, scale),
-        surface, surface, surface.rgba_bytes(), 0)
+    let mut budget = Budget {
+        width_limit: width + 8,
+        height_limit: height + 8,
+        nodes: 0,
+        segments: 0,
+    };
+    budget.children(
+        tree.root(),
+        tiny_skia::Transform::from_scale(scale, scale),
+        surface,
+        surface,
+        surface.rgba_bytes(),
+        0,
+    )
 }
 
 #[derive(Clone, Copy)]
-struct Surface { width: u32, height: u32 }
+struct Surface {
+    width: u32,
+    height: u32,
+}
 
 impl Surface {
-    fn rgba_bytes(self) -> u64 { u64::from(self.width) * u64::from(self.height) * 4 }
+    fn rgba_bytes(self) -> u64 {
+        u64::from(self.width) * u64::from(self.height) * 4
+    }
 }
 
 struct Budget {
@@ -59,8 +83,15 @@ impl Budget {
         Ok(())
     }
 
-    fn children(&mut self, group: &usvg::Group, transform: tiny_skia::Transform,
-        surface: Surface, context: Surface, active: u64, depth: usize) -> Result<()> {
+    fn children(
+        &mut self,
+        group: &usvg::Group,
+        transform: tiny_skia::Transform,
+        surface: Surface,
+        context: Surface,
+        active: u64,
+        depth: usize,
+    ) -> Result<()> {
         ensure!(depth <= MAX_TREE_DEPTH,
             "composition.raster.tree_budget: parsed tree exceeds 32 nested rendering levels; simplify nested groups");
         self.active(active)?;
@@ -101,8 +132,15 @@ impl Budget {
         Ok(())
     }
 
-    fn group(&mut self, group: &usvg::Group, transform: tiny_skia::Transform,
-        surface: Surface, context: Surface, active: u64, depth: usize) -> Result<()> {
+    fn group(
+        &mut self,
+        group: &usvg::Group,
+        transform: tiny_skia::Transform,
+        surface: Surface,
+        context: Surface,
+        active: u64,
+        depth: usize,
+    ) -> Result<()> {
         ensure!(group.filters().is_empty() && group.mask().is_none()
             && group.blend_mode() == usvg::BlendMode::Normal,
             "composition.raster.tree_unsupported: filters, masks and non-normal blend modes are unavailable");
@@ -111,11 +149,14 @@ impl Budget {
         if !group.should_isolate() {
             return self.children(group, transform, surface, context, active, depth);
         }
-        let bbox = group.layer_bounding_box().transform(transform)
-            .context("composition.raster.tree_geometry: isolated group has an invalid transformed bound")?;
+        let bbox = group.layer_bounding_box().transform(transform).context(
+            "composition.raster.tree_geometry: isolated group has an invalid transformed bound",
+        )?;
         let values = [bbox.x(), bbox.y(), bbox.width(), bbox.height()];
-        ensure!(values.into_iter().all(f32::is_finite),
-            "composition.raster.tree_geometry: isolated group has nonfinite bounds");
+        ensure!(
+            values.into_iter().all(f32::is_finite),
+            "composition.raster.tree_geometry: isolated group has nonfinite bounds"
+        );
         let padded_width = f64::from(bbox.width()).ceil() + 4.0;
         let padded_height = f64::from(bbox.height()).ceil() + 4.0;
         // Use the unclamped bound. This deliberately refuses giant off-canvas
@@ -135,8 +176,13 @@ impl Budget {
         let bottom = (top + padded_height).min(f64::from(context.height) * 3.0);
         let left = left.max(-f64::from(context.width) * 2.0);
         let top = top.max(-f64::from(context.height) * 2.0);
-        if right <= left || bottom <= top { return Ok(()); }
-        let isolated = Surface { width: (right - left) as u32, height: (bottom - top) as u32 };
+        if right <= left || bottom <= top {
+            return Ok(());
+        }
+        let isolated = Surface {
+            width: (right - left) as u32,
+            height: (bottom - top) as u32,
+        };
         let active = active + isolated.rgba_bytes();
         self.active(active)?;
         let shifted = tiny_skia::Transform::from_translate(-(left as f32), -(top as f32))
@@ -179,11 +225,20 @@ impl Budget {
 }
 
 fn valid_transform(transform: tiny_skia::Transform) -> Result<()> {
-    let values = [transform.sx, transform.sy, transform.kx, transform.ky, transform.tx, transform.ty];
+    let values = [
+        transform.sx,
+        transform.sy,
+        transform.kx,
+        transform.ky,
+        transform.tx,
+        transform.ty,
+    ];
     let determinant = f64::from(transform.sx) * f64::from(transform.sy)
         - f64::from(transform.kx) * f64::from(transform.ky);
-    ensure!(values.into_iter().all(f32::is_finite) && determinant.is_finite() && determinant != 0.0,
-        "composition.raster.tree_geometry: parsed geometry has a nonfinite or singular transform");
+    ensure!(
+        values.into_iter().all(f32::is_finite) && determinant.is_finite() && determinant != 0.0,
+        "composition.raster.tree_geometry: parsed geometry has a nonfinite or singular transform"
+    );
     // Match the actual f32 rendering provider's invertibility requirement.
     // A nonzero f64 determinant alone can admit an overflowing f32 inverse.
     let inverse = transform.invert()

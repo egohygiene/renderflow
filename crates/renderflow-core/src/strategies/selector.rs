@@ -20,8 +20,13 @@ pub fn select_strategy(
     profile: Option<&str>,
 ) -> Result<Box<dyn OutputStrategy + Send + Sync>> {
     if profile == Some(super::editorial::EDITORIAL_PRESET) {
-        anyhow::ensure!(template.is_none(), "editorial.template: the versioned preset owns its templates");
-        return Ok(Box::new(super::editorial::EditorialStrategy::new(output_type)?));
+        anyhow::ensure!(
+            template.is_none(),
+            "editorial.template: the versioned preset owns its templates"
+        );
+        return Ok(Box::new(super::editorial::EditorialStrategy::new(
+            output_type,
+        )?));
     }
     match output_type {
         OutputType::Html => Ok(Box::new(HtmlStrategy::new(

@@ -19,8 +19,8 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: "1.94"
-          components: clippy
+          toolchain: "1.94.0"
+          components: clippy, rustfmt
 
       - name: Check locked dependency metadata
         run: |
@@ -41,6 +41,9 @@ jobs:
               printf '::warning title=Plaintext AI API key configuration detected::%s uses api_key; prefer api_key_env\n' "$line"
             done <<< "$matches"
           fi
+
+      - name: Check canonical formatting
+        run: cargo +1.94.0 fmt --all -- --check
 
       - name: Lint (clippy)
         run: cargo clippy --locked --workspace -- -D warnings
@@ -116,7 +119,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: "1.94"
+          toolchain: "1.94.0"
 
       - name: Build renderflow
         run: cargo build --locked --release --package renderflow-cli
@@ -182,7 +185,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: "1.94"
+          toolchain: "1.94.0"
 
       - name: Build release binary
         run: cargo build --locked --release --package renderflow-cli

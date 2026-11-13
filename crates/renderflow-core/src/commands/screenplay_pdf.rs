@@ -42,11 +42,19 @@ pub fn run_pdf(arguments: ScreenplayPdfArguments) -> Result<()> {
     let cancellation = ProcessCancellationToken::new();
     let signal = cancellation.clone();
     ctrlc::set_handler(move || signal.cancel())?;
-    let run = afterwriting::render(&AfterwritingRequest {
-        input: arguments.input.into(), config,
-        expected_source_sha256: arguments.source_sha256,
-    }, cancellation.clone())?;
-    let (files, receipt) = pdf_bundle(run.output, json_bytes(&run.analysis)?, json_bytes(&run.evidence)?)?;
+    let run = afterwriting::render(
+        &AfterwritingRequest {
+            input: arguments.input.into(),
+            config,
+            expected_source_sha256: arguments.source_sha256,
+        },
+        cancellation.clone(),
+    )?;
+    let (files, receipt) = pdf_bundle(
+        run.output,
+        json_bytes(&run.analysis)?,
+        json_bytes(&run.evidence)?,
+    )?;
     publish_conversion_bundle(output, &files, &cancellation)?;
     std::io::stdout().write_all(&receipt)?;
     Ok(())
@@ -64,12 +72,18 @@ fn read_regular(path: &Path, maximum: usize) -> Result<Vec<u8>> {
     if !metadata.is_file() || metadata.file_type().is_symlink() {
         bail!("screenplay input/config must be a regular file, not a symlink or special file");
     }
-    if metadata.len() > maximum as u64 { bail!("screenplay file exceeds its {maximum}-byte limit"); }
+    if metadata.len() > maximum as u64 {
+        bail!("screenplay file exceeds its {maximum}-byte limit");
+    }
     let file = File::open(path).context("cannot open screenplay file")?;
-    if !file.metadata()?.is_file() { bail!("screenplay file must be regular"); }
+    if !file.metadata()?.is_file() {
+        bail!("screenplay file must be regular");
+    }
     let mut bytes = Vec::new();
     file.take(maximum as u64 + 1).read_to_end(&mut bytes)?;
-    if bytes.len() > maximum { bail!("screenplay file exceeds its {maximum}-byte limit"); }
+    if bytes.len() > maximum {
+        bail!("screenplay file exceeds its {maximum}-byte limit");
+    }
     Ok(bytes)
 }
 
@@ -79,7 +93,7 @@ fn json_bytes(value: &impl Serialize) -> Result<Vec<u8>> {
     Ok(bytes)
 }
 
-fn pdf_bundle(pdf: Vec<u8>, analysis: Vec<u8>, evidence: Vec<u8>) -> Result<(Vec<(String, Vec<u8>)>, Vec<u8>)> {
+fn pdf_bundle(pdf: Vec<u8>, analysis: Vec<u8>, evidence: Vec<u8>) -> Result<super::BundlePayload> {
     let mut files = vec![
         ("screenplay.pdf".to_owned(), pdf),
         ("analysis.json".to_owned(), analysis),
@@ -105,16 +119,34 @@ mod tests {
 
     #[test]
     fn pdf_bundle_hashes_exact_members_and_publishes_receipt_last() {
-        let (files, receipt) = pdf_bundle(b"pdf".to_vec(), b"analysis\n".to_vec(), b"evidence\n".to_vec()).unwrap();
-        assert_eq!(files.iter().map(|(path, _)| path.as_str()).collect::<Vec<_>>(),
-            vec!["screenplay.pdf", "analysis.json", "provider-evidence.json", "bundle.json"]);
+        let (files, receipt) = pdf_bundle(
+            b"pdf".to_vec(),
+            b"analysis\n".to_vec(),
+            b"evidence\n".to_vec(),
+        )
+        .unwrap();
+        assert_eq!(
+            files
+                .iter()
+                .map(|(path, _)| path.as_str())
+                .collect::<Vec<_>>(),
+            vec![
+                "screenplay.pdf",
+                "analysis.json",
+                "provider-evidence.json",
+                "bundle.json"
+            ]
+        );
         assert_eq!(files[3].1, receipt);
         let report: serde_json::Value = serde_json::from_slice(&receipt).unwrap();
         assert_eq!(report["schema_version"], BUNDLE_SCHEMA);
         assert_eq!(report["runtime_qualified"], false);
         for (index, (path, bytes)) in files[..3].iter().enumerate() {
             assert_eq!(report["files"][index]["path"], *path);
-            assert_eq!(report["files"][index]["sha256"], format!("{:x}", Sha256::digest(bytes)));
+            assert_eq!(
+                report["files"][index]["sha256"],
+                format!("{:x}", Sha256::digest(bytes))
+            );
             assert_eq!(report["files"][index]["size_bytes"], bytes.len());
         }
     }

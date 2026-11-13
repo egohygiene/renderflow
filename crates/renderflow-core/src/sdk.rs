@@ -15,15 +15,15 @@ use crate::evidence::{
 use crate::graph::ExecutionPlan;
 use crate::intake::{IntakeEngine, IntakeReport, IntakeRequest};
 use crate::optimization::OptimizationMode;
+pub use crate::planning::build::ResolvedBuild;
 use crate::planning::build::{
     cancelled as cancelled_execution, execute as execute_resolved_plan,
     resolve as resolve_planning_request,
 };
 use crate::planning::{PlanningRequest, ResolvedExecution};
-pub use crate::planning::build::ResolvedBuild;
-use crate::toolchain::ToolchainSnapshot;
 use crate::speech::graph::{SpeechProgressObserver, SpeechProgressPhase};
 use crate::speech::recovery::inspect_saved_result;
+use crate::toolchain::ToolchainSnapshot;
 
 pub const PROVIDER_CONTRACT_V1: &str = "renderflow.provider/v1";
 pub const PROGRESS_EVENT_V1: &str = "renderflow.progress/v1";
@@ -32,8 +32,8 @@ pub const PROGRESS_EVENT_V1: &str = "renderflow.progress/v1";
 /// contracts without changing the v1 provider trait or treating a composition
 /// package as an ordinary JSON conversion source.
 pub use crate::planning::{
-    execute_composition, resolve_composition, CompositionExecutionPlan,
-    CompositionPlanningRequest, CompositionStagePlan, ResolvedCompositionExecution,
+    execute_composition, resolve_composition, CompositionExecutionPlan, CompositionPlanningRequest,
+    CompositionStagePlan, ResolvedCompositionExecution,
 };
 
 #[derive(Debug, Error)]
@@ -521,7 +521,9 @@ impl Engine {
             planning = planning.with_optimization(optimization);
         }
         let mut resolved = resolve_planning_request(planning).map_err(RenderflowError::Planning)?;
-        resolved = resolved.with_resume(request.resume).map_err(RenderflowError::Planning)?;
+        resolved = resolved
+            .with_resume(request.resume)
+            .map_err(RenderflowError::Planning)?;
         if let Some(cancellation) = &self.cancellation_token {
             resolved = resolved.with_cancellation_flag(cancellation.flag());
         }
@@ -539,7 +541,11 @@ impl Engine {
         }
         if resolved.spec().execution.speech.is_some() {
             if let Some(reporter) = &self.reporter {
-                let step_id = format!("step:{}-to-{}", resolved.source_format(), crate::graph::Format::TimedTranscriptJson);
+                let step_id = format!(
+                    "step:{}-to-{}",
+                    resolved.source_format(),
+                    crate::graph::Format::TimedTranscriptJson
+                );
                 resolved = resolved.with_speech_observer(Arc::new(SdkSpeechProgressObserver {
                     reporter: reporter.clone(),
                     step_id,
@@ -671,12 +677,20 @@ impl Engine {
             // This branch never creates the persistent runtime artifact store
             // or opens generic checkpoint/cache state. Resolution binds the actual
             // original source bytes to policy.source_sha256.
-            let cancellation = self.cancellation_token.as_ref()
+            let cancellation = self
+                .cancellation_token
+                .as_ref()
                 .map(|token| crate::process::ProcessCancellationToken::from_shared(token.flag()))
                 .unwrap_or_default();
             let (assessment_path, overall) = if let Some(recovery) = &policy.recovery {
-                let result = inspect_saved_result(Path::new(&recovery.receipt_path),
-                    &recovery.receipt_sha256, policy, resolved.source_format(), None, &cancellation);
+                let result = inspect_saved_result(
+                    Path::new(&recovery.receipt_path),
+                    &recovery.receipt_sha256,
+                    policy,
+                    resolved.source_format(),
+                    None,
+                    &cancellation,
+                );
                 let overall = match result {
                     Ok(saved) => RecoveryDecision {
                         action: RecoveryAction::Reuse,
@@ -702,10 +716,19 @@ impl Engine {
                 };
                 (recovery.receipt_path.clone(), overall)
             } else if policy.saved_results.is_enabled() {
-                let path = crate::speech::cache::index_path(&artifact_root, policy, resolved.source_format())
-                    .map_err(RenderflowError::Execution)?;
-                let result = crate::speech::cache::lookup_saved_result(&artifact_root, policy,
-                    resolved.source_format(), None, &cancellation);
+                let path = crate::speech::cache::index_path(
+                    &artifact_root,
+                    policy,
+                    resolved.source_format(),
+                )
+                .map_err(RenderflowError::Execution)?;
+                let result = crate::speech::cache::lookup_saved_result(
+                    &artifact_root,
+                    policy,
+                    resolved.source_format(),
+                    None,
+                    &cancellation,
+                );
                 let overall = match result {
                     Ok(Some(saved)) => RecoveryDecision {
                         action: RecoveryAction::Reuse,
@@ -942,10 +965,14 @@ mod tests {
         observer.phase(SpeechProgressPhase::Complete);
         let events = recorder.0.lock().unwrap();
         assert_eq!(events.len(), 2);
-        assert!(events.iter().all(|event| event.stage == ProgressStage::Executing));
+        assert!(events
+            .iter()
+            .all(|event| event.stage == ProgressStage::Executing));
         assert_eq!(events[0].state.as_deref(), Some("speech.transcribe"));
         assert_eq!(events[1].state.as_deref(), Some("speech.complete"));
-        assert!(events.iter().all(|event| event.run_id.is_none() && event.artifact_ids.is_empty()));
+        assert!(events
+            .iter()
+            .all(|event| event.run_id.is_none() && event.artifact_ids.is_empty()));
     }
 
     #[test]

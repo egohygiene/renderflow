@@ -22,7 +22,7 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: "1.94"
+          toolchain: "1.94.0"
           components: rustfmt,clippy
 
       - name: Apply CLI regression fixes
@@ -30,8 +30,8 @@ jobs:
 
       - name: Format and validate exact repository test surface
         run: |
-          cargo fmt --all
-          cargo fmt --all -- --check
+          cargo +1.94.0 fmt --all
+          cargo +1.94.0 fmt --all -- --check
           cargo clippy --workspace --all-targets -- -D warnings
           cargo test --workspace --all-targets
 

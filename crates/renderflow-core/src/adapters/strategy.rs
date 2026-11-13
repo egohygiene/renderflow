@@ -15,8 +15,8 @@ use crate::font::{
 use crate::graph::Format;
 use crate::input_format::InputFormat;
 use crate::pipeline::Pipeline;
-use crate::strategies::{select_strategy, RenderContext};
 use crate::strategies::editorial::{self, EDITORIAL_PRESET};
+use crate::strategies::{select_strategy, RenderContext};
 
 /// Artifact-native compatibility adapter for the mature document/image/audio
 /// output strategies. The application planner registers this adapter as a graph
@@ -43,9 +43,15 @@ impl StrategyArtifactTransform {
         source_asset_root: Option<PathBuf>,
     ) -> Result<Self> {
         if profile.as_deref() == Some(EDITORIAL_PRESET) {
-            anyhow::ensure!(from == Format::Markdown && matches!(to, Format::Html | Format::Pdf | Format::Docx | Format::Epub),
-                "editorial.route: select direct Markdown to HTML/PDF/DOCX/EPUB");
-            anyhow::ensure!(template.is_none(), "editorial.template: the preset owns its bundled presentation");
+            anyhow::ensure!(
+                from == Format::Markdown
+                    && matches!(to, Format::Html | Format::Pdf | Format::Docx | Format::Epub),
+                "editorial.route: select direct Markdown to HTML/PDF/DOCX/EPUB"
+            );
+            anyhow::ensure!(
+                template.is_none(),
+                "editorial.template: the preset owns its bundled presentation"
+            );
             anyhow::ensure!(variables.keys().all(|key| key == FONT_REGISTRY_VARIABLE),
                 "editorial.variables: keep article metadata in Markdown; only renderflow-font-registry is configurable");
         }
@@ -81,7 +87,10 @@ impl StrategyArtifactTransform {
             source_asset_root,
         );
         if profile.as_deref() == Some(EDITORIAL_PRESET) {
-            cache_identity.push_str(&format!(";editorial_bundle={}", editorial::bundle_fingerprint()));
+            cache_identity.push_str(&format!(
+                ";editorial_bundle={}",
+                editorial::bundle_fingerprint()
+            ));
         }
         Ok(Self {
             from,
@@ -200,12 +209,16 @@ impl ArtifactTransform for StrategyArtifactTransform {
         let mut variables = self.variables.clone();
         if self.profile.as_deref() == Some(EDITORIAL_PRESET) {
             if let Some(planned) = &self.font_resolution {
-                let current = resolve_from_variables(&variables, planned.target)?.context("editorial.fonts.missing")?;
+                let current = resolve_from_variables(&variables, planned.target)?
+                    .context("editorial.fonts.missing")?;
                 anyhow::ensure!(current.fingerprint()? == planned.fingerprint()?,
                     "editorial.fonts.changed: font registry/assets changed after planning; create a new plan");
             }
             if let Some(root) = &self.source_asset_root {
-                variables.insert(editorial::ASSET_ROOT_VARIABLE.to_string(), fs::canonicalize(root)?.to_string_lossy().into_owned());
+                variables.insert(
+                    editorial::ASSET_ROOT_VARIABLE.to_string(),
+                    fs::canonicalize(root)?.to_string_lossy().into_owned(),
+                );
             }
         }
         let context = RenderContext {
@@ -245,14 +258,22 @@ impl ArtifactTransform for StrategyArtifactTransform {
         if self.profile.as_deref() == Some(EDITORIAL_PRESET) {
             descriptor = descriptor
                 .with_metadata("renderflow.editorial.schema", "renderflow.editorial/v1")
-                .with_metadata("renderflow.editorial.bundle_sha256", editorial::bundle_fingerprint())
+                .with_metadata(
+                    "renderflow.editorial.bundle_sha256",
+                    editorial::bundle_fingerprint(),
+                )
                 .with_metadata("renderflow.editorial.external_assets_frozen", false)
-                .with_metadata("renderflow.editorial.presentation", match self.to {
-                    Format::Html => "responsive self-contained article; browser layout varies",
-                    Format::Pdf => "print article; no PDF/UA or visual qualification claim",
-                    Format::Docx => "semantic interchange; reference styling and installed fonts",
-                    _ => "reflow ebook; reader controls pagination and may override fonts",
-                });
+                .with_metadata(
+                    "renderflow.editorial.presentation",
+                    match self.to {
+                        Format::Html => "responsive self-contained article; browser layout varies",
+                        Format::Pdf => "print article; no PDF/UA or visual qualification claim",
+                        Format::Docx => {
+                            "semantic interchange; reference styling and installed fonts"
+                        }
+                        _ => "reflow ebook; reader controls pagination and may override fonts",
+                    },
+                );
         }
         store.import_path(&output_path, descriptor)
     }

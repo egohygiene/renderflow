@@ -6,7 +6,6 @@
 #![recursion_limit = "256"]
 
 pub mod adapters;
-pub mod diagnostics;
 pub mod ai;
 pub mod api_contract;
 pub mod app;
@@ -15,12 +14,14 @@ mod assets;
 mod audio;
 pub mod cache;
 pub mod checkpoint;
-pub mod composition;
 pub mod cli;
 mod commands;
 mod compat;
+pub mod composition;
 mod config;
+pub mod creative_doctor;
 pub mod detect;
+pub mod diagnostics;
 pub mod dna;
 pub mod ebook;
 pub mod error;
@@ -33,15 +34,15 @@ pub mod hygiene;
 mod image;
 mod input_format;
 pub mod intake;
+pub mod lyrics;
 pub mod optimization;
 mod pipeline;
 pub mod planning;
+pub mod presentation;
 pub mod print_pdf;
 pub mod print_pdf_image;
 pub mod print_pdf_inspect;
 pub mod process;
-pub mod presentation;
-pub mod lyrics;
 pub mod publication;
 pub mod release_contract;
 pub mod screenplay;
@@ -52,7 +53,6 @@ pub mod strategies;
 pub mod super_resolution;
 pub mod timed_text;
 pub mod toolchain;
-pub mod creative_doctor;
 pub mod transforms;
 pub mod validation;
 pub mod video;
@@ -93,10 +93,12 @@ pub use publication::magazine::{
     MAGAZINE_CANDIDATE_SKILL_ID_V1,
 };
 pub use sdk::{
-    ArtifactProfile, CancellationToken, DiagnosticReport, Engine, EngineBuilder, ExecutionRequest,
-    ExecutionResult, InspectionRequest, PlanRequest, ProgressEvent, ProgressReporter,
-    ProgressStage, ProviderCapabilities, ProviderPlan, RenderflowError, RenderflowProvider,
-    ResolvedBuild, SavedRunAssessment,
+    execute_composition, resolve_composition, ArtifactProfile, CancellationToken,
+    CompositionExecutionPlan, CompositionPlanningRequest, CompositionStagePlan, DiagnosticReport,
+    Engine, EngineBuilder, ExecutionRequest, ExecutionResult, InspectionRequest, PlanRequest,
+    ProgressEvent, ProgressReporter, ProgressStage, ProviderCapabilities, ProviderPlan,
+    RenderflowError, RenderflowProvider, ResolvedBuild, ResolvedCompositionExecution,
+    SavedRunAssessment,
 };
 pub use video::{
     execute_handbrake, execute_handbrake_with_progress, plan_handbrake,

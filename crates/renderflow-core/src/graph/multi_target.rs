@@ -1,5 +1,5 @@
-use super::{Format, TransformEdge, TransformPath};
 use super::derivative_path::derivative_edge_identity;
+use super::{Format, TransformEdge, TransformPath};
 
 use petgraph::graph::{DiGraph, NodeIndex};
 use petgraph::visit::EdgeRef;
@@ -114,8 +114,13 @@ impl MultiTargetDag {
                 let from_idx = dag.get_or_insert_node(edge.from);
                 let to_idx = dag.get_or_insert_node(edge.to);
                 if let Some(existing_id) = dag.graph.find_edge(from_idx, to_idx) {
-                    if derivative_edge_identity(&dag.graph[existing_id]) != derivative_edge_identity(edge) {
-                        return Err(DagValidationError::ConflictingEdge { from: edge.from, to: edge.to });
+                    if derivative_edge_identity(&dag.graph[existing_id])
+                        != derivative_edge_identity(edge)
+                    {
+                        return Err(DagValidationError::ConflictingEdge {
+                            from: edge.from,
+                            to: edge.to,
+                        });
                     }
                 } else {
                     dag.graph.add_edge(from_idx, to_idx, edge.clone());
@@ -141,13 +146,23 @@ impl MultiTargetDag {
         if self.graph.node_count() == 0 {
             return Ok(());
         }
-        let source_idx = *self.nodes.get(&source).ok_or(DagValidationError::MissingSource { source })?;
-        if self.graph.edges_directed(source_idx, Incoming).next().is_some() {
+        let source_idx = *self
+            .nodes
+            .get(&source)
+            .ok_or(DagValidationError::MissingSource { source })?;
+        if self
+            .graph
+            .edges_directed(source_idx, Incoming)
+            .next()
+            .is_some()
+        {
             return Err(DagValidationError::SourceHasProducer { source });
         }
         for node in self.graph.node_indices() {
             if self.graph.edges_directed(node, Incoming).count() > 1 {
-                return Err(DagValidationError::MultipleProducers { format: self.graph[node] });
+                return Err(DagValidationError::MultipleProducers {
+                    format: self.graph[node],
+                });
             }
         }
         let mut reachable = std::collections::HashSet::new();
@@ -157,7 +172,9 @@ impl MultiTargetDag {
         }
         for node in self.graph.node_indices() {
             if !reachable.contains(&node) {
-                return Err(DagValidationError::Disconnected { format: self.graph[node] });
+                return Err(DagValidationError::Disconnected {
+                    format: self.graph[node],
+                });
             }
         }
         Ok(())
@@ -165,7 +182,10 @@ impl MultiTargetDag {
 
     /// Typed execution ordering for callers that must reject malformed DAGs.
     /// The compatibility `execution_order` API remains unchanged.
-    pub fn try_execution_order(&self, source: Format) -> Result<Vec<&TransformEdge>, DagValidationError> {
+    pub fn try_execution_order(
+        &self,
+        source: Format,
+    ) -> Result<Vec<&TransformEdge>, DagValidationError> {
         self.validate(source)?;
         Ok(self.execution_order())
     }
@@ -913,28 +933,61 @@ mod selected_path_tests {
 
     #[test]
     fn parallel_provider_substitution_is_rejected_even_if_cheaper() {
-        let a = TransformPath::from_steps(vec![edge(Format::Markdown, Format::Pdf).with_provider("a", "pdf")]);
-        let b = TransformPath::from_steps(vec![TransformEdge::new(Format::Markdown, Format::Pdf, 0.1, 1.0).with_provider("b", "pdf")]);
-        assert!(matches!(MultiTargetDag::from_selected_paths(Format::Markdown, &[a, b]), Err(DagValidationError::ConflictingEdge { .. })));
+        let a = TransformPath::from_steps(vec![
+            edge(Format::Markdown, Format::Pdf).with_provider("a", "pdf")
+        ]);
+        let b = TransformPath::from_steps(vec![TransformEdge::new(
+            Format::Markdown,
+            Format::Pdf,
+            0.1,
+            1.0,
+        )
+        .with_provider("b", "pdf")]);
+        assert!(matches!(
+            MultiTargetDag::from_selected_paths(Format::Markdown, &[a, b]),
+            Err(DagValidationError::ConflictingEdge { .. })
+        ));
     }
 
     #[test]
     fn independent_routes_cannot_overwrite_the_same_format() {
         let direct = TransformPath::from_steps(vec![edge(Format::Markdown, Format::Pdf)]);
-        let indirect = TransformPath::from_steps(vec![edge(Format::Markdown, Format::Html), edge(Format::Html, Format::Pdf)]);
-        assert!(matches!(MultiTargetDag::from_selected_paths(Format::Markdown, &[direct, indirect]), Err(DagValidationError::MultipleProducers { format: Format::Pdf })));
+        let indirect = TransformPath::from_steps(vec![
+            edge(Format::Markdown, Format::Html),
+            edge(Format::Html, Format::Pdf),
+        ]);
+        assert!(matches!(
+            MultiTargetDag::from_selected_paths(Format::Markdown, &[direct, indirect]),
+            Err(DagValidationError::MultipleProducers {
+                format: Format::Pdf
+            })
+        ));
     }
 
     #[test]
     fn repeating_source_or_intermediate_is_rejected() {
-        let cycle = TransformPath::from_steps(vec![edge(Format::Markdown, Format::Html), edge(Format::Html, Format::Markdown)]);
-        assert!(matches!(MultiTargetDag::from_selected_path(Format::Markdown, &cycle), Err(DagValidationError::RepeatedFormat { format: Format::Markdown })));
+        let cycle = TransformPath::from_steps(vec![
+            edge(Format::Markdown, Format::Html),
+            edge(Format::Html, Format::Markdown),
+        ]);
+        assert!(matches!(
+            MultiTargetDag::from_selected_path(Format::Markdown, &cycle),
+            Err(DagValidationError::RepeatedFormat {
+                format: Format::Markdown
+            })
+        ));
     }
 
     #[test]
     fn disjoint_selected_steps_are_rejected() {
-        let path = TransformPath::from_steps(vec![edge(Format::Markdown, Format::Html), edge(Format::Rst, Format::Pdf)]);
-        assert!(matches!(MultiTargetDag::from_selected_path(Format::Markdown, &path), Err(DagValidationError::DisconnectedPath { .. })));
+        let path = TransformPath::from_steps(vec![
+            edge(Format::Markdown, Format::Html),
+            edge(Format::Rst, Format::Pdf),
+        ]);
+        assert!(matches!(
+            MultiTargetDag::from_selected_path(Format::Markdown, &path),
+            Err(DagValidationError::DisconnectedPath { .. })
+        ));
     }
 
     #[test]
@@ -942,7 +995,10 @@ mod selected_path_tests {
         let mut dag = MultiTargetDag::new();
         dag.merge_edge(edge(Format::Markdown, Format::Html));
         dag.merge_edge(edge(Format::Html, Format::Markdown));
-        assert!(matches!(dag.try_execution_order(Format::Markdown), Err(DagValidationError::Cycle { .. })));
+        assert!(matches!(
+            dag.try_execution_order(Format::Markdown),
+            Err(DagValidationError::Cycle { .. })
+        ));
     }
 
     #[test]
@@ -950,13 +1006,23 @@ mod selected_path_tests {
         let mut dag = MultiTargetDag::new();
         dag.merge_edge(edge(Format::Markdown, Format::Html));
         dag.merge_edge(edge(Format::Rst, Format::Pdf));
-        assert!(matches!(dag.validate(Format::Markdown), Err(DagValidationError::Disconnected { .. })));
+        assert!(matches!(
+            dag.validate(Format::Markdown),
+            Err(DagValidationError::Disconnected { .. })
+        ));
     }
 
     #[test]
     fn explicit_source_branch_is_a_valid_zero_hop_dag() {
-        let dag = MultiTargetDag::from_selected_path(Format::Markdown, &TransformPath::from_steps(Vec::new())).unwrap();
+        let dag = MultiTargetDag::from_selected_path(
+            Format::Markdown,
+            &TransformPath::from_steps(Vec::new()),
+        )
+        .unwrap();
         assert_eq!(dag.node_count(), 1);
-        assert!(dag.try_execution_order(Format::Markdown).unwrap().is_empty());
+        assert!(dag
+            .try_execution_order(Format::Markdown)
+            .unwrap()
+            .is_empty());
     }
 }

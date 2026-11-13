@@ -167,8 +167,14 @@ impl AiRequest {
         self
     }
 
-    pub fn with_transport_controls(mut self, maximum: usize, cancellation: crate::process::ProcessCancellationToken) -> Self {
-        self.max_response_bytes=Some(maximum);self.cancellation=Some(cancellation);self
+    pub fn with_transport_controls(
+        mut self,
+        maximum: usize,
+        cancellation: crate::process::ProcessCancellationToken,
+    ) -> Self {
+        self.max_response_bytes = Some(maximum);
+        self.cancellation = Some(cancellation);
+        self
     }
 }
 

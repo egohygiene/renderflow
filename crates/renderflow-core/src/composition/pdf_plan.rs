@@ -79,12 +79,18 @@ pub struct PdfPlan {
 pub fn plan(snapshot: &LoadedComposition, settings: &PdfSettings) -> Result<PdfPlan> {
     let settings = canonical_settings(settings)?;
     let geometry = geometry(&snapshot.manifest.page, settings.binding_side)?;
-    let raster = raster::plan(snapshot, &RasterSettings {
-        dpi: settings.dpi,
-        background: settings.background.clone(),
-    })?;
+    let raster = raster::plan(
+        snapshot,
+        &RasterSettings {
+            dpi: settings.dpi,
+            background: settings.background.clone(),
+        },
+    )?;
     let image_draw_matrix = draw_matrix(
-        raster.width_px, raster.height_px, settings.dpi, geometry.media[3],
+        raster.width_px,
+        raster.height_px,
+        settings.dpi,
+        geometry.media[3],
     )?;
     let planned = PdfPlan {
         schema: PDF_SCHEMA_V1.to_owned(),
@@ -106,33 +112,54 @@ pub fn plan(snapshot: &LoadedComposition, settings: &PdfSettings) -> Result<PdfP
 /// Check the serialized contract before fresh or cached output admission.
 /// Rendering also replans against the exact captured source before drawing.
 pub(crate) fn validate_plan(planned: &PdfPlan) -> Result<()> {
-    ensure!(planned.schema == PDF_SCHEMA_V1
-        && planned.provider_profile == PDF_PROVIDER_PROFILE
-        && !planned.runtime_qualified,
-        "composition.pdf.plan_mismatch: current unqualified PDF provider evidence is required");
-    ensure!(canonical_settings(&planned.settings)? == planned.settings,
-        "composition.pdf.plan_mismatch: PDF settings must be canonical");
+    ensure!(
+        planned.schema == PDF_SCHEMA_V1
+            && planned.provider_profile == PDF_PROVIDER_PROFILE
+            && !planned.runtime_qualified,
+        "composition.pdf.plan_mismatch: current unqualified PDF provider evidence is required"
+    );
+    ensure!(
+        canonical_settings(&planned.settings)? == planned.settings,
+        "composition.pdf.plan_mismatch: PDF settings must be canonical"
+    );
     let raster = &planned.raster;
-    ensure!(raster.schema == raster::RASTER_SCHEMA_V1
-        && raster.provider_profile == raster::RASTER_PROVIDER_PROFILE
-        && raster.settings.dpi == planned.settings.dpi
-        && raster.settings.background == planned.settings.background
-        && raster.pixel_format == "rgba8" && raster.alpha == "straight"
-        && raster.color_policy == COLOR_POLICY && !raster.runtime_qualified,
-        "composition.pdf.plan_mismatch: PDF raster evidence differs from its settings or provider");
-    ensure!(raster.width_px > 0 && raster.height_px > 0
-        && raster.width_px <= 8192 && raster.height_px <= 8192
-        && u64::from(raster.width_px) * u64::from(raster.height_px) <= 16_777_216,
-        "composition.pdf.pixel_bounds: PDF sampling exceeds the bounded raster canvas");
+    ensure!(
+        raster.schema == raster::RASTER_SCHEMA_V1
+            && raster.provider_profile == raster::RASTER_PROVIDER_PROFILE
+            && raster.settings.dpi == planned.settings.dpi
+            && raster.settings.background == planned.settings.background
+            && raster.pixel_format == "rgba8"
+            && raster.alpha == "straight"
+            && raster.color_policy == COLOR_POLICY
+            && !raster.runtime_qualified,
+        "composition.pdf.plan_mismatch: PDF raster evidence differs from its settings or provider"
+    );
+    ensure!(
+        raster.width_px > 0
+            && raster.height_px > 0
+            && raster.width_px <= 8192
+            && raster.height_px <= 8192
+            && u64::from(raster.width_px) * u64::from(raster.height_px) <= 16_777_216,
+        "composition.pdf.pixel_bounds: PDF sampling exceeds the bounded raster canvas"
+    );
     validate_geometry(
-        planned.media_box_pt, planned.trim_box_pt, planned.bleed_box_pt,
-        planned.safe_box_pt, planned.gutter_pt, planned.settings.binding_side,
+        planned.media_box_pt,
+        planned.trim_box_pt,
+        planned.bleed_box_pt,
+        planned.safe_box_pt,
+        planned.gutter_pt,
+        planned.settings.binding_side,
     )?;
     let expected = draw_matrix(
-        raster.width_px, raster.height_px, planned.settings.dpi, planned.media_box_pt[3],
+        raster.width_px,
+        raster.height_px,
+        planned.settings.dpi,
+        planned.media_box_pt[3],
     )?;
-    ensure!(planned.image_draw_matrix == expected,
-        "composition.pdf.plan_mismatch: PDF image placement differs from the uniform DPI contract");
+    ensure!(
+        planned.image_draw_matrix == expected,
+        "composition.pdf.plan_mismatch: PDF image placement differs from the uniform DPI contract"
+    );
     let epsilon = geometry_epsilon(planned.media_box_pt);
     let pixel_pt = 72.0 / f64::from(planned.settings.dpi);
     for (extent, media_extent) in [
@@ -146,16 +173,23 @@ pub(crate) fn validate_plan(planned: &PdfPlan) -> Result<()> {
 }
 
 fn canonical_settings(settings: &PdfSettings) -> Result<PdfSettings> {
-    ensure!((36..=600).contains(&settings.dpi),
-        "composition.pdf.dpi: DPI must be an integer from 36 through 600");
+    ensure!(
+        (36..=600).contains(&settings.dpi),
+        "composition.pdf.dpi: DPI must be an integer from 36 through 600"
+    );
     let background = &settings.background;
-    ensure!(background.len() == 7 && background.starts_with('#')
-        && background.as_bytes()[1..].iter().all(u8::is_ascii_hexdigit),
-        "composition.pdf.background: PDF requires an opaque #RRGGBB background");
+    ensure!(
+        background.len() == 7
+            && background.starts_with('#')
+            && background.as_bytes()[1..].iter().all(u8::is_ascii_hexdigit),
+        "composition.pdf.background: PDF requires an opaque #RRGGBB background"
+    );
     ensure!(settings.color_policy == COLOR_POLICY,
         "composition.pdf.color_policy: only assumed_srgb_no_profile_conversion is supported; ICC conversion and output intents are unavailable");
-    ensure!(settings.conformance == "none",
-        "composition.pdf.conformance: PDF/X, PDF/A, and other conformance claims are unavailable");
+    ensure!(
+        settings.conformance == "none",
+        "composition.pdf.conformance: PDF/X, PDF/A, and other conformance claims are unavailable"
+    );
     let mut result = settings.clone();
     result.background = background.to_ascii_lowercase();
     Ok(result)
@@ -170,12 +204,19 @@ struct Geometry {
 }
 
 fn geometry(page: &PageGeometry, binding_side: BindingSide) -> Result<Geometry> {
-    ensure!(page.width_mm.is_finite() && page.height_mm.is_finite()
-        && page.width_mm > 0.0 && page.height_mm > 0.0
-        && page.width_mm <= 5000.0 && page.height_mm <= 5000.0,
-        "composition.pdf.geometry: page dimensions must be finite, positive, and at most 5000 mm");
-    ensure!(page.gutter_mm.is_finite() && page.gutter_mm >= 0.0,
-        "composition.pdf.gutter: gutter must be finite and nonnegative");
+    ensure!(
+        page.width_mm.is_finite()
+            && page.height_mm.is_finite()
+            && page.width_mm > 0.0
+            && page.height_mm > 0.0
+            && page.width_mm <= 5000.0
+            && page.height_mm <= 5000.0,
+        "composition.pdf.geometry: page dimensions must be finite, positive, and at most 5000 mm"
+    );
+    ensure!(
+        page.gutter_mm.is_finite() && page.gutter_mm >= 0.0,
+        "composition.pdf.gutter: gutter must be finite and nonnegative"
+    );
     ensure!(page.gutter_mm == 0.0 || binding_side != BindingSide::None,
         "composition.pdf.binding_side: a nonzero gutter requires an explicit left or right binding side");
     // Match normalized source containment tolerance; no inferred margin is added.
@@ -196,9 +237,18 @@ fn geometry(page: &PageGeometry, binding_side: BindingSide) -> Result<Geometry> 
         safe: pdf_box(page.safe, width, height)?,
         gutter: pdf_number(page.gutter_mm * POINTS_PER_MM)?,
     };
-    ensure!(page.gutter_mm == 0.0 || result.gutter > 0.0,
-        "composition.pdf.geometry_precision: nonzero gutter collapses at PDF numeric precision");
-    validate_geometry(result.media, result.trim, result.bleed, result.safe, result.gutter, binding_side)?;
+    ensure!(
+        page.gutter_mm == 0.0 || result.gutter > 0.0,
+        "composition.pdf.geometry_precision: nonzero gutter collapses at PDF numeric precision"
+    );
+    validate_geometry(
+        result.media,
+        result.trim,
+        result.bleed,
+        result.safe,
+        result.gutter,
+        binding_side,
+    )?;
     Ok(result)
 }
 
@@ -217,7 +267,11 @@ fn pdf_number(value: f64) -> Result<f64> {
     let rounded = value as f32;
     ensure!(value.is_finite() && rounded.is_finite(),
         "composition.pdf.geometry_precision: coordinates must remain finite at PDF numeric precision");
-    Ok(if rounded == 0.0 { 0.0 } else { f64::from(rounded) })
+    Ok(if rounded == 0.0 {
+        0.0
+    } else {
+        f64::from(rounded)
+    })
 }
 
 fn checked_box(rect: [f64; 4]) -> Result<()> {
@@ -228,8 +282,7 @@ fn checked_box(rect: [f64; 4]) -> Result<()> {
 }
 
 fn contains(outer: [f64; 4], inner: [f64; 4]) -> bool {
-    inner[0] >= outer[0] && inner[1] >= outer[1]
-        && inner[2] <= outer[2] && inner[3] <= outer[3]
+    inner[0] >= outer[0] && inner[1] >= outer[1] && inner[2] <= outer[2] && inner[3] <= outer[3]
 }
 
 fn geometry_epsilon(media: [f64; 4]) -> f64 {
@@ -238,21 +291,33 @@ fn geometry_epsilon(media: [f64; 4]) -> f64 {
 }
 
 fn validate_geometry(
-    media: [f64; 4], trim: [f64; 4], bleed: [f64; 4], safe: [f64; 4],
-    gutter: f64, binding_side: BindingSide,
+    media: [f64; 4],
+    trim: [f64; 4],
+    bleed: [f64; 4],
+    safe: [f64; 4],
+    gutter: f64,
+    binding_side: BindingSide,
 ) -> Result<()> {
-    for rect in [media, trim, bleed, safe] { checked_box(rect)?; }
+    for rect in [media, trim, bleed, safe] {
+        checked_box(rect)?;
+    }
     ensure!(media[0] == 0.0 && media[1] == 0.0
         && media[2] <= f64::from((5000.0 * POINTS_PER_MM) as f32)
         && media[3] <= f64::from((5000.0 * POINTS_PER_MM) as f32)
         && contains(media, bleed) && contains(bleed, trim) && contains(trim, safe),
         "composition.pdf.geometry: media must contain bleed, bleed must contain trim, and trim must contain safe at PDF numeric precision");
     let epsilon = geometry_epsilon(media);
-    ensure!(gutter.is_finite() && gutter >= 0.0 && f64::from(gutter as f32) == gutter
-        && gutter <= (trim[2] - trim[0]) / 2.0 + epsilon,
-        "composition.pdf.gutter: gutter must be nonnegative and no wider than half the trim");
-    ensure!(gutter == 0.0 || binding_side != BindingSide::None,
-        "composition.pdf.binding_side: a nonzero gutter requires an explicit binding side");
+    ensure!(
+        gutter.is_finite()
+            && gutter >= 0.0
+            && f64::from(gutter as f32) == gutter
+            && gutter <= (trim[2] - trim[0]) / 2.0 + epsilon,
+        "composition.pdf.gutter: gutter must be nonnegative and no wider than half the trim"
+    );
+    ensure!(
+        gutter == 0.0 || binding_side != BindingSide::None,
+        "composition.pdf.binding_side: a nonzero gutter requires an explicit binding side"
+    );
     let clearance = match binding_side {
         BindingSide::None => 0.0,
         BindingSide::Left => safe[0] - trim[0],
@@ -266,7 +331,14 @@ fn validate_geometry(
 fn draw_matrix(width: u32, height: u32, dpi: u32, media_height: f64) -> Result<[f64; 6]> {
     let image_width = pdf_number(f64::from(width) * 72.0 / f64::from(dpi))?;
     let image_height = pdf_number(f64::from(height) * 72.0 / f64::from(dpi))?;
-    Ok([image_width, 0.0, 0.0, image_height, 0.0, pdf_number(media_height - image_height)?])
+    Ok([
+        image_width,
+        0.0,
+        0.0,
+        image_height,
+        0.0,
+        pdf_number(media_height - image_height)?,
+    ])
 }
 
 #[cfg(test)]
@@ -275,10 +347,26 @@ mod tests {
 
     fn page() -> PageGeometry {
         PageGeometry {
-            width_mm: 254.0, height_mm: 508.0,
-            trim: NormalizedRect { x: 0.1, y: 0.2, width: 0.7, height: 0.6 },
-            bleed: NormalizedRect { x: 0.05, y: 0.1, width: 0.9, height: 0.85 },
-            safe: NormalizedRect { x: 0.2, y: 0.3, width: 0.5, height: 0.4 },
+            width_mm: 254.0,
+            height_mm: 508.0,
+            trim: NormalizedRect {
+                x: 0.1,
+                y: 0.2,
+                width: 0.7,
+                height: 0.6,
+            },
+            bleed: NormalizedRect {
+                x: 0.05,
+                y: 0.1,
+                width: 0.9,
+                height: 0.85,
+            },
+            safe: NormalizedRect {
+                x: 0.2,
+                y: 0.3,
+                width: 0.5,
+                height: 0.4,
+            },
             gutter_mm: 0.0,
         }
     }

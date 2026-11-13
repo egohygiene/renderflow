@@ -106,7 +106,9 @@ fn require_assessment(
 ) -> Result<SpeechTimelineAssessment, SpeechTimelineError> {
     match assessment.status {
         SpeechTimelineStatus::OriginalInputWavSampleClock => Ok(assessment),
-        SpeechTimelineStatus::OriginalMediaMappingRequired => Err(SpeechTimelineError::OriginalMediaMappingRequired),
+        SpeechTimelineStatus::OriginalMediaMappingRequired => {
+            Err(SpeechTimelineError::OriginalMediaMappingRequired)
+        }
     }
 }
 
@@ -158,25 +160,31 @@ fn assess_transcription(transcription: &SpeechTranscription) -> SpeechTimelineAs
 mod tests {
     use super::*;
     use crate::speech::{
-        attach_audio_preparation, audio_preparation_configuration_digest,
-        normalize_whisper_json, AudioPreparationEvidence, AudioPreparationLimits,
-        AudioStream, AudioToolIdentity, SpeechIdentity, SpeechOptions,
-        AUDIO_PREPARATION_PROFILE, AUDIO_TIMESTAMP_ORIGIN, WHISPER_PROVIDER_ID,
+        attach_audio_preparation, audio_preparation_configuration_digest, normalize_whisper_json,
+        AudioPreparationEvidence, AudioPreparationLimits, AudioStream, AudioToolIdentity,
+        SpeechIdentity, SpeechOptions, AUDIO_PREPARATION_PROFILE, AUDIO_TIMESTAMP_ORIGIN,
+        WHISPER_PROVIDER_ID,
     };
 
-    const PROVIDER_JSON: &[u8] = include_bytes!("../../../../tests/fixtures/speech/whisper-segments.json");
+    const PROVIDER_JSON: &[u8] =
+        include_bytes!("../../../../tests/fixtures/speech/whisper-segments.json");
 
     // Decision fixtures only: no source bytes or native results are qualified by
     // these tests. Recovery tests cover construction of the opaque public input.
     fn transcription() -> SpeechTranscription {
-        normalize_whisper_json(PROVIDER_JSON, &SpeechIdentity {
-            provider_id: WHISPER_PROVIDER_ID.to_owned(),
-            provider_version: "synthetic timeline fixture".to_owned(),
-            provider_sha256: "1".repeat(64),
-            model_id: "synthetic".to_owned(),
-            model_sha256: "2".repeat(64),
-            source_sha256: "3".repeat(64),
-        }, &SpeechOptions::default()).unwrap()
+        normalize_whisper_json(
+            PROVIDER_JSON,
+            &SpeechIdentity {
+                provider_id: WHISPER_PROVIDER_ID.to_owned(),
+                provider_version: "synthetic timeline fixture".to_owned(),
+                provider_sha256: "1".repeat(64),
+                model_id: "synthetic".to_owned(),
+                model_sha256: "2".repeat(64),
+                source_sha256: "3".repeat(64),
+            },
+            &SpeechOptions::default(),
+        )
+        .unwrap()
     }
 
     fn prepared(start_time_ms: Option<i64>) -> SpeechTranscription {
@@ -217,7 +225,8 @@ mod tests {
             limits: AudioPreparationLimits::default(),
             limitations: vec!["Synthetic timing fixture; no native decoding.".to_owned()],
         };
-        preparation.configuration_sha256 = audio_preparation_configuration_digest(&preparation).unwrap();
+        preparation.configuration_sha256 =
+            audio_preparation_configuration_digest(&preparation).unwrap();
         attach_audio_preparation(&mut result, &preparation).unwrap();
         result
     }
@@ -226,10 +235,22 @@ mod tests {
     fn strict_wav_identity_is_limited_to_the_original_input_sample_clock() {
         let original = transcription();
         let assessment = assess_transcription(&original);
-        assert_eq!(assessment.status, SpeechTimelineStatus::OriginalInputWavSampleClock);
-        assert_eq!(assessment.timestamp_origin, SpeechTimelineOrigin::InputWavSamplesFromZero);
-        assert_eq!(assessment.original_source_sha256, original.transcript.source.sha256);
-        assert_eq!(assessment.original_source_sha256, assessment.transcript_source_sha256);
+        assert_eq!(
+            assessment.status,
+            SpeechTimelineStatus::OriginalInputWavSampleClock
+        );
+        assert_eq!(
+            assessment.timestamp_origin,
+            SpeechTimelineOrigin::InputWavSamplesFromZero
+        );
+        assert_eq!(
+            assessment.original_source_sha256,
+            original.transcript.source.sha256
+        );
+        assert_eq!(
+            assessment.original_source_sha256,
+            assessment.transcript_source_sha256
+        );
         assert!(assessment.prepared_audio.is_none());
         assert!(require_assessment(assessment).is_ok());
     }
@@ -239,17 +260,29 @@ mod tests {
         for start_time in [None, Some(0), Some(-21), Some(9000)] {
             let original = prepared(start_time);
             let assessment = assess_transcription(&original);
-            assert_eq!(assessment.status, SpeechTimelineStatus::OriginalMediaMappingRequired);
-            assert_eq!(assessment.timestamp_origin, SpeechTimelineOrigin::SelectedStreamDecodedSamplesFromZero);
+            assert_eq!(
+                assessment.status,
+                SpeechTimelineStatus::OriginalMediaMappingRequired
+            );
+            assert_eq!(
+                assessment.timestamp_origin,
+                SpeechTimelineOrigin::SelectedStreamDecodedSamplesFromZero
+            );
             assert_eq!(assessment.original_source_sha256, "4".repeat(64));
             assert_eq!(assessment.transcript_source_sha256, "3".repeat(64));
             let preparation = assessment.prepared_audio.as_ref().unwrap();
-            assert_eq!(preparation.prepared_wav_sha256, assessment.transcript_source_sha256);
+            assert_eq!(
+                preparation.prepared_wav_sha256,
+                assessment.transcript_source_sha256
+            );
             assert_eq!(preparation.prepared_wav_duration_ms, 3000);
             assert_eq!(preparation.selected_stream_index, 2);
             assert_eq!(preparation.recorded_stream_start_time_ms, start_time);
             let error = require_assessment(assessment).unwrap_err();
-            assert_eq!(error.code(), "speech.timeline.original_media_mapping_required");
+            assert_eq!(
+                error.code(),
+                "speech.timeline.original_media_mapping_required"
+            );
         }
     }
 
@@ -259,7 +292,10 @@ mod tests {
         let before = original.clone();
         let assessment = assess_transcription(&original);
         assert_eq!(original, before);
-        assert_eq!(assessment.provider_output_sha256, original.evidence.provider_output_sha256);
+        assert_eq!(
+            assessment.provider_output_sha256,
+            original.evidence.provider_output_sha256
+        );
         assert_eq!(assessment.speech_reuse_key, original.evidence.reuse_key);
         assert_eq!(assessment, assess_transcription(&original));
     }
@@ -269,11 +305,16 @@ mod tests {
         let strict = serde_json::to_value(assess_transcription(&transcription())).unwrap();
         assert_eq!(strict["schema_version"], SPEECH_TIMELINE_SCHEMA_V1);
         assert_eq!(strict["status"], "original_input_wav_sample_clock");
-        assert_eq!(strict["verification_scope"], "retained_bundle_and_recorded_source_identity");
+        assert_eq!(
+            strict["verification_scope"],
+            "retained_bundle_and_recorded_source_identity"
+        );
         assert!(strict.get("prepared_audio").is_none());
         let prepared = serde_json::to_value(assess_transcription(&prepared(None))).unwrap();
         assert_eq!(prepared["status"], "original_media_mapping_required");
-        assert!(prepared["prepared_audio"].get("recorded_stream_start_time_ms").is_none());
+        assert!(prepared["prepared_audio"]
+            .get("recorded_stream_start_time_ms")
+            .is_none());
         assert!(prepared.get("offset_ms").is_none());
         assert!(prepared.get("confidence").is_none());
     }

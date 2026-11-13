@@ -73,8 +73,15 @@ mod forest_tests {
                 .with_variant("variant.print")
                 .with_evidence("transform_id", "html-print-pdf"),
         );
-        let dag = graph.build_multi_target_dag(Format::Html, &[Format::Pdf]).unwrap();
-        let mut plan = ExecutionPlan::from_dag(&dag, Format::Html, &[Format::Pdf], OptimizationMode::Quality);
+        let dag = graph
+            .build_multi_target_dag(Format::Html, &[Format::Pdf])
+            .unwrap();
+        let mut plan = ExecutionPlan::from_dag(
+            &dag,
+            Format::Html,
+            &[Format::Pdf],
+            OptimizationMode::Quality,
+        );
         let forest: ArtifactForest = serde_json::from_value(serde_json::json!({
             "schema": "renderflow/artifact-forest-v1", "identity": "forest:sample",
             "policy": {"exclude_source": true}, "profiles": [], "intermediates": "cache_only",
@@ -94,7 +101,8 @@ mod forest_tests {
                 "target_id": "target:unsupported", "format": "epub", "requirement": "optional",
                 "state": "unsupported", "reason_code": "no_route", "reason": "No eligible route."
             }]
-        })).unwrap();
+        }))
+        .unwrap();
         plan.attach_artifact_forest(forest);
         plan
     }
@@ -103,12 +111,28 @@ mod forest_tests {
     fn text_and_markdown_expose_exact_routes_and_unmaterialized_targets() {
         let plan = forest_plan();
         for rendered in [TextRenderer.render(&plan), MarkdownRenderer.render(&plan)] {
-            for expected in ["renderflow/artifact-forest-v1", "forest:sample", "target:print",
-                "press-ready", "tool.print", "document.pdf", "variant.print", "html-print-pdf",
-                "0.900000", "0.100000", "quality_then_hops_then_cost", "provider_unavailable",
-                "target:unsupported", "unsupported", "No eligible route.", "projection"]
-            {
-                assert!(rendered.contains(expected), "missing {expected}: {rendered}");
+            for expected in [
+                "renderflow/artifact-forest-v1",
+                "forest:sample",
+                "target:print",
+                "press-ready",
+                "tool.print",
+                "document.pdf",
+                "variant.print",
+                "html-print-pdf",
+                "0.900000",
+                "0.100000",
+                "quality_then_hops_then_cost",
+                "provider_unavailable",
+                "target:unsupported",
+                "unsupported",
+                "No eligible route.",
+                "projection",
+            ] {
+                assert!(
+                    rendered.contains(expected),
+                    "missing {expected}: {rendered}"
+                );
             }
         }
     }

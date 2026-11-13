@@ -254,7 +254,12 @@ tasks:
   format:
     desc: Format source code with rustfmt
     cmds:
-      - cargo fmt
+      - cargo +1.94.0 fmt --all
+
+  format:check:
+    desc: Check source formatting with the canonical formatter
+    cmds:
+      - cargo +1.94.0 fmt --all -- --check
 
   # Lint source code with Clippy
   lint:

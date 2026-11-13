@@ -7,7 +7,10 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::io::{BufReader, Cursor};
-use std::sync::{atomic::{AtomicBool, Ordering}, Arc};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
 
 use anyhow::{bail, ensure, Context, Result};
 use base64::{engine::general_purpose::STANDARD, Engine};
@@ -39,7 +42,12 @@ pub struct RasterSettings {
 }
 
 impl Default for RasterSettings {
-    fn default() -> Self { Self { dpi: 144, background: "transparent".to_owned() } }
+    fn default() -> Self {
+        Self {
+            dpi: 144,
+            background: "transparent".to_owned(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -60,7 +68,10 @@ pub struct RasterPlan {
 /// Full compressed-image decoding occurs before actual publication, and again
 /// when admitting a cached output. This function never opens a file or tool.
 pub fn plan(snapshot: &LoadedComposition, settings: &RasterSettings) -> Result<RasterPlan> {
-    ensure!((36..=600).contains(&settings.dpi), "composition.raster.dpi: DPI must be an integer from 36 through 600");
+    ensure!(
+        (36..=600).contains(&settings.dpi),
+        "composition.raster.dpi: DPI must be an integer from 36 through 600"
+    );
     let background = normalize_background(&settings.background)?;
     let width = (snapshot.manifest.page.width_mm * f64::from(settings.dpi) / 25.4).ceil();
     let height = (snapshot.manifest.page.height_mm * f64::from(settings.dpi) / 25.4).ceil();
@@ -71,29 +82,47 @@ pub fn plan(snapshot: &LoadedComposition, settings: &RasterSettings) -> Result<R
     checked_dimensions(width_px, height_px)?;
     inspect_assets(snapshot)?;
     Ok(RasterPlan {
-        schema: RASTER_SCHEMA_V1.to_owned(), provider_profile: RASTER_PROVIDER_PROFILE.to_owned(),
-        settings: RasterSettings { dpi: settings.dpi, background }, width_px, height_px,
-        pixel_format: "rgba8".to_owned(), alpha: "straight".to_owned(),
-        color_policy: "assumed_srgb_no_profile_conversion".to_owned(), runtime_qualified: false,
+        schema: RASTER_SCHEMA_V1.to_owned(),
+        provider_profile: RASTER_PROVIDER_PROFILE.to_owned(),
+        settings: RasterSettings {
+            dpi: settings.dpi,
+            background,
+        },
+        width_px,
+        height_px,
+        pixel_format: "rgba8".to_owned(),
+        alpha: "straight".to_owned(),
+        color_policy: "assumed_srgb_no_profile_conversion".to_owned(),
+        runtime_qualified: false,
     })
 }
 
 /// Draw the SVG generated from the same in-process typography report as the
 /// vector target. This interface is crate-private: arbitrary serialized plans
 /// and arbitrary SVG are not a public rendering input format.
-pub(crate) fn render_png(snapshot: &LoadedComposition, svg: &[u8], planned: &RasterPlan) -> Result<Vec<u8>> {
+pub(crate) fn render_png(
+    snapshot: &LoadedComposition,
+    svg: &[u8],
+    planned: &RasterPlan,
+) -> Result<Vec<u8>> {
     ensure!(plan(snapshot, &planned.settings)? == *planned,
         "composition.raster.plan_mismatch: raster evidence does not match the current captured composition and provider");
     let assets = inspect_assets(snapshot)?;
     let mut allowed = BTreeSet::new();
     for (id, metadata) in &assets {
-        let asset = snapshot.assets.get(id).context("composition.raster.asset_missing: captured asset is absent")?;
+        let asset = snapshot
+            .assets
+            .get(id)
+            .context("composition.raster.asset_missing: captured asset is absent")?;
         match metadata.format {
             AssetFormat::Png => decode_png(&asset.bytes, metadata.width_px, metadata.height_px)?,
             AssetFormat::Jpeg => decode_jpeg(&asset.bytes, metadata.width_px, metadata.height_px)?,
-            AssetFormat::Svg => {},
+            AssetFormat::Svg => {}
         }
-        allowed.insert((metadata.format.media_type().to_owned(), metadata.sha256.clone()));
+        allowed.insert((
+            metadata.format.media_type().to_owned(),
+            metadata.sha256.clone(),
+        ));
     }
     inspect_generated_svg(svg, &allowed)?;
     let allowed = Arc::new(allowed);
@@ -108,17 +137,25 @@ pub(crate) fn render_png(snapshot: &LoadedComposition, svg: &[u8], planned: &Ras
     options.resources_dir = None;
     options.image_href_resolver = usvg::ImageHrefResolver {
         resolve_data: Box::new(move |mime, bytes, options| {
-            let key = (mime.to_owned(), format!("{:x}", Sha256::digest(bytes.as_slice())));
+            let key = (
+                mime.to_owned(),
+                format!("{:x}", Sha256::digest(bytes.as_slice())),
+            );
             let image = if allowed.contains(&key) {
                 match mime {
                     "image/png" => Some(usvg::ImageKind::PNG(bytes)),
                     "image/jpeg" => Some(usvg::ImageKind::JPEG(bytes)),
                     "image/svg+xml" => usvg::Tree::from_data_nested(bytes.as_slice(), options)
-                        .ok().map(usvg::ImageKind::SVG),
+                        .ok()
+                        .map(usvg::ImageKind::SVG),
                     _ => None,
                 }
-            } else { None };
-            if image.is_none() { failed_data.store(true, Ordering::Relaxed); }
+            } else {
+                None
+            };
+            if image.is_none() {
+                failed_data.store(true, Ordering::Relaxed);
+            }
             image
         }),
         resolve_string: Box::new(move |_, _| {
@@ -132,17 +169,29 @@ pub(crate) fn render_png(snapshot: &LoadedComposition, svg: &[u8], planned: &Ras
         "composition.raster.resource_unavailable: a resource was not captured, had an unsupported MIME type, or failed nested SVG parsing");
     let expected_width = (snapshot.manifest.page.width_mm * 72.0 / 25.4) as f32;
     let expected_height = (snapshot.manifest.page.height_mm * 72.0 / 25.4) as f32;
-    ensure!((tree.size().width() - expected_width).abs() <= expected_width.abs() * 1e-5 + 0.001
-        && (tree.size().height() - expected_height).abs() <= expected_height.abs() * 1e-5 + 0.001,
-        "composition.raster.svg_dimensions: SVG viewport differs from the captured page geometry");
-    super::raster_tree::validate_tree(&tree, planned.settings.dpi, planned.width_px, planned.height_px)?;
+    ensure!(
+        (tree.size().width() - expected_width).abs() <= expected_width.abs() * 1e-5 + 0.001
+            && (tree.size().height() - expected_height).abs()
+                <= expected_height.abs() * 1e-5 + 0.001,
+        "composition.raster.svg_dimensions: SVG viewport differs from the captured page geometry"
+    );
+    super::raster_tree::validate_tree(
+        &tree,
+        planned.settings.dpi,
+        planned.width_px,
+        planned.height_px,
+    )?;
     let mut pixmap = tiny_skia::Pixmap::new(planned.width_px, planned.height_px)
         .context("composition.raster.allocation: bounded output surface could not be allocated")?;
     if let Some([red, green, blue]) = background_rgb(&planned.settings.background)? {
         pixmap.fill(tiny_skia::Color::from_rgba8(red, green, blue, 255));
     }
     let scale = planned.settings.dpi as f32 / 72.0;
-    resvg::render(&tree, tiny_skia::Transform::from_scale(scale, scale), &mut pixmap.as_mut());
+    resvg::render(
+        &tree,
+        tiny_skia::Transform::from_scale(scale, scale),
+        &mut pixmap.as_mut(),
+    );
     let pixels = pixmap.take_demultiplied();
     let output = encode_png(&pixels, planned)?;
     drop(pixels);
@@ -160,7 +209,10 @@ pub(crate) fn validate_output(bytes: &[u8], planned: &RasterPlan) -> Result<()> 
         && (36..=600).contains(&planned.settings.dpi)
         && normalize_background(&planned.settings.background)? == planned.settings.background,
         "composition.raster.plan_mismatch: output validation requires a canonical current-provider raster plan");
-    ensure!(bytes.len() <= MAX_OUTPUT_BYTES, "composition.raster.output_bounds: encoded PNG exceeds 64 MiB");
+    ensure!(
+        bytes.len() <= MAX_OUTPUT_BYTES,
+        "composition.raster.output_bounds: encoded PNG exceeds 64 MiB"
+    );
     checked_dimensions(planned.width_px, planned.height_px)?;
     let metadata = inspect_png(bytes)?;
     ensure!(metadata.width == planned.width_px && metadata.height == planned.height_px
@@ -173,8 +225,10 @@ pub(crate) fn validate_output(bytes: &[u8], planned: &RasterPlan) -> Result<()> 
 }
 
 fn encode_png(pixels: &[u8], planned: &RasterPlan) -> Result<Vec<u8>> {
-    ensure!(pixels.len() as u64 == u64::from(planned.width_px) * u64::from(planned.height_px) * 4,
-        "composition.raster.output_format: output pixel buffer has an unexpected size");
+    ensure!(
+        pixels.len() as u64 == u64::from(planned.width_px) * u64::from(planned.height_px) * 4,
+        "composition.raster.output_format: output pixel buffer has an unexpected size"
+    );
     let mut output = Vec::new();
     {
         let mut encoder = png::Encoder::new(&mut output, planned.width_px, planned.height_px);
@@ -184,19 +238,36 @@ fn encode_png(pixels: &[u8], planned: &RasterPlan) -> Result<Vec<u8>> {
         encoder.set_filter(png::Filter::Sub);
         encoder.set_source_srgb(png::SrgbRenderingIntent::Perceptual);
         let ppm = pixels_per_metre(planned.settings.dpi);
-        encoder.set_pixel_dims(Some(png::PixelDimensions { xppu: ppm, yppu: ppm, unit: png::Unit::Meter }));
-        let mut writer = encoder.write_header().context("composition.raster.png_encode: cannot encode PNG header")?;
-        writer.write_image_data(pixels).context("composition.raster.png_encode: cannot encode PNG pixels")?;
-        writer.finish().context("composition.raster.png_encode: cannot finalize PNG")?;
+        encoder.set_pixel_dims(Some(png::PixelDimensions {
+            xppu: ppm,
+            yppu: ppm,
+            unit: png::Unit::Meter,
+        }));
+        let mut writer = encoder
+            .write_header()
+            .context("composition.raster.png_encode: cannot encode PNG header")?;
+        writer
+            .write_image_data(pixels)
+            .context("composition.raster.png_encode: cannot encode PNG pixels")?;
+        writer
+            .finish()
+            .context("composition.raster.png_encode: cannot finalize PNG")?;
     }
-    ensure!(output.len() <= MAX_OUTPUT_BYTES, "composition.raster.output_bounds: encoded PNG exceeds 64 MiB");
+    ensure!(
+        output.len() <= MAX_OUTPUT_BYTES,
+        "composition.raster.output_bounds: encoded PNG exceeds 64 MiB"
+    );
     Ok(output)
 }
 
-fn pixels_per_metre(dpi: u32) -> u32 { (dpi * 10_000 + 127) / 254 }
+fn pixels_per_metre(dpi: u32) -> u32 {
+    (dpi * 10_000 + 127) / 254
+}
 
 fn normalize_background(background: &str) -> Result<String> {
-    if background == "transparent" { return Ok(background.to_owned()); }
+    if background == "transparent" {
+        return Ok(background.to_owned());
+    }
     ensure!(background.len() == 7 && background.starts_with('#') && background.as_bytes()[1..].iter().all(u8::is_ascii_hexdigit),
         "composition.raster.background: background must be transparent or an opaque #RRGGBB hex color");
     Ok(background.to_ascii_lowercase())
@@ -204,7 +275,9 @@ fn normalize_background(background: &str) -> Result<String> {
 
 fn background_rgb(background: &str) -> Result<Option<[u8; 3]>> {
     let normalized = normalize_background(background)?;
-    if normalized == "transparent" { return Ok(None); }
+    if normalized == "transparent" {
+        return Ok(None);
+    }
     Ok(Some([
         u8::from_str_radix(&normalized[1..3], 16)?,
         u8::from_str_radix(&normalized[3..5], 16)?,
@@ -236,18 +309,29 @@ fn inspect_assets(snapshot: &LoadedComposition) -> Result<BTreeMap<String, Asset
             _ => continue,
         };
         if !assets.contains_key(id) {
-            let asset = snapshot.assets.get(id).context("composition.raster.asset_missing: referenced captured asset is unavailable")?;
-            ensure!(asset.bytes.len() <= MAX_ASSET_BYTES, "composition.raster.asset_bounds: a captured raster asset exceeds 16 MiB");
+            let asset = snapshot.assets.get(id).context(
+                "composition.raster.asset_missing: referenced captured asset is unavailable",
+            )?;
+            ensure!(
+                asset.bytes.len() <= MAX_ASSET_BYTES,
+                "composition.raster.asset_bounds: a captured raster asset exceeds 16 MiB"
+            );
             let (width_px, height_px) = match asset.declaration.format {
                 AssetFormat::Png => {
-                    let metadata = inspect_png(&asset.bytes).with_context(|| format!("composition.raster.asset_metadata: PNG asset {id}"))?;
+                    let metadata = inspect_png(&asset.bytes).with_context(|| {
+                        format!("composition.raster.asset_metadata: PNG asset {id}")
+                    })?;
                     (metadata.width, metadata.height)
-                },
-                AssetFormat::Jpeg => inspect_jpeg(&asset.bytes).with_context(|| format!("composition.raster.asset_metadata: JPEG asset {id}"))?,
+                }
+                AssetFormat::Jpeg => inspect_jpeg(&asset.bytes).with_context(|| {
+                    format!("composition.raster.asset_metadata: JPEG asset {id}")
+                })?,
                 AssetFormat::Svg => {
-                    super::raster_svg::inspect(&asset.bytes).with_context(|| format!("composition.raster.asset_metadata: SVG asset {id}"))?;
+                    super::raster_svg::inspect(&asset.bytes).with_context(|| {
+                        format!("composition.raster.asset_metadata: SVG asset {id}")
+                    })?;
                     (0, 0)
-                },
+                }
             };
             if asset.declaration.format != AssetFormat::Svg {
                 // Usvg consults this exact header parser after the resolver
@@ -258,13 +342,21 @@ fn inspect_assets(snapshot: &LoadedComposition) -> Result<BTreeMap<String, Asset
                 ensure!(intrinsic.width == width_px as usize && intrinsic.height == height_px as usize,
                     "composition.raster.asset_dimensions: SVG provider and strict preflight disagree about image dimensions");
             }
-            assets.insert(id.clone(), AssetMetadata {
-                format: asset.declaration.format, sha256: format!("{:x}", Sha256::digest(&asset.bytes)),
-                width_px, height_px,
-            });
+            assets.insert(
+                id.clone(),
+                AssetMetadata {
+                    format: asset.declaration.format,
+                    sha256: format!("{:x}", Sha256::digest(&asset.bytes)),
+                    width_px,
+                    height_px,
+                },
+            );
         }
-        let metadata = assets.get(id).context("composition.raster.asset_missing: inspected asset is unavailable")?;
-        image_instance_pixels = image_instance_pixels.saturating_add(u64::from(metadata.width_px) * u64::from(metadata.height_px));
+        let metadata = assets
+            .get(id)
+            .context("composition.raster.asset_missing: inspected asset is unavailable")?;
+        image_instance_pixels = image_instance_pixels
+            .saturating_add(u64::from(metadata.width_px) * u64::from(metadata.height_px));
         ensure!(image_instance_pixels <= MAX_IMAGE_INSTANCE_PIXELS,
             "composition.raster.asset_work_bounds: raster image instances exceed 33554432 decoded pixels; repeated uses count separately");
     }
@@ -272,14 +364,30 @@ fn inspect_assets(snapshot: &LoadedComposition) -> Result<BTreeMap<String, Asset
 }
 
 fn inspect_generated_svg(svg: &[u8], allowed: &BTreeSet<(String, String)>) -> Result<()> {
-    ensure!(svg.len() <= MAX_OUTPUT_BYTES, "composition.raster.svg_bounds: generated SVG exceeds 64 MiB");
-    let text = std::str::from_utf8(svg).context("composition.raster.svg_parse: generated SVG must be UTF-8")?;
-    ensure!(!text.contains("<!DOCTYPE") && !text.contains("<!ENTITY"), "composition.raster.svg_scope: DTDs and entities are not admitted");
-    let document = roxmltree::Document::parse(text).context("composition.raster.svg_parse: invalid generated SVG XML")?;
-    ensure!(document.descendants().count() <= MAX_SVG_NODES, "composition.raster.svg_bounds: generated SVG has too many XML nodes");
+    ensure!(
+        svg.len() <= MAX_OUTPUT_BYTES,
+        "composition.raster.svg_bounds: generated SVG exceeds 64 MiB"
+    );
+    let text = std::str::from_utf8(svg)
+        .context("composition.raster.svg_parse: generated SVG must be UTF-8")?;
+    ensure!(
+        !text.contains("<!DOCTYPE") && !text.contains("<!ENTITY"),
+        "composition.raster.svg_scope: DTDs and entities are not admitted"
+    );
+    let document = roxmltree::Document::parse(text)
+        .context("composition.raster.svg_parse: invalid generated SVG XML")?;
+    ensure!(
+        document.descendants().count() <= MAX_SVG_NODES,
+        "composition.raster.svg_bounds: generated SVG has too many XML nodes"
+    );
     for node in document.descendants() {
-        ensure!(!node.is_pi(), "composition.raster.svg_scope: processing instructions are not admitted");
-        if !node.is_element() { continue; }
+        ensure!(
+            !node.is_pi(),
+            "composition.raster.svg_scope: processing instructions are not admitted"
+        );
+        if !node.is_element() {
+            continue;
+        }
         ensure!(node.tag_name().namespace() == Some("http://www.w3.org/2000/svg")
             && matches!(node.tag_name().name(), "svg" | "title" | "desc" | "metadata" | "g" | "defs" | "clipPath" | "rect" | "ellipse" | "image" | "path"),
             "composition.raster.svg_scope: only generated graphical elements are admitted; text must already be glyph outlines");
@@ -291,20 +399,30 @@ fn inspect_generated_svg(svg: &[u8], allowed: &BTreeSet<(String, String)>) -> Re
                 ensure!(size.is_finite() && size > 0.0,
                     "composition.raster.svg_geometry: image dimensions disappear or overflow in the raster provider's floating-point geometry");
             }
-            ensure!(node.attributes().any(|attribute| attribute.name() == "href"),
-                "composition.raster.resource_unavailable: generated image has no captured href");
+            ensure!(
+                node.attributes()
+                    .any(|attribute| attribute.name() == "href"),
+                "composition.raster.resource_unavailable: generated image has no captured href"
+            );
         }
         for attribute in node.attributes() {
-            ensure!(attribute.name() != "style" && !attribute.name().starts_with("on"),
-                "composition.raster.svg_scope: CSS and event attributes are not admitted");
+            ensure!(
+                attribute.name() != "style" && !attribute.name().starts_with("on"),
+                "composition.raster.svg_scope: CSS and event attributes are not admitted"
+            );
             if attribute.name() == "href" {
                 ensure!(node.tag_name().name() == "image", "composition.raster.resource_unavailable: href is only admitted for captured images");
                 let (prefix, encoded) = attribute.value().split_once(',')
                     .context("composition.raster.resource_unavailable: images require captured base64 data URLs")?;
                 let mime = prefix.strip_prefix("data:").and_then(|value| value.strip_suffix(";base64"))
                     .context("composition.raster.resource_unavailable: external and non-base64 image references are forbidden")?;
-                ensure!(matches!(mime, "image/png" | "image/jpeg" | "image/svg+xml"), "composition.raster.resource_unavailable: unsupported data MIME type");
-                let bytes = STANDARD.decode(encoded).context("composition.raster.resource_unavailable: malformed captured data URL")?;
+                ensure!(
+                    matches!(mime, "image/png" | "image/jpeg" | "image/svg+xml"),
+                    "composition.raster.resource_unavailable: unsupported data MIME type"
+                );
+                let bytes = STANDARD.decode(encoded).context(
+                    "composition.raster.resource_unavailable: malformed captured data URL",
+                )?;
                 ensure!(bytes.len() <= MAX_ASSET_BYTES && allowed.contains(&(mime.to_owned(), format!("{:x}", Sha256::digest(&bytes)))),
                     "composition.raster.resource_unavailable: image data does not match a referenced captured asset");
             }
@@ -324,7 +442,10 @@ struct PngMetadata {
 }
 
 fn inspect_png(bytes: &[u8]) -> Result<PngMetadata> {
-    ensure!(bytes.starts_with(b"\x89PNG\r\n\x1a\n"), "composition.raster.png_header: invalid PNG signature");
+    ensure!(
+        bytes.starts_with(b"\x89PNG\r\n\x1a\n"),
+        "composition.raster.png_header: invalid PNG signature"
+    );
     let mut position = 8usize;
     let mut metadata = None;
     let mut chunks = BTreeSet::new();
@@ -336,23 +457,52 @@ fn inspect_png(bytes: &[u8]) -> Result<PngMetadata> {
     let mut pixel_dims = None;
     while position < bytes.len() {
         chunk_count += 1;
-        ensure!(chunk_count <= MAX_CHUNKS, "composition.raster.png_bounds: too many PNG chunks");
-        let header = bytes.get(position..position.saturating_add(8)).context("composition.raster.png_chunks: truncated chunk header")?;
+        ensure!(
+            chunk_count <= MAX_CHUNKS,
+            "composition.raster.png_bounds: too many PNG chunks"
+        );
+        let header = bytes
+            .get(position..position.saturating_add(8))
+            .context("composition.raster.png_chunks: truncated chunk header")?;
         let length = u32::from_be_bytes([header[0], header[1], header[2], header[3]]) as usize;
         let kind = [header[4], header[5], header[6], header[7]];
-        ensure!(kind.iter().all(u8::is_ascii_alphabetic) && kind[2].is_ascii_uppercase(), "composition.raster.png_chunks: malformed or reserved chunk type");
+        ensure!(
+            kind.iter().all(u8::is_ascii_alphabetic) && kind[2].is_ascii_uppercase(),
+            "composition.raster.png_chunks: malformed or reserved chunk type"
+        );
         let data_start = position + 8;
-        let data_end = data_start.checked_add(length).context("composition.raster.png_chunks: chunk range overflow")?;
-        let end = data_end.checked_add(4).context("composition.raster.png_chunks: CRC range overflow")?;
-        let data = bytes.get(data_start..data_end).context("composition.raster.png_chunks: truncated chunk payload")?;
-        let crc_bytes = bytes.get(data_end..end).context("composition.raster.png_chunks: truncated chunk CRC")?;
+        let data_end = data_start
+            .checked_add(length)
+            .context("composition.raster.png_chunks: chunk range overflow")?;
+        let end = data_end
+            .checked_add(4)
+            .context("composition.raster.png_chunks: CRC range overflow")?;
+        let data = bytes
+            .get(data_start..data_end)
+            .context("composition.raster.png_chunks: truncated chunk payload")?;
+        let crc_bytes = bytes
+            .get(data_end..end)
+            .context("composition.raster.png_chunks: truncated chunk CRC")?;
         let mut crc = crc32fast::Hasher::new();
-        crc.update(&kind); crc.update(data);
-        ensure!(crc.finalize() == u32::from_be_bytes([crc_bytes[0], crc_bytes[1], crc_bytes[2], crc_bytes[3]]), "composition.raster.png_crc: chunk CRC mismatch");
-        ensure!(metadata.is_some() || &kind == b"IHDR", "composition.raster.png_chunks: IHDR must be first");
-        if &kind != b"IDAT" && saw_idat { idat_finished = true; }
+        crc.update(&kind);
+        crc.update(data);
+        ensure!(
+            crc.finalize()
+                == u32::from_be_bytes([crc_bytes[0], crc_bytes[1], crc_bytes[2], crc_bytes[3]]),
+            "composition.raster.png_crc: chunk CRC mismatch"
+        );
+        ensure!(
+            metadata.is_some() || &kind == b"IHDR",
+            "composition.raster.png_chunks: IHDR must be first"
+        );
+        if &kind != b"IDAT" && saw_idat {
+            idat_finished = true;
+        }
         if &kind != b"IDAT" {
-            ensure!(chunks.insert(kind) || matches!(&kind, b"tEXt" | b"zTXt" | b"iTXt"), "composition.raster.png_chunks: repeated singleton chunk");
+            ensure!(
+                chunks.insert(kind) || matches!(&kind, b"tEXt" | b"zTXt" | b"iTXt"),
+                "composition.raster.png_chunks: repeated singleton chunk"
+            );
         }
         match &kind {
             b"IHDR" => {
@@ -382,58 +532,112 @@ fn inspect_png(bytes: &[u8]) -> Result<PngMetadata> {
             _ => {},
         }
         position = end;
-        if saw_end { break; }
+        if saw_end {
+            break;
+        }
     }
     ensure!(saw_end, "composition.raster.png_chunks: missing IEND");
-    let (width, height, bit_depth, color_type) = metadata.context("composition.raster.png_header: missing IHDR")?;
-    Ok(PngMetadata { width, height, bit_depth, color_type, srgb, pixel_dims })
+    let (width, height, bit_depth, color_type) =
+        metadata.context("composition.raster.png_header: missing IHDR")?;
+    Ok(PngMetadata {
+        width,
+        height,
+        bit_depth,
+        color_type,
+        srgb,
+        pixel_dims,
+    })
 }
 
-fn read_u32(bytes: &[u8]) -> u32 { u32::from_be_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]) }
+fn read_u32(bytes: &[u8]) -> u32 {
+    u32::from_be_bytes([bytes[0], bytes[1], bytes[2], bytes[3]])
+}
 
 fn decode_png(bytes: &[u8], width: u32, height: u32) -> Result<()> {
     checked_dimensions(width, height)?;
-    let mut limits = png::Limits::default();
-    limits.bytes = MAX_DECODED_BYTES;
+    let limits = png::Limits {
+        bytes: MAX_DECODED_BYTES,
+    };
     let mut decoder = png::Decoder::new_with_limits(BufReader::new(Cursor::new(bytes)), limits);
     decoder.set_transformations(png::Transformations::normalize_to_color8());
-    let mut reader = decoder.read_info().context("composition.raster.png_decode: PNG metadata cannot be decoded")?;
+    let mut reader = decoder
+        .read_info()
+        .context("composition.raster.png_decode: PNG metadata cannot be decoded")?;
     ensure!(reader.info().width == width && reader.info().height == height
         && reader.info().animation_control.is_none() && reader.info().frame_control.is_none(),
         "composition.raster.png_decode: decoded PNG dimensions or animation state differs from preflight");
-    let required = reader.output_buffer_size().context("composition.raster.png_decode: PNG output buffer dimensions overflow")?;
-    ensure!(required <= MAX_DECODED_BYTES, "composition.raster.png_bounds: decoded PNG exceeds 64 MiB");
+    let required = reader
+        .output_buffer_size()
+        .context("composition.raster.png_decode: PNG output buffer dimensions overflow")?;
+    ensure!(
+        required <= MAX_DECODED_BYTES,
+        "composition.raster.png_bounds: decoded PNG exceeds 64 MiB"
+    );
     let mut pixels = vec![0; required];
-    let frame = reader.next_frame(&mut pixels).context("composition.raster.png_decode: invalid or truncated PNG pixel stream")?;
-    ensure!(frame.width == width && frame.height == height && frame.bit_depth == png::BitDepth::Eight,
-        "composition.raster.png_decode: decoded PNG format differs from the admitted frame");
-    reader.finish().context("composition.raster.png_decode: PNG trailing chunks are invalid")?;
+    let frame = reader
+        .next_frame(&mut pixels)
+        .context("composition.raster.png_decode: invalid or truncated PNG pixel stream")?;
+    ensure!(
+        frame.width == width && frame.height == height && frame.bit_depth == png::BitDepth::Eight,
+        "composition.raster.png_decode: decoded PNG format differs from the admitted frame"
+    );
+    reader
+        .finish()
+        .context("composition.raster.png_decode: PNG trailing chunks are invalid")?;
     Ok(())
 }
 
 fn inspect_jpeg(bytes: &[u8]) -> Result<(u32, u32)> {
-    ensure!(bytes.starts_with(&[0xff, 0xd8]), "composition.raster.jpeg_header: missing JPEG SOI");
+    ensure!(
+        bytes.starts_with(&[0xff, 0xd8]),
+        "composition.raster.jpeg_header: missing JPEG SOI"
+    );
     let mut position = 2usize;
     let mut frame = None;
     let mut scans = 0usize;
     let mut markers = 0usize;
     loop {
         markers += 1;
-        ensure!(markers <= MAX_CHUNKS, "composition.raster.jpeg_bounds: too many JPEG markers");
-        ensure!(bytes.get(position) == Some(&0xff), "composition.raster.jpeg_chunks: expected marker");
-        while bytes.get(position) == Some(&0xff) { position += 1; }
-        let marker = *bytes.get(position).context("composition.raster.jpeg_chunks: truncated marker")?;
+        ensure!(
+            markers <= MAX_CHUNKS,
+            "composition.raster.jpeg_bounds: too many JPEG markers"
+        );
+        ensure!(
+            bytes.get(position) == Some(&0xff),
+            "composition.raster.jpeg_chunks: expected marker"
+        );
+        while bytes.get(position) == Some(&0xff) {
+            position += 1;
+        }
+        let marker = *bytes
+            .get(position)
+            .context("composition.raster.jpeg_chunks: truncated marker")?;
         position += 1;
         if marker == 0xd9 {
-            ensure!(scans > 0 && position == bytes.len(), "composition.raster.jpeg_chunks: missing scan or trailing bytes after EOI");
+            ensure!(
+                scans > 0 && position == bytes.len(),
+                "composition.raster.jpeg_chunks: missing scan or trailing bytes after EOI"
+            );
             break;
         }
-        ensure!(!matches!(marker, 0 | 0x01 | 0xd0..=0xd8), "composition.raster.jpeg_chunks: unexpected standalone marker");
-        let length_bytes = bytes.get(position..position.saturating_add(2)).context("composition.raster.jpeg_chunks: truncated segment length")?;
+        ensure!(
+            !matches!(marker, 0 | 0x01 | 0xd0..=0xd8),
+            "composition.raster.jpeg_chunks: unexpected standalone marker"
+        );
+        let length_bytes = bytes
+            .get(position..position.saturating_add(2))
+            .context("composition.raster.jpeg_chunks: truncated segment length")?;
         let length = usize::from(u16::from_be_bytes([length_bytes[0], length_bytes[1]]));
-        ensure!(length >= 2, "composition.raster.jpeg_chunks: invalid segment length");
-        let end = position.checked_add(length).context("composition.raster.jpeg_chunks: segment overflow")?;
-        let data = bytes.get(position + 2..end).context("composition.raster.jpeg_chunks: truncated segment")?;
+        ensure!(
+            length >= 2,
+            "composition.raster.jpeg_chunks: invalid segment length"
+        );
+        let end = position
+            .checked_add(length)
+            .context("composition.raster.jpeg_chunks: segment overflow")?;
+        let data = bytes
+            .get(position + 2..end)
+            .context("composition.raster.jpeg_chunks: truncated segment")?;
         position = end;
         match marker {
             0xe0 if data.starts_with(b"JFIF\0") => {
@@ -482,20 +686,38 @@ fn inspect_jpeg(bytes: &[u8]) -> Result<(u32, u32)> {
 fn decode_jpeg(bytes: &[u8], width: u32, height: u32) -> Result<()> {
     use zune_jpeg::zune_core::{colorspace::ColorSpace, options::DecoderOptions};
     checked_dimensions(width, height)?;
-    let options = DecoderOptions::default().set_max_width(MAX_AXIS as usize).set_max_height(MAX_AXIS as usize)
-        .set_strict_mode(true).jpeg_set_max_scans(64).jpeg_set_out_colorspace(ColorSpace::RGBA);
+    let options = DecoderOptions::default()
+        .set_max_width(MAX_AXIS as usize)
+        .set_max_height(MAX_AXIS as usize)
+        .set_strict_mode(true)
+        .jpeg_set_max_scans(64)
+        .jpeg_set_out_colorspace(ColorSpace::RGBA);
     let mut decoder = zune_jpeg::JpegDecoder::new_with_options(Cursor::new(bytes), options);
-    decoder.decode_headers().context("composition.raster.jpeg_decode: JPEG headers cannot be decoded")?;
-    let info = decoder.info().context("composition.raster.jpeg_decode: JPEG lacks decoded image information")?;
-    ensure!(u32::from(info.width) == width && u32::from(info.height) == height
-        && decoder.output_colorspace() == Some(ColorSpace::RGBA),
-        "composition.raster.jpeg_decode: decoder dimensions or color space differ from preflight");
-    let required = decoder.output_buffer_size().context("composition.raster.jpeg_decode: JPEG output buffer dimensions overflow")?;
+    decoder
+        .decode_headers()
+        .context("composition.raster.jpeg_decode: JPEG headers cannot be decoded")?;
+    let info = decoder
+        .info()
+        .context("composition.raster.jpeg_decode: JPEG lacks decoded image information")?;
+    ensure!(
+        u32::from(info.width) == width
+            && u32::from(info.height) == height
+            && decoder.output_colorspace() == Some(ColorSpace::RGBA),
+        "composition.raster.jpeg_decode: decoder dimensions or color space differ from preflight"
+    );
+    let required = decoder
+        .output_buffer_size()
+        .context("composition.raster.jpeg_decode: JPEG output buffer dimensions overflow")?;
     ensure!(required <= MAX_DECODED_BYTES && required as u64 == u64::from(width) * u64::from(height) * 4,
         "composition.raster.jpeg_decode: provider output buffer differs from the bounded RGBA canvas");
-    let pixels = decoder.decode().context("composition.raster.jpeg_decode: JPEG pixel stream cannot be decoded strictly")?;
-    ensure!(pixels.len() as u64 == u64::from(width) * u64::from(height) * 4 && pixels.len() <= MAX_DECODED_BYTES,
-        "composition.raster.jpeg_decode: decoded JPEG output has an unexpected size");
+    let pixels = decoder
+        .decode()
+        .context("composition.raster.jpeg_decode: JPEG pixel stream cannot be decoded strictly")?;
+    ensure!(
+        pixels.len() as u64 == u64::from(width) * u64::from(height) * 4
+            && pixels.len() <= MAX_DECODED_BYTES,
+        "composition.raster.jpeg_decode: decoded JPEG output has an unexpected size"
+    );
     Ok(())
 }
 

@@ -18,9 +18,8 @@ use crate::process::{
 };
 
 use super::provider::{
-    bounded_request, ensure_not_cancelled, expected_digest, inspect_pcm_wav,
-    path_text, read_bounded, require_digest, run_checked, sha256, FileSnapshot,
-    MAX_PROVIDER_BYTES,
+    bounded_request, ensure_not_cancelled, expected_digest, inspect_pcm_wav, path_text,
+    read_bounded, require_digest, run_checked, sha256, FileSnapshot, MAX_PROVIDER_BYTES,
 };
 use super::{
     audio_preparation_configuration_digest, AudioInventory, AudioPreparationEvidence,
@@ -37,12 +36,26 @@ const MAX_STREAMS: usize = 256;
 
 // The configuration digest is built from these same arrays used in argv.
 const GLOBAL_ARGUMENTS: &[&str] = &[
-    "-hide_banner", "-loglevel", "error", "-nostdin", "-n", "-xerror",
-    "-filter_threads", "1",
+    "-hide_banner",
+    "-loglevel",
+    "error",
+    "-nostdin",
+    "-n",
+    "-xerror",
+    "-filter_threads",
+    "1",
 ];
 const INPUT_ARGUMENTS: &[&str] = &[
-    "-protocol_whitelist", "file", "-max_streams", "256",
-    "-probesize", "5000000", "-analyzeduration", "5000000", "-threads", "1",
+    "-protocol_whitelist",
+    "file",
+    "-max_streams",
+    "256",
+    "-probesize",
+    "5000000",
+    "-analyzeduration",
+    "5000000",
+    "-threads",
+    "1",
 ];
 const PROBE_ARGUMENTS: &[&str] = &[
     "-hide_banner", "-loglevel", "error", "-select_streams", "a",
@@ -55,20 +68,56 @@ const FORMAT_ARGUMENT: &str = "-f";
 const SOURCE_ARGUMENT: &str = "-i";
 const STREAM_ARGUMENT: &str = "-map";
 const OUTPUT_ARGUMENTS: &[&str] = &[
-    "-vn", "-sn", "-dn", "-map_metadata", "-1", "-map_metadata:s:a", "-1", "-map_chapters", "-1",
-    "-filter:a", "aresample=16000:async=0,asetpts=N/SR/TB",
-    "-codec:a", "pcm_s16le", "-ac", "1", "-ar", "16000", "-threads", "1",
+    "-vn",
+    "-sn",
+    "-dn",
+    "-map_metadata",
+    "-1",
+    "-map_metadata:s:a",
+    "-1",
+    "-map_chapters",
+    "-1",
+    "-filter:a",
+    "aresample=16000:async=0,asetpts=N/SR/TB",
+    "-codec:a",
+    "pcm_s16le",
+    "-ac",
+    "1",
+    "-ar",
+    "16000",
+    "-threads",
+    "1",
     // 601s is a refusal sentinel, not a successful clipping mode: WAV validation
     // rejects every result longer than 600s, regardless of reported duration.
-    "-t", "601", "-f", "wav", "-rf64", "never", "-write_bext", "0",
+    "-t",
+    "601",
+    "-f",
+    "wav",
+    "-rf64",
+    "never",
+    "-write_bext",
+    "0",
 ];
 
 /// Fixed probe/extraction argv policy, including conditional MOV restrictions. The actual
 /// demuxer, global stream index, tool identities, and timeout are hashed separately.
 pub(crate) fn audio_fixed_arguments() -> Vec<&'static str> {
-    let mut arguments: Vec<_> = [GLOBAL_ARGUMENTS, INPUT_ARGUMENTS, MOV_ARGUMENTS, OUTPUT_ARGUMENTS, PROBE_ARGUMENTS]
-        .into_iter().flat_map(|arguments| arguments.iter().copied()).collect();
-    arguments.extend([FORMAT_WHITELIST_ARGUMENT, FORMAT_ARGUMENT, SOURCE_ARGUMENT, STREAM_ARGUMENT]);
+    let mut arguments: Vec<_> = [
+        GLOBAL_ARGUMENTS,
+        INPUT_ARGUMENTS,
+        MOV_ARGUMENTS,
+        OUTPUT_ARGUMENTS,
+        PROBE_ARGUMENTS,
+    ]
+    .into_iter()
+    .flat_map(|arguments| arguments.iter().copied())
+    .collect();
+    arguments.extend([
+        FORMAT_WHITELIST_ARGUMENT,
+        FORMAT_ARGUMENT,
+        SOURCE_ARGUMENT,
+        STREAM_ARGUMENT,
+    ]);
     arguments
 }
 
@@ -123,13 +172,18 @@ impl PreparedAudio {
     }
 
     /// Retain the exact prepared waveform with the final transcript bundle.
-    pub fn read_wav(&self, cancellation: &ProcessCancellationToken) -> Result<Vec<u8>, SpeechError> {
+    pub fn read_wav(
+        &self,
+        cancellation: &ProcessCancellationToken,
+    ) -> Result<Vec<u8>, SpeechError> {
         let bytes = read_bounded(&self.path, MAX_PREPARED_WAV_BYTES, cancellation)?;
         if bytes.len() as u64 != self.evidence.prepared_wav_size_bytes
             || sha256(&bytes) != self.evidence.prepared_wav_sha256
             || inspect_pcm_wav(&bytes)? != self.evidence.prepared_wav_duration_ms
         {
-            return Err(SpeechError::SourceChanged("prepared WAV changed after extraction".to_owned()));
+            return Err(SpeechError::SourceChanged(
+                "prepared WAV changed after extraction".to_owned(),
+            ));
         }
         Ok(bytes)
     }
@@ -143,11 +197,19 @@ pub fn inspect(
     ensure_not_cancelled(&cancellation)?;
     expected_digest(&request.ffprobe.sha256, "ffprobe_sha256")?;
     let container = Container::from_path(&request.input)?;
-    let source = FileSnapshot::read(&request.input, "media source", MAX_MEDIA_BYTES, &cancellation)?;
+    let source = FileSnapshot::read(
+        &request.input,
+        "media source",
+        MAX_MEDIA_BYTES,
+        &cancellation,
+    )?;
     let ffprobe = pinned_tool(&request.ffprobe, "ffprobe", &cancellation)?;
-    let temporary = tempfile::Builder::new().prefix("renderflow-audio-probe-").tempdir()?;
+    let temporary = tempfile::Builder::new()
+        .prefix("renderflow-audio-probe-")
+        .tempdir()?;
     let work_directory = fs::canonicalize(temporary.path())?;
-    let inspection = inspect_snapshot(&source, &ffprobe, container, &work_directory, &cancellation)?;
+    let inspection =
+        inspect_snapshot(&source, &ffprobe, container, &work_directory, &cancellation)?;
     source.recheck(&cancellation)?;
     ffprobe.recheck(&cancellation)?;
     Ok(inspection)
@@ -161,7 +223,11 @@ pub fn prepare(
     cancellation: ProcessCancellationToken,
 ) -> Result<PreparedAudio, SpeechError> {
     ensure_not_cancelled(&cancellation)?;
-    prepare_with_container(request, Container::from_path(&request.inspection.input)?, cancellation)
+    prepare_with_container(
+        request,
+        Container::from_path(&request.inspection.input)?,
+        cancellation,
+    )
 }
 
 /// Prepare an immutable artifact object using its declared format. Object paths
@@ -186,37 +252,73 @@ fn prepare_with_container(
     expected_digest(&request.inspection.ffprobe.sha256, "ffprobe_sha256")?;
     expected_digest(&request.ffmpeg.sha256, "ffmpeg_sha256")?;
     if !(1..=3600).contains(&request.timeout_seconds) {
-        return Err(SpeechError::InvalidRequest("audio timeout must be between 1 and 3600 seconds".to_owned()));
+        return Err(SpeechError::InvalidRequest(
+            "audio timeout must be between 1 and 3600 seconds".to_owned(),
+        ));
     }
     let source = FileSnapshot::read(
-        &request.inspection.input, "media source", MAX_MEDIA_BYTES, &cancellation,
+        &request.inspection.input,
+        "media source",
+        MAX_MEDIA_BYTES,
+        &cancellation,
     )?;
     require_digest(&source, &request.expected_source_sha256)?;
     let ffprobe = pinned_tool(&request.inspection.ffprobe, "ffprobe", &cancellation)?;
     let ffmpeg = pinned_tool(&request.ffmpeg, "ffmpeg", &cancellation)?;
-    let temporary = tempfile::Builder::new().prefix("renderflow-audio-prepare-").tempdir()?;
+    let temporary = tempfile::Builder::new()
+        .prefix("renderflow-audio-prepare-")
+        .tempdir()?;
     let work_directory = fs::canonicalize(temporary.path())?;
-    let inspection = inspect_snapshot(&source, &ffprobe, container, &work_directory, &cancellation)?;
-    let selected = inspection.inventory.streams.iter()
-        .find(|stream| stream.index == request.stream_index).cloned()
-        .ok_or_else(|| SpeechError::InvalidRequest(format!(
-            "global audio stream index {} is not present; inspect and select an audio stream", request.stream_index,
-        )))?;
-    if selected.duration_ms.is_some_and(|duration| duration == 0 || duration > MAX_PREPARED_AUDIO_DURATION_MS) {
+    let inspection =
+        inspect_snapshot(&source, &ffprobe, container, &work_directory, &cancellation)?;
+    let selected = inspection
+        .inventory
+        .streams
+        .iter()
+        .find(|stream| stream.index == request.stream_index)
+        .cloned()
+        .ok_or_else(|| {
+            SpeechError::InvalidRequest(format!(
+                "global audio stream index {} is not present; inspect and select an audio stream",
+                request.stream_index,
+            ))
+        })?;
+    if selected
+        .duration_ms
+        .is_some_and(|duration| duration == 0 || duration > MAX_PREPARED_AUDIO_DURATION_MS)
+    {
         return Err(SpeechError::InvalidRequest(
             "selected audio stream duration is outside the nonempty ten-minute profile".to_owned(),
         ));
     }
     let executor = ProcessExecutor::new();
-    let ffmpeg_identity = tool_identity(&ffmpeg, "ffmpeg", &executor, &work_directory, &cancellation)?;
-    for snapshot in [&source, &ffprobe, &ffmpeg] { snapshot.recheck(&cancellation)?; }
+    let ffmpeg_identity =
+        tool_identity(&ffmpeg, "ffmpeg", &executor, &work_directory, &cancellation)?;
+    for snapshot in [&source, &ffprobe, &ffmpeg] {
+        snapshot.recheck(&cancellation)?;
+    }
     let output_path = work_directory.join("prepared.wav");
     let process = bounded_request(
-        &ffmpeg.path, &work_directory, Duration::from_secs(request.timeout_seconds), &cancellation,
-    )?.args(extraction_arguments(&source.path, container, request.stream_index, &output_path)?)
-        .expect_output(ProcessExpectedOutput::file(&output_path).require_non_empty().max_bytes(MAX_PREPARED_WAV_BYTES));
+        &ffmpeg.path,
+        &work_directory,
+        Duration::from_secs(request.timeout_seconds),
+        &cancellation,
+    )?
+    .args(extraction_arguments(
+        &source.path,
+        container,
+        request.stream_index,
+        &output_path,
+    )?)
+    .expect_output(
+        ProcessExpectedOutput::file(&output_path)
+            .require_non_empty()
+            .max_bytes(MAX_PREPARED_WAV_BYTES),
+    );
     run_checked(&executor, process)?;
-    for snapshot in [&source, &ffprobe, &ffmpeg] { snapshot.recheck(&cancellation)?; }
+    for snapshot in [&source, &ffprobe, &ffmpeg] {
+        snapshot.recheck(&cancellation)?;
+    }
     let waveform = read_bounded(&output_path, MAX_PREPARED_WAV_BYTES, &cancellation)?;
     let duration_ms = inspect_pcm_wav(&waveform)?;
     let mut evidence = AudioPreparationEvidence {
@@ -252,13 +354,20 @@ fn prepare_with_container(
     evidence.validate()?;
     ensure_not_cancelled(&cancellation)?;
     Ok(PreparedAudio {
-        path: output_path, evidence, probe_output: inspection.provider_output,
-        source, ffprobe, ffmpeg, _temporary: temporary,
+        path: output_path,
+        evidence,
+        probe_output: inspection.provider_output,
+        source,
+        ffprobe,
+        ffmpeg,
+        _temporary: temporary,
     })
 }
 
 fn pinned_tool(
-    tool: &AudioTool, name: &'static str, cancellation: &ProcessCancellationToken,
+    tool: &AudioTool,
+    name: &'static str,
+    cancellation: &ProcessCancellationToken,
 ) -> Result<FileSnapshot, SpeechError> {
     expected_digest(&tool.sha256, name)?;
     let snapshot = FileSnapshot::read(&tool.path, name, MAX_PROVIDER_BYTES, cancellation)?;
@@ -273,20 +382,36 @@ fn tool_identity(
     work_directory: &Path,
     cancellation: &ProcessCancellationToken,
 ) -> Result<AudioToolIdentity, SpeechError> {
-    let output = run_checked(executor, bounded_request(
-        &snapshot.path, work_directory, VERSION_TIMEOUT, cancellation,
-    )?.arg("-version"))?;
+    let output = run_checked(
+        executor,
+        bounded_request(
+            &snapshot.path,
+            work_directory,
+            VERSION_TIMEOUT,
+            cancellation,
+        )?
+        .arg("-version"),
+    )?;
     let text = std::str::from_utf8(output.stdout().bytes())
         .map_err(|_| SpeechError::ProviderUnavailable(format!("{name} version is not UTF-8")))?;
     let line = text.lines().next().unwrap_or("");
     let prefix = format!("{name} version ");
-    if line.len() > 4096 || line.chars().any(char::is_control)
-        || line.strip_prefix(prefix.as_str()).is_none_or(|version| version.trim().is_empty())
+    if line.len() > 4096
+        || line.chars().any(char::is_control)
+        || line
+            .strip_prefix(prefix.as_str())
+            .is_none_or(|version| version.trim().is_empty())
     {
-        return Err(SpeechError::ProviderUnavailable(format!("expected a bounded '{name} version ...' first line")));
+        return Err(SpeechError::ProviderUnavailable(format!(
+            "expected a bounded '{name} version ...' first line"
+        )));
     }
     snapshot.recheck(cancellation)?;
-    Ok(AudioToolIdentity { tool_id: format!("tool.{name}"), version: line.to_owned(), sha256: snapshot.sha256.clone() })
+    Ok(AudioToolIdentity {
+        tool_id: format!("tool.{name}"),
+        version: line.to_owned(),
+        sha256: snapshot.sha256.clone(),
+    })
 }
 
 fn inspect_snapshot(
@@ -299,10 +424,12 @@ fn inspect_snapshot(
     let executor = ProcessExecutor::new();
     let identity = tool_identity(ffprobe, "ffprobe", &executor, work_directory, cancellation)?;
     source.recheck(cancellation)?;
-    let result = run_checked(&executor, bounded_request(
-        &ffprobe.path, work_directory, PROBE_TIMEOUT, cancellation,
-    )?.stdout(ProcessOutputMode::capture(MAX_PROBE_BYTES))
-        .args(probe_arguments(&source.path, container)?))?;
+    let result = run_checked(
+        &executor,
+        bounded_request(&ffprobe.path, work_directory, PROBE_TIMEOUT, cancellation)?
+            .stdout(ProcessOutputMode::capture(MAX_PROBE_BYTES))
+            .args(probe_arguments(&source.path, container)?),
+    )?;
     source.recheck(cancellation)?;
     ffprobe.recheck(cancellation)?;
     let bytes = result.stdout().bytes().to_vec();
@@ -318,15 +445,31 @@ fn inspect_snapshot(
         streams,
     };
     inventory.validate()?;
-    Ok(AudioInspection { inventory, provider_output: bytes })
+    Ok(AudioInspection {
+        inventory,
+        provider_output: bytes,
+    })
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Container { Matroska, Mov, Avi, Wav, Flac, Mp3, Ogg, Aac }
+enum Container {
+    Matroska,
+    Mov,
+    Avi,
+    Wav,
+    Flac,
+    Mp3,
+    Ogg,
+    Aac,
+}
 
 impl Container {
     fn from_path(path: &Path) -> Result<Self, SpeechError> {
-        let extension = path.extension().and_then(|value| value.to_str()).unwrap_or("").to_ascii_lowercase();
+        let extension = path
+            .extension()
+            .and_then(|value| value.to_str())
+            .unwrap_or("")
+            .to_ascii_lowercase();
         match extension.as_str() {
             "mkv" | "mka" | "webm" => Ok(Self::Matroska),
             "mp4" | "m4v" | "m4a" | "mov" => Ok(Self::Mov),
@@ -342,9 +485,12 @@ impl Container {
         match format {
             Format::Mkv | Format::WebM => Ok(Self::Matroska),
             Format::Mp4 | Format::Mov | Format::M4aAlac | Format::M4aAac => Ok(Self::Mov),
-            Format::Avi => Ok(Self::Avi), Format::Wav => Ok(Self::Wav),
-            Format::Flac => Ok(Self::Flac), Format::Mp3 => Ok(Self::Mp3),
-            Format::Ogg | Format::Opus => Ok(Self::Ogg), Format::Aac => Ok(Self::Aac),
+            Format::Avi => Ok(Self::Avi),
+            Format::Wav => Ok(Self::Wav),
+            Format::Flac => Ok(Self::Flac),
+            Format::Mp3 => Ok(Self::Mp3),
+            Format::Ogg | Format::Opus => Ok(Self::Ogg),
+            Format::Aac => Ok(Self::Aac),
             _ => Err(SpeechError::InvalidRequest(format!(
                 "audio preparation does not support declared source format '{format}'",
             ))),
@@ -353,17 +499,28 @@ impl Container {
 
     fn demuxer(self) -> &'static str {
         match self {
-            Self::Matroska => "matroska", Self::Mov => "mov", Self::Avi => "avi", Self::Wav => "wav",
-            Self::Flac => "flac", Self::Mp3 => "mp3", Self::Ogg => "ogg", Self::Aac => "aac",
+            Self::Matroska => "matroska",
+            Self::Mov => "mov",
+            Self::Avi => "avi",
+            Self::Wav => "wav",
+            Self::Flac => "flac",
+            Self::Mp3 => "mp3",
+            Self::Ogg => "ogg",
+            Self::Aac => "aac",
         }
     }
 }
 
 fn input_arguments(path: &Path, container: Container) -> Result<Vec<String>, SpeechError> {
-    let mut arguments: Vec<String> = INPUT_ARGUMENTS.iter().map(|value| (*value).to_owned()).collect();
+    let mut arguments: Vec<String> = INPUT_ARGUMENTS
+        .iter()
+        .map(|value| (*value).to_owned())
+        .collect();
     arguments.extend([
-        FORMAT_WHITELIST_ARGUMENT.to_owned(), container.demuxer().to_owned(),
-        FORMAT_ARGUMENT.to_owned(), container.demuxer().to_owned(),
+        FORMAT_WHITELIST_ARGUMENT.to_owned(),
+        container.demuxer().to_owned(),
+        FORMAT_ARGUMENT.to_owned(),
+        container.demuxer().to_owned(),
     ]);
     if container == Container::Mov {
         arguments.extend(MOV_ARGUMENTS.iter().map(|value| (*value).to_owned()));
@@ -373,15 +530,24 @@ fn input_arguments(path: &Path, container: Container) -> Result<Vec<String>, Spe
 }
 
 fn probe_arguments(path: &Path, container: Container) -> Result<Vec<String>, SpeechError> {
-    let mut arguments: Vec<String> = PROBE_ARGUMENTS.iter().map(|value| (*value).to_owned()).collect();
+    let mut arguments: Vec<String> = PROBE_ARGUMENTS
+        .iter()
+        .map(|value| (*value).to_owned())
+        .collect();
     arguments.extend(input_arguments(path, container)?);
     Ok(arguments)
 }
 
 fn extraction_arguments(
-    source: &Path, container: Container, stream_index: u32, output: &Path,
+    source: &Path,
+    container: Container,
+    stream_index: u32,
+    output: &Path,
 ) -> Result<Vec<String>, SpeechError> {
-    let mut arguments: Vec<String> = GLOBAL_ARGUMENTS.iter().map(|value| (*value).to_owned()).collect();
+    let mut arguments: Vec<String> = GLOBAL_ARGUMENTS
+        .iter()
+        .map(|value| (*value).to_owned())
+        .collect();
     arguments.extend(input_arguments(source, container)?);
     arguments.extend([STREAM_ARGUMENT.to_owned(), format!("0:{stream_index}")]);
     arguments.extend(OUTPUT_ARGUMENTS.iter().map(|value| (*value).to_owned()));
@@ -391,52 +557,101 @@ fn extraction_arguments(
 
 /// Re-read retained probe JSON using the same declared-format policy as native
 /// graph preparation. This is parsing only; no executable is opened or run.
-pub(super) fn parse_stored_probe(bytes: &[u8], format: Format, expected_demuxer: &str) -> Result<(String, Vec<AudioStream>), SpeechError> {
+pub(super) fn parse_stored_probe(
+    bytes: &[u8],
+    format: Format,
+    expected_demuxer: &str,
+) -> Result<(String, Vec<AudioStream>), SpeechError> {
     let container = Container::from_format(format)?;
     if container.demuxer() != expected_demuxer {
-        return Err(SpeechError::InvalidOutput("saved probe demuxer differs from declared original format".to_owned()));
+        return Err(SpeechError::InvalidOutput(
+            "saved probe demuxer differs from declared original format".to_owned(),
+        ));
     }
     parse_probe(bytes, container)
 }
 
-fn parse_probe(bytes: &[u8], container: Container) -> Result<(String, Vec<AudioStream>), SpeechError> {
-    let invalid = |message: &str| SpeechError::InvalidOutput(format!("invalid audio probe: {message}"));
-    if bytes.is_empty() || bytes.len() > MAX_PROBE_BYTES { return Err(invalid("JSON byte limit")); }
-    let StrictValue(value) = serde_json::from_slice::<StrictValue>(bytes)
-        .map_err(|error| SpeechError::InvalidOutput(format!("invalid audio probe JSON: {error}")))?;
-    let root = value.as_object().ok_or_else(|| invalid("root must be an object"))?;
-    let format = root.get("format").and_then(Value::as_object)
-        .and_then(|format| format.get("format_name")).and_then(Value::as_str)
+fn parse_probe(
+    bytes: &[u8],
+    container: Container,
+) -> Result<(String, Vec<AudioStream>), SpeechError> {
+    let invalid =
+        |message: &str| SpeechError::InvalidOutput(format!("invalid audio probe: {message}"));
+    if bytes.is_empty() || bytes.len() > MAX_PROBE_BYTES {
+        return Err(invalid("JSON byte limit"));
+    }
+    let StrictValue(value) = serde_json::from_slice::<StrictValue>(bytes).map_err(|error| {
+        SpeechError::InvalidOutput(format!("invalid audio probe JSON: {error}"))
+    })?;
+    let root = value
+        .as_object()
+        .ok_or_else(|| invalid("root must be an object"))?;
+    let format = root
+        .get("format")
+        .and_then(Value::as_object)
+        .and_then(|format| format.get("format_name"))
+        .and_then(Value::as_str)
         .ok_or_else(|| invalid("format_name is missing"))?;
-    if format.len() > 256 || !format.split(',').any(|name| name == container.demuxer())
-        || !format.bytes().all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b',' | b'_'))
-    { return Err(invalid("container does not match the forced demuxer")); }
-    let array = root.get("streams").and_then(Value::as_array)
+    if format.len() > 256
+        || !format.split(',').any(|name| name == container.demuxer())
+        || !format
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b',' | b'_'))
+    {
+        return Err(invalid("container does not match the forced demuxer"));
+    }
+    let array = root
+        .get("streams")
+        .and_then(Value::as_array)
         .ok_or_else(|| invalid("streams must be an array"))?;
-    if array.len() > MAX_STREAMS { return Err(invalid("more than 256 audio streams")); }
+    if array.len() > MAX_STREAMS {
+        return Err(invalid("more than 256 audio streams"));
+    }
     let mut seen = BTreeSet::new();
     let mut streams = Vec::with_capacity(array.len());
     for value in array {
-        let stream = value.as_object().ok_or_else(|| invalid("stream must be an object"))?;
+        let stream = value
+            .as_object()
+            .ok_or_else(|| invalid("stream must be an object"))?;
         if stream.get("codec_type").and_then(Value::as_str) != Some("audio") {
             return Err(invalid("non-audio stream in audio selection"));
         }
-        let index = stream.get("index").and_then(Value::as_u64).and_then(|value| u32::try_from(value).ok())
+        let index = stream
+            .get("index")
+            .and_then(Value::as_u64)
+            .and_then(|value| u32::try_from(value).ok())
             .ok_or_else(|| invalid("stream index must be an unsigned 32-bit integer"))?;
-        if !seen.insert(index) { return Err(invalid("duplicate global stream index")); }
-        let codec = stream.get("codec_name").and_then(Value::as_str)
+        if !seen.insert(index) {
+            return Err(invalid("duplicate global stream index"));
+        }
+        let codec = stream
+            .get("codec_name")
+            .and_then(Value::as_str)
             .ok_or_else(|| invalid("codec_name is missing"))?;
-        let channels = stream.get("channels").and_then(Value::as_u64).and_then(|value| u32::try_from(value).ok())
+        let channels = stream
+            .get("channels")
+            .and_then(Value::as_u64)
+            .and_then(|value| u32::try_from(value).ok())
             .ok_or_else(|| invalid("channels must be an integer"))?;
-        let sample_rate = stream.get("sample_rate").and_then(Value::as_str)
+        let sample_rate = stream
+            .get("sample_rate")
+            .and_then(Value::as_str)
             .filter(|value| !value.is_empty() && value.bytes().all(|byte| byte.is_ascii_digit()))
-            .and_then(|value| value.parse::<u32>().ok()).ok_or_else(|| invalid("sample_rate must be an integer string"))?;
+            .and_then(|value| value.parse::<u32>().ok())
+            .ok_or_else(|| invalid("sample_rate must be an integer string"))?;
         let tags = match stream.get("tags") {
             None => None,
-            Some(value) => Some(value.as_object().ok_or_else(|| invalid("tags must be an object"))?),
+            Some(value) => Some(
+                value
+                    .as_object()
+                    .ok_or_else(|| invalid("tags must be an object"))?,
+            ),
         };
         let parsed = AudioStream {
-            index, codec_name: codec.to_owned(), channels, sample_rate,
+            index,
+            codec_name: codec.to_owned(),
+            channels,
+            sample_rate,
             duration_ms: optional_seconds(stream, "duration", true)?.map(|value| value as u64),
             start_time_ms: optional_seconds(stream, "start_time", false)?,
             language: optional_tag(tags, "language")?,
@@ -449,11 +664,16 @@ fn parse_probe(bytes: &[u8], container: Container) -> Result<(String, Vec<AudioS
     Ok((format.to_owned(), streams))
 }
 
-fn optional_tag(tags: Option<&Map<String, Value>>, name: &str) -> Result<Option<String>, SpeechError> {
+fn optional_tag(
+    tags: Option<&Map<String, Value>>,
+    name: &str,
+) -> Result<Option<String>, SpeechError> {
     match tags.and_then(|tags| tags.get(name)) {
         None => Ok(None),
         Some(Value::String(value)) => Ok(Some(value.clone())),
-        Some(_) => Err(SpeechError::InvalidOutput(format!("audio {name} tag must be a string"))),
+        Some(_) => Err(SpeechError::InvalidOutput(format!(
+            "audio {name} tag must be a string"
+        ))),
     }
 }
 
@@ -461,13 +681,21 @@ fn optional_tag(tags: Option<&Map<String, Value>>, name: &str) -> Result<Option<
 /// partial millisecond; reported start time truncates toward zero. Raw provider
 /// JSON remains available when a caller needs the original timestamp precision.
 fn optional_seconds(
-    object: &Map<String, Value>, name: &str, duration: bool,
+    object: &Map<String, Value>,
+    name: &str,
+    duration: bool,
 ) -> Result<Option<i64>, SpeechError> {
-    let Some(value) = object.get(name) else { return Ok(None); };
+    let Some(value) = object.get(name) else {
+        return Ok(None);
+    };
     let invalid = || SpeechError::InvalidOutput(format!("invalid audio {name} timestamp"));
     let value = value.as_str().ok_or_else(invalid)?;
-    if value == "N/A" { return Ok(None); }
-    if value.len() > 32 { return Err(invalid()); }
+    if value == "N/A" {
+        return Ok(None);
+    }
+    if value.len() > 32 {
+        return Err(invalid());
+    }
     let (negative, unsigned) = match value.strip_prefix('-') {
         Some(unsigned) if !duration => (true, unsigned),
         Some(_) => return Err(invalid()),
@@ -476,23 +704,33 @@ fn optional_seconds(
     let mut pieces = unsigned.split('.');
     let whole = pieces.next().unwrap_or("");
     let fraction = pieces.next();
-    if whole.is_empty() || !whole.bytes().all(|byte| byte.is_ascii_digit())
+    if whole.is_empty()
+        || !whole.bytes().all(|byte| byte.is_ascii_digit())
         || pieces.next().is_some()
-        || fraction.is_some_and(|fraction| fraction.is_empty() || fraction.len() > 9
-            || !fraction.bytes().all(|byte| byte.is_ascii_digit()))
-    { return Err(invalid()); }
+        || fraction.is_some_and(|fraction| {
+            fraction.is_empty()
+                || fraction.len() > 9
+                || !fraction.bytes().all(|byte| byte.is_ascii_digit())
+        })
+    {
+        return Err(invalid());
+    }
     let seconds = whole.parse::<i64>().map_err(|_| invalid())?;
     let mut milliseconds = seconds.checked_mul(1000).ok_or_else(invalid)?;
     if let Some(fraction) = fraction {
         let first = &fraction[..fraction.len().min(3)];
-        let units = first.parse::<i64>().map_err(|_| invalid())?
-            * 10_i64.pow((3 - first.len()) as u32);
+        let units =
+            first.parse::<i64>().map_err(|_| invalid())? * 10_i64.pow((3 - first.len()) as u32);
         milliseconds = milliseconds.checked_add(units).ok_or_else(invalid)?;
         if duration && fraction.len() > 3 && fraction[3..].bytes().any(|byte| byte != b'0') {
             milliseconds = milliseconds.checked_add(1).ok_or_else(invalid)?;
         }
     }
-    Ok(Some(if negative { -milliseconds } else { milliseconds }))
+    Ok(Some(if negative {
+        -milliseconds
+    } else {
+        milliseconds
+    }))
 }
 
 #[cfg(test)]
@@ -522,7 +760,9 @@ mod tests {
             text.replace("\"1.000001\"", "\"-1\""),
             text.replace("\"1.000001\"", "\"1e3\""),
             text.replace("\"channels\":2", "\"channels\":0"),
-        ] { assert!(parse_probe(malformed.as_bytes(), Container::Matroska).is_err()); }
+        ] {
+            assert!(parse_probe(malformed.as_bytes(), Container::Matroska).is_err());
+        }
         assert!(parse_probe(PROBE, Container::Mov).is_err());
         assert!(Container::from_path(Path::new("playlist.m3u8")).is_err());
     }
@@ -531,13 +771,25 @@ mod tests {
     fn extraction_maps_only_explicit_global_stream_and_guards_decoded_duration() {
         let directory = std::env::temp_dir();
         let arguments = extraction_arguments(
-            &directory.join("source video.mp4"), Container::Mov, 4, &directory.join("prepared.wav"),
-        ).unwrap();
-        for pair in [["-map", "0:4"], ["-t", "601"], ["-protocol_whitelist", "file"],
-            ["-enable_drefs", "0"], ["-use_absolute_path", "0"], ["-f", "mov"],
-            ["-codec:a", "pcm_s16le"], ["-filter:a", "aresample=16000:async=0,asetpts=N/SR/TB"]]
-        {
-            assert!(arguments.windows(2).any(|actual| actual[0] == pair[0] && actual[1] == pair[1]));
+            &directory.join("source video.mp4"),
+            Container::Mov,
+            4,
+            &directory.join("prepared.wav"),
+        )
+        .unwrap();
+        for pair in [
+            ["-map", "0:4"],
+            ["-t", "601"],
+            ["-protocol_whitelist", "file"],
+            ["-enable_drefs", "0"],
+            ["-use_absolute_path", "0"],
+            ["-f", "mov"],
+            ["-codec:a", "pcm_s16le"],
+            ["-filter:a", "aresample=16000:async=0,asetpts=N/SR/TB"],
+        ] {
+            assert!(arguments
+                .windows(2)
+                .any(|actual| actual[0] == pair[0] && actual[1] == pair[1]));
         }
         for forbidden in ["-shortest", "-ss", "-fs", "-copyts", "-y"] {
             assert!(!arguments.iter().any(|value| value == forbidden));
@@ -548,12 +800,21 @@ mod tests {
     #[test]
     fn stored_media_forces_declared_demuxer_without_filename_extension() {
         let path = std::env::temp_dir().join("objects").join("a".repeat(64));
-        for (format, demuxer) in [(Format::Mkv, "matroska"), (Format::WebM, "matroska"),
-            (Format::Mp4, "mov"), (Format::M4aAlac, "mov"), (Format::M4aAac, "mov"),
-            (Format::Wav, "wav"), (Format::Opus, "ogg"), (Format::Flac, "flac")]
-        {
-            let arguments = probe_arguments(&path, Container::from_format(format).unwrap()).unwrap();
-            assert!(arguments.windows(2).any(|pair| pair[0] == "-f" && pair[1] == demuxer));
+        for (format, demuxer) in [
+            (Format::Mkv, "matroska"),
+            (Format::WebM, "matroska"),
+            (Format::Mp4, "mov"),
+            (Format::M4aAlac, "mov"),
+            (Format::M4aAac, "mov"),
+            (Format::Wav, "wav"),
+            (Format::Opus, "ogg"),
+            (Format::Flac, "flac"),
+        ] {
+            let arguments =
+                probe_arguments(&path, Container::from_format(format).unwrap()).unwrap();
+            assert!(arguments
+                .windows(2)
+                .any(|pair| pair[0] == "-f" && pair[1] == demuxer));
             assert_eq!(arguments.last().unwrap(), path.to_str().unwrap());
         }
         assert!(Container::from_path(&path).is_err());
@@ -566,8 +827,14 @@ mod tests {
         cancellation.cancel();
         let request = AudioInspectRequest {
             input: PathBuf::from("absent.mp4"),
-            ffprobe: AudioTool { path: PathBuf::from("absent-ffprobe"), sha256: "a".repeat(64) },
+            ffprobe: AudioTool {
+                path: PathBuf::from("absent-ffprobe"),
+                sha256: "a".repeat(64),
+            },
         };
-        assert!(matches!(inspect(&request, cancellation), Err(SpeechError::Cancelled)));
+        assert!(matches!(
+            inspect(&request, cancellation),
+            Err(SpeechError::Cancelled)
+        ));
     }
 }

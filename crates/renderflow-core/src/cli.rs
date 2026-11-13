@@ -54,14 +54,20 @@ pub struct Cli {
 #[derive(Subcommand)]
 pub enum Commands {
     /// Local generated support metadata, with no raw logs or media conversion.
-    Diagnostics{#[command(subcommand)]command:DiagnosticsCommands},
+    Diagnostics {
+        #[command(subcommand)]
+        command: DiagnosticsCommands,
+    },
     /// Describe compiled release interfaces and declared routes without discovery.
     ReleaseContract,
     /// Reobserve exact native run publications, retaining their validation state.
     PublicationStatus {
-        #[arg(long)] manifest: String,
-        #[arg(long)] manifest_sha256: String,
-        #[arg(long)] output_root: String,
+        #[arg(long)]
+        manifest: String,
+        #[arg(long)]
+        manifest_sha256: String,
+        #[arg(long)]
+        output_root: String,
     },
     /// Build rendered documents from a renderflow configuration file
     #[command(after_help = "Examples:\n  \
@@ -433,7 +439,9 @@ pub enum Commands {
     Env,
 
     /// Run installation diagnostics
-    #[command(after_help = "Examples:\n  renderflow doctor\n  renderflow doctor --profile creative-publishing\n  renderflow doctor --profile creative-publishing --format json --strict")]
+    #[command(
+        after_help = "Examples:\n  renderflow doctor\n  renderflow doctor --profile creative-publishing\n  renderflow doctor --profile creative-publishing --format json --strict"
+    )]
     Doctor {
         /// Fail for missing required core tools, or failed supported discovery probes in a profile.
         #[arg(long)]
@@ -450,10 +458,21 @@ pub enum Commands {
 }
 
 #[derive(Subcommand)]
-pub enum DiagnosticsCommands{
-    Preview{#[arg(long)]request:std::path::PathBuf},
-    Bundle{#[arg(long)]request:std::path::PathBuf,#[arg(long)]output:std::path::PathBuf},
-    Inspect{#[arg(long)]bundle:std::path::PathBuf},
+pub enum DiagnosticsCommands {
+    Preview {
+        #[arg(long)]
+        request: std::path::PathBuf,
+    },
+    Bundle {
+        #[arg(long)]
+        request: std::path::PathBuf,
+        #[arg(long)]
+        output: std::path::PathBuf,
+    },
+    Inspect {
+        #[arg(long)]
+        bundle: std::path::PathBuf,
+    },
     Doctor,
 }
 
@@ -476,27 +495,47 @@ mod doctor_arguments_tests {
     #[test]
     fn legacy_doctor_does_not_select_an_optional_profile() {
         let cli = Cli::try_parse_from(["renderflow", "doctor", "--strict"]).unwrap();
-        assert!(matches!(cli.command, Some(Commands::Doctor {
-            strict: true, profile: None, format: None,
-        })));
+        assert!(matches!(
+            cli.command,
+            Some(Commands::Doctor {
+                strict: true,
+                profile: None,
+                format: None,
+            })
+        ));
     }
 
     #[test]
     fn creative_doctor_accepts_default_text_and_explicit_json() {
-        let default = Cli::try_parse_from([
-            "renderflow", "doctor", "--profile", "creative-publishing",
-        ]).unwrap();
-        assert!(matches!(default.command, Some(Commands::Doctor {
-            strict: false, profile: Some(DoctorProfile::CreativePublishing), format: None,
-        })));
+        let default =
+            Cli::try_parse_from(["renderflow", "doctor", "--profile", "creative-publishing"])
+                .unwrap();
+        assert!(matches!(
+            default.command,
+            Some(Commands::Doctor {
+                strict: false,
+                profile: Some(DoctorProfile::CreativePublishing),
+                format: None,
+            })
+        ));
         let json = Cli::try_parse_from([
-            "renderflow", "doctor", "--profile", "creative-publishing",
-            "--format", "json", "--strict",
-        ]).unwrap();
-        assert!(matches!(json.command, Some(Commands::Doctor {
-            strict: true, profile: Some(DoctorProfile::CreativePublishing),
-            format: Some(DoctorReportFormat::Json),
-        })));
+            "renderflow",
+            "doctor",
+            "--profile",
+            "creative-publishing",
+            "--format",
+            "json",
+            "--strict",
+        ])
+        .unwrap();
+        assert!(matches!(
+            json.command,
+            Some(Commands::Doctor {
+                strict: true,
+                profile: Some(DoctorProfile::CreativePublishing),
+                format: Some(DoctorReportFormat::Json),
+            })
+        ));
     }
 
     #[test]
@@ -504,7 +543,14 @@ mod doctor_arguments_tests {
         for arguments in [
             vec!["renderflow", "doctor", "--format", "json"],
             vec!["renderflow", "doctor", "--profile", "everything"],
-            vec!["renderflow", "doctor", "--profile", "creative-publishing", "--format", "yaml"],
+            vec![
+                "renderflow",
+                "doctor",
+                "--profile",
+                "creative-publishing",
+                "--format",
+                "yaml",
+            ],
         ] {
             assert!(Cli::try_parse_from(arguments).is_err());
         }
@@ -536,7 +582,11 @@ pub struct CompositionSelectionArguments {
     #[arg(long, default_value = "all_declared", value_name = "LOCALES")]
     pub locales: String,
     /// Comma-separated target formats. Unsupported known targets retain diagnostic branches.
-    #[arg(long, default_value = "svg,html,transcript_json", value_name = "FORMATS")]
+    #[arg(
+        long,
+        default_value = "svg,html,transcript_json",
+        value_name = "FORMATS"
+    )]
     pub targets: String,
     /// PNG pixel density, from 36 to 600 DPI. Ignored for other target formats.
     #[arg(long, default_value = "144", value_name = "DPI")]
@@ -554,7 +604,11 @@ pub struct CompositionSelectionArguments {
     #[arg(long, default_value = "none", value_parser = ["none", "left", "right"], value_name = "SIDE")]
     pub pdf_binding_side: String,
     /// PDF color policy. Only assumed_srgb_no_profile_conversion is supported.
-    #[arg(long, default_value = "assumed_srgb_no_profile_conversion", value_name = "POLICY")]
+    #[arg(
+        long,
+        default_value = "assumed_srgb_no_profile_conversion",
+        value_name = "POLICY"
+    )]
     pub pdf_color_policy: String,
     /// PDF conformance request. Only none is supported; PDF/X and PDF/A are refused.
     #[arg(long, default_value = "none", value_name = "CONFORMANCE")]
@@ -576,9 +630,11 @@ pub struct CompositionRenderArguments {
 #[derive(Subcommand)]
 pub enum ScreenplayCommands {
     /// Validate canonical screenplay JSON and report structure and retained evidence.
-    #[command(after_help = "Only the renderflow.screenplay/v1 JSON model is accepted.\n\
+    #[command(
+        after_help = "Only the renderflow.screenplay/v1 JSON model is accepted.\n\
         Native conversion uses the separate explicitly configured convert command; inspect\n\
-        does not invoke tools, convert a screenplay, or verify upstream source bytes.")]
+        does not invoke tools, convert a screenplay, or verify upstream source bytes."
+    )]
     Inspect {
         /// Canonical screenplay JSON file (16 MiB maximum); input is read only.
         #[arg(long, value_name = "FILE")]
@@ -588,20 +644,26 @@ pub enum ScreenplayCommands {
         format: String,
     },
     /// Convert a supported native screenplay body with an explicitly pinned scripttool.
-    #[command(after_help = "Authored, unqualified import routes only: FDX/OSF/FadeIn to Fountain.\n\
+    #[command(
+        after_help = "Authored, unqualified import routes only: FDX/OSF/FadeIn to Fountain.\n\
         Reverse native conversions and scripttool JSON are rejected. Unsupported\n\
-        structure or changed semantic content causes failure; no silent fallback.")]
+        structure or changed semantic content causes failure; no silent fallback."
+    )]
     Convert(ScreenplayConvertArguments),
     /// Recover a review-required screenplay candidate from PDF or unstructured text.
-    #[command(after_help = "Authored, unqualified deterministic recovery only; every result is lossy and requires review.\n\
+    #[command(
+        after_help = "Authored, unqualified deterministic recovery only; every result is lossy and requires review.\n\
         PDF extraction uses explicitly pinned local tools, with bounded OCR only when needed.\n\
         The new bundle always includes canonical JSON, source-page text, and recovery evidence.\n\
-        Optional native derivatives retain the recovery lineage; no AI or installation is implicit.")]
+        Optional native derivatives retain the recovery lineage; no AI or installation is implicit."
+    )]
     Recover(ScreenplayRecoverArguments),
     /// Analyze the strict ASCII Fountain body profile without launching a provider.
-    #[command(after_help = "Counts are independently derived by Renderflow, not afterwriting statistics.\n\
+    #[command(
+        after_help = "Counts are independently derived by Renderflow, not afterwriting statistics.\n\
         The authored profile rejects title pages, styling, multiline paragraphs,\n\
-        XML markers, and non-ASCII text. No PDF is created or page count estimated.")]
+        XML markers, and non-ASCII text. No PDF is created or page count estimated."
+    )]
     Analyze {
         /// Local Fountain input, at most 16 MiB; JSON report goes to stdout.
         #[arg(long, value_name = "FILE")]
@@ -614,9 +676,11 @@ pub enum ScreenplayCommands {
         PDF structure is checked independently; visual fidelity and reproducibility remain unqualified.")]
     Pdf(ScreenplayPdfArguments),
     /// Hash a local afterwriting installation without launching Node or installing anything.
-    #[command(after_help = "Reports the bounded package-content fingerprint needed by the PDF config.\n\
+    #[command(
+        after_help = "Reports the bounded package-content fingerprint needed by the PDF config.\n\
         A fingerprint identifies local bytes; it does not establish trust, dependency\n\
-        completeness, source provenance, or runtime compatibility.")]
+        completeness, source provenance, or runtime compatibility."
+    )]
     PackageFingerprint {
         /// Absolute path to an already installed afterwriting package directory.
         #[arg(long, value_name = "DIRECTORY")]
@@ -701,7 +765,7 @@ pub enum SpeechCommands {
     /// List audio streams using an explicitly pinned local FFprobe executable.
     Inspect(SpeechInspectArguments),
     /// Produce an unreviewed transcript bundle from WAV or an explicit audio stream.
-    Transcribe(SpeechTranscribeArguments),
+    Transcribe(Box<SpeechTranscribeArguments>),
     /// Assess transcript clock readiness from a pinned saved-result bundle.
     Timeline(SpeechTimelineArguments),
     /// Export a new transcript using an explicit, pinned operator-supplied time map.
@@ -1004,55 +1068,55 @@ pub enum BundleCommands {
 
 #[derive(clap::Args)]
 pub struct BundleVerifyArguments {
-    #[arg(long,value_name="FILE")]
-    pub manifest:String,
+    #[arg(long, value_name = "FILE")]
+    pub manifest: String,
     /// Exact selected receipt bytes. A digest is not a publisher signature.
-    #[arg(long,value_name="SHA256")]
-    pub manifest_sha256:String,
+    #[arg(long, value_name = "SHA256")]
+    pub manifest_sha256: String,
     /// Explicit root; never inferred from receipt.output_dir or host paths.
-    #[arg(long,value_name="DIRECTORY")]
-    pub bundle_root:String,
+    #[arg(long, value_name = "DIRECTORY")]
+    pub bundle_root: String,
     #[command(flatten)]
-    pub limits:BundleIoArguments,
+    pub limits: BundleIoArguments,
 }
 
 #[derive(clap::Args)]
 pub struct BundleIoArguments {
-    #[arg(long,default_value_t=2147483648_u64)]
-    pub maximum_file_bytes:u64,
-    #[arg(long,default_value_t=8589934592_u64)]
-    pub maximum_total_bytes:u64,
-    #[arg(long,default_value_t=8192_usize)]
-    pub maximum_publications:usize,
-    #[arg(long,default_value_t=120_u64)]
-    pub timeout_seconds:u64,
+    #[arg(long, default_value_t = 2147483648_u64)]
+    pub maximum_file_bytes: u64,
+    #[arg(long, default_value_t = 8589934592_u64)]
+    pub maximum_total_bytes: u64,
+    #[arg(long, default_value_t = 8192_usize)]
+    pub maximum_publications: usize,
+    #[arg(long, default_value_t = 120_u64)]
+    pub timeout_seconds: u64,
 }
 
 #[derive(clap::Args)]
 pub struct BundleExportArguments {
     #[command(flatten)]
-    pub input:BundleVerifyArguments,
-    #[arg(long,value_name="DIRECTORY")]
-    pub artifact_store_root:Option<String>,
-    #[arg(long,value_name="DIRECTORY")]
-    pub output_dir:String,
+    pub input: BundleVerifyArguments,
+    #[arg(long, value_name = "DIRECTORY")]
+    pub artifact_store_root: Option<String>,
+    #[arg(long, value_name = "DIRECTORY")]
+    pub output_dir: String,
     /// Include remaining originals in addition to required canonical/source companions.
     #[arg(long)]
-    pub include_sources:bool,
-    #[arg(long,default_value_t=16384_usize)]
-    pub maximum_records:usize,
+    pub include_sources: bool,
+    #[arg(long, default_value_t = 16384_usize)]
+    pub maximum_records: usize,
 }
 
 #[derive(clap::Args)]
 pub struct BundlePortableVerifyArguments {
-    #[arg(long,value_name="DIRECTORY")]
-    pub bundle_root:String,
-    #[arg(long,value_name="SHA256")]
-    pub index_sha256:String,
-    #[arg(long,default_value_t=16384_usize)]
-    pub maximum_records:usize,
+    #[arg(long, value_name = "DIRECTORY")]
+    pub bundle_root: String,
+    #[arg(long, value_name = "SHA256")]
+    pub index_sha256: String,
+    #[arg(long, default_value_t = 16384_usize)]
+    pub maximum_records: usize,
     #[command(flatten)]
-    pub limits:BundleIoArguments,
+    pub limits: BundleIoArguments,
 }
 
 #[derive(Subcommand)]
@@ -1274,17 +1338,20 @@ pub enum ToolCommands {
 #[derive(Subcommand)]
 pub enum AiCommands {
     /// Plan, generate, review and explicitly export source-grounded synopsis candidates
-    Summary {#[command(subcommand)] subcommand:SummaryCommands},
+    Summary {
+        #[command(subcommand)]
+        subcommand: SummaryCommands,
+    },
     /// Inspect one explicit runtime binding without probing or invoking a model
     Profile {
-        #[arg(long,value_name="FILE")]
-        profile:String,
-        #[arg(long,value_name="FILE")]
-        catalog:Option<String>,
-        #[arg(long,default_value="skill.metadata.extract")]
-        skill:String,
-        #[arg(long,default_value="json")]
-        format:String,
+        #[arg(long, value_name = "FILE")]
+        profile: String,
+        #[arg(long, value_name = "FILE")]
+        catalog: Option<String>,
+        #[arg(long, default_value = "skill.metadata.extract")]
+        skill: String,
+        #[arg(long, default_value = "json")]
+        format: String,
     },
     /// Inspect the versioned provider/model compatibility matrix
     #[command(
@@ -1374,35 +1441,51 @@ pub enum AiCommands {
     },
 }
 
-#[derive(Subcommand,Debug)]
+#[derive(Subcommand, Debug)]
 pub enum SummaryCommands {
     /// Inspect captured source coverage and runtime declarations without inference
     Plan {
-        #[arg(long)] recipe:String,
-        #[arg(long)] profile:String,
-        #[arg(long)] catalog:Option<String>,
+        #[arg(long)]
+        recipe: String,
+        #[arg(long)]
+        profile: String,
+        #[arg(long)]
+        catalog: Option<String>,
     },
     /// Invoke one explicitly prepared profile and write a separate review candidate
     Generate {
-        #[arg(long)] recipe:String,
-        #[arg(long)] profile:String,
-        #[arg(long)] catalog:Option<String>,
-        #[arg(long)] store:String,
-        #[arg(long)] output_dir:String,
+        #[arg(long)]
+        recipe: String,
+        #[arg(long)]
+        profile: String,
+        #[arg(long)]
+        catalog: Option<String>,
+        #[arg(long)]
+        store: String,
+        #[arg(long)]
+        output_dir: String,
     },
     /// Record accept/revise/reject against an exact candidate ID and file digest
     Review {
-        #[arg(long)] candidate:String,
-        #[arg(long)] decision:String,
-        #[arg(long)] store:String,
-        #[arg(long)] output_dir:String,
+        #[arg(long)]
+        candidate: String,
+        #[arg(long)]
+        decision: String,
+        #[arg(long)]
+        store: String,
+        #[arg(long)]
+        output_dir: String,
     },
     /// Materialize an accepted review into a new local directory
     Export {
-        #[arg(long)] review:String,
-        #[arg(long)] review_sha256:String,
-        #[arg(long)] store:String,
-        #[arg(long)] output_dir:String,
+        #[arg(long)]
+        review: String,
+        #[arg(long)]
+        review_sha256: String,
+        #[arg(long)]
+        store: String,
+        #[arg(long)]
+        output_dir: String,
     },
 }
 
@@ -1512,10 +1595,13 @@ pub enum DnaCommands {
 pub enum SonicCommands {
     /// Verify an existing candidate bundle against its separately retained receipt digest.
     Status {
-        #[arg(long)] directory: String,
-        #[arg(long)] receipt_sha256: String,
+        #[arg(long)]
+        directory: String,
+        #[arg(long)]
+        receipt_sha256: String,
         /// Optional current source recipe; no model/provider is resolved.
-        #[arg(long)] input: Option<String>,
+        #[arg(long)]
+        input: Option<String>,
     },
     /// Capture exact inputs and report compatibility; no model/provider is invoked.
     #[command(visible_alias = "inspect")]
@@ -1757,8 +1843,13 @@ mod screenplay_cli_tests {
     #[test]
     fn screenplay_inspect_defaults_to_json_report() {
         let cli = Cli::try_parse_from([
-            "renderflow", "screenplay", "inspect", "--input", "script.screenplay.json",
-        ]).unwrap();
+            "renderflow",
+            "screenplay",
+            "inspect",
+            "--input",
+            "script.screenplay.json",
+        ])
+        .unwrap();
         match cli.command {
             Some(Commands::Screenplay {
                 subcommand: ScreenplayCommands::Inspect { input, format },
@@ -1773,9 +1864,15 @@ mod screenplay_cli_tests {
     #[test]
     fn screenplay_inspect_accepts_text_report() {
         let cli = Cli::try_parse_from([
-            "renderflow", "screenplay", "inspect", "--input", "script.screenplay.json",
-            "--format", "text",
-        ]).unwrap();
+            "renderflow",
+            "screenplay",
+            "inspect",
+            "--input",
+            "script.screenplay.json",
+            "--format",
+            "text",
+        ])
+        .unwrap();
         assert!(matches!(cli.command, Some(Commands::Screenplay {
             subcommand: ScreenplayCommands::Inspect { format, .. },
         }) if format == "text"));
@@ -1790,28 +1887,55 @@ mod screenplay_cli_tests {
     #[test]
     fn screenplay_inspect_rejects_unsupported_format_and_output_flags() {
         assert!(Cli::try_parse_from([
-            "renderflow", "screenplay", "inspect", "--input", "script.screenplay.json",
-            "--format", "yaml",
-        ]).is_err());
+            "renderflow",
+            "screenplay",
+            "inspect",
+            "--input",
+            "script.screenplay.json",
+            "--format",
+            "yaml",
+        ])
+        .is_err());
         assert!(Cli::try_parse_from([
-            "renderflow", "screenplay", "inspect", "--input", "script.screenplay.json",
-            "--output", "converted.fdx",
-        ]).is_err());
+            "renderflow",
+            "screenplay",
+            "inspect",
+            "--input",
+            "script.screenplay.json",
+            "--output",
+            "converted.fdx",
+        ])
+        .is_err());
         assert!(Cli::try_parse_from(["renderflow", "screenplay", "convert"]).is_err());
     }
 
     fn conversion_arguments() -> Vec<&'static str> {
-        vec!["renderflow", "screenplay", "convert", "--input", "scene.fdx",
-            "--input-format", "fdx", "--output-format", "fountain",
-            "--output-dir", "new-bundle", "--scripttool-path", "/opt/scripttool",
-            "--scripttool-sha256", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]
+        vec![
+            "renderflow",
+            "screenplay",
+            "convert",
+            "--input",
+            "scene.fdx",
+            "--input-format",
+            "fdx",
+            "--output-format",
+            "fountain",
+            "--output-dir",
+            "new-bundle",
+            "--scripttool-path",
+            "/opt/scripttool",
+            "--scripttool-sha256",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        ]
     }
 
     #[test]
     fn screenplay_conversion_requires_explicit_unqualified_opt_in() {
         let cli = Cli::try_parse_from(conversion_arguments()).unwrap();
         match cli.command {
-            Some(Commands::Screenplay { subcommand: ScreenplayCommands::Convert(arguments) }) => {
+            Some(Commands::Screenplay {
+                subcommand: ScreenplayCommands::Convert(arguments),
+            }) => {
                 assert!(!arguments.allow_unqualified);
                 assert_eq!(arguments.expected_version, "0.0.10");
                 assert_eq!(arguments.timeout_seconds, 30);
@@ -1829,7 +1953,11 @@ mod screenplay_cli_tests {
     #[test]
     fn screenplay_conversion_rejects_provider_json_and_missing_binary_pin() {
         let mut argv = conversion_arguments();
-        let index = argv.iter().position(|arg| *arg == "--output-format").unwrap() + 1;
+        let index = argv
+            .iter()
+            .position(|arg| *arg == "--output-format")
+            .unwrap()
+            + 1;
         argv[index] = "json";
         assert!(Cli::try_parse_from(argv).is_err());
         let mut argv = conversion_arguments();
@@ -1839,23 +1967,54 @@ mod screenplay_cli_tests {
 
     #[test]
     fn screenplay_pdf_requires_explicit_config_and_new_bundle_destination() {
-        let argv = ["renderflow", "screenplay", "pdf", "--input", "scene.fountain",
-            "--config", "afterwriting.json", "--output-dir", "new-pdf-bundle"];
+        let argv = [
+            "renderflow",
+            "screenplay",
+            "pdf",
+            "--input",
+            "scene.fountain",
+            "--config",
+            "afterwriting.json",
+            "--output-dir",
+            "new-pdf-bundle",
+        ];
         let cli = Cli::try_parse_from(argv).unwrap();
         assert!(matches!(cli.command, Some(Commands::Screenplay {
             subcommand: ScreenplayCommands::Pdf(arguments),
         }) if arguments.input == "scene.fountain" && arguments.config == "afterwriting.json"
             && arguments.output_dir == "new-pdf-bundle" && arguments.source_sha256.is_none()));
         assert!(Cli::try_parse_from(&argv[..7]).is_err());
-        assert!(Cli::try_parse_from(["renderflow", "screenplay", "pdf", "--input", "scene.fountain",
-            "--output-dir", "new-bundle"]).is_err());
+        assert!(Cli::try_parse_from([
+            "renderflow",
+            "screenplay",
+            "pdf",
+            "--input",
+            "scene.fountain",
+            "--output-dir",
+            "new-bundle"
+        ])
+        .is_err());
     }
 
     #[test]
     fn screenplay_recovery_requires_source_format_and_config_and_accepts_repeated_targets() {
-        let argv = ["renderflow", "screenplay", "recover", "--input", "scene.pdf",
-            "--source-format", "pdf", "--config", "recovery.json", "--output", "new-recovery",
-            "--target", "fountain", "--target", "fdx"];
+        let argv = [
+            "renderflow",
+            "screenplay",
+            "recover",
+            "--input",
+            "scene.pdf",
+            "--source-format",
+            "pdf",
+            "--config",
+            "recovery.json",
+            "--output",
+            "new-recovery",
+            "--target",
+            "fountain",
+            "--target",
+            "fdx",
+        ];
         let cli = Cli::try_parse_from(argv).unwrap();
         assert!(matches!(cli.command, Some(Commands::Screenplay {
             subcommand: ScreenplayCommands::Recover(arguments),
@@ -1863,10 +2022,54 @@ mod screenplay_cli_tests {
             && arguments.config == "recovery.json" && arguments.output == "new-recovery"
             && arguments.targets == vec!["fountain", "fdx"] && arguments.source_sha256.is_none()));
         for arguments in [
-            vec!["renderflow", "screenplay", "recover", "--input", "scene.pdf", "--output", "new-recovery"],
-            vec!["renderflow", "screenplay", "recover", "--input", "scene.pdf", "--source-format", "pdf", "--output", "new-recovery"],
-            vec!["renderflow", "screenplay", "recover", "--input", "scene.pdf", "--source-format", "pdf", "--config", "recovery.json", "--output", "new-recovery", "--target", "pdf"],
-            vec!["renderflow", "screenplay", "recover", "--input", "scene.fdx", "--source-format", "fdx", "--config", "recovery.json", "--output", "new-recovery"],
+            vec![
+                "renderflow",
+                "screenplay",
+                "recover",
+                "--input",
+                "scene.pdf",
+                "--output",
+                "new-recovery",
+            ],
+            vec![
+                "renderflow",
+                "screenplay",
+                "recover",
+                "--input",
+                "scene.pdf",
+                "--source-format",
+                "pdf",
+                "--output",
+                "new-recovery",
+            ],
+            vec![
+                "renderflow",
+                "screenplay",
+                "recover",
+                "--input",
+                "scene.pdf",
+                "--source-format",
+                "pdf",
+                "--config",
+                "recovery.json",
+                "--output",
+                "new-recovery",
+                "--target",
+                "pdf",
+            ],
+            vec![
+                "renderflow",
+                "screenplay",
+                "recover",
+                "--input",
+                "scene.fdx",
+                "--source-format",
+                "fdx",
+                "--config",
+                "recovery.json",
+                "--output",
+                "new-recovery",
+            ],
         ] {
             assert!(Cli::try_parse_from(arguments).is_err());
         }
@@ -1874,18 +2077,39 @@ mod screenplay_cli_tests {
 
     #[test]
     fn screenplay_analysis_is_separate_from_provider_pdf_generation() {
-        let cli = Cli::try_parse_from(["renderflow", "screenplay", "analyze", "--input", "scene.fountain"]).unwrap();
+        let cli = Cli::try_parse_from([
+            "renderflow",
+            "screenplay",
+            "analyze",
+            "--input",
+            "scene.fountain",
+        ])
+        .unwrap();
         assert!(matches!(cli.command, Some(Commands::Screenplay {
             subcommand: ScreenplayCommands::Analyze { input },
         }) if input == "scene.fountain"));
-        assert!(Cli::try_parse_from(["renderflow", "screenplay", "analyze", "--input", "scene.fountain",
-            "--config", "afterwriting.json"]).is_err());
+        assert!(Cli::try_parse_from([
+            "renderflow",
+            "screenplay",
+            "analyze",
+            "--input",
+            "scene.fountain",
+            "--config",
+            "afterwriting.json"
+        ])
+        .is_err());
     }
 
     #[test]
     fn screenplay_package_fingerprint_requires_explicit_root() {
-        let cli = Cli::try_parse_from(["renderflow", "screenplay", "package-fingerprint",
-            "--package-root", "/opt/afterwriting"]).unwrap();
+        let cli = Cli::try_parse_from([
+            "renderflow",
+            "screenplay",
+            "package-fingerprint",
+            "--package-root",
+            "/opt/afterwriting",
+        ])
+        .unwrap();
         assert!(matches!(cli.command, Some(Commands::Screenplay {
             subcommand: ScreenplayCommands::PackageFingerprint { package_root },
         }) if package_root == "/opt/afterwriting"));

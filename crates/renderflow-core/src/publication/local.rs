@@ -27,26 +27,44 @@ pub struct FileSubject {
     pub size_bytes: u64,
 }
 
-pub(crate) fn sha256(bytes: &[u8]) -> String { format!("{:x}", Sha256::digest(bytes)) }
+pub(crate) fn sha256(bytes: &[u8]) -> String {
+    format!("{:x}", Sha256::digest(bytes))
+}
 
 pub(crate) fn parse<T: DeserializeOwned>(bytes: &[u8]) -> Result<T> {
     ensure!(bytes.len() <= MAX_JSON, "publication.json.limit");
-    ensure!(serde_json::from_slice::<crate::evidence::json::StrictValue>(bytes)?.0.is_object(), "publication.json.object");
+    ensure!(
+        serde_json::from_slice::<crate::evidence::json::StrictValue>(bytes)?
+            .0
+            .is_object(),
+        "publication.json.object"
+    );
     // Deserialize original bytes, retaining serde's duplicate struct-field refusal.
     serde_json::from_slice(bytes).context("publication.json.contract")
 }
 
 pub(crate) fn read_file(path: &Path, maximum: usize) -> Result<Vec<u8>> {
     let before = fs::symlink_metadata(path).context("publication.file.metadata")?;
-    ensure!(before.is_file() && !before.file_type().is_symlink() && before.len() <= maximum as u64,
-        "publication.file: expected a bounded regular file");
+    ensure!(
+        before.is_file() && !before.file_type().is_symlink() && before.len() <= maximum as u64,
+        "publication.file: expected a bounded regular file"
+    );
     let mut file = File::open(path)?;
-    ensure!(files::same_identity(&before, &file.metadata()?, true), "publication.file.changed");
+    ensure!(
+        files::same_identity(&before, &file.metadata()?, true),
+        "publication.file.changed"
+    );
     let mut bytes = Vec::new();
-    (&mut file).take(maximum as u64 + 1).read_to_end(&mut bytes)?;
-    ensure!(bytes.len() <= maximum && bytes.len() as u64 == before.len()
-        && files::same_identity(&before, &file.metadata()?, true)
-        && files::same_identity(&before, &fs::symlink_metadata(path)?, true), "publication.file.changed");
+    (&mut file)
+        .take(maximum as u64 + 1)
+        .read_to_end(&mut bytes)?;
+    ensure!(
+        bytes.len() <= maximum
+            && bytes.len() as u64 == before.len()
+            && files::same_identity(&before, &file.metadata()?, true)
+            && files::same_identity(&before, &fs::symlink_metadata(path)?, true),
+        "publication.file.changed"
+    );
     Ok(bytes)
 }
 
@@ -61,17 +79,33 @@ pub(crate) struct Capture {
 
 impl Capture {
     pub(crate) fn new(root: &Path, token: ProcessCancellationToken) -> Result<Self> {
-        Self::with_maximum_total(root,token,MAX_TOTAL)
+        Self::with_maximum_total(root, token, MAX_TOTAL)
     }
 
     /// Explicit bounded capture admission for selected larger local sources.
     /// Existing callers retain the original 64 MiB limit via `new`.
-    pub(crate) fn with_maximum_total(root:&Path,token:ProcessCancellationToken,maximum:u64)->Result<Self> {
-        ensure!((MAX_TOTAL..=512*1024*1024).contains(&maximum),"publication.inputs.limit");
-        let mut limits = limits();limits.max_file_bytes=maximum;limits.max_total_bytes=maximum;
+    pub(crate) fn with_maximum_total(
+        root: &Path,
+        token: ProcessCancellationToken,
+        maximum: u64,
+    ) -> Result<Self> {
+        ensure!(
+            (MAX_TOTAL..=512 * 1024 * 1024).contains(&maximum),
+            "publication.inputs.limit"
+        );
+        let mut limits = limits();
+        limits.max_file_bytes = maximum;
+        limits.max_total_bytes = maximum;
         let started = Instant::now();
         files::check_budget(started, &limits, &token)?;
-        Ok(Self {root: BundleRoot::new(root)?, limits, started, token, total: 0, count: 0})
+        Ok(Self {
+            root: BundleRoot::new(root)?,
+            limits,
+            started,
+            token,
+            total: 0,
+            count: 0,
+        })
     }
 
     pub(crate) fn read(&mut self, relative: &str, maximum: usize) -> Result<Vec<u8>> {
@@ -80,8 +114,14 @@ impl Capture {
         ensure!(self.count <= 256, "publication.inputs.count");
         let path = self.root.resolve(relative, &self.limits)?;
         let size = fs::symlink_metadata(&path)?.len();
-        self.total = self.total.checked_add(size).context("publication.inputs.overflow")?;
-        ensure!(self.total <= self.limits.max_total_bytes, "publication.inputs.bytes");
+        self.total = self
+            .total
+            .checked_add(size)
+            .context("publication.inputs.overflow")?;
+        ensure!(
+            self.total <= self.limits.max_total_bytes,
+            "publication.inputs.bytes"
+        );
         let bytes = read_file(&path, maximum)?;
         self.root.recheck()?;
         self.check()?;
@@ -95,27 +135,44 @@ impl Capture {
 }
 
 fn limits() -> VerificationLimits {
-    VerificationLimits {max_file_bytes: MAX_TOTAL, max_total_bytes: MAX_TOTAL,
-        max_publications: 256, ..VerificationLimits::default()}
+    VerificationLimits {
+        max_file_bytes: MAX_TOTAL,
+        max_total_bytes: MAX_TOTAL,
+        max_publications: 256,
+        ..VerificationLimits::default()
+    }
 }
 
 /// Writes only caller-owned bytes into a new directory. Re-observe payloads
 /// before the last receipt; failures may leave an unaccepted partial directory.
-pub(crate) fn publish(output: &Path, files: &BTreeMap<String, Vec<u8>>, receipt_name: &str,
-    mut receipt: Value, token: ProcessCancellationToken) -> Result<Value> {
+pub(crate) fn publish(
+    output: &Path,
+    files: &BTreeMap<String, Vec<u8>>,
+    receipt_name: &str,
+    mut receipt: Value,
+    token: ProcessCancellationToken,
+) -> Result<Value> {
     let limits = limits();
     let started = Instant::now();
     files::check_budget(started, &limits, &token)?;
-    ensure!(receipt.is_object() && !files.contains_key(receipt_name), "publication.receipt.shape");
+    ensure!(
+        receipt.is_object() && !files.contains_key(receipt_name),
+        "publication.receipt.shape"
+    );
     ensure!(files.len() <= 256, "publication.bundle.count");
     let mut total = 0_u64;
     for (path, bytes) in files {
         files::components(path, limits.max_path_components)?;
-        total = total.checked_add(bytes.len() as u64).context("publication.bundle.overflow")?;
+        total = total
+            .checked_add(bytes.len() as u64)
+            .context("publication.bundle.overflow")?;
     }
     ensure!(total <= MAX_TOTAL, "publication.bundle.bytes");
     files::components(receipt_name, limits.max_path_components)?;
-    let parent = output.parent().filter(|p| !p.as_os_str().is_empty()).unwrap_or(Path::new("."));
+    let parent = output
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .unwrap_or(Path::new("."));
     ensure!(parent.is_dir(), "publication.output.parent: must exist");
     fs::create_dir(output).context("publication.output: must not exist")?;
     for (relative, bytes) in files {
@@ -128,10 +185,23 @@ pub(crate) fn publish(output: &Path, files: &BTreeMap<String, Vec<u8>>, receipt_
     let mut observed = Vec::new();
     for (relative, bytes) in files {
         let digest = sha256(bytes);
-        let subject = files::observe(&root, relative,
-            ExpectedFile {size_bytes: bytes.len() as u64, sha256: &digest}, &limits,
-            started, &token, &mut std::io::sink())?;
-        observed.push(FileSubject {path: relative.clone(), sha256: subject.sha256, size_bytes: subject.size_bytes});
+        let subject = files::observe(
+            &root,
+            relative,
+            ExpectedFile {
+                size_bytes: bytes.len() as u64,
+                sha256: &digest,
+            },
+            &limits,
+            started,
+            &token,
+            &mut std::io::sink(),
+        )?;
+        observed.push(FileSubject {
+            path: relative.clone(),
+            sha256: subject.sha256,
+            size_bytes: subject.size_bytes,
+        });
     }
     receipt["files"] = serde_json::to_value(observed)?;
     let bytes = serde_json::to_vec_pretty(&receipt)?;
@@ -152,36 +222,72 @@ fn write_new(path: &Path, bytes: &[u8]) -> Result<()> {
 }
 
 pub(crate) fn identifier(value: &str) -> Result<()> {
-    ensure!(!value.is_empty() && value.len() <= 128 && value.bytes().all(|ch|
-        ch.is_ascii_alphanumeric() || matches!(ch, b'-' | b'_' | b'.')), "publication.id");
+    ensure!(
+        !value.is_empty()
+            && value.len() <= 128
+            && value
+                .bytes()
+                .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, b'-' | b'_' | b'.')),
+        "publication.id"
+    );
     Ok(())
 }
 
 pub(crate) fn text(value: &str, maximum: usize) -> Result<()> {
-    ensure!(!value.trim().is_empty() && value.len() <= maximum && !value.chars().any(|ch|
-        (ch.is_control() && ch != '\n' && ch != '\t') || matches!(ch, '\u{fffe}' | '\u{ffff}')), "publication.text");
+    ensure!(
+        !value.trim().is_empty()
+            && value.len() <= maximum
+            && !value
+                .chars()
+                .any(|ch| (ch.is_control() && ch != '\n' && ch != '\t')
+                    || matches!(ch, '\u{fffe}' | '\u{ffff}')),
+        "publication.text"
+    );
     Ok(())
 }
 
 pub(crate) fn language(value: &str) -> Result<()> {
-    ensure!(value.len() <= 64 && value.split('-').next().is_some_and(|part|
-        (2..=8).contains(&part.len()) && part.bytes().all(|ch| ch.is_ascii_alphabetic()))
-        && value.split('-').all(|part| !part.is_empty() && part.bytes().all(|ch| ch.is_ascii_alphanumeric())),
-        "publication.language");
+    ensure!(
+        value.len() <= 64
+            && value
+                .split('-')
+                .next()
+                .is_some_and(|part| (2..=8).contains(&part.len())
+                    && part.bytes().all(|ch| ch.is_ascii_alphabetic()))
+            && value
+                .split('-')
+                .all(|part| !part.is_empty() && part.bytes().all(|ch| ch.is_ascii_alphanumeric())),
+        "publication.language"
+    );
     Ok(())
 }
 
 pub(crate) fn url(value: &str) -> Result<()> {
     text(value, 4096)?;
-    ensure!((value.starts_with("https://") || value.starts_with("http://")) && value.len() <= 4096
-        && !value.chars().any(|ch| ch.is_whitespace() || ch.is_control()
-            || matches!(ch, '<' | '>' | '"' | '\'' | '\\' | '`' | '{' | '}')), "publication.url");
-    let authority = value.split_once("://").map(|(_, rest)| rest.split(['/', '?', '#']).next().unwrap_or("")).unwrap_or("");
-    ensure!(!authority.is_empty() && !authority.contains('@') && !authority.starts_with(':'), "publication.url.authority");
+    ensure!(
+        (value.starts_with("https://") || value.starts_with("http://"))
+            && value.len() <= 4096
+            && !value.chars().any(|ch| ch.is_whitespace()
+                || ch.is_control()
+                || matches!(ch, '<' | '>' | '"' | '\'' | '\\' | '`' | '{' | '}')),
+        "publication.url"
+    );
+    let authority = value
+        .split_once("://")
+        .map(|(_, rest)| rest.split(['/', '?', '#']).next().unwrap_or(""))
+        .unwrap_or("");
+    ensure!(
+        !authority.is_empty() && !authority.contains('@') && !authority.starts_with(':'),
+        "publication.url.authority"
+    );
     Ok(())
 }
 
 pub(crate) fn escape(value: &str) -> String {
-    value.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;")
-        .replace('"', "&quot;").replace('\'', "&#39;")
+    value
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+        .replace('\'', "&#39;")
 }

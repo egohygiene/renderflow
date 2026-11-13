@@ -62,11 +62,19 @@ pub struct PageGeometry {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum AssetFormat { Png, Jpeg, Svg }
+pub enum AssetFormat {
+    Png,
+    Jpeg,
+    Svg,
+}
 
 impl AssetFormat {
     pub fn media_type(self) -> &'static str {
-        match self { Self::Png => "image/png", Self::Jpeg => "image/jpeg", Self::Svg => "image/svg+xml" }
+        match self {
+            Self::Png => "image/png",
+            Self::Jpeg => "image/jpeg",
+            Self::Svg => "image/svg+xml",
+        }
     }
 }
 
@@ -93,24 +101,46 @@ pub struct Layer {
     pub content: LayerContent,
 }
 
-fn one() -> f64 { 1.0 }
+fn one() -> f64 {
+    1.0
+}
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum BlendMode { #[default] Normal }
+pub enum BlendMode {
+    #[default]
+    Normal,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum LayerContent {
-    Raster { asset_id: String },
-    Vector { asset_id: String },
-    Shape { shape: ShapeKind, fill: String, #[serde(default)] stroke: Option<String>, #[serde(default)] stroke_width_pt: f64 },
-    Text { content_id: String, typography: Typography },
+    Raster {
+        asset_id: String,
+    },
+    Vector {
+        asset_id: String,
+    },
+    Shape {
+        shape: ShapeKind,
+        fill: String,
+        #[serde(default)]
+        stroke: Option<String>,
+        #[serde(default)]
+        stroke_width_pt: f64,
+    },
+    Text {
+        content_id: String,
+        typography: Typography,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum ShapeKind { Rect, Ellipse }
+pub enum ShapeKind {
+    Rect,
+    Ellipse,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -127,15 +157,26 @@ pub struct Typography {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum TextAlignment { Start, Center, End }
+pub enum TextAlignment {
+    Start,
+    Center,
+    End,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum TextDirection { Ltr, Rtl }
+pub enum TextDirection {
+    Ltr,
+    Rtl,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum WritingMode { HorizontalTb, VerticalRl, VerticalLr }
+pub enum WritingMode {
+    HorizontalTb,
+    VerticalRl,
+    VerticalLr,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -166,7 +207,11 @@ pub struct LocaleOverride {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum ProvenanceKind { TextlessOriginal, FlattenedOriginal, Reconstructed }
+pub enum ProvenanceKind {
+    TextlessOriginal,
+    FlattenedOriginal,
+    Reconstructed,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -181,7 +226,11 @@ pub struct CompositionProvenance {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum DiagnosticSeverity { Info, Warning, Error }
+pub enum DiagnosticSeverity {
+    Info,
+    Warning,
+    Error,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -196,7 +245,19 @@ pub struct CompositionDiagnostic {
 }
 
 impl CompositionDiagnostic {
-    pub fn new(severity: DiagnosticSeverity, code: &str, message: impl Into<String>, locale: Option<&str>, layer_id: Option<&str>) -> Self {
-        Self { severity, code: code.into(), message: message.into(), locale: locale.map(str::to_owned), layer_id: layer_id.map(str::to_owned) }
+    pub fn new(
+        severity: DiagnosticSeverity,
+        code: &str,
+        message: impl Into<String>,
+        locale: Option<&str>,
+        layer_id: Option<&str>,
+    ) -> Self {
+        Self {
+            severity,
+            code: code.into(),
+            message: message.into(),
+            locale: locale.map(str::to_owned),
+            layer_id: layer_id.map(str::to_owned),
+        }
     }
 }

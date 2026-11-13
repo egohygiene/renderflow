@@ -1,17 +1,20 @@
 //! Shared duplicate-key refusal, moved unchanged from the speech decoder.
 
-use std::fmt;
 use serde::de::{self, MapAccess, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer};
 use serde_json::{Map, Value};
+use std::fmt;
 
 /// Shared bounded JSON object decoding for adapters. The caller selects its
 /// byte cap; duplicate keys are refused at every nested map before typed
 /// deserialization of the original bytes. This is structural decoding only.
-pub fn object<T:serde::de::DeserializeOwned>(bytes:&[u8],max_bytes:usize)->anyhow::Result<T> {
-    anyhow::ensure!(max_bytes>0 && max_bytes<=128*1024*1024 && bytes.len()<=max_bytes,"JSON object byte bound exceeded");
-    let value:StrictValue=serde_json::from_slice(bytes)?;
-    anyhow::ensure!(value.0.is_object(),"JSON request must be an object");
+pub fn object<T: serde::de::DeserializeOwned>(bytes: &[u8], max_bytes: usize) -> anyhow::Result<T> {
+    anyhow::ensure!(
+        max_bytes > 0 && max_bytes <= 128 * 1024 * 1024 && bytes.len() <= max_bytes,
+        "JSON object byte bound exceeded"
+    );
+    let value: StrictValue = serde_json::from_slice(bytes)?;
+    anyhow::ensure!(value.0.is_object(), "JSON request must be an object");
     Ok(serde_json::from_slice(bytes)?)
 }
 
@@ -43,7 +46,8 @@ impl<'de> Deserialize<'de> for StrictValue {
             }
 
             fn visit_f64<E: de::Error>(self, value: f64) -> Result<Self::Value, E> {
-                serde_json::Number::from_f64(value).map(|number| StrictValue(Value::Number(number)))
+                serde_json::Number::from_f64(value)
+                    .map(|number| StrictValue(Value::Number(number)))
                     .ok_or_else(|| E::custom("nonfinite JSON number"))
             }
 
@@ -63,7 +67,10 @@ impl<'de> Deserialize<'de> for StrictValue {
                 Ok(StrictValue(Value::Null))
             }
 
-            fn visit_seq<A: SeqAccess<'de>>(self, mut sequence: A) -> Result<Self::Value, A::Error> {
+            fn visit_seq<A: SeqAccess<'de>>(
+                self,
+                mut sequence: A,
+            ) -> Result<Self::Value, A::Error> {
                 let mut values = Vec::new();
                 while let Some(StrictValue(value)) = sequence.next_element()? {
                     values.push(value);
@@ -86,4 +93,3 @@ impl<'de> Deserialize<'de> for StrictValue {
         deserializer.deserialize_any(StrictVisitor)
     }
 }
-

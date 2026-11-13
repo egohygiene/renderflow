@@ -5,11 +5,11 @@
 //! upstream source identity as a declaration. The separate native/provider
 //! modules implement explicit, unqualified body-profile conversions only.
 
-mod codec;
 pub mod afterwriting;
 pub mod afterwriting_graph;
 pub mod analysis;
 pub mod body_graph;
+mod codec;
 pub mod graph;
 mod installation;
 pub mod native;
@@ -207,21 +207,33 @@ pub enum ScreenplayError {
 }
 
 pub(crate) fn invalid(context: impl Into<String>) -> ScreenplayError {
-    ScreenplayError::Invalid { context: context.into() }
+    ScreenplayError::Invalid {
+        context: context.into(),
+    }
 }
 
 fn label(value: &str, name: &str, maximum: usize) -> Result<(), ScreenplayError> {
-    if value.trim().is_empty() || value.chars().count() > maximum || value.chars().any(char::is_control) {
-        return Err(invalid(format!("{name} must be nonempty, at most {maximum} characters, and contain no controls")));
+    if value.trim().is_empty()
+        || value.chars().count() > maximum
+        || value.chars().any(char::is_control)
+    {
+        return Err(invalid(format!(
+            "{name} must be nonempty, at most {maximum} characters, and contain no controls"
+        )));
     }
     Ok(())
 }
 
 fn text(value: &str, name: &str, allow_empty: bool) -> Result<(), ScreenplayError> {
-    if (!allow_empty && value.trim().is_empty()) || value.len() > MAX_TEXT_BYTES
-        || value.chars().any(|ch| ch.is_control() && ch != '\n' && ch != '\t')
+    if (!allow_empty && value.trim().is_empty())
+        || value.len() > MAX_TEXT_BYTES
+        || value
+            .chars()
+            .any(|ch| ch.is_control() && ch != '\n' && ch != '\t')
     {
-        return Err(invalid(format!("{name} must fit within 65536 UTF-8 bytes and contain only text, LF, or tab controls")));
+        return Err(invalid(format!(
+            "{name} must fit within 65536 UTF-8 bytes and contain only text, LF, or tab controls"
+        )));
     }
     Ok(())
 }
@@ -234,7 +246,9 @@ struct ExtensionBudget {
 }
 
 fn extension_value(value: &Value, depth: usize, nodes: &mut usize) -> Result<(), ScreenplayError> {
-    *nodes = nodes.checked_add(1).ok_or_else(|| invalid("extension node budget overflow"))?;
+    *nodes = nodes
+        .checked_add(1)
+        .ok_or_else(|| invalid("extension node budget overflow"))?;
     if depth > MAX_EXTENSION_DEPTH || *nodes > MAX_EXTENSION_NODES {
         return Err(invalid("extensions exceed the depth or node budget"));
     }
@@ -257,7 +271,10 @@ fn extension_value(value: &Value, depth: usize, nodes: &mut usize) -> Result<(),
     Ok(())
 }
 
-fn extensions(values: &ScreenplayExtensions, budget: &mut ExtensionBudget) -> Result<(), ScreenplayError> {
+fn extensions(
+    values: &ScreenplayExtensions,
+    budget: &mut ExtensionBudget,
+) -> Result<(), ScreenplayError> {
     if values.len() > MAX_EXTENSION_ENTRIES {
         return Err(invalid("an extension bag exceeds 64 entries"));
     }
@@ -267,13 +284,18 @@ fn extensions(values: &ScreenplayExtensions, budget: &mut ExtensionBudget) -> Re
             return Err(invalid("extension keys must use a namespace:name label"));
         };
         if namespace.trim().is_empty() || name.trim().is_empty() {
-            return Err(invalid("extension keys require a nonempty namespace and name"));
+            return Err(invalid(
+                "extension keys require a nonempty namespace and name",
+            ));
         }
         extension_value(value, 0, &mut budget.nodes)?;
         let size = codec::bounded_encoded_len(value, MAX_EXTENSION_VALUE_BYTES)
             .map_err(|_| invalid("an extension value exceeds 65536 encoded bytes"))?;
         budget.entries += 1;
-        budget.bytes = budget.bytes.checked_add(key.len() + size).ok_or_else(|| invalid("extension byte budget overflow"))?;
+        budget.bytes = budget
+            .bytes
+            .checked_add(key.len() + size)
+            .ok_or_else(|| invalid("extension byte budget overflow"))?;
         if budget.bytes > MAX_EXTENSION_TOTAL_BYTES {
             return Err(invalid("extensions exceed the aggregate 1 MiB byte budget"));
         }
@@ -286,15 +308,30 @@ pub fn validate(screenplay: &Screenplay) -> Result<(), ScreenplayError> {
     if screenplay.schema_version != SCREENPLAY_SCHEMA_V1 {
         return Err(invalid("unsupported schema_version"));
     }
-    if screenplay.source.sha256.len() != 64 || !screenplay.source.sha256.bytes().all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte)) {
-        return Err(invalid("source.sha256 must be a lowercase SHA-256 hex digest"));
+    if screenplay.source.sha256.len() != 64
+        || !screenplay
+            .source
+            .sha256
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+    {
+        return Err(invalid(
+            "source.sha256 must be a lowercase SHA-256 hex digest",
+        ));
     }
     label(&screenplay.source.format, "source.format", 64)?;
     if screenplay.elements.is_empty() || screenplay.elements.len() > MAX_ELEMENTS {
-        return Err(invalid("elements must contain between 1 and 100000 entries"));
+        return Err(invalid(
+            "elements must contain between 1 and 100000 entries",
+        ));
     }
-    if screenplay.title_page.len() > MAX_TITLE_PAGE_FIELDS || screenplay.dual_dialogue.len() > MAX_DUAL_DIALOGUE_GROUPS || screenplay.losses.len() > MAX_LOSS_ENTRIES {
-        return Err(invalid("title-page, dual-dialogue, or loss-evidence count exceeds its bound"));
+    if screenplay.title_page.len() > MAX_TITLE_PAGE_FIELDS
+        || screenplay.dual_dialogue.len() > MAX_DUAL_DIALOGUE_GROUPS
+        || screenplay.losses.len() > MAX_LOSS_ENTRIES
+    {
+        return Err(invalid(
+            "title-page, dual-dialogue, or loss-evidence count exceeds its bound",
+        ));
     }
     let mut ids = BTreeSet::new();
     let mut budget = ExtensionBudget::default();
@@ -308,7 +345,9 @@ pub fn validate(screenplay: &Screenplay) -> Result<(), ScreenplayError> {
         }
         label(&field.key, "title_page.key", 128)?;
         text(&field.value, "title_page.value", true)?;
-        total_text_bytes = total_text_bytes.checked_add(field.value.len()).ok_or(ScreenplayError::InputTooLarge)?;
+        total_text_bytes = total_text_bytes
+            .checked_add(field.value.len())
+            .ok_or(ScreenplayError::InputTooLarge)?;
         extensions(&field.extensions, &mut budget)?;
     }
     let mut characters = BTreeMap::new();
@@ -320,37 +359,57 @@ pub fn validate(screenplay: &Screenplay) -> Result<(), ScreenplayError> {
         if !ids.insert(element.id.as_str()) {
             return Err(invalid(format!("duplicate stable id: {}", element.id)));
         }
-        text(&element.text, "element.text", element.kind == ScreenplayElementKind::Unknown)?;
-        total_text_bytes = total_text_bytes.checked_add(element.text.len()).ok_or(ScreenplayError::InputTooLarge)?;
+        text(
+            &element.text,
+            "element.text",
+            element.kind == ScreenplayElementKind::Unknown,
+        )?;
+        total_text_bytes = total_text_bytes
+            .checked_add(element.text.len())
+            .ok_or(ScreenplayError::InputTooLarge)?;
         if total_text_bytes > MAX_INPUT_BYTES {
             return Err(ScreenplayError::InputTooLarge);
         }
         if element.scene_number.is_some() && element.kind != ScreenplayElementKind::SceneHeading {
-            return Err(invalid("scene_number is allowed only on scene_heading elements"));
+            return Err(invalid(
+                "scene_number is allowed only on scene_heading elements",
+            ));
         }
         if let Some(number) = &element.scene_number {
             label(number, "scene_number", 128)?;
         }
         match (element.kind, element.section_level) {
             (ScreenplayElementKind::Section, Some(1..=6)) => {}
-            (ScreenplayElementKind::Section, _) => return Err(invalid("section elements require section_level between 1 and 6")),
-            (_, Some(_)) => return Err(invalid("section_level is allowed only on section elements")),
+            (ScreenplayElementKind::Section, _) => {
+                return Err(invalid(
+                    "section elements require section_level between 1 and 6",
+                ))
+            }
+            (_, Some(_)) => {
+                return Err(invalid("section_level is allowed only on section elements"))
+            }
             (_, None) => {}
         }
         match element.kind {
             ScreenplayElementKind::Character => {
                 if element.character_id.is_some() {
-                    return Err(invalid("character elements cannot refer to another character block"));
+                    return Err(invalid(
+                        "character elements cannot refer to another character block",
+                    ));
                 }
                 active_character = Some(&element.id);
                 characters.insert(element.id.as_str(), index);
                 block_ends.insert(element.id.as_str(), index);
             }
             ScreenplayElementKind::Dialogue | ScreenplayElementKind::Parenthetical => {
-                let owner = element.character_id.as_deref().ok_or_else(|| invalid("dialogue and parenthetical elements require character_id"))?;
+                let owner = element.character_id.as_deref().ok_or_else(|| {
+                    invalid("dialogue and parenthetical elements require character_id")
+                })?;
                 label(owner, "character_id", 128)?;
                 if active_character != Some(owner) {
-                    return Err(invalid("character_id must refer to the current preceding character block"));
+                    return Err(invalid(
+                        "character_id must refer to the current preceding character block",
+                    ));
                 }
                 block_ends.insert(owner, index);
                 if element.kind == ScreenplayElementKind::Dialogue {
@@ -359,13 +418,17 @@ pub fn validate(screenplay: &Screenplay) -> Result<(), ScreenplayError> {
             }
             _ => {
                 if element.character_id.is_some() {
-                    return Err(invalid("character_id is allowed only on dialogue and parenthetical elements"));
+                    return Err(invalid(
+                        "character_id is allowed only on dialogue and parenthetical elements",
+                    ));
                 }
                 active_character = None;
             }
         }
         if element.kind == ScreenplayElementKind::Unknown && element.extensions.is_empty() {
-            return Err(invalid("unknown elements require source-specific extensions"));
+            return Err(invalid(
+                "unknown elements require source-specific extensions",
+            ));
         }
         extensions(&element.extensions, &mut budget)?;
     }
@@ -379,28 +442,43 @@ pub fn validate(screenplay: &Screenplay) -> Result<(), ScreenplayError> {
         label(&group.right_character_id, "right_character_id", 128)?;
         let left = group.left_character_id.as_str();
         let right = group.right_character_id.as_str();
-        let left_start = characters.get(left).ok_or_else(|| invalid("dual dialogue left reference is not a character element"))?;
-        let right_start = characters.get(right).ok_or_else(|| invalid("dual dialogue right reference is not a character element"))?;
-        if left_start >= right_start || block_ends.get(left).copied().map(|end| end + 1) != Some(*right_start) {
-            return Err(invalid("dual dialogue requires adjacent left-then-right character blocks"));
+        let left_start = characters
+            .get(left)
+            .ok_or_else(|| invalid("dual dialogue left reference is not a character element"))?;
+        let right_start = characters
+            .get(right)
+            .ok_or_else(|| invalid("dual dialogue right reference is not a character element"))?;
+        if left_start >= right_start
+            || block_ends.get(left).copied().map(|end| end + 1) != Some(*right_start)
+        {
+            return Err(invalid(
+                "dual dialogue requires adjacent left-then-right character blocks",
+            ));
         }
-        if dialogue_counts.get(left).copied().unwrap_or_default() == 0 || dialogue_counts.get(right).copied().unwrap_or_default() == 0 {
+        if dialogue_counts.get(left).copied().unwrap_or_default() == 0
+            || dialogue_counts.get(right).copied().unwrap_or_default() == 0
+        {
             return Err(invalid("each side of dual dialogue must contain dialogue"));
         }
         if !paired_characters.insert(left) || !paired_characters.insert(right) {
-            return Err(invalid("a character block may belong to only one dual-dialogue group"));
+            return Err(invalid(
+                "a character block may belong to only one dual-dialogue group",
+            ));
         }
         extensions(&group.extensions, &mut budget)?;
     }
     for loss in &screenplay.losses {
         label(&loss.format, "loss.format", 64)?;
         text(&loss.detail, "loss.detail", false)?;
-        total_text_bytes = total_text_bytes.checked_add(loss.detail.len()).ok_or(ScreenplayError::InputTooLarge)?;
+        total_text_bytes = total_text_bytes
+            .checked_add(loss.detail.len())
+            .ok_or(ScreenplayError::InputTooLarge)?;
         if total_text_bytes > MAX_INPUT_BYTES {
             return Err(ScreenplayError::InputTooLarge);
         }
     }
-    codec::bounded_encoded_len(screenplay, MAX_INPUT_BYTES).map_err(|_| ScreenplayError::InputTooLarge)?;
+    codec::bounded_encoded_len(screenplay, MAX_INPUT_BYTES)
+        .map_err(|_| ScreenplayError::InputTooLarge)?;
     Ok(())
 }
 
@@ -506,7 +584,10 @@ pub struct ScreenplayExportAssessment {
 
 /// Directional model-to-target policy. It never infers reverse conversion or
 /// lossless native round trips from the model's ability to retain data.
-pub fn assess_export(screenplay: &Screenplay, target: ScreenplayExportTarget) -> Result<ScreenplayExportAssessment, ScreenplayError> {
+pub fn assess_export(
+    screenplay: &Screenplay,
+    target: ScreenplayExportTarget,
+) -> Result<ScreenplayExportAssessment, ScreenplayError> {
     validate(screenplay)?;
     if target == ScreenplayExportTarget::ScreenplayJson {
         return Ok(ScreenplayExportAssessment {
@@ -517,12 +598,33 @@ pub fn assess_export(screenplay: &Screenplay, target: ScreenplayExportTarget) ->
             detail: "Canonical JSON preserves the validated semantic model, including declared prior losses and opaque extensions; original source bytes, native layout, and unrecorded source data are not recovered.".to_owned(),
         });
     }
-    let mut review_required = vec![ScreenplayLossKind::ElementKinds, ScreenplayLossKind::StableIds, ScreenplayLossKind::SourceProvenance, ScreenplayLossKind::TextStyling, ScreenplayLossKind::Layout, ScreenplayLossKind::Pagination];
-    if !screenplay.title_page.is_empty() { review_required.push(ScreenplayLossKind::TitlePage); }
-    if !screenplay.dual_dialogue.is_empty() { review_required.push(ScreenplayLossKind::DualDialogue); }
-    if extension_entry_count(screenplay) > 0 { review_required.push(ScreenplayLossKind::SourceExtensions); }
-    if screenplay.elements.iter().any(|element| element.kind == ScreenplayElementKind::Unknown) { review_required.push(ScreenplayLossKind::UnknownSourceData); }
-    if !screenplay.losses.is_empty() { review_required.push(ScreenplayLossKind::PriorLossEvidence); }
+    let mut review_required = vec![
+        ScreenplayLossKind::ElementKinds,
+        ScreenplayLossKind::StableIds,
+        ScreenplayLossKind::SourceProvenance,
+        ScreenplayLossKind::TextStyling,
+        ScreenplayLossKind::Layout,
+        ScreenplayLossKind::Pagination,
+    ];
+    if !screenplay.title_page.is_empty() {
+        review_required.push(ScreenplayLossKind::TitlePage);
+    }
+    if !screenplay.dual_dialogue.is_empty() {
+        review_required.push(ScreenplayLossKind::DualDialogue);
+    }
+    if extension_entry_count(screenplay) > 0 {
+        review_required.push(ScreenplayLossKind::SourceExtensions);
+    }
+    if screenplay
+        .elements
+        .iter()
+        .any(|element| element.kind == ScreenplayElementKind::Unknown)
+    {
+        review_required.push(ScreenplayLossKind::UnknownSourceData);
+    }
+    if !screenplay.losses.is_empty() {
+        review_required.push(ScreenplayLossKind::PriorLossEvidence);
+    }
     Ok(ScreenplayExportAssessment {
         target,
         adapter_available: false,
@@ -533,10 +635,23 @@ pub fn assess_export(screenplay: &Screenplay, target: ScreenplayExportTarget) ->
 }
 
 fn extension_entry_count(screenplay: &Screenplay) -> usize {
-    screenplay.extensions.len() + screenplay.source.extensions.len()
-        + screenplay.title_page.iter().map(|field| field.extensions.len()).sum::<usize>()
-        + screenplay.elements.iter().map(|element| element.extensions.len()).sum::<usize>()
-        + screenplay.dual_dialogue.iter().map(|group| group.extensions.len()).sum::<usize>()
+    screenplay.extensions.len()
+        + screenplay.source.extensions.len()
+        + screenplay
+            .title_page
+            .iter()
+            .map(|field| field.extensions.len())
+            .sum::<usize>()
+        + screenplay
+            .elements
+            .iter()
+            .map(|element| element.extensions.len())
+            .sum::<usize>()
+        + screenplay
+            .dual_dialogue
+            .iter()
+            .map(|group| group.extensions.len())
+            .sum::<usize>()
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -565,10 +680,22 @@ pub fn inspect_json(bytes: &[u8]) -> Result<ScreenplayInspection, ScreenplayErro
     let screenplay = parse_json(bytes)?;
     let mut element_counts = BTreeMap::new();
     for element in &screenplay.elements {
-        *element_counts.entry(element.kind.as_str().to_owned()).or_default() += 1;
+        *element_counts
+            .entry(element.kind.as_str().to_owned())
+            .or_default() += 1;
     }
-    let export_assessments = [ScreenplayExportTarget::ScreenplayJson, ScreenplayExportTarget::Fountain, ScreenplayExportTarget::Fdx, ScreenplayExportTarget::FadeIn, ScreenplayExportTarget::Osf, ScreenplayExportTarget::Pdf, ScreenplayExportTarget::Text]
-        .into_iter().map(|target| assess_export(&screenplay, target)).collect::<Result<Vec<_>, _>>()?;
+    let export_assessments = [
+        ScreenplayExportTarget::ScreenplayJson,
+        ScreenplayExportTarget::Fountain,
+        ScreenplayExportTarget::Fdx,
+        ScreenplayExportTarget::FadeIn,
+        ScreenplayExportTarget::Osf,
+        ScreenplayExportTarget::Pdf,
+        ScreenplayExportTarget::Text,
+    ]
+    .into_iter()
+    .map(|target| assess_export(&screenplay, target))
+    .collect::<Result<Vec<_>, _>>()?;
     Ok(ScreenplayInspection {
         schema_version: SCREENPLAY_INSPECTION_SCHEMA_V1.to_owned(),
         input_sha256: format!("{:x}", Sha256::digest(bytes)),
@@ -582,7 +709,16 @@ pub fn inspect_json(bytes: &[u8]) -> Result<ScreenplayInspection, ScreenplayErro
         extension_entries: extension_entry_count(&screenplay),
         prior_losses: screenplay.losses,
         native_adapters_available: false,
-        import_assessments: [ScreenplayImportFormat::ScreenplayJson, ScreenplayImportFormat::Fountain, ScreenplayImportFormat::Fdx, ScreenplayImportFormat::FadeIn, ScreenplayImportFormat::Osf].into_iter().map(assess_import).collect(),
+        import_assessments: [
+            ScreenplayImportFormat::ScreenplayJson,
+            ScreenplayImportFormat::Fountain,
+            ScreenplayImportFormat::Fdx,
+            ScreenplayImportFormat::FadeIn,
+            ScreenplayImportFormat::Osf,
+        ]
+        .into_iter()
+        .map(assess_import)
+        .collect(),
         export_assessments,
     })
 }

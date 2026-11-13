@@ -35,7 +35,8 @@ pub fn run(
             _ => "text",
         };
         crate::graph::renderers::renderer_for(format)
-            .context("missing built-in plan renderer")?.render(resolved.plan())
+            .context("missing built-in plan renderer")?
+            .render(resolved.plan())
     } else {
         let graph = resolved.graph()?;
         match output_format.to_lowercase().as_str() {
