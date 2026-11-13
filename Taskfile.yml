@@ -4,6 +4,11 @@
 version: "3"
 
 tasks:
+  ci:lock:
+    desc: Resolve owning dependency metadata without permitting lockfile changes
+    cmds:
+      - cargo update --workspace --locked
+
   ci:workflows:
     desc: Check workflow expression scopes using an explicitly installed actionlint 1.7.12
     requires:

@@ -1,0 +1,24 @@
+{
+  "schema_version": "egohygiene.ci-lock-metadata-observation/v1",
+  "observations": [
+    {
+      "owner": "renderflow",
+      "toolchain": "1.94.0",
+      "command": [
+        "+1.94.0",
+        "update",
+        "--workspace",
+        "--locked",
+        "--offline"
+      ],
+      "exit": 0,
+      "lock_sha256": "409dbf8fa45ea228bce21c7f961784fcd95d8704e82417bf08d27e73f967bc94",
+      "lock_unchanged": true,
+      "scope": "dependency metadata resolution only; no build scripts, compiler, linter or tests"
+    }
+  ],
+  "builds_run": false,
+  "tests_run": false,
+  "clippy_run": false,
+  "hosted_ci_dispatched": false
+}

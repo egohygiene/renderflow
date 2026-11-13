@@ -22,6 +22,10 @@ jobs:
           toolchain: "1.94"
           components: clippy
 
+      - name: Check locked dependency metadata
+        run: |
+          cargo update --workspace --locked
+
       - name: Install FFmpeg
         run: |
           sudo apt-get update
@@ -39,13 +43,13 @@ jobs:
           fi
 
       - name: Lint (clippy)
-        run: cargo clippy --workspace -- -D warnings
+        run: cargo clippy --locked --workspace -- -D warnings
 
       - name: Build
-        run: cargo build --workspace --verbose
+        run: cargo build --locked --workspace --verbose
 
       - name: Test
-        run: cargo test --workspace --verbose
+        run: cargo test --locked --workspace --verbose
 
   web:
     name: Web checks
@@ -115,7 +119,7 @@ jobs:
           toolchain: "1.94"
 
       - name: Build renderflow
-        run: cargo build --release --package renderflow-cli
+        run: cargo build --locked --release --package renderflow-cli
 
       - name: Validate hello-world example (dry-run)
         working-directory: examples/hello-world
@@ -181,7 +185,7 @@ jobs:
           toolchain: "1.94"
 
       - name: Build release binary
-        run: cargo build --release --package renderflow-cli
+        run: cargo build --locked --release --package renderflow-cli
 
       - name: Prepare local release assets with checksum
         run: |
