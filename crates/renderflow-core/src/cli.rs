@@ -53,6 +53,8 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Commands {
+    /// Local generated support metadata, with no raw logs or media conversion.
+    Diagnostics{#[command(subcommand)]command:DiagnosticsCommands},
     /// Describe compiled release interfaces and declared routes without discovery.
     ReleaseContract,
     /// Reobserve exact native run publications, retaining their validation state.
@@ -445,6 +447,14 @@ pub enum Commands {
         #[arg(long, value_enum, requires = "profile")]
         format: Option<DoctorReportFormat>,
     },
+}
+
+#[derive(Subcommand)]
+pub enum DiagnosticsCommands{
+    Preview{#[arg(long)]request:std::path::PathBuf},
+    Bundle{#[arg(long)]request:std::path::PathBuf,#[arg(long)]output:std::path::PathBuf},
+    Inspect{#[arg(long)]bundle:std::path::PathBuf},
+    Doctor,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]

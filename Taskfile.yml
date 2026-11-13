@@ -4,6 +4,39 @@
 version: "3"
 
 tasks:
+  diagnostics:preview:
+    desc: Preview generated support categories without creating a bundle
+    requires:
+      vars: [REQUEST]
+    env:
+      RENDERFLOW_SUPPORT_REQUEST: '{{.REQUEST}}'
+    cmds:
+      - renderflow diagnostics preview --request "$RENDERFLOW_SUPPORT_REQUEST"
+
+  diagnostics:bundle:
+    desc: Explicitly create a fresh private metadata-only support bundle
+    requires:
+      vars: [REQUEST, OUTPUT]
+    env:
+      RENDERFLOW_SUPPORT_REQUEST: '{{.REQUEST}}'
+      RENDERFLOW_SUPPORT_OUTPUT: '{{.OUTPUT}}'
+    cmds:
+      - renderflow diagnostics bundle --request "$RENDERFLOW_SUPPORT_REQUEST" --output "$RENDERFLOW_SUPPORT_OUTPUT"
+
+  diagnostics:inspect:
+    desc: Inspect support structure and digest without extracting or trusting content
+    requires:
+      vars: [BUNDLE]
+    env:
+      RENDERFLOW_SUPPORT_BUNDLE: '{{.BUNDLE}}'
+    cmds:
+      - renderflow diagnostics inspect --bundle "$RENDERFLOW_SUPPORT_BUNDLE"
+
+  diagnostics:doctor:
+    desc: Describe compiled observability capabilities without discovery or network
+    cmds:
+      - renderflow diagnostics doctor
+
   # Full project bootstrap – installs all toolchain dependencies, web dependencies,
   # and builds the renderflow CLI in release mode.
   # Works on Linux, macOS, Termux (Android), and Windows.

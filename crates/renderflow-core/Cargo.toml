@@ -73,3 +73,6 @@ ureq = { version = "2", features = ["json"] }
 
 [dev-dependencies]
 criterion = { version = "0.8.2", features = ["html_reports"] }
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"

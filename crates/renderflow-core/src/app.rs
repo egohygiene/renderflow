@@ -31,6 +31,7 @@ pub fn init_logging(cli: &Cli) {
 /// Dispatch a parsed CLI command.
 pub fn run_cli(cli: Cli) -> Result<()> {
     match cli.command {
+        Some(Commands::Diagnostics{command})=>commands::diagnostics::run(command)?,
         Some(Commands::ReleaseContract) => println!("{}", serde_json::to_string_pretty(&crate::release_contract::describe()?)?),
         Some(Commands::PublicationStatus { manifest, manifest_sha256, output_root }) => {
             let report = crate::release_contract::publication_status(std::path::Path::new(&manifest), &manifest_sha256, std::path::Path::new(&output_root))?;
@@ -518,7 +519,7 @@ pub fn root_help_error_from_args(arguments:&[std::ffi::OsString])->Option<clap::
 /// and run the command dispatch.
 pub fn run_cli_from_env() -> Result<()> {
     let cli = Cli::parse();
-    init_logging(&cli);
+    if !matches!(&cli.command,Some(Commands::Diagnostics{..})){init_logging(&cli);}
     run_cli(cli)
 }
 
