@@ -10,12 +10,12 @@ This is a development-time tool relationship, not a product/sibling dependency.
 
 | Required check | Exact selected scope |
 | --- | --- |
-| `declared-compiler-library` | `cargo +1.94.0 check --lib --locked --offline --jobs 2 --package renderflow`; a locked/offline library compile, bounded to two build jobs and 20 minutes |
+| `declared-compiler-workspace-targets` | `cargo +1.94.0 check --workspace --all-targets --locked --offline --jobs 2`; default-feature workspace target compilation, bounded to two build jobs and 20 minutes |
 | `workflow-budget-regressions` | The existing synthetic Python budget suite used by `task ci:budget:test` and the hosted source gate |
 | `workflow-budget-source-plan` | The existing bounded `task ci:budget` plan, retaining deferred/unobserved product states |
 | `workflow-budget-act` | Those same budget Python commands through an explicit act fixture, with a ten-minute outer process limit |
 
-The manifest lists all-target/full Rust tests/Clippy, native hosts, real
+The manifest lists all-feature compilation, full Rust tests/Clippy, native hosts, real
 media/model providers, hosted services and publication/distribution as
 **unsupported by this selection**. The product-specific additional omission is
 spelled out in the manifest. Optional coverage rows remain visible even when
@@ -23,12 +23,19 @@ all four selected required checks pass. A report's `complete: true` means only
 this declared selection completed; it is not all CI, a green supported-release
 matrix or authority for content, signing, release or publication.
 
-The library target deliberately uses the declared minimum compiler 1.94.0.
+The workspace target check deliberately uses the declared minimum compiler 1.94.0.
 Changing a product compiler or selected command requires reviewing this manifest;
 installation of a different default `stable` toolchain does not change the check.
 The local act fixture is outside `.github/workflows`, so adding it cannot start
 GitHub Actions. Existing hosted workflow triggers, budget opt-ins, job conditions
 and release-admission guards are unchanged.
+
+The same compile command is available independently as `task check:workspace`.
+It includes all four workspace packages and their library/binary, test, example
+and benchmark source targets. It does not execute them, compile every feature
+combination, link a release candidate or run rustdoc examples. The focused
+[November 14 observation](work/137/15-workspace-targets-20261114.md) records the
+initial failures, narrow repairs, actual checks and retained warning baseline.
 
 ## Prerequisites and planning
 

@@ -307,6 +307,11 @@ tasks:
     cmds:
       - cargo check
 
+  check:workspace:
+    desc: Compile-check every workspace target offline without running tests
+    cmds:
+      - cargo +1.94.0 check --workspace --all-targets --locked --offline --jobs 2
+
   # Format source code
   format:
     desc: Format source code with rustfmt

@@ -2,7 +2,7 @@
   "schema_version": "realm.local-ci/v1",
   "checks": [
     {
-      "id": "declared-compiler-library",
+      "id": "declared-compiler-workspace-targets",
       "kind": "direct",
       "required": true,
       "timeout_seconds": 1200,
@@ -10,13 +10,12 @@
         "cargo",
         "+1.94.0",
         "check",
-        "--lib",
+        "--workspace",
+        "--all-targets",
         "--locked",
         "--offline",
         "--jobs",
-        "2",
-        "--package",
-        "renderflow"
+        "2"
       ]
     },
     {
@@ -69,7 +68,7 @@
       "id": "full-rust-matrix",
       "kind": "unsupported",
       "required": false,
-      "reason": "This selection checks only the declared-compiler library target. All-target/all-feature compilation, Rust tests, Clippy, moving toolchains, fuzz and performance workloads require their own exact-source results; library-check success does not qualify them."
+      "reason": "This selection compile-checks default-feature workspace targets on the invoking host. All-feature configurations, test/doctest/benchmark execution, strict Clippy, moving toolchains, fuzz and performance workloads require their own exact-source results; compile success does not qualify them."
     },
     {
       "id": "native-host-and-provider-matrix",
@@ -93,7 +92,7 @@
       "id": "cli-and-package-candidate",
       "kind": "unsupported",
       "required": false,
-      "reason": "The selected renderflow library compile does not prove the renderflow-cli binary, Linux release candidate, exact document/media outputs or installer/Snap/AUR paths. #419 owns the separate bounded CLI/package candidate and later release qualification."
+      "reason": "Workspace/all-target source compilation does not link or execute a release CLI, qualify a Linux candidate, prove exact document/media outputs or qualify installer/Snap/AUR paths. #419 owns the separate bounded CLI/package candidate and later release qualification."
     }
   ]
 }

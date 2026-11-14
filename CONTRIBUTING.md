@@ -7,10 +7,11 @@ implementation work from runtime qualification and release work.
 
 ## Getting started
 
-Renderflow is a three-crate Rust workspace. The root [Cargo.toml](Cargo.toml)
+Renderflow is a four-crate Rust workspace. The root [Cargo.toml](Cargo.toml)
 declares edition 2021 and minimum Rust **1.94**; the core package is `renderflow`,
-the executable package is `renderflow-cli`, and the plugin boundary is
-`renderflow-plugin-sdk`. Run workspace commands from the repository root.
+the executable package is `renderflow-cli`, the plugin boundary is
+`renderflow-plugin-sdk`, and the optional local service is `renderflow-api`.
+Run workspace commands from the repository root.
 
 ```bash
 git clone https://github.com/egohygiene/renderflow.git
@@ -71,6 +72,7 @@ shows the full list.
 | `task build` | Compile debug binaries |
 | `task release` | Compile release binaries; does not publish a release |
 | `task check` | Check the source without producing a binary |
+| `task check:workspace` | Compile-check every workspace target with Rust 1.94, locked/offline dependencies and two jobs |
 | `task test` | Run the configured Rust tests |
 | `task lint` | Run the convenience Clippy command |
 | `task format` | Format Rust source |

@@ -34,6 +34,44 @@ fn call(router: &Router, raw: &[u8]) -> super::router::Response {
 }
 
 #[test]
+fn format_inventory_serializes_every_declared_output_without_starting_jobs() {
+    let fixture = Fixture::new(&["transcript_json"]);
+    let router = router(fixture.service());
+    let response = call(&router, input("GET", "/v1/formats", "", "").as_bytes());
+    assert_eq!(response.status, 200);
+    let value: Value = serde_json::from_slice(&response.body).unwrap();
+    assert_eq!(value["request_id"], "request-fixture");
+    assert_eq!(value["data"]["profile"], "renderflow.layered-composition/v5");
+    let outputs = value["data"]["outputs"].as_array().unwrap();
+    assert_eq!(outputs.len(), 9);
+    let actual = outputs
+        .iter()
+        .map(|output| {
+            (
+                output["id"].as_str().unwrap(),
+                output["media_type"].as_str().unwrap(),
+                output["implemented"].as_bool().unwrap(),
+            )
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        actual,
+        vec![
+            ("svg", "image/svg+xml", true),
+            ("html", "text/html", true),
+            ("transcript_json", "application/json", true),
+            ("transcript_text", "text/plain", true),
+            ("png", "image/png", true),
+            ("pdf", "application/pdf", true),
+            ("ora", "image/openraster", false),
+            ("psd", "image/vnd.adobe.photoshop", false),
+            ("idml", "application/vnd.adobe.indesign-idml-package", false),
+        ]
+    );
+    assert_eq!(router.service.active_jobs().unwrap(), 0);
+}
+
+#[test]
 fn full_artifact_get_and_head_have_verified_snapshot_headers_and_ranges_are_refused() {
     let fixture = crate::service::upload_tests::Fixture::new();
     let router = router(fixture.service());
