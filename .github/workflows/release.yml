@@ -339,15 +339,16 @@ jobs:
           image="renderflow-clean-host:$GITHUB_RUN_ID"
           docker build --pull --tag "$image" "$context_dir"
           docker image inspect "$image" --format 'Clean-host image ID: {{.Id}}'
-          verifier="$RUNNER_TEMP/release-verifier.py"
-          cp scripts/release/release_assets.py "$verifier"
+          verifier_dir="$RUNNER_TEMP/release-verifier"
+          python3 -B scripts/release/release_assets.py stage-verifier \
+            --output-directory "$verifier_dir"
           # The image was assembled with network access; the actual release
           # execution has no network and only two read-only mounts.
           docker run --rm --network none --read-only \
             --security-opt no-new-privileges --cap-drop ALL \
             --tmpfs "/tmp:rw,nosuid,nodev,size=256m" \
             --mount "type=bind,source=$RELEASE_DOWNLOAD_DIR,target=/assets,readonly" \
-            --mount "type=bind,source=$verifier,target=/verify.py,readonly" \
+            --mount "type=bind,source=$verifier_dir,target=/verifier,readonly" \
             --env "RELEASE_VERSION=$RELEASE_VERSION" \
             --env "RELEASE_TAG=$RELEASE_TAG" \
             --env "EXPECTED_COMMIT=$EXPECTED_COMMIT" \
@@ -359,7 +360,7 @@ jobs:
               [[ "$(img2pdf --version)" == "img2pdf 0.6.3" ]]
               printf "Clean host: Ubuntu %s, %s, %s\n" \
                 "$VERSION_ID" "$(getconf GNU_LIBC_VERSION)" "$(img2pdf --version)"
-              python3 /verify.py verify \
+              python3 -B /verifier/release_assets.py verify \
                 --artifact-dir /assets --version "$RELEASE_VERSION" \
                 --tag "$RELEASE_TAG" --commit "$EXPECTED_COMMIT" \
                 --target "$RELEASE_TARGET" --smoke
