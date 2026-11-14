@@ -10,11 +10,11 @@ use serde_json::{json, Value};
 use crate::config::Config;
 use crate::optimization::OptimizationMode;
 use crate::publication::{PageGeometry, PublicationContract};
-use crate::speech::policy::SpeechPolicy;
-use crate::screenplay::provider::ScripttoolConfig;
-use crate::screenplay::body_graph::BodyExportPolicy;
 use crate::screenplay::afterwriting::AfterwritingConfig;
+use crate::screenplay::body_graph::BodyExportPolicy;
+use crate::screenplay::provider::ScripttoolConfig;
 use crate::screenplay::recovery::provider::RecoveryExtractionConfig;
+use crate::speech::policy::SpeechPolicy;
 
 mod composition;
 pub use composition::CompositionBuildPolicy;
@@ -260,19 +260,31 @@ pub fn bundled_profile(name: &str) -> Result<Option<DerivativeProfile>> {
         "everything" => include_str!("../data/profiles/everything-v1.yaml"),
         _ => return Ok(None),
     };
-    Ok(Some(serde_yaml_ng::from_str(source).with_context(|| format!("invalid bundled profile '{name}'"))?))
+    Ok(Some(serde_yaml_ng::from_str(source).with_context(
+        || format!("invalid bundled profile '{name}'"),
+    )?))
 }
 
 fn expand_bundled_profiles(spec: &mut SpecV2) -> Result<()> {
     let mut pending = spec.targets.profiles.clone();
-    pending.extend(spec.profiles.values().flat_map(|profile| profile.extends.clone()));
+    pending.extend(
+        spec.profiles
+            .values()
+            .flat_map(|profile| profile.extends.clone()),
+    );
     let mut seen = std::collections::BTreeSet::new();
     while let Some(name) = pending.pop() {
-        if !seen.insert(name.clone()) { continue; }
-        if !spec.profiles.contains_key(&name) {
-            if let Some(profile) = bundled_profile(&name)? { spec.profiles.insert(name.clone(), profile); }
+        if !seen.insert(name.clone()) {
+            continue;
         }
-        if let Some(profile) = spec.profiles.get(&name) { pending.extend(profile.extends.clone()); }
+        if !spec.profiles.contains_key(&name) {
+            if let Some(profile) = bundled_profile(&name)? {
+                spec.profiles.insert(name.clone(), profile);
+            }
+        }
+        if let Some(profile) = spec.profiles.get(&name) {
+            pending.extend(profile.extends.clone());
+        }
     }
     Ok(())
 }
@@ -905,14 +917,27 @@ impl SpecV2 {
         let mut diagnostics = Vec::new();
         if let Some(policy) = &self.execution.lyrics {
             if let Err(error) = policy.validate() {
-                diagnostics.push(SpecDiagnostic::new("$.execution.lyrics","lyrics.policy.invalid",error.to_string()));
+                diagnostics.push(SpecDiagnostic::new(
+                    "$.execution.lyrics",
+                    "lyrics.policy.invalid",
+                    error.to_string(),
+                ));
             }
-            if self.sources.len() != 1 || self.sources.first().is_none_or(|source| source.kind != SourceKind::Artifact)
-                || self.transforms.is_some() || self.execution.composition.is_some()
-                || self.execution.subtitles.is_some() || self.execution.speech.is_some()
-                || self.execution.screenplay.is_some() || self.execution.screenplay_body.is_some()
-                || self.execution.screenplay_pdf.is_some() || self.execution.screenplay_recovery.is_some()
-                || self.execution.print_pdf_interior.is_some() || self.execution.fixed_layout_epub.is_some()
+            if self.sources.len() != 1
+                || self
+                    .sources
+                    .first()
+                    .is_none_or(|source| source.kind != SourceKind::Artifact)
+                || self.transforms.is_some()
+                || self.execution.composition.is_some()
+                || self.execution.subtitles.is_some()
+                || self.execution.speech.is_some()
+                || self.execution.screenplay.is_some()
+                || self.execution.screenplay_body.is_some()
+                || self.execution.screenplay_pdf.is_some()
+                || self.execution.screenplay_recovery.is_some()
+                || self.execution.print_pdf_interior.is_some()
+                || self.execution.fixed_layout_epub.is_some()
                 || self.execution.hygiene_policy.is_some()
             {
                 diagnostics.push(SpecDiagnostic::new("$.execution.lyrics","lyrics.policy.ambiguous",
@@ -949,15 +974,20 @@ impl SpecV2 {
         if let Some(screenplay) = &self.execution.screenplay {
             if let Err(error) = screenplay.validate() {
                 diagnostics.push(SpecDiagnostic::new(
-                    "$.execution.screenplay", "screenplay.policy.invalid", error.to_string(),
+                    "$.execution.screenplay",
+                    "screenplay.policy.invalid",
+                    error.to_string(),
                 ));
             }
-            if self.execution.speech.is_some() || self.execution.subtitles.is_some()
+            if self.execution.speech.is_some()
+                || self.execution.subtitles.is_some()
                 || self.execution.screenplay_body.is_some()
                 || self.execution.screenplay_pdf.is_some()
                 || self.execution.screenplay_recovery.is_some()
-                || self.execution.print_pdf_interior.is_some() || self.execution.fixed_layout_epub.is_some()
-                || self.transforms.is_some() || self.execution.hygiene_policy.is_some()
+                || self.execution.print_pdf_interior.is_some()
+                || self.execution.fixed_layout_epub.is_some()
+                || self.transforms.is_some()
+                || self.execution.hygiene_policy.is_some()
             {
                 diagnostics.push(SpecDiagnostic::new(
                     "$.execution.screenplay", "screenplay.policy.ambiguous",
@@ -969,13 +999,19 @@ impl SpecV2 {
         if let Some(body) = &self.execution.screenplay_body {
             if let Err(error) = body.validate() {
                 diagnostics.push(SpecDiagnostic::new(
-                    "$.execution.screenplay_body", "screenplay_body.policy.invalid", error.to_string(),
+                    "$.execution.screenplay_body",
+                    "screenplay_body.policy.invalid",
+                    error.to_string(),
                 ));
             }
-            if self.execution.screenplay.is_some() || self.execution.screenplay_pdf.is_some()
-                || self.execution.screenplay_recovery.is_some() || self.execution.speech.is_some()
-                || self.execution.subtitles.is_some() || self.execution.print_pdf_interior.is_some()
-                || self.execution.fixed_layout_epub.is_some() || self.transforms.is_some()
+            if self.execution.screenplay.is_some()
+                || self.execution.screenplay_pdf.is_some()
+                || self.execution.screenplay_recovery.is_some()
+                || self.execution.speech.is_some()
+                || self.execution.subtitles.is_some()
+                || self.execution.print_pdf_interior.is_some()
+                || self.execution.fixed_layout_epub.is_some()
+                || self.transforms.is_some()
                 || self.execution.hygiene_policy.is_some()
             {
                 diagnostics.push(SpecDiagnostic::new(
@@ -988,14 +1024,19 @@ impl SpecV2 {
         if let Some(screenplay_pdf) = &self.execution.screenplay_pdf {
             if let Err(error) = screenplay_pdf.validate() {
                 diagnostics.push(SpecDiagnostic::new(
-                    "$.execution.screenplay_pdf", "screenplay_pdf.policy.invalid", error.to_string(),
+                    "$.execution.screenplay_pdf",
+                    "screenplay_pdf.policy.invalid",
+                    error.to_string(),
                 ));
             }
-            if self.execution.screenplay.is_some() || self.execution.speech.is_some()
+            if self.execution.screenplay.is_some()
+                || self.execution.speech.is_some()
                 || self.execution.screenplay_body.is_some()
                 || self.execution.screenplay_recovery.is_some()
-                || self.execution.subtitles.is_some() || self.execution.print_pdf_interior.is_some()
-                || self.execution.fixed_layout_epub.is_some() || self.transforms.is_some()
+                || self.execution.subtitles.is_some()
+                || self.execution.print_pdf_interior.is_some()
+                || self.execution.fixed_layout_epub.is_some()
+                || self.transforms.is_some()
                 || self.execution.hygiene_policy.is_some()
             {
                 diagnostics.push(SpecDiagnostic::new(
@@ -1010,14 +1051,20 @@ impl SpecV2 {
             // and their identity are observed only when recovery executes.
             if let Err(error) = recovery.validate() {
                 diagnostics.push(SpecDiagnostic::new(
-                    "$.execution.screenplay_recovery", "screenplay_recovery.policy.invalid", error.to_string(),
+                    "$.execution.screenplay_recovery",
+                    "screenplay_recovery.policy.invalid",
+                    error.to_string(),
                 ));
             }
-            if self.execution.screenplay.is_some() || self.execution.screenplay_pdf.is_some()
+            if self.execution.screenplay.is_some()
+                || self.execution.screenplay_pdf.is_some()
                 || self.execution.screenplay_body.is_some()
-                || self.execution.speech.is_some() || self.execution.subtitles.is_some()
-                || self.execution.print_pdf_interior.is_some() || self.execution.fixed_layout_epub.is_some()
-                || self.transforms.is_some() || self.execution.hygiene_policy.is_some()
+                || self.execution.speech.is_some()
+                || self.execution.subtitles.is_some()
+                || self.execution.print_pdf_interior.is_some()
+                || self.execution.fixed_layout_epub.is_some()
+                || self.transforms.is_some()
+                || self.execution.hygiene_policy.is_some()
             {
                 diagnostics.push(SpecDiagnostic::new(
                     "$.execution.screenplay_recovery", "screenplay_recovery.policy.ambiguous",
@@ -1029,12 +1076,15 @@ impl SpecV2 {
         if let Some(speech) = &self.execution.speech {
             if let Err(error) = speech.validate() {
                 diagnostics.push(SpecDiagnostic::new(
-                    "$.execution.speech", "speech.policy.invalid", error.to_string(),
+                    "$.execution.speech",
+                    "speech.policy.invalid",
+                    error.to_string(),
                 ));
             }
             if self.execution.ai == AiPolicy::Deny {
                 diagnostics.push(SpecDiagnostic::new(
-                    "$.execution.ai", "speech.ai.denied",
+                    "$.execution.ai",
+                    "speech.ai.denied",
                     "speech recognition requires execution.ai: local_only or allow",
                 ));
             }
@@ -1082,7 +1132,7 @@ impl SpecV2 {
             match source.kind {
                 // This source uses the bounded native composition contract,
                 // validated separately from artifact and collection locators.
-                SourceKind::Composition | SourceKind::Presentation | SourceKind::Briefing => {},
+                SourceKind::Composition | SourceKind::Presentation | SourceKind::Briefing => {}
                 SourceKind::Artifact => {
                     let locator_count =
                         usize::from(source.path.is_some()) + usize::from(source.uri.is_some());
@@ -1449,7 +1499,10 @@ impl SpecV2 {
                 "max_candidates must be between 1 and 1000000 inclusive",
             ));
         }
-        if planning.max_loss.is_some_and(|loss| !loss.is_finite() || !(0.0..=1.0).contains(&loss)) {
+        if planning
+            .max_loss
+            .is_some_and(|loss| !loss.is_finite() || !(0.0..=1.0).contains(&loss))
+        {
             diagnostics.push(SpecDiagnostic::new(
                 "$.execution.derivative_planning.max_loss",
                 "derivative_planning.max_loss.invalid",
@@ -1698,8 +1751,14 @@ fn validate_v2(content: &str) -> SpecValidationReport {
         Ok(mut spec) => {
             if let Err(error) = expand_bundled_profiles(&mut spec) {
                 return SpecValidationReport {
-                    valid: false, source_version: Some(SourceSpecVersion::V2), schema: Some(SPEC_V2_ID.to_string()),
-                    diagnostics: vec![SpecDiagnostic::new("$.profiles", "profile.bundle.invalid", error.to_string())],
+                    valid: false,
+                    source_version: Some(SourceSpecVersion::V2),
+                    schema: Some(SPEC_V2_ID.to_string()),
+                    diagnostics: vec![SpecDiagnostic::new(
+                        "$.profiles",
+                        "profile.bundle.invalid",
+                        error.to_string(),
+                    )],
                 };
             }
             let diagnostics = spec.validate();
@@ -1733,9 +1792,13 @@ pub fn load_spec_str(content: &str) -> Result<LoadedSpec> {
 
     match report.source_version {
         Some(SourceSpecVersion::V2) => {
-            let mut spec = serde_yaml_ng::from_str(content).context("failed to parse validated v2 spec")?;
+            let mut spec =
+                serde_yaml_ng::from_str(content).context("failed to parse validated v2 spec")?;
             expand_bundled_profiles(&mut spec)?;
-            Ok(LoadedSpec { source_version: SourceSpecVersion::V2, spec })
+            Ok(LoadedSpec {
+                source_version: SourceSpecVersion::V2,
+                spec,
+            })
         }
         Some(SourceSpecVersion::V1) => {
             let config: Config =
@@ -2601,8 +2664,10 @@ targets:
         let explicit_empty: ExecutionPolicy =
             serde_json::from_value(json!({"derivative_planning": {}})).unwrap();
         assert_eq!(&explicit_empty.derivative_planning, policy);
-        assert!(serde_json::to_value(&loaded.spec.execution).unwrap()
-            .get("derivative_planning").is_some());
+        assert!(serde_json::to_value(&loaded.spec.execution)
+            .unwrap()
+            .get("derivative_planning")
+            .is_some());
     }
 
     #[test]
@@ -2620,8 +2685,12 @@ targets:
         spec.execution.derivative_planning.max_hops = 65;
         spec.execution.derivative_planning.max_candidates = 0;
         let diagnostics = spec.validate();
-        assert!(diagnostics.iter().any(|diagnostic| diagnostic.code == "derivative_planning.max_hops.invalid"));
-        assert!(diagnostics.iter().any(|diagnostic| diagnostic.code == "derivative_planning.max_candidates.invalid"));
+        assert!(diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "derivative_planning.max_hops.invalid"));
+        assert!(diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "derivative_planning.max_candidates.invalid"));
     }
 
     #[test]
@@ -2629,11 +2698,17 @@ targets:
         let mut spec = load_spec_str(VALID_EXACT).unwrap().spec;
         for loss in [0.0, 1.0] {
             spec.execution.derivative_planning.max_loss = Some(loss);
-            assert!(!spec.validate().iter().any(|diagnostic| diagnostic.code == "derivative_planning.max_loss.invalid"));
+            assert!(!spec
+                .validate()
+                .iter()
+                .any(|diagnostic| diagnostic.code == "derivative_planning.max_loss.invalid"));
         }
         for loss in [-0.01, 1.01, f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
             spec.execution.derivative_planning.max_loss = Some(loss);
-            assert!(spec.validate().iter().any(|diagnostic| diagnostic.path == "$.execution.derivative_planning.max_loss"));
+            assert!(spec
+                .validate()
+                .iter()
+                .any(|diagnostic| diagnostic.path == "$.execution.derivative_planning.max_loss"));
         }
     }
 
@@ -2641,27 +2716,43 @@ targets:
     fn target_provider_constraint_is_a_stable_identity() {
         let mut spec = load_spec_str(VALID_EXACT).unwrap().spec;
         spec.targets.exact[0].provider = Some("tool.pandoc".to_owned());
-        assert!(!spec.validate().iter().any(|diagnostic| diagnostic.code == "target.provider.invalid"));
+        assert!(!spec
+            .validate()
+            .iter()
+            .any(|diagnostic| diagnostic.code == "target.provider.invalid"));
         let serialized = serde_json::to_value(&spec.targets.exact[0]).unwrap();
         assert_eq!(serialized["provider"], "tool.pandoc");
         for provider in ["", "tool provider", "../provider"] {
             spec.targets.exact[0].provider = Some(provider.to_owned());
-            assert!(spec.validate().iter().any(|diagnostic| diagnostic.path == "$.targets.exact[0].provider"));
+            assert!(spec
+                .validate()
+                .iter()
+                .any(|diagnostic| diagnostic.path == "$.targets.exact[0].provider"));
         }
     }
 
     #[test]
     fn derivative_planning_schema_matches_the_published_contract() {
         let runtime = json_schema();
-        let published: Value = serde_json::from_str(include_str!("../../../schemas/renderflow-v2.schema.json")).unwrap();
-        assert_eq!(runtime["$defs"]["derivativePlanningPolicy"], published["$defs"]["derivativePlanningPolicy"]);
-        assert_eq!(runtime["$defs"]["executionPolicy"]["properties"]["derivative_planning"],
-            published["$defs"]["executionPolicy"]["properties"]["derivative_planning"]);
-        assert_eq!(runtime["$defs"]["target"]["properties"]["provider"],
-            published["$defs"]["target"]["properties"]["provider"]);
+        let published: Value =
+            serde_json::from_str(include_str!("../../../schemas/renderflow-v2.schema.json"))
+                .unwrap();
+        assert_eq!(
+            runtime["$defs"]["derivativePlanningPolicy"],
+            published["$defs"]["derivativePlanningPolicy"]
+        );
+        assert_eq!(
+            runtime["$defs"]["executionPolicy"]["properties"]["derivative_planning"],
+            published["$defs"]["executionPolicy"]["properties"]["derivative_planning"]
+        );
+        assert_eq!(
+            runtime["$defs"]["target"]["properties"]["provider"],
+            published["$defs"]["target"]["properties"]["provider"]
+        );
         assert!(serde_json::from_value::<ExecutionPolicy>(json!({
             "derivative_planning": {"unbounded": true}
-        })).is_err());
+        }))
+        .is_err());
     }
 
     #[test]
@@ -2748,11 +2839,20 @@ variables:
         let default_execution: ExecutionPolicy = serde_json::from_value(json!({})).unwrap();
         assert_eq!(default_execution.subtitles, None);
         let conversion: ExecutionPolicy = serde_json::from_value(json!({"subtitles": {}})).unwrap();
-        assert_eq!(conversion.subtitles, Some(SubtitlePolicy { stream_index: None }));
+        assert_eq!(
+            conversion.subtitles,
+            Some(SubtitlePolicy { stream_index: None })
+        );
         let extraction: ExecutionPolicy = serde_json::from_value(json!({
             "subtitles": {"stream_index": 0}
-        })).unwrap();
-        assert_eq!(extraction.subtitles, Some(SubtitlePolicy { stream_index: Some(0) }));
+        }))
+        .unwrap();
+        assert_eq!(
+            extraction.subtitles,
+            Some(SubtitlePolicy {
+                stream_index: Some(0)
+            })
+        );
     }
 
     fn screenplay_policy_value() -> serde_json::Value {
@@ -2769,78 +2869,161 @@ variables:
     fn original_screenplay_body_policy_is_explicit_and_isolated() {
         let defaults: ExecutionPolicy = serde_json::from_value(json!({})).unwrap();
         assert!(defaults.screenplay_body.is_none());
-        assert!(serde_json::to_value(defaults).unwrap().get("screenplay_body").is_none());
-        for invalid in [json!({}), json!([true]), json!({"allow_unqualified": true, "provider": "scripttool"})] {
-            assert!(serde_json::from_value::<ExecutionPolicy>(json!({"screenplay_body": invalid})).is_err());
+        assert!(serde_json::to_value(defaults)
+            .unwrap()
+            .get("screenplay_body")
+            .is_none());
+        for invalid in [
+            json!({}),
+            json!([true]),
+            json!({"allow_unqualified": true, "provider": "scripttool"}),
+        ] {
+            assert!(
+                serde_json::from_value::<ExecutionPolicy>(json!({"screenplay_body": invalid}))
+                    .is_err()
+            );
         }
         let mut spec = load_spec_str(VALID_EXACT).unwrap().spec;
-        spec.execution.screenplay_body = Some(BodyExportPolicy { allow_unqualified: false });
-        assert!(spec.validate().iter().any(|item| item.code == "screenplay_body.policy.invalid"));
-        spec.execution.screenplay_body.as_mut().unwrap().allow_unqualified = true;
-        assert!(!spec.validate().iter().any(|item| item.code.starts_with("screenplay_body.")));
+        spec.execution.screenplay_body = Some(BodyExportPolicy {
+            allow_unqualified: false,
+        });
+        assert!(spec
+            .validate()
+            .iter()
+            .any(|item| item.code == "screenplay_body.policy.invalid"));
+        spec.execution
+            .screenplay_body
+            .as_mut()
+            .unwrap()
+            .allow_unqualified = true;
+        assert!(!spec
+            .validate()
+            .iter()
+            .any(|item| item.code.starts_with("screenplay_body.")));
         spec.execution.subtitles = Some(SubtitlePolicy::default());
-        assert!(spec.validate().iter().any(|item| item.code == "screenplay_body.policy.ambiguous"));
+        assert!(spec
+            .validate()
+            .iter()
+            .any(|item| item.code == "screenplay_body.policy.ambiguous"));
         spec.execution.subtitles = None;
         spec.transforms = Some("transforms.yaml".to_owned());
-        assert!(spec.validate().iter().any(|item| item.code == "screenplay_body.policy.ambiguous"));
+        assert!(spec
+            .validate()
+            .iter()
+            .any(|item| item.code == "screenplay_body.policy.ambiguous"));
         spec.transforms = None;
         spec.execution.hygiene_policy = Some("scrub".to_owned());
-        assert!(spec.validate().iter().any(|item| item.code == "screenplay_body.policy.ambiguous"));
+        assert!(spec
+            .validate()
+            .iter()
+            .any(|item| item.code == "screenplay_body.policy.ambiguous"));
     }
 
     #[test]
     fn original_screenplay_body_schema_matches_published_contract() {
         let runtime = json_schema();
-        let published: Value = serde_json::from_str(include_str!("../../../schemas/renderflow-v2.schema.json")).unwrap();
-        assert_eq!(runtime["$defs"]["screenplayBodyPolicy"], published["$defs"]["screenplayBodyPolicy"]);
-        assert_eq!(runtime["$defs"]["executionPolicy"]["properties"]["screenplay_body"],
-            published["$defs"]["executionPolicy"]["properties"]["screenplay_body"]);
-        assert_eq!(runtime["$defs"]["screenplayBodyPolicy"]["properties"]["allow_unqualified"]["const"], true);
-        assert_eq!(runtime["$defs"]["screenplayBodyPolicy"]["additionalProperties"], false);
+        let published: Value =
+            serde_json::from_str(include_str!("../../../schemas/renderflow-v2.schema.json"))
+                .unwrap();
+        assert_eq!(
+            runtime["$defs"]["screenplayBodyPolicy"],
+            published["$defs"]["screenplayBodyPolicy"]
+        );
+        assert_eq!(
+            runtime["$defs"]["executionPolicy"]["properties"]["screenplay_body"],
+            published["$defs"]["executionPolicy"]["properties"]["screenplay_body"]
+        );
+        assert_eq!(
+            runtime["$defs"]["screenplayBodyPolicy"]["properties"]["allow_unqualified"]["const"],
+            true
+        );
+        assert_eq!(
+            runtime["$defs"]["screenplayBodyPolicy"]["additionalProperties"],
+            false
+        );
     }
 
     #[test]
     fn screenplay_policy_is_absent_by_default_and_requires_all_provider_pins() {
         let default_execution: ExecutionPolicy = serde_json::from_value(json!({})).unwrap();
         assert!(default_execution.screenplay.is_none());
-        assert!(serde_json::to_value(&default_execution).unwrap().get("screenplay").is_none());
+        assert!(serde_json::to_value(&default_execution)
+            .unwrap()
+            .get("screenplay")
+            .is_none());
         let execution: ExecutionPolicy = serde_json::from_value(json!({
             "screenplay": screenplay_policy_value()
-        })).unwrap();
+        }))
+        .unwrap();
         assert!(execution.screenplay.unwrap().validate().is_ok());
-        for field in ["executable", "executable_sha256", "expected_version", "timeout_seconds", "allow_unqualified"] {
+        for field in [
+            "executable",
+            "executable_sha256",
+            "expected_version",
+            "timeout_seconds",
+            "allow_unqualified",
+        ] {
             let mut incomplete = screenplay_policy_value();
             incomplete.as_object_mut().unwrap().remove(field);
-            assert!(serde_json::from_value::<ExecutionPolicy>(json!({"screenplay": incomplete})).is_err());
+            assert!(
+                serde_json::from_value::<ExecutionPolicy>(json!({"screenplay": incomplete}))
+                    .is_err()
+            );
         }
     }
 
     #[test]
     fn screenplay_spec_validation_reports_invalid_or_mixed_native_policy() {
         let mut spec = load_spec_str(VALID_EXACT).unwrap().spec;
-        let mut policy: ScripttoolConfig = serde_json::from_value(screenplay_policy_value()).unwrap();
+        let mut policy: ScripttoolConfig =
+            serde_json::from_value(screenplay_policy_value()).unwrap();
         policy.allow_unqualified = false;
         spec.execution.screenplay = Some(policy.clone());
-        assert!(spec.validate().iter().any(|diagnostic| diagnostic.code == "screenplay.policy.invalid"));
+        assert!(spec
+            .validate()
+            .iter()
+            .any(|diagnostic| diagnostic.code == "screenplay.policy.invalid"));
         policy.allow_unqualified = true;
         spec.execution.screenplay = Some(policy);
         spec.execution.subtitles = Some(SubtitlePolicy::default());
-        assert!(spec.validate().iter().any(|diagnostic| diagnostic.code == "screenplay.policy.ambiguous"));
+        assert!(spec
+            .validate()
+            .iter()
+            .any(|diagnostic| diagnostic.code == "screenplay.policy.ambiguous"));
         spec.execution.subtitles = None;
         spec.transforms = Some("custom.yaml".to_owned());
-        assert!(spec.validate().iter().any(|diagnostic| diagnostic.code == "screenplay.policy.ambiguous"));
+        assert!(spec
+            .validate()
+            .iter()
+            .any(|diagnostic| diagnostic.code == "screenplay.policy.ambiguous"));
     }
 
     #[test]
     fn screenplay_policy_schema_matches_runtime_schema_and_explicit_bounds() {
         let runtime = json_schema();
-        let published: serde_json::Value = serde_json::from_str(include_str!("../../../schemas/renderflow-v2.schema.json")).unwrap();
-        assert_eq!(runtime["$defs"]["screenplayPolicy"], published["$defs"]["screenplayPolicy"]);
-        assert_eq!(runtime["$defs"]["executionPolicy"]["properties"]["screenplay"],
-            published["$defs"]["executionPolicy"]["properties"]["screenplay"]);
-        assert_eq!(runtime["$defs"]["screenplayPolicy"]["properties"]["allow_unqualified"]["const"], true);
-        assert_eq!(runtime["$defs"]["screenplayPolicy"]["properties"]["timeout_seconds"]["maximum"], 300);
-        assert_eq!(runtime["$defs"]["screenplayPolicy"]["additionalProperties"], false);
+        let published: serde_json::Value =
+            serde_json::from_str(include_str!("../../../schemas/renderflow-v2.schema.json"))
+                .unwrap();
+        assert_eq!(
+            runtime["$defs"]["screenplayPolicy"],
+            published["$defs"]["screenplayPolicy"]
+        );
+        assert_eq!(
+            runtime["$defs"]["executionPolicy"]["properties"]["screenplay"],
+            published["$defs"]["executionPolicy"]["properties"]["screenplay"]
+        );
+        assert_eq!(
+            runtime["$defs"]["screenplayPolicy"]["properties"]["allow_unqualified"]["const"],
+            true
+        );
+        assert_eq!(
+            runtime["$defs"]["screenplayPolicy"]["properties"]["timeout_seconds"]["maximum"],
+            300
+        );
+        assert_eq!(
+            runtime["$defs"]["screenplayPolicy"]["additionalProperties"],
+            false
+        );
     }
 
     fn screenplay_pdf_policy_value() -> serde_json::Value {
@@ -2861,14 +3044,28 @@ variables:
     fn screenplay_pdf_policy_requires_explicit_pins_and_opt_in() {
         let defaults: ExecutionPolicy = serde_json::from_value(json!({})).unwrap();
         assert!(defaults.screenplay_pdf.is_none());
-        assert!(serde_json::to_value(defaults).unwrap().get("screenplay_pdf").is_none());
+        assert!(serde_json::to_value(defaults)
+            .unwrap()
+            .get("screenplay_pdf")
+            .is_none());
         let complete = screenplay_pdf_policy_value();
-        for field in ["node_executable", "node_sha256", "expected_node_version", "package_root",
-            "package_tree_sha256", "expected_provider_version", "profile", "timeout_seconds", "allow_unqualified"]
-        {
+        for field in [
+            "node_executable",
+            "node_sha256",
+            "expected_node_version",
+            "package_root",
+            "package_tree_sha256",
+            "expected_provider_version",
+            "profile",
+            "timeout_seconds",
+            "allow_unqualified",
+        ] {
             let mut incomplete = complete.clone();
             incomplete.as_object_mut().unwrap().remove(field);
-            assert!(serde_json::from_value::<ExecutionPolicy>(json!({"screenplay_pdf": incomplete})).is_err());
+            assert!(serde_json::from_value::<ExecutionPolicy>(
+                json!({"screenplay_pdf": incomplete})
+            )
+            .is_err());
         }
         let mut policy: AfterwritingConfig = serde_json::from_value(complete).unwrap();
         assert!(policy.validate().is_ok());
@@ -2879,44 +3076,87 @@ variables:
     #[test]
     fn screenplay_pdf_spec_refuses_mixed_policies_and_custom_transforms() {
         let mut spec = load_spec_str(VALID_EXACT).unwrap().spec;
-        spec.execution.screenplay_pdf = Some(serde_json::from_value(screenplay_pdf_policy_value()).unwrap());
-        spec.execution.screenplay = Some(serde_json::from_value(screenplay_policy_value()).unwrap());
-        assert!(spec.validate().iter().any(|item| item.code == "screenplay_pdf.policy.ambiguous"));
-        assert!(spec.validate().iter().any(|item| item.code == "screenplay.policy.ambiguous"));
+        spec.execution.screenplay_pdf =
+            Some(serde_json::from_value(screenplay_pdf_policy_value()).unwrap());
+        spec.execution.screenplay =
+            Some(serde_json::from_value(screenplay_policy_value()).unwrap());
+        assert!(spec
+            .validate()
+            .iter()
+            .any(|item| item.code == "screenplay_pdf.policy.ambiguous"));
+        assert!(spec
+            .validate()
+            .iter()
+            .any(|item| item.code == "screenplay.policy.ambiguous"));
         spec.execution.screenplay = None;
         spec.transforms = Some("custom.yaml".to_owned());
-        assert!(spec.validate().iter().any(|item| item.code == "screenplay_pdf.policy.ambiguous"));
+        assert!(spec
+            .validate()
+            .iter()
+            .any(|item| item.code == "screenplay_pdf.policy.ambiguous"));
         spec.transforms = None;
         spec.execution.subtitles = Some(SubtitlePolicy::default());
-        assert!(spec.validate().iter().any(|item| item.code == "screenplay_pdf.policy.ambiguous"));
+        assert!(spec
+            .validate()
+            .iter()
+            .any(|item| item.code == "screenplay_pdf.policy.ambiguous"));
     }
 
     #[test]
     fn screenplay_pdf_policy_schema_preserves_the_fixed_profiles_and_bounds() {
         let runtime = json_schema();
-        let published: serde_json::Value = serde_json::from_str(include_str!("../../../schemas/renderflow-v2.schema.json")).unwrap();
-        assert_eq!(runtime["$defs"]["screenplayPdfPolicy"], published["$defs"]["screenplayPdfPolicy"]);
-        assert_eq!(runtime["$defs"]["executionPolicy"]["properties"]["screenplay_pdf"],
-            published["$defs"]["executionPolicy"]["properties"]["screenplay_pdf"]);
-        assert_eq!(runtime["$defs"]["screenplayPdfPolicy"]["properties"]["expected_provider_version"]["const"], "1.17.3");
-        assert_eq!(runtime["$defs"]["screenplayPdfPolicy"]["properties"]["profile"]["enum"],
-            json!(["screenplay-a4-v1", "screenplay-usletter-v1"]));
-        assert_eq!(runtime["$defs"]["screenplayPdfPolicy"]["properties"]["allow_unqualified"]["const"], true);
+        let published: serde_json::Value =
+            serde_json::from_str(include_str!("../../../schemas/renderflow-v2.schema.json"))
+                .unwrap();
+        assert_eq!(
+            runtime["$defs"]["screenplayPdfPolicy"],
+            published["$defs"]["screenplayPdfPolicy"]
+        );
+        assert_eq!(
+            runtime["$defs"]["executionPolicy"]["properties"]["screenplay_pdf"],
+            published["$defs"]["executionPolicy"]["properties"]["screenplay_pdf"]
+        );
+        assert_eq!(
+            runtime["$defs"]["screenplayPdfPolicy"]["properties"]["expected_provider_version"]
+                ["const"],
+            "1.17.3"
+        );
+        assert_eq!(
+            runtime["$defs"]["screenplayPdfPolicy"]["properties"]["profile"]["enum"],
+            json!(["screenplay-a4-v1", "screenplay-usletter-v1"])
+        );
+        assert_eq!(
+            runtime["$defs"]["screenplayPdfPolicy"]["properties"]["allow_unqualified"]["const"],
+            true
+        );
     }
 
     #[test]
     fn recovery_policy_is_explicit_and_cannot_request_ai_or_approve_a_candidate() {
         let defaults: ExecutionPolicy = serde_json::from_value(json!({})).unwrap();
         assert!(defaults.screenplay_recovery.is_none());
-        assert!(serde_json::to_value(defaults).unwrap().get("screenplay_recovery").is_none());
+        assert!(serde_json::to_value(defaults)
+            .unwrap()
+            .get("screenplay_recovery")
+            .is_none());
         let mut spec = load_spec_str(VALID_EXACT).unwrap().spec;
         spec.execution.screenplay_recovery = Some(serde_json::from_value(json!({})).unwrap());
-        assert!(spec.validate().iter().any(|item| item.code == "screenplay_recovery.policy.invalid"));
-        spec.execution.screenplay_recovery.as_mut().unwrap().allow_unqualified = true;
+        assert!(spec
+            .validate()
+            .iter()
+            .any(|item| item.code == "screenplay_recovery.policy.invalid"));
+        spec.execution
+            .screenplay_recovery
+            .as_mut()
+            .unwrap()
+            .allow_unqualified = true;
         // This grants no AI recovery route or approval; those config fields do
         // not exist even if the broader run permits unrelated AI work.
         spec.execution.ai = AiPolicy::Allow;
-        assert!(!spec.validate().iter().any(|item| item.code.starts_with("screenplay_recovery.")));
+        assert!(!spec
+            .validate()
+            .iter()
+            .any(|item| item.code.starts_with("screenplay_recovery.")));
         for forbidden in ["ai", "reviewed", "approved", "provider"] {
             let mut value = json!({"allow_unqualified": true});
             value[forbidden] = json!(true);
@@ -2927,34 +3167,75 @@ variables:
     #[test]
     fn recovery_policy_refuses_other_native_routes_custom_transforms_and_hygiene() {
         let mut spec = load_spec_str(VALID_EXACT).unwrap().spec;
-        spec.execution.screenplay_recovery = Some(serde_json::from_value(json!({"allow_unqualified": true})).unwrap());
-        spec.execution.screenplay = Some(serde_json::from_value(screenplay_policy_value()).unwrap());
-        assert!(spec.validate().iter().any(|item| item.code == "screenplay_recovery.policy.ambiguous"));
-        assert!(spec.validate().iter().any(|item| item.code == "screenplay.policy.ambiguous"));
+        spec.execution.screenplay_recovery =
+            Some(serde_json::from_value(json!({"allow_unqualified": true})).unwrap());
+        spec.execution.screenplay =
+            Some(serde_json::from_value(screenplay_policy_value()).unwrap());
+        assert!(spec
+            .validate()
+            .iter()
+            .any(|item| item.code == "screenplay_recovery.policy.ambiguous"));
+        assert!(spec
+            .validate()
+            .iter()
+            .any(|item| item.code == "screenplay.policy.ambiguous"));
         spec.execution.screenplay = None;
-        spec.execution.screenplay_pdf = Some(serde_json::from_value(screenplay_pdf_policy_value()).unwrap());
-        assert!(spec.validate().iter().any(|item| item.code == "screenplay_recovery.policy.ambiguous"));
-        assert!(spec.validate().iter().any(|item| item.code == "screenplay_pdf.policy.ambiguous"));
+        spec.execution.screenplay_pdf =
+            Some(serde_json::from_value(screenplay_pdf_policy_value()).unwrap());
+        assert!(spec
+            .validate()
+            .iter()
+            .any(|item| item.code == "screenplay_recovery.policy.ambiguous"));
+        assert!(spec
+            .validate()
+            .iter()
+            .any(|item| item.code == "screenplay_pdf.policy.ambiguous"));
         spec.execution.screenplay_pdf = None;
         spec.transforms = Some("custom.yaml".to_owned());
-        assert!(spec.validate().iter().any(|item| item.code == "screenplay_recovery.policy.ambiguous"));
+        assert!(spec
+            .validate()
+            .iter()
+            .any(|item| item.code == "screenplay_recovery.policy.ambiguous"));
         spec.transforms = None;
         spec.execution.hygiene_policy = Some("publication".to_owned());
-        assert!(spec.validate().iter().any(|item| item.code == "screenplay_recovery.policy.ambiguous"));
+        assert!(spec
+            .validate()
+            .iter()
+            .any(|item| item.code == "screenplay_recovery.policy.ambiguous"));
     }
 
     #[test]
     fn recovery_policy_schema_keeps_required_pins_and_bounded_limits() {
         let runtime = json_schema();
-        let published: serde_json::Value = serde_json::from_str(include_str!("../../../schemas/renderflow-v2.schema.json")).unwrap();
-        for definition in ["screenplayRecoveryPolicy", "screenplayRecoveryTool", "screenplayRecoveryOcr", "screenplayRecoveryLimits"] {
+        let published: serde_json::Value =
+            serde_json::from_str(include_str!("../../../schemas/renderflow-v2.schema.json"))
+                .unwrap();
+        for definition in [
+            "screenplayRecoveryPolicy",
+            "screenplayRecoveryTool",
+            "screenplayRecoveryOcr",
+            "screenplayRecoveryLimits",
+        ] {
             assert_eq!(runtime["$defs"][definition], published["$defs"][definition]);
         }
-        assert_eq!(runtime["$defs"]["executionPolicy"]["properties"]["screenplay_recovery"],
-            published["$defs"]["executionPolicy"]["properties"]["screenplay_recovery"]);
-        assert_eq!(runtime["$defs"]["screenplayRecoveryPolicy"]["properties"]["allow_unqualified"]["const"], true);
-        assert_eq!(runtime["$defs"]["screenplayRecoveryLimits"]["properties"]["max_input_bytes"]["maximum"], 67108864);
-        assert_eq!(runtime["$defs"]["screenplayRecoveryOcr"]["additionalProperties"], false);
+        assert_eq!(
+            runtime["$defs"]["executionPolicy"]["properties"]["screenplay_recovery"],
+            published["$defs"]["executionPolicy"]["properties"]["screenplay_recovery"]
+        );
+        assert_eq!(
+            runtime["$defs"]["screenplayRecoveryPolicy"]["properties"]["allow_unqualified"]
+                ["const"],
+            true
+        );
+        assert_eq!(
+            runtime["$defs"]["screenplayRecoveryLimits"]["properties"]["max_input_bytes"]
+                ["maximum"],
+            67108864
+        );
+        assert_eq!(
+            runtime["$defs"]["screenplayRecoveryOcr"]["additionalProperties"],
+            false
+        );
     }
 
     #[test]
@@ -2968,7 +3249,8 @@ variables:
         ] {
             assert!(serde_json::from_value::<ExecutionPolicy>(json!({
                 "subtitles": subtitles
-            })).is_err());
+            }))
+            .is_err());
         }
     }
 
@@ -2980,11 +3262,16 @@ variables:
         }
         assert!(serde_json::from_str::<SubtitlePolicy>(
             r#"{"stream_index":null,"stream_index":2}"#
-        ).is_err());
-        assert!(serde_yaml_ng::from_str::<SubtitlePolicy>(
-            "stream_index: null\nstream_index: 2\n"
-        ).is_err());
-        assert_eq!(serde_json::from_str::<SubtitlePolicy>("{}").unwrap(), SubtitlePolicy::default());
+        )
+        .is_err());
+        assert!(
+            serde_yaml_ng::from_str::<SubtitlePolicy>("stream_index: null\nstream_index: 2\n")
+                .is_err()
+        );
+        assert_eq!(
+            serde_json::from_str::<SubtitlePolicy>("{}").unwrap(),
+            SubtitlePolicy::default()
+        );
     }
 
     #[test]
@@ -3027,7 +3314,10 @@ variables:
             let yaml = format!("outputs:\n  - type: pdf\ninput: {input}\n");
             let config: Config = serde_yaml_ng::from_str(&yaml).unwrap();
             assert_eq!(legacy_source_format(&config), format);
-            assert_eq!(migrate_v1_config(&config).sources[0].format.as_deref(), Some(format));
+            assert_eq!(
+                migrate_v1_config(&config).sources[0].format.as_deref(),
+                Some(format)
+            );
         }
     }
 }

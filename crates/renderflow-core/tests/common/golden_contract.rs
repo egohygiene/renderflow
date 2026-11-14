@@ -18,22 +18,43 @@ pub fn payload(fixture: &super::Fixture, limit: usize) -> Result<Vec<u8>> {
             Ok(fixture.payload.as_bytes().to_vec())
         }
         "hex" => {
-            ensure!(fixture.payload.len() <= limit * 2
-                && fixture.payload.bytes().all(|byte|byte.is_ascii_hexdigit()), "hex fixture byte/character bound");
+            ensure!(
+                fixture.payload.len() <= limit * 2
+                    && fixture.payload.bytes().all(|byte| byte.is_ascii_hexdigit()),
+                "hex fixture byte/character bound"
+            );
             super::decode_hex(&fixture.payload)
         }
         "file" => {
-            ensure!(fixture.sha256.is_some(), "file-backed fixture needs an exact source pin");
+            ensure!(
+                fixture.sha256.is_some(),
+                "file-backed fixture needs an exact source pin"
+            );
             let relative = Path::new(&fixture.payload);
-            ensure!(!fixture.payload.is_empty() && !fixture.payload.contains(['\\', ':', '\0'])
-                && relative.components().all(|part| matches!(part, Component::Normal(_))), "unsafe fixture source path");
-            let mut path = super::corpus_path().parent().context("corpus parent missing")?.to_path_buf();
+            ensure!(
+                !fixture.payload.is_empty()
+                    && !fixture.payload.contains(['\\', ':', '\0'])
+                    && relative
+                        .components()
+                        .all(|part| matches!(part, Component::Normal(_))),
+                "unsafe fixture source path"
+            );
+            let mut path = super::corpus_path()
+                .parent()
+                .context("corpus parent missing")?
+                .to_path_buf();
             for part in relative.components() {
                 path.push(part.as_os_str());
-                ensure!(!std::fs::symlink_metadata(&path)?.file_type().is_symlink(), "fixture source may not traverse symlinks");
+                ensure!(
+                    !std::fs::symlink_metadata(&path)?.file_type().is_symlink(),
+                    "fixture source may not traverse symlinks"
+                );
             }
             let meta = std::fs::symlink_metadata(&path)?;
-            ensure!(meta.is_file() && meta.len() <= limit as u64, "fixture source file bound");
+            ensure!(
+                meta.is_file() && meta.len() <= limit as u64,
+                "fixture source file bound"
+            );
             let bytes = std::fs::read(path)?;
             ensure!(bytes.len() <= limit, "fixture source grew beyond bound");
             Ok(bytes)
@@ -64,15 +85,21 @@ pub struct Limits {
 
 impl Default for Limits {
     fn default() -> Self {
-        Self { max_fixtures: 128, max_fixture_bytes: 65536,
-            max_total_source_bytes: 1024 * 1024, cooperative_seconds: 120 }
+        Self {
+            max_fixtures: 128,
+            max_fixture_bytes: 65536,
+            max_total_source_bytes: 1024 * 1024,
+            cooperative_seconds: 120,
+        }
     }
 }
 
 impl Limits {
     pub fn deadline(&self, started: Instant) -> Result<()> {
-        ensure!(started.elapsed().as_secs() < self.cooperative_seconds,
-            "golden corpus cooperative execution budget exceeded");
+        ensure!(
+            started.elapsed().as_secs() < self.cooperative_seconds,
+            "golden corpus cooperative execution budget exceeded"
+        );
         Ok(())
     }
 }
@@ -120,13 +147,22 @@ pub struct CoverageObservation {
 
 pub fn catalog(config: &Coverage) -> Result<Vec<String>> {
     const PATH: &str = "crates/renderflow-core/data/creative-routes.json";
-    ensure!(config.catalog_path == PATH, "coverage must use the shared creative route catalog");
-    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../").join(PATH);
+    ensure!(
+        config.catalog_path == PATH,
+        "coverage must use the shared creative route catalog"
+    );
+    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../")
+        .join(PATH);
     let bytes = std::fs::read(path)?;
-    ensure!(format!("{:x}", Sha256::digest(&bytes)) == config.catalog_sha256,
-        "creative catalog changed; explicitly review coverage mapping and update the pin");
+    ensure!(
+        format!("{:x}", Sha256::digest(&bytes)) == config.catalog_sha256,
+        "creative catalog changed; explicitly review coverage mapping and update the pin"
+    );
     let value: serde_json::Value = serde_json::from_slice(&bytes)?;
-    let routes = value["routes"].as_array().context("creative routes must be an array")?;
+    let routes = value["routes"]
+        .as_array()
+        .context("creative routes must be an array")?;
     let mut ids = BTreeSet::new();
     for route in routes {
         let id = route["id"].as_str().context("creative route ID missing")?;
@@ -136,55 +172,97 @@ pub fn catalog(config: &Coverage) -> Result<Vec<String>> {
 }
 
 fn format_targets() -> Vec<String> {
-    renderflow::graph::capability::FormatCapabilityRegistry::global().all()
-        .flat_map(|format| format.capabilities.iter().map(move |operation|
-            format!("format.{}.{}", format.id, operation.as_str())))
+    renderflow::graph::capability::FormatCapabilityRegistry::global()
+        .all()
+        .flat_map(|format| {
+            format
+                .capabilities
+                .iter()
+                .map(move |operation| format!("format.{}.{}", format.id, operation.as_str()))
+        })
         .collect()
 }
 
 pub fn check(corpus: &Corpus) -> Result<()> {
     let limits = &corpus.limits;
-    ensure!(limits.max_fixtures > 0 && limits.max_fixtures <= 1024
-        && limits.max_fixture_bytes > 0 && limits.max_fixture_bytes <= 1024 * 1024
-        && limits.max_total_source_bytes >= limits.max_fixture_bytes
-        && limits.max_total_source_bytes <= 16 * 1024 * 1024
-        && (1..=600).contains(&limits.cooperative_seconds), "invalid corpus bounds");
-    ensure!(corpus.fixtures.len() <= limits.max_fixtures, "fixture count bound");
+    ensure!(
+        limits.max_fixtures > 0
+            && limits.max_fixtures <= 1024
+            && limits.max_fixture_bytes > 0
+            && limits.max_fixture_bytes <= 1024 * 1024
+            && limits.max_total_source_bytes >= limits.max_fixture_bytes
+            && limits.max_total_source_bytes <= 16 * 1024 * 1024
+            && (1..=600).contains(&limits.cooperative_seconds),
+        "invalid corpus bounds"
+    );
+    ensure!(
+        corpus.fixtures.len() <= limits.max_fixtures,
+        "fixture count bound"
+    );
     let mut names = BTreeSet::new();
     let mut identities = BTreeSet::new();
     let mut total = 0usize;
     for fixture in &corpus.fixtures {
         let path = Path::new(&fixture.filename);
-        ensure!(path.components().count() == 1
-            && path.components().all(|part| matches!(part, Component::Normal(_)))
-            && !fixture.filename.chars().any(|ch| matches!(ch, '\\' | ':'))
-            && names.insert(fixture.filename.to_ascii_lowercase()),
-            "fixture names must be confined and unique on case-insensitive filesystems");
-        ensure!(identities.insert(fixture.id.as_str()), "duplicate fixture identity");
+        ensure!(
+            path.components().count() == 1
+                && path
+                    .components()
+                    .all(|part| matches!(part, Component::Normal(_)))
+                && !fixture.filename.chars().any(|ch| matches!(ch, '\\' | ':'))
+                && names.insert(fixture.filename.to_ascii_lowercase()),
+            "fixture names must be confined and unique on case-insensitive filesystems"
+        );
+        ensure!(
+            identities.insert(fixture.id.as_str()),
+            "duplicate fixture identity"
+        );
         let size = payload(fixture, limits.max_fixture_bytes)?.len();
         total = total.checked_add(size).context("source size overflow")?;
-        ensure!(size <= limits.max_fixture_bytes && total <= limits.max_total_source_bytes,
-            "source materialization byte bound");
+        ensure!(
+            size <= limits.max_fixture_bytes && total <= limits.max_total_source_bytes,
+            "source materialization byte bound"
+        );
         if let Some(taxonomy) = &fixture.taxonomy {
-            ensure!(matches!(taxonomy.class.as_str(), "valid" | "boundary" | "malformed" | "unsupported" | "resource_stress")
-                && taxonomy.assertion_scope == "intake"
-                && !taxonomy.construction.is_empty() && taxonomy.seed == 0
-                && matches!(taxonomy.generator.as_str(), "renderflow.golden.inline/v1" | "renderflow.golden.file/v1")
-                && !taxonomy.residual.is_empty()
-                && fixture.sha256.is_some(), "incomplete classified fixture recipe");
+            ensure!(
+                matches!(
+                    taxonomy.class.as_str(),
+                    "valid" | "boundary" | "malformed" | "unsupported" | "resource_stress"
+                ) && taxonomy.assertion_scope == "intake"
+                    && !taxonomy.construction.is_empty()
+                    && taxonomy.seed == 0
+                    && matches!(
+                        taxonomy.generator.as_str(),
+                        "renderflow.golden.inline/v1" | "renderflow.golden.file/v1"
+                    )
+                    && !taxonomy.residual.is_empty()
+                    && fixture.sha256.is_some(),
+                "incomplete classified fixture recipe"
+            );
         }
         if let Some(budget) = &fixture.extraction_limits {
-            ensure!((1..=4).contains(&budget.max_depth) && (1..=32).contains(&budget.max_artifacts)
-                && (1..=65536).contains(&budget.max_extracted_bytes)
-                && budget.max_expansion_ratio.is_finite() && (1.0..=16.0).contains(&budget.max_expansion_ratio),
-                "adversarial extraction limits must stay small");
+            ensure!(
+                (1..=4).contains(&budget.max_depth)
+                    && (1..=32).contains(&budget.max_artifacts)
+                    && (1..=65536).contains(&budget.max_extracted_bytes)
+                    && budget.max_expansion_ratio.is_finite()
+                    && (1.0..=16.0).contains(&budget.max_expansion_ratio),
+                "adversarial extraction limits must stay small"
+            );
         }
     }
     for collection in &corpus.collections {
-        ensure!(identities.insert(collection.id.as_str()) && !collection.members.is_empty(),
-            "duplicate or empty collection");
-        ensure!(collection.members.iter().all(|id| corpus.fixtures.iter().any(|fixture| &fixture.id == id)),
-            "unknown collection member");
+        ensure!(
+            identities.insert(collection.id.as_str()) && !collection.members.is_empty(),
+            "duplicate or empty collection"
+        );
+        ensure!(
+            collection
+                .members
+                .iter()
+                .all(|id| corpus.fixtures.iter().any(|fixture| &fixture.id == id)),
+            "unknown collection member"
+        );
     }
     let mut scenario_ids = BTreeSet::new();
     let mut coverage_ids = BTreeSet::new();
@@ -192,43 +270,95 @@ pub fn check(corpus: &Corpus) -> Result<()> {
         coverage_ids.extend(catalog(config)?);
         coverage_ids.extend(format_targets());
         for scope in &config.scopes {
-            ensure!(coverage_ids.insert(scope.id.clone()) && !scope.description.is_empty()
-                && matches!(scope.category.as_str(), "input_family" | "failure_class" | "local_capability"),
-                "duplicate or incomplete coverage scope");
+            ensure!(
+                coverage_ids.insert(scope.id.clone())
+                    && !scope.description.is_empty()
+                    && matches!(
+                        scope.category.as_str(),
+                        "input_family" | "failure_class" | "local_capability"
+                    ),
+                "duplicate or incomplete coverage scope"
+            );
         }
     }
     for scenario in &corpus.scenarios {
         ensure!(scenario_ids.insert(&scenario.id), "duplicate scenario");
-        ensure!(scenario.coverage.iter().all(|id| coverage_ids.contains(id)), "unknown coverage scope");
-        ensure!(matches!(scenario.assertion_scope.as_str(), "synthetic_contract" | "intake" | "native_output" | "availability" | "inventory"),
-            "unknown scenario assertion scope");
+        ensure!(
+            scenario.coverage.iter().all(|id| coverage_ids.contains(id)),
+            "unknown coverage scope"
+        );
+        ensure!(
+            matches!(
+                scenario.assertion_scope.as_str(),
+                "synthetic_contract" | "intake" | "native_output" | "availability" | "inventory"
+            ),
+            "unknown scenario assertion scope"
+        );
     }
     Ok(())
 }
 
 pub fn report(corpus: &Corpus, observed: &[ScenarioEvidence]) -> Result<Option<CoverageReport>> {
-    let Some(config) = &corpus.coverage else { return Ok(None); };
-    let mut targets = catalog(config)?.into_iter().map(|id| (id, "creative_route".to_string()))
+    let Some(config) = &corpus.coverage else {
+        return Ok(None);
+    };
+    let mut targets = catalog(config)?
+        .into_iter()
+        .map(|id| (id, "creative_route".to_string()))
         .collect::<BTreeMap<_, _>>();
-    targets.extend(format_targets().into_iter().map(|id| (id, "format_capability".into())));
-    targets.extend(config.scopes.iter().map(|scope| (scope.id.clone(), scope.category.clone())));
-    let rows = targets.into_iter().map(|(id, category)| {
-        let scenarios = corpus.scenarios.iter().filter(|case| case.coverage.contains(&id))
-            .map(|case| CoverageObservation {
-                id: case.id.clone(), assertion_scope: case.assertion_scope.clone(),
-                status: observed.iter().find(|result| result.id == case.id)
-                    .map(|result| result.status.clone()).unwrap_or_else(|| "not_executed".into()),
-            }).collect::<Vec<_>>();
-        let status = if scenarios.is_empty() { "gap" }
-            else if scenarios.iter().any(|case| case.status == "passed"
-                && matches!(case.assertion_scope.as_str(), "intake" | "native_output")) { "observed_case" }
-            else if scenarios.iter().any(|case| case.status == "passed") { "contract_or_inventory_only" }
-            else { "not_executed" };
-        CoverageRow { id, category, status, scenarios }
-    }).collect();
+    targets.extend(
+        format_targets()
+            .into_iter()
+            .map(|id| (id, "format_capability".into())),
+    );
+    targets.extend(
+        config
+            .scopes
+            .iter()
+            .map(|scope| (scope.id.clone(), scope.category.clone())),
+    );
+    let rows = targets
+        .into_iter()
+        .map(|(id, category)| {
+            let scenarios = corpus
+                .scenarios
+                .iter()
+                .filter(|case| case.coverage.contains(&id))
+                .map(|case| CoverageObservation {
+                    id: case.id.clone(),
+                    assertion_scope: case.assertion_scope.clone(),
+                    status: observed
+                        .iter()
+                        .find(|result| result.id == case.id)
+                        .map(|result| result.status.clone())
+                        .unwrap_or_else(|| "not_executed".into()),
+                })
+                .collect::<Vec<_>>();
+            let status = if scenarios.is_empty() {
+                "gap"
+            } else if scenarios.iter().any(|case| {
+                case.status == "passed"
+                    && matches!(case.assertion_scope.as_str(), "intake" | "native_output")
+            }) {
+                "observed_case"
+            } else if scenarios.iter().any(|case| case.status == "passed") {
+                "contract_or_inventory_only"
+            } else {
+                "not_executed"
+            };
+            CoverageRow {
+                id,
+                category,
+                status,
+                scenarios,
+            }
+        })
+        .collect();
     Ok(Some(CoverageReport { catalog_path: config.catalog_path.clone(), catalog_sha256: config.catalog_sha256.clone(),
         format_registry: "FormatCapabilityRegistry embedded in the reported engine version",
         runtime_qualified: false, scope: "Finite cases only. Intake identification, synthetic contract mocks, provider discovery and native output assertions are different scopes; no row establishes universal format or platform support.", rows }))
 }
 
-pub fn default_assertion_scope() -> String { "synthetic_contract".into() }
+pub fn default_assertion_scope() -> String {
+    "synthetic_contract".into()
+}

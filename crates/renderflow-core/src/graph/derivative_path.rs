@@ -29,13 +29,16 @@ impl DerivativePathConstraints {
         self.provider_id
             .as_ref()
             .is_none_or(|id| edge.provider_id.as_ref() == Some(id))
-            && self.capability_id
+            && self
+                .capability_id
                 .as_ref()
                 .is_none_or(|id| edge.capability_id.as_ref() == Some(id))
-            && self.transform_id
+            && self
+                .transform_id
                 .as_ref()
                 .is_none_or(|id| edge.evidence.get("transform_id") == Some(id))
-            && self.variant_id
+            && self
+                .variant_id
                 .as_ref()
                 .is_none_or(|id| edge.variant_id.as_ref() == Some(id))
     }
@@ -164,7 +167,10 @@ impl Candidate {
         self.quality >= other.quality
             && self.steps.len() <= other.steps.len()
             && (!self.optimization_first || self.optimization_cost <= other.optimization_cost)
-            && self.formats.iter().all(|format| other.formats.contains(format))
+            && self
+                .formats
+                .iter()
+                .all(|format| other.formats.contains(format))
             && (self.steps.len() < other.steps.len()
                 || self.optimization_cost < other.optimization_cost
                 || (self.optimization_cost == other.optimization_cost
@@ -182,7 +188,8 @@ impl Candidate {
                 "optimization_then_cumulative_fidelity_then_hops_then_identity_v1"
             } else {
                 "cumulative_fidelity_then_hops_then_optimization_then_identity_v1"
-            }.to_string(),
+            }
+            .to_string(),
             total_quality: self.quality,
             cumulative_loss: 1.0 - self.quality,
             hops: self.steps.len(),
@@ -218,19 +225,24 @@ impl Ord for Candidate {
     fn cmp(&self, other: &Self) -> Ordering {
         // A search never mixes ranking modes. Comparing the flag first still
         // provides a total order for the private frontier value itself.
-        self.optimization_first.cmp(&other.optimization_first).then_with(|| {
-            if self.optimization_first {
-                other.optimization_cost.total_cmp(&self.optimization_cost)
-                    .then_with(|| self.quality.total_cmp(&other.quality))
-                    .then_with(|| other.steps.len().cmp(&self.steps.len()))
-                    .then_with(|| other.identities.cmp(&self.identities))
-            } else {
-                self.quality.total_cmp(&other.quality)
-                    .then_with(|| other.steps.len().cmp(&self.steps.len()))
-                    .then_with(|| other.optimization_cost.total_cmp(&self.optimization_cost))
-                    .then_with(|| other.identities.cmp(&self.identities))
-            }
-        })
+        self.optimization_first
+            .cmp(&other.optimization_first)
+            .then_with(|| {
+                if self.optimization_first {
+                    other
+                        .optimization_cost
+                        .total_cmp(&self.optimization_cost)
+                        .then_with(|| self.quality.total_cmp(&other.quality))
+                        .then_with(|| other.steps.len().cmp(&self.steps.len()))
+                        .then_with(|| other.identities.cmp(&self.identities))
+                } else {
+                    self.quality
+                        .total_cmp(&other.quality)
+                        .then_with(|| other.steps.len().cmp(&self.steps.len()))
+                        .then_with(|| other.optimization_cost.total_cmp(&self.optimization_cost))
+                        .then_with(|| other.identities.cmp(&self.identities))
+                }
+            })
     }
 }
 
@@ -283,7 +295,8 @@ impl TransformGraph {
                 "hop and candidate limits must be positive".to_string(),
             ));
         }
-        if policy.max_loss
+        if policy
+            .max_loss
             .is_some_and(|loss| !loss.is_finite() || !(0.0..=1.0).contains(&loss))
         {
             return Err(DerivativePathError::InvalidPolicy(
@@ -291,7 +304,8 @@ impl TransformGraph {
             ));
         }
         if source == target {
-            return Ok(constraints.is_empty()
+            return Ok(constraints
+                .is_empty()
                 .then(|| Candidate::source(source, optimization_first).selected(policy, 0, 1)));
         }
 
@@ -305,10 +319,15 @@ impl TransformGraph {
             {
                 return Err(DerivativePathError::InvalidEdge {
                     identity,
-                    reason: "cost must be finite/nonnegative and quality must be finite within [0, 1]".to_string(),
+                    reason:
+                        "cost must be finite/nonnegative and quality must be finite within [0, 1]"
+                            .to_string(),
                 });
             }
-            adjacency.entry(edge.from).or_default().push((identity, edge));
+            adjacency
+                .entry(edge.from)
+                .or_default()
+                .push((identity, edge));
         }
         for outgoing in adjacency.values_mut() {
             outgoing.sort_by(|left, right| left.0.cmp(&right.0));
@@ -321,7 +340,9 @@ impl TransformGraph {
         let mut explored = 0;
         let mut terminals = 0;
         while let Some(candidate) = frontier.pop() {
-            let current = *candidate.formats.last()
+            let current = *candidate
+                .formats
+                .last()
                 .expect("each candidate contains the source");
             if current == target {
                 return Ok(Some(candidate.selected(policy, explored, terminals)));
@@ -352,9 +373,8 @@ impl TransformGraph {
                 next.steps.push((**edge).clone());
                 next.formats.push(edge.to);
                 next.quality = quality;
-                next.optimization_cost += f64::from(
-                    policy.optimization.edge_weight(edge.cost, edge.quality),
-                );
+                next.optimization_cost +=
+                    f64::from(policy.optimization.edge_weight(edge.cost, edge.quality));
                 next.identities.push(identity.clone());
                 let retained = prefixes.entry(edge.to).or_default();
                 if retained.iter().any(|prefix| prefix.dominates(&next)) {
@@ -377,7 +397,15 @@ mod tests {
     use super::*;
 
     fn select(graph: &TransformGraph, target: Format) -> SelectedDerivativePath {
-        graph.select_derivative_path(Format::Markdown, target, &DerivativePathConstraints::default(), &DerivativePathPolicy::default()).unwrap().unwrap()
+        graph
+            .select_derivative_path(
+                Format::Markdown,
+                target,
+                &DerivativePathConstraints::default(),
+                &DerivativePathPolicy::default(),
+            )
+            .unwrap()
+            .unwrap()
     }
 
     #[test]
@@ -388,14 +416,23 @@ mod tests {
         graph.add_transform(TransformEdge::new(Format::Html, Format::Pdf, 1.0, 0.9));
         let selected = select(&graph, Format::Pdf);
         assert_eq!(selected.path.steps.len(), 2);
-        assert!(selected.path.steps.iter().all(|edge| edge.to != Format::Markdown));
+        assert!(selected
+            .path
+            .steps
+            .iter()
+            .all(|edge| edge.to != Format::Markdown));
     }
 
     #[test]
     fn fidelity_precedes_directness_and_cost() {
         let mut graph = TransformGraph::new();
         graph.add_transform(TransformEdge::new(Format::Markdown, Format::Pdf, 0.1, 0.7));
-        graph.add_transform(TransformEdge::new(Format::Markdown, Format::Html, 4.0, 0.99));
+        graph.add_transform(TransformEdge::new(
+            Format::Markdown,
+            Format::Html,
+            4.0,
+            0.99,
+        ));
         graph.add_transform(TransformEdge::new(Format::Html, Format::Pdf, 4.0, 0.99));
         let selected = select(&graph, Format::Pdf);
         assert_eq!(selected.path.steps.len(), 2);
@@ -405,7 +442,12 @@ mod tests {
     #[test]
     fn equal_fidelity_prefers_original_source_even_if_more_expensive() {
         let mut graph = TransformGraph::new();
-        graph.add_transform(TransformEdge::new(Format::Markdown, Format::Pdf, 100.0, 1.0));
+        graph.add_transform(TransformEdge::new(
+            Format::Markdown,
+            Format::Pdf,
+            100.0,
+            1.0,
+        ));
         graph.add_transform(TransformEdge::new(Format::Markdown, Format::Html, 0.1, 1.0));
         graph.add_transform(TransformEdge::new(Format::Html, Format::Pdf, 0.1, 1.0));
         assert_eq!(select(&graph, Format::Pdf).path.steps.len(), 1);
@@ -421,16 +463,21 @@ mod tests {
             optimization: OptimizationMode::Speed,
             ..DerivativePathPolicy::default()
         };
-        let selected = graph.select_target_path(
-            Format::Markdown,
-            Format::Pdf,
-            &DerivativePathConstraints::default(),
-            &policy,
-        ).unwrap().unwrap();
+        let selected = graph
+            .select_target_path(
+                Format::Markdown,
+                Format::Pdf,
+                &DerivativePathConstraints::default(),
+                &policy,
+            )
+            .unwrap()
+            .unwrap();
         assert_eq!(selected.path.steps.len(), 1);
         assert_eq!(selected.path.total_cost, 0.1);
-        assert_eq!(selected.evidence.ranking_policy,
-            "optimization_then_cumulative_fidelity_then_hops_then_identity_v1");
+        assert_eq!(
+            selected.evidence.ranking_policy,
+            "optimization_then_cumulative_fidelity_then_hops_then_identity_v1"
+        );
     }
 
     #[test]
@@ -443,25 +490,51 @@ mod tests {
             optimization: OptimizationMode::Speed,
             ..DerivativePathPolicy::default()
         };
-        let selected = graph.select_derivative_path(
-            Format::Markdown,
-            Format::Pdf,
-            &DerivativePathConstraints::default(),
-            &policy,
-        ).unwrap().unwrap();
+        let selected = graph
+            .select_derivative_path(
+                Format::Markdown,
+                Format::Pdf,
+                &DerivativePathConstraints::default(),
+                &policy,
+            )
+            .unwrap()
+            .unwrap();
         assert_eq!(selected.path.steps.len(), 2);
         assert_eq!(selected.evidence.total_quality, 1.0);
-        assert_eq!(selected.evidence.ranking_policy,
-            "cumulative_fidelity_then_hops_then_optimization_then_identity_v1");
+        assert_eq!(
+            selected.evidence.ranking_policy,
+            "cumulative_fidelity_then_hops_then_optimization_then_identity_v1"
+        );
     }
 
     #[test]
     fn terminal_selectors_preserve_provider_variant_and_transform() {
         let mut graph = TransformGraph::new();
-        graph.add_transform(TransformEdge::new(Format::Markdown, Format::Pdf, 0.1, 1.0).with_provider("fast", "pdf.fast"));
-        graph.add_transform(TransformEdge::new(Format::Markdown, Format::Pdf, 2.0, 0.9).with_provider("print", "pdf.print").with_variant("a4").with_evidence("transform_id", "print-a4"));
-        let constraints = DerivativePathConstraints { provider_id: Some("print".to_string()), capability_id: Some("pdf.print".to_string()), transform_id: Some("print-a4".to_string()), variant_id: Some("a4".to_string()) };
-        let selected = graph.select_derivative_path(Format::Markdown, Format::Pdf, &constraints, &DerivativePathPolicy::default()).unwrap().unwrap();
+        graph.add_transform(
+            TransformEdge::new(Format::Markdown, Format::Pdf, 0.1, 1.0)
+                .with_provider("fast", "pdf.fast"),
+        );
+        graph.add_transform(
+            TransformEdge::new(Format::Markdown, Format::Pdf, 2.0, 0.9)
+                .with_provider("print", "pdf.print")
+                .with_variant("a4")
+                .with_evidence("transform_id", "print-a4"),
+        );
+        let constraints = DerivativePathConstraints {
+            provider_id: Some("print".to_string()),
+            capability_id: Some("pdf.print".to_string()),
+            transform_id: Some("print-a4".to_string()),
+            variant_id: Some("a4".to_string()),
+        };
+        let selected = graph
+            .select_derivative_path(
+                Format::Markdown,
+                Format::Pdf,
+                &constraints,
+                &DerivativePathPolicy::default(),
+            )
+            .unwrap()
+            .unwrap();
         assert_eq!(selected.path.steps[0].provider_id.as_deref(), Some("print"));
     }
 
@@ -470,8 +543,19 @@ mod tests {
         let mut graph = TransformGraph::new();
         graph.add_transform(TransformEdge::new(Format::Markdown, Format::Html, 1.0, 0.9));
         graph.add_transform(TransformEdge::new(Format::Html, Format::Pdf, 1.0, 0.9));
-        let policy = DerivativePathPolicy { max_loss: Some(0.15), ..DerivativePathPolicy::default() };
-        assert!(graph.select_derivative_path(Format::Markdown, Format::Pdf, &DerivativePathConstraints::default(), &policy).unwrap().is_none());
+        let policy = DerivativePathPolicy {
+            max_loss: Some(0.15),
+            ..DerivativePathPolicy::default()
+        };
+        assert!(graph
+            .select_derivative_path(
+                Format::Markdown,
+                Format::Pdf,
+                &DerivativePathConstraints::default(),
+                &policy
+            )
+            .unwrap()
+            .is_none());
     }
 
     #[test]
@@ -479,19 +563,34 @@ mod tests {
         let mut graph = TransformGraph::new();
         graph.add_transform(TransformEdge::new(Format::Markdown, Format::Html, 1.0, 1.0));
         graph.add_transform(TransformEdge::new(Format::Markdown, Format::Pdf, 1.0, 1.0));
-        let policy = DerivativePathPolicy { max_candidates: 1, ..DerivativePathPolicy::default() };
-        assert!(matches!(graph.select_derivative_path(Format::Markdown, Format::Pdf, &DerivativePathConstraints::default(), &policy), Err(DerivativePathError::CandidateLimitExceeded { limit: 1 })));
+        let policy = DerivativePathPolicy {
+            max_candidates: 1,
+            ..DerivativePathPolicy::default()
+        };
+        assert!(matches!(
+            graph.select_derivative_path(
+                Format::Markdown,
+                Format::Pdf,
+                &DerivativePathConstraints::default(),
+                &policy
+            ),
+            Err(DerivativePathError::CandidateLimitExceeded { limit: 1 })
+        ));
     }
 
     #[test]
     fn ties_ignore_registration_order_and_keep_parallel_edge_identity() {
-        let a = TransformEdge::new(Format::Markdown, Format::Pdf, 1.0, 1.0).with_provider("a", "pdf");
-        let b = TransformEdge::new(Format::Markdown, Format::Pdf, 1.0, 1.0).with_provider("b", "pdf");
+        let a =
+            TransformEdge::new(Format::Markdown, Format::Pdf, 1.0, 1.0).with_provider("a", "pdf");
+        let b =
+            TransformEdge::new(Format::Markdown, Format::Pdf, 1.0, 1.0).with_provider("b", "pdf");
         let mut graph = TransformGraph::new();
-        graph.add_transform(b.clone()); graph.add_transform(a.clone());
+        graph.add_transform(b.clone());
+        graph.add_transform(a.clone());
         let first = select(&graph, Format::Pdf);
         let mut reversed = TransformGraph::new();
-        reversed.add_transform(a); reversed.add_transform(b);
+        reversed.add_transform(a);
+        reversed.add_transform(b);
         assert_eq!(first, select(&reversed, Format::Pdf));
     }
 
@@ -501,8 +600,19 @@ mod tests {
         graph.add_transform(TransformEdge::new(Format::Markdown, Format::Html, 1.0, 1.0));
         graph.add_transform(TransformEdge::new(Format::Html, Format::Markdown, 1.0, 1.0));
         assert!(select(&graph, Format::Markdown).path.steps.is_empty());
-        let constraints = DerivativePathConstraints { transform_id: Some("roundtrip".to_string()), ..DerivativePathConstraints::default() };
-        assert!(graph.select_derivative_path(Format::Markdown, Format::Markdown, &constraints, &DerivativePathPolicy::default()).unwrap().is_none());
+        let constraints = DerivativePathConstraints {
+            transform_id: Some("roundtrip".to_string()),
+            ..DerivativePathConstraints::default()
+        };
+        assert!(graph
+            .select_derivative_path(
+                Format::Markdown,
+                Format::Markdown,
+                &constraints,
+                &DerivativePathPolicy::default()
+            )
+            .unwrap()
+            .is_none());
     }
 
     #[test]
@@ -510,15 +620,39 @@ mod tests {
         let mut graph = TransformGraph::new();
         graph.add_transform(TransformEdge::new(Format::Markdown, Format::Html, 1.0, 1.0));
         graph.add_transform(TransformEdge::new(Format::Html, Format::Pdf, 1.0, 1.0));
-        let policy = DerivativePathPolicy { max_hops: 1, ..DerivativePathPolicy::default() };
-        assert!(graph.select_derivative_path(Format::Markdown, Format::Pdf, &DerivativePathConstraints::default(), &policy).unwrap().is_none());
+        let policy = DerivativePathPolicy {
+            max_hops: 1,
+            ..DerivativePathPolicy::default()
+        };
+        assert!(graph
+            .select_derivative_path(
+                Format::Markdown,
+                Format::Pdf,
+                &DerivativePathConstraints::default(),
+                &policy
+            )
+            .unwrap()
+            .is_none());
     }
 
     #[test]
     fn invalid_numbers_are_typed_errors() {
         let mut graph = TransformGraph::new();
-        graph.add_transform(TransformEdge::new(Format::Markdown, Format::Pdf, f32::NAN, 1.0));
-        assert!(matches!(graph.select_derivative_path(Format::Markdown, Format::Pdf, &DerivativePathConstraints::default(), &DerivativePathPolicy::default()), Err(DerivativePathError::InvalidEdge { .. })));
+        graph.add_transform(TransformEdge::new(
+            Format::Markdown,
+            Format::Pdf,
+            f32::NAN,
+            1.0,
+        ));
+        assert!(matches!(
+            graph.select_derivative_path(
+                Format::Markdown,
+                Format::Pdf,
+                &DerivativePathConstraints::default(),
+                &DerivativePathPolicy::default()
+            ),
+            Err(DerivativePathError::InvalidEdge { .. })
+        ));
     }
 
     #[test]
@@ -533,21 +667,49 @@ mod tests {
                 .with_provider("installed", "pdf"),
         );
         let available = std::collections::HashSet::from(["installed".to_string()]);
-        let selected = select(&graph.filtered_by_available_providers(&available), Format::Pdf);
-        assert_eq!(selected.path.steps[0].provider_id.as_deref(), Some("installed"));
+        let selected = select(
+            &graph.filtered_by_available_providers(&available),
+            Format::Pdf,
+        );
+        assert_eq!(
+            selected.path.steps[0].provider_id.as_deref(),
+            Some("installed")
+        );
     }
 
     #[test]
     fn dense_reversible_graph_prunes_redundant_lossless_prefixes() {
         let formats = [
-            Format::Markdown, Format::Html, Format::Pdf, Format::Wav,
-            Format::Aiff, Format::Bwf, Format::Pcm, Format::Flac,
-            Format::M4aAlac, Format::Wv, Format::Ape, Format::Tta,
-            Format::Dsf, Format::Dff, Format::Shn, Format::Mp3,
-            Format::M4aAac, Format::Aac, Format::Ogg, Format::Opus,
-            Format::Wma, Format::Amr, Format::Mp2, Format::Ra,
-            Format::Oma, Format::Ac3, Format::Ec3, Format::Thd,
-            Format::Dts, Format::DtsHd,
+            Format::Markdown,
+            Format::Html,
+            Format::Pdf,
+            Format::Wav,
+            Format::Aiff,
+            Format::Bwf,
+            Format::Pcm,
+            Format::Flac,
+            Format::M4aAlac,
+            Format::Wv,
+            Format::Ape,
+            Format::Tta,
+            Format::Dsf,
+            Format::Dff,
+            Format::Shn,
+            Format::Mp3,
+            Format::M4aAac,
+            Format::Aac,
+            Format::Ogg,
+            Format::Opus,
+            Format::Wma,
+            Format::Amr,
+            Format::Mp2,
+            Format::Ra,
+            Format::Oma,
+            Format::Ac3,
+            Format::Ec3,
+            Format::Thd,
+            Format::Dts,
+            Format::DtsHd,
         ];
         let mut graph = TransformGraph::new();
         for from in formats {
@@ -576,11 +738,14 @@ mod tests {
             transform_id: Some("required".to_string()),
             ..DerivativePathConstraints::default()
         };
-        assert!(graph.select_derivative_path(
-            Format::Markdown,
-            Format::Html,
-            &constraints,
-            &DerivativePathPolicy::default(),
-        ).unwrap().is_none());
+        assert!(graph
+            .select_derivative_path(
+                Format::Markdown,
+                Format::Html,
+                &constraints,
+                &DerivativePathPolicy::default(),
+            )
+            .unwrap()
+            .is_none());
     }
 }

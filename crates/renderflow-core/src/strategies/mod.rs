@@ -1,6 +1,6 @@
 pub mod docx;
-pub mod editorial;
 pub mod ebook;
+pub mod editorial;
 pub mod html;
 pub mod pandoc_args;
 pub mod pdf;

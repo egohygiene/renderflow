@@ -6,30 +6,53 @@ use crate::transforms::plugin::{PluginCapabilities, PluginMetadata, PluginRegist
 /// Inspect explicit v2 command plugin metadata without running plugin code.
 /// Doctor intentionally uses the existing tools surface for executable probes;
 /// metadata validation never claims that a plugin or its dependencies work.
-pub fn run_configured(command: &crate::cli::PluginCommands, path: &str, format: &str) -> Result<()> {
+pub fn run_configured(
+    command: &crate::cli::PluginCommands,
+    path: &str,
+    format: &str,
+) -> Result<()> {
     use crate::cli::PluginCommands;
     use crate::transforms::yaml_loader::load_command_plugin_definitions;
 
-    anyhow::ensure!(matches!(format, "text" | "json"), "plugin format must be text or json");
+    anyhow::ensure!(
+        matches!(format, "text" | "json"),
+        "plugin format must be text or json"
+    );
     let mut definitions = load_command_plugin_definitions(path)?;
     definitions.sort_by(|left, right| left.descriptor.id.cmp(&right.descriptor.id));
     if let PluginCommands::Info { name } = command {
         definitions.retain(|definition| &definition.descriptor.id == name);
-        anyhow::ensure!(!definitions.is_empty(), "plugin '{}' is not declared in this registry", name);
+        anyhow::ensure!(
+            !definitions.is_empty(),
+            "plugin '{}' is not declared in this registry",
+            name
+        );
     }
-    let descriptors = definitions.iter().map(|definition| &definition.descriptor).collect::<Vec<_>>();
+    let descriptors = definitions
+        .iter()
+        .map(|definition| &definition.descriptor)
+        .collect::<Vec<_>>();
     if format == "json" {
-        println!("{}", serde_json::to_string_pretty(&serde_json::json!({
-            "plugins": descriptors,
-            "declarations_valid": true,
-            "runtime_qualified": false,
-            "programs_probed": false
-        }))?);
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&serde_json::json!({
+                "plugins": descriptors,
+                "declarations_valid": true,
+                "runtime_qualified": false,
+                "programs_probed": false
+            }))?
+        );
     } else {
         println!("Configured command plugins ({}):", descriptors.len());
         for descriptor in descriptors {
-            println!("  {} {}: {} -> {} [{}]", descriptor.id, descriptor.version,
-                descriptor.input_formats.join(", "), descriptor.output_formats.join(", "), descriptor.capability_id);
+            println!(
+                "  {} {}: {} -> {} [{}]",
+                descriptor.id,
+                descriptor.version,
+                descriptor.input_formats.join(", "),
+                descriptor.output_formats.join(", "),
+                descriptor.capability_id
+            );
         }
         println!("Declarations validated. Plugin code and dependencies have not been executed or qualified.");
         if matches!(command, PluginCommands::Doctor) {

@@ -16,11 +16,11 @@ use crate::artifact::{Artifact, ArtifactStorageClass};
 use crate::hygiene::HygieneEvidence;
 use crate::toolchain::ToolchainSnapshot;
 
-mod publications;
 pub(crate) mod files;
 pub mod json;
-pub mod verification;
 pub mod portable;
+mod publications;
+pub mod verification;
 pub use publications::{PublishedTarget, PublishedTargetsError};
 
 pub const RUN_MANIFEST_SCHEMA_V1: &str = "renderflow.run/v1";
@@ -339,10 +339,13 @@ impl RunManifest {
 
     /// Join publications and observe each declared file in a caller-selected root.
     /// Run/validation/fidelity/review state is preserved, never promoted by hashing.
-    pub fn verify_published_targets<'a>(&'a self,root:&std::path::Path,
-        limits:&verification::VerificationLimits,cancellation:crate::process::ProcessCancellationToken)
-        ->Result<Vec<verification::VerifiedPublication<'a>>,verification::VerificationError> {
-        verification::verify(self,root,limits,cancellation)
+    pub fn verify_published_targets<'a>(
+        &'a self,
+        root: &std::path::Path,
+        limits: &verification::VerificationLimits,
+        cancellation: crate::process::ProcessCancellationToken,
+    ) -> Result<Vec<verification::VerifiedPublication<'a>>, verification::VerificationError> {
+        verification::verify(self, root, limits, cancellation)
     }
 
     /// Project the entire inventory, including sources and intermediates.

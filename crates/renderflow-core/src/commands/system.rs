@@ -26,7 +26,8 @@ pub fn run_env() {
 pub fn run_doctor(strict: bool) -> Result<()> {
     let registry = ToolRegistry::builtins();
     let inventory = registry.assess_ids_current(
-        registry.all()
+        registry
+            .all()
             .filter(|tool| !CREATIVE_OPTIONAL_TOOL_IDS.contains(&tool.id.as_str()))
             .map(|tool| tool.id.as_str()),
     );
@@ -96,14 +97,26 @@ fn write_creative_doctor_report(
         }
         DoctorReportFormat::Text => {
             writeln!(output, "Renderflow Doctor: {}", report.profile)?;
-            writeln!(output, "platform: {} {}", report.operating_system, report.architecture)?;
+            writeln!(
+                output,
+                "platform: {} {}",
+                report.operating_system, report.architecture
+            )?;
             writeln!(output, "tool registry: {}", report.registry_schema)?;
             writeln!(output, "fingerprint: {}", report.fingerprint)?;
             writeln!(output, "fingerprint scope: {}", report.fingerprint_scope)?;
-            writeln!(output, "\nTool discovery (does not enable conversion routes):")?;
+            writeln!(
+                output,
+                "\nTool discovery (does not enable conversion routes):"
+            )?;
             for tool in &report.tools {
                 let availability = &tool.availability;
-                writeln!(output, "[{}] {}", availability.status.as_str(), availability.id)?;
+                writeln!(
+                    output,
+                    "[{}] {}",
+                    availability.status.as_str(),
+                    availability.id
+                )?;
                 if let Some(executable) = &availability.selected_executable {
                     writeln!(output, "  executable: {executable}")?;
                 }
@@ -114,8 +127,12 @@ fn write_creative_doctor_report(
                     writeln!(output, "  diagnostic: {diagnostic}")?;
                 }
                 if let Some(descriptor) = &tool.descriptor {
-                    let capabilities = descriptor.capabilities.iter()
-                        .map(ToString::to_string).collect::<Vec<_>>().join(", ");
+                    let capabilities = descriptor
+                        .capabilities
+                        .iter()
+                        .map(ToString::to_string)
+                        .collect::<Vec<_>>()
+                        .join(", ");
                     writeln!(output, "  declared capabilities: {capabilities}")?;
                     if let Some(notes) = &descriptor.license_notes {
                         writeln!(output, "  executable licensing: {notes}")?;
@@ -127,29 +144,54 @@ fn write_creative_doctor_report(
             }
             writeln!(output, "\nRoute readiness:")?;
             for route in &report.routes {
-                writeln!(output, "[{}|providers:{}] {}", route.implementation.as_str(),
-                    route.provider_status.as_str(), route.id)?;
+                writeln!(
+                    output,
+                    "[{}|providers:{}] {}",
+                    route.implementation.as_str(),
+                    route.provider_status.as_str(),
+                    route.id
+                )?;
                 writeln!(output, "  {}", route.detail)?;
                 if !route.providers.is_empty() {
                     writeln!(output, "  providers: {}", route.providers.join(", "))?;
                 }
                 if !route.blocked_providers.is_empty() {
-                    writeln!(output, "  unavailable or unobserved providers: {}", route.blocked_providers.join(", "))?;
+                    writeln!(
+                        output,
+                        "  unavailable or unobserved providers: {}",
+                        route.blocked_providers.join(", ")
+                    )?;
                 }
                 if !route.required_configuration.is_empty() {
-                    writeln!(output, "  required configuration: {}", route.required_configuration.join(", "))?;
+                    writeln!(
+                        output,
+                        "  required configuration: {}",
+                        route.required_configuration.join(", ")
+                    )?;
                 }
             }
             writeln!(output, "\nAdditional requirements:")?;
             for requirement in &report.requirements {
-                writeln!(output, "[{}] {}: {}", requirement.status, requirement.id, requirement.detail)?;
+                writeln!(
+                    output,
+                    "[{}] {}: {}",
+                    requirement.status, requirement.id, requirement.detail
+                )?;
             }
             writeln!(output, "\nScope and limitations:")?;
             for limitation in &report.limitations {
                 writeln!(output, "- {limitation}")?;
             }
-            writeln!(output, "\nFailed supported discovery probes: {}", report.unavailable_tool_count())?;
-            writeln!(output, "Unprobed profile tools: {}", report.unprobed_tool_count())?;
+            writeln!(
+                output,
+                "\nFailed supported discovery probes: {}",
+                report.unavailable_tool_count()
+            )?;
+            writeln!(
+                output,
+                "Unprobed profile tools: {}",
+                report.unprobed_tool_count()
+            )?;
             writeln!(output, "Strict mode covers supported discovery probes only; unprobed tools do not fail strict mode. It does not qualify adapters, models, fonts, or complete workflows.")?;
         }
     }
@@ -179,7 +221,8 @@ mod tests {
                 version_line: None,
                 duration_ms: 0,
                 platform: ProcessPlatform {
-                    os: "linux", arch: "x86_64",
+                    os: "linux",
+                    arch: "x86_64",
                     tree_termination: ProcessTreeTermination::DirectChild,
                 },
                 diagnostic: Some("synthetic missing executable".to_owned()),
@@ -189,18 +232,19 @@ mod tests {
 
     fn missing_report() -> CreativeDoctorReport {
         crate::creative_doctor::assess_with(
-            &ToolRegistry::builtins(), &MissingProbe,
+            &ToolRegistry::builtins(),
+            &MissingProbe,
             &ToolRuntimeContext::for_platform("linux", "x86_64"),
-        ).unwrap()
+        )
+        .unwrap()
     }
 
     #[test]
     fn strict_failure_preserves_complete_machine_readable_report() {
         let report = missing_report();
         let mut output = Vec::new();
-        let result = write_creative_doctor_report(
-            &report, true, DoctorReportFormat::Json, &mut output,
-        );
+        let result =
+            write_creative_doctor_report(&report, true, DoctorReportFormat::Json, &mut output);
         assert!(result.is_err());
         let value: serde_json::Value = serde_json::from_slice(&output).unwrap();
         assert_eq!(value, serde_json::to_value(&report).unwrap());
@@ -213,8 +257,12 @@ mod tests {
     fn optional_profile_warnings_succeed_without_strict() {
         let mut output = Vec::new();
         write_creative_doctor_report(
-            &missing_report(), false, DoctorReportFormat::Json, &mut output,
-        ).unwrap();
+            &missing_report(),
+            false,
+            DoctorReportFormat::Json,
+            &mut output,
+        )
+        .unwrap();
         let value: serde_json::Value = serde_json::from_slice(&output).unwrap();
         assert_eq!(value["profile"], "creative-publishing");
     }
@@ -223,9 +271,10 @@ mod tests {
     fn text_report_preserves_tool_failures_and_route_limitations() {
         let report = missing_report();
         let mut output = Vec::new();
-        assert!(write_creative_doctor_report(
-            &report, true, DoctorReportFormat::Text, &mut output,
-        ).is_err());
+        assert!(
+            write_creative_doctor_report(&report, true, DoctorReportFormat::Text, &mut output,)
+                .is_err()
+        );
         let text = String::from_utf8(output).unwrap();
         assert!(text.contains("missing_executable"));
         assert!(text.contains("Route readiness:"));

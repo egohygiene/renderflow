@@ -94,13 +94,13 @@ pub struct AiIdentityEvidence {
     pub weights_digest: Option<String>,
     pub locality: AiLocality,
     pub endpoint_identity: String,
-    #[serde(default,skip_serializing_if="Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reported_model: Option<String>,
 }
 
 /// Optional bounds/identity supplied by one explicitly selected runtime profile.
 /// Cancellation is cooperative; HTTP reads also retain their transport timeout.
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 pub struct AiExecutionContext {
     pub profile_sha256: String,
     pub endpoint_identity: String,
@@ -186,10 +186,17 @@ impl<'a> AiSkillRuntime<'a> {
         }
     }
 
-    pub fn with_execution_context(mut self,context:AiExecutionContext)->Self {self.context=Some(context);self}
+    pub fn with_execution_context(mut self, context: AiExecutionContext) -> Self {
+        self.context = Some(context);
+        self
+    }
 
-    fn check_cancelled(&self)->Result<()> {
-        if self.context.as_ref().is_some_and(|context|context.cancellation.is_cancelled()) {
+    fn check_cancelled(&self) -> Result<()> {
+        if self
+            .context
+            .as_ref()
+            .is_some_and(|context| context.cancellation.is_cancelled())
+        {
             anyhow::bail!("ai.execution.cancelled");
         }
         Ok(())
@@ -210,7 +217,11 @@ impl<'a> AiSkillRuntime<'a> {
         store: &ArtifactStore,
     ) -> Result<AiSkillExecutionOutcome> {
         self.check_cancelled()?;
-        if self.context.as_ref().is_some_and(|context|!(1..=8*1024*1024).contains(&context.max_response_bytes)) {
+        if self
+            .context
+            .as_ref()
+            .is_some_and(|context| !(1..=8 * 1024 * 1024).contains(&context.max_response_bytes))
+        {
             anyhow::bail!("ai.execution.response_limit");
         }
         let skill = self.skill(request)?;
@@ -303,8 +314,9 @@ impl<'a> AiSkillRuntime<'a> {
         if skill.requires_json_schema {
             ai_request = ai_request.with_output_schema(skill.output_schema.clone());
         }
-        if let Some(context)=&self.context {
-            ai_request=ai_request.with_transport_controls(context.max_response_bytes,context.cancellation.clone());
+        if let Some(context) = &self.context {
+            ai_request = ai_request
+                .with_transport_controls(context.max_response_bytes, context.cancellation.clone());
         }
         let started = Instant::now();
         let retry_config = RetryConfig {
@@ -313,18 +325,24 @@ impl<'a> AiSkillRuntime<'a> {
             max_delay_ms: 0,
             ..RetryConfig::default()
         };
-        let response =
-            execute_with_retry(&retry_config, &skill.id, || {self.check_cancelled()?;provider.execute(&ai_request)})
-                .with_context(|| {
-                    format!(
-                        "AI skill '{}@{}' failed through '{}:{}'",
-                        skill.id, skill.version, selected.provider_id, selected.model_id
-                    )
-                })?;
+        let response = execute_with_retry(&retry_config, &skill.id, || {
+            self.check_cancelled()?;
+            provider.execute(&ai_request)
+        })
+        .with_context(|| {
+            format!(
+                "AI skill '{}@{}' failed through '{}:{}'",
+                skill.id, skill.version, selected.provider_id, selected.model_id
+            )
+        })?;
         let observed_duration_ms = started.elapsed().as_millis() as u64;
         self.check_cancelled()?;
-        if let Some(context)=&self.context {
-            if response.reported_model.as_ref().is_some_and(|reported|!context.allowed_reported_models.contains(reported)) {
+        if let Some(context) = &self.context {
+            if response
+                .reported_model
+                .as_ref()
+                .is_some_and(|reported| !context.allowed_reported_models.contains(reported))
+            {
                 anyhow::bail!("ai.execution.unexpected_reported_model");
             }
         }
@@ -343,8 +361,9 @@ impl<'a> AiSkillRuntime<'a> {
         if response.content.len() > skill.budgets.max_output_bytes {
             anyhow::bail!("AI skill output exceeds its declared byte budget");
         }
-        let crate::evidence::json::StrictValue(mut output) = serde_json::from_str(&response.content)
-            .context("AI skill output is not valid structured JSON")?;
+        let crate::evidence::json::StrictValue(mut output) =
+            serde_json::from_str(&response.content)
+                .context("AI skill output is not valid structured JSON")?;
         let post_output_hygiene = sanitize_json_output(&mut output, skill, &protected_references)?;
         ensure_not_blocked(&post_output_hygiene, "post-output")?;
         validate_json_instance(&skill.output_schema, &output)
@@ -395,11 +414,11 @@ impl<'a> AiSkillRuntime<'a> {
             "settings_digest": settings_digest.value,
             "hygiene_policy_digest": hygiene_policy_digest.value,
         });
-        if let Some(context)=&self.context {
-            cache_fields["runtime_profile"]=serde_json::json!(context.profile_sha256);
-            cache_fields["endpoint_identity"]=serde_json::json!(context.endpoint_identity);
+        if let Some(context) = &self.context {
+            cache_fields["runtime_profile"] = serde_json::json!(context.profile_sha256);
+            cache_fields["endpoint_identity"] = serde_json::json!(context.endpoint_identity);
         }
-        let cache_identity=digest_json(&cache_fields)?;
+        let cache_identity = digest_json(&cache_fields)?;
         let execution_id = format!("ai:sha256:{}", cache_identity.value);
         let evidence = AiExecutionEvidence {
             schema_version: AI_EXECUTION_EVIDENCE_SCHEMA_V1.to_string(),
@@ -418,8 +437,12 @@ impl<'a> AiSkillRuntime<'a> {
                 model_revision: selected.model_revision.clone(),
                 weights_digest: selected.weights_digest.clone(),
                 locality: selected.locality,
-                endpoint_identity: self.context.as_ref().map(|context|context.endpoint_identity.clone()).unwrap_or_else(||selected.runtime_id.clone()),
-                reported_model:response.reported_model.clone(),
+                endpoint_identity: self
+                    .context
+                    .as_ref()
+                    .map(|context| context.endpoint_identity.clone())
+                    .unwrap_or_else(|| selected.runtime_id.clone()),
+                reported_model: response.reported_model.clone(),
             },
             skill_id: skill.id.clone(),
             skill_version: skill.version.clone(),
@@ -488,25 +511,49 @@ fn render_and_sanitize_prompt(
     let input = input
         .as_object()
         .context("AI skill input must be an object")?;
-    let template = format!("SYSTEM\n{}\n\nINSTRUCTION\n{}\n\nINPUT\n{}",skill.templates.system,skill.templates.instruction,skill.templates.prompt);
-    let mut substitutions=std::collections::BTreeMap::new();
+    let template = format!(
+        "SYSTEM\n{}\n\nINSTRUCTION\n{}\n\nINPUT\n{}",
+        skill.templates.system, skill.templates.instruction, skill.templates.prompt
+    );
+    let mut substitutions = std::collections::BTreeMap::new();
     for variable in &skill.variables {
-        let value=input.get(&variable.name);
-        if variable.required && value.is_none() {anyhow::bail!("AI skill variable is required");}
-        let rendered=match value {Some(Value::String(value))=>value.clone(),Some(value)=>serde_json::to_string(value)?,None=>String::new()};
-        if rendered.len()>variable.max_bytes {anyhow::bail!("AI skill variable exceeds its byte limit");}
-        substitutions.insert(variable.name.as_str(),rendered);
+        let value = input.get(&variable.name);
+        if variable.required && value.is_none() {
+            anyhow::bail!("AI skill variable is required");
+        }
+        let rendered = match value {
+            Some(Value::String(value)) => value.clone(),
+            Some(value) => serde_json::to_string(value)?,
+            None => String::new(),
+        };
+        if rendered.len() > variable.max_bytes {
+            anyhow::bail!("AI skill variable exceeds its byte limit");
+        }
+        substitutions.insert(variable.name.as_str(), rendered);
     }
     // Parse only the reviewed template. Inserted source data is opaque and is
     // never rescanned for another variable or promoted into template syntax.
-    let mut prompt=String::new();let mut remaining=template.as_str();
-    while let Some(start)=remaining.find("{{") {
-        let literal=&remaining[..start];if literal.contains("}}") {anyhow::bail!("AI skill template delimiter is unmatched");}
-        prompt.push_str(literal);let rest=&remaining[start+2..];let end=rest.find("}}").context("AI skill template delimiter is unmatched")?;
-        let value=substitutions.get(&rest[..end]).context("AI skill template variable is undeclared")?;
-        prompt.push_str(value);remaining=&rest[end+2..];
+    let mut prompt = String::new();
+    let mut remaining = template.as_str();
+    while let Some(start) = remaining.find("{{") {
+        let literal = &remaining[..start];
+        if literal.contains("}}") {
+            anyhow::bail!("AI skill template delimiter is unmatched");
+        }
+        prompt.push_str(literal);
+        let rest = &remaining[start + 2..];
+        let end = rest
+            .find("}}")
+            .context("AI skill template delimiter is unmatched")?;
+        let value = substitutions
+            .get(&rest[..end])
+            .context("AI skill template variable is undeclared")?;
+        prompt.push_str(value);
+        remaining = &rest[end + 2..];
     }
-    if remaining.contains("}}") {anyhow::bail!("AI skill template delimiter is unmatched");}
+    if remaining.contains("}}") {
+        anyhow::bail!("AI skill template delimiter is unmatched");
+    }
     prompt.push_str(remaining);
     if prompt.len() > skill.max_rendered_prompt_bytes {
         anyhow::bail!("rendered AI skill prompt exceeds its byte budget");

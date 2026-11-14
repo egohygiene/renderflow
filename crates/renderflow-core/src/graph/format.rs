@@ -382,13 +382,22 @@ mod tests {
         for (format, canonical, aliases) in [
             (Format::Fountain, "fountain", &["fountain", "FOUNTAIN"][..]),
             (Format::Fdx, "fdx", &["fdx", "FDX"][..]),
-            (Format::FadeIn, "fadein", &["fadein", "fade_in", "FADEIN"][..]),
+            (
+                Format::FadeIn,
+                "fadein",
+                &["fadein", "fade_in", "FADEIN"][..],
+            ),
             (Format::Osf, "osf", &["osf", "OSF"][..]),
             (Format::Trelby, "trelby", &["trelby", "TRELBY"][..]),
             (
                 Format::ScreenplayJson,
                 "screenplay_json",
-                &["screenplay_json", "screenplay-json", "screenplay.json", "SCREENPLAY.JSON"][..],
+                &[
+                    "screenplay_json",
+                    "screenplay-json",
+                    "screenplay.json",
+                    "SCREENPLAY.JSON",
+                ][..],
             ),
         ] {
             assert_eq!(format.to_string(), canonical);

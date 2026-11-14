@@ -3,11 +3,11 @@ use clap::Parser;
 use tracing::info;
 
 use crate::cli::{
-    AiCommands, AiSkillCommands, Cli, Commands, CompositionCommands, DnaCommands, DoctorProfile,
-    DoctorReportFormat,
-    EbookCommands, FontCommands, GraphCommands, LuluCommands, PluginCommands, PublicationCommands,
-    BundleCommands, BriefingCommands, LyricsCommands, PresentationCommands, ScreenplayCommands, SpecCommands, SpeechCommands, SubtitleCommands, ToolCommands,
-    VideoCommands,
+    AiCommands, AiSkillCommands, BriefingCommands, BundleCommands, Cli, Commands,
+    CompositionCommands, DnaCommands, DoctorProfile, DoctorReportFormat, EbookCommands,
+    FontCommands, GraphCommands, LuluCommands, LyricsCommands, PluginCommands,
+    PresentationCommands, PublicationCommands, ScreenplayCommands, SpecCommands, SpeechCommands,
+    SubtitleCommands, ToolCommands, VideoCommands,
 };
 use crate::video::HandBrakeLimits;
 use crate::{commands, transforms};
@@ -31,12 +31,23 @@ pub fn init_logging(cli: &Cli) {
 /// Dispatch a parsed CLI command.
 pub fn run_cli(cli: Cli) -> Result<()> {
     match cli.command {
-        Some(Commands::Diagnostics{command})=>commands::diagnostics::run(command)?,
-        Some(Commands::ReleaseContract) => println!("{}", serde_json::to_string_pretty(&crate::release_contract::describe()?)?),
-        Some(Commands::PublicationStatus { manifest, manifest_sha256, output_root }) => {
-            let report = crate::release_contract::publication_status(std::path::Path::new(&manifest), &manifest_sha256, std::path::Path::new(&output_root))?;
+        Some(Commands::Diagnostics { command }) => commands::diagnostics::run(command)?,
+        Some(Commands::ReleaseContract) => println!(
+            "{}",
+            serde_json::to_string_pretty(&crate::release_contract::describe()?)?
+        ),
+        Some(Commands::PublicationStatus {
+            manifest,
+            manifest_sha256,
+            output_root,
+        }) => {
+            let report = crate::release_contract::publication_status(
+                std::path::Path::new(&manifest),
+                &manifest_sha256,
+                std::path::Path::new(&output_root),
+            )?;
             println!("{}", serde_json::to_string_pretty(&report)?);
-        },
+        }
         Some(Commands::Build {
             config,
             dry_run,
@@ -109,11 +120,18 @@ pub fn run_cli(cli: Cli) -> Result<()> {
                 )?;
             }
         }
-        Some(Commands::Plugin { subcommand, transforms: registry_path, format }) => {
+        Some(Commands::Plugin {
+            subcommand,
+            transforms: registry_path,
+            format,
+        }) => {
             if let Some(path) = registry_path {
                 commands::plugin::run_configured(&subcommand, &path, &format)?;
             } else {
-                anyhow::ensure!(format == "text", "plugin --format json requires --transforms FILE");
+                anyhow::ensure!(
+                    format == "text",
+                    "plugin --format json requires --transforms FILE"
+                );
                 let registry = transforms::plugin::PluginRegistry::new();
                 match subcommand {
                     PluginCommands::List => commands::plugin::run_list(&registry)?,
@@ -124,8 +142,13 @@ pub fn run_cli(cli: Cli) -> Result<()> {
             }
         }
         Some(Commands::Ai { subcommand }) => match subcommand {
-            AiCommands::Summary {subcommand}=>commands::summary::run(subcommand)?,
-            AiCommands::Profile {profile,catalog,skill,format}=>commands::ai::run_profile(&profile,catalog.as_deref(),&skill,&format)?,
+            AiCommands::Summary { subcommand } => commands::summary::run(subcommand)?,
+            AiCommands::Profile {
+                profile,
+                catalog,
+                skill,
+                format,
+            } => commands::ai::run_profile(&profile, catalog.as_deref(), &skill, &format)?,
             AiCommands::Matrix { format, catalog } => {
                 commands::ai::run_matrix(&format, catalog.as_deref())?
             }
@@ -383,7 +406,9 @@ pub fn run_cli(cli: Cli) -> Result<()> {
                 commands::screenplay::run_inspect(&input, &format)?
             }
             ScreenplayCommands::Convert(arguments) => commands::screenplay::run_convert(arguments)?,
-            ScreenplayCommands::Recover(arguments) => commands::screenplay_recovery::run_recover(arguments)?,
+            ScreenplayCommands::Recover(arguments) => {
+                commands::screenplay_recovery::run_recover(arguments)?
+            }
             ScreenplayCommands::Analyze { input } => commands::screenplay_pdf::run_analyze(&input)?,
             ScreenplayCommands::Pdf(arguments) => commands::screenplay_pdf::run_pdf(arguments)?,
             ScreenplayCommands::PackageFingerprint { package_root } => {
@@ -392,38 +417,58 @@ pub fn run_cli(cli: Cli) -> Result<()> {
         },
         Some(Commands::Speech { subcommand }) => match subcommand {
             SpeechCommands::Inspect(arguments) => commands::speech::run_inspect(arguments)?,
-            SpeechCommands::Transcribe(arguments) => commands::speech::run_transcribe(arguments)?,
+            SpeechCommands::Transcribe(arguments) => commands::speech::run_transcribe(*arguments)?,
             SpeechCommands::Timeline(arguments) => commands::speech::run_timeline(arguments)?,
             SpeechCommands::Align(arguments) => commands::speech::run_align(arguments)?,
         },
-        Some(Commands::Bundle {subcommand}) => match subcommand {
+        Some(Commands::Bundle { subcommand }) => match subcommand {
             BundleCommands::Verify(arguments) => commands::bundle::verify(arguments)?,
             BundleCommands::Export(arguments) => commands::bundle::export(arguments)?,
-            BundleCommands::VerifyPortable(arguments) => commands::bundle::verify_portable(arguments)?,
+            BundleCommands::VerifyPortable(arguments) => {
+                commands::bundle::verify_portable(arguments)?
+            }
         },
         Some(Commands::Briefing { subcommand }) => match subcommand {
             BriefingCommands::Plan { input } => commands::briefing::plan(&input)?,
             BriefingCommands::Build(arguments) => commands::briefing::build(arguments)?,
         },
         Some(Commands::Presentation { subcommand }) => match subcommand {
-            PresentationCommands::Fingerprint { installation_root } => commands::presentation::fingerprint(&installation_root)?,
+            PresentationCommands::Fingerprint { installation_root } => {
+                commands::presentation::fingerprint(&installation_root)?
+            }
             PresentationCommands::Inspect { input } => commands::presentation::inspect(&input)?,
             PresentationCommands::Plan(arguments) => commands::presentation::run(arguments, false)?,
             PresentationCommands::Build(arguments) => commands::presentation::run(arguments, true)?,
         },
         Some(Commands::Lyrics { subcommand }) => match subcommand {
-            LyricsCommands::Inspect {input,input_format,language,revision,reviewed} => {
-                commands::lyrics::inspect(&input,input_format.as_deref(),language,revision,reviewed)?
-            }
+            LyricsCommands::Inspect {
+                input,
+                input_format,
+                language,
+                revision,
+                reviewed,
+            } => commands::lyrics::inspect(
+                &input,
+                input_format.as_deref(),
+                language,
+                revision,
+                reviewed,
+            )?,
         },
         Some(Commands::Subtitles { subcommand }) => match subcommand {
             SubtitleCommands::Inspect { input } => commands::subtitles::run_inspect(&input)?,
-            SubtitleCommands::Convert { input, input_format, output, output_format } => {
-                commands::subtitles::run_convert(&input, &input_format, &output, &output_format)?
-            }
-            SubtitleCommands::Extract { input, stream_index, output, output_format } => {
-                commands::subtitles::run_extract(&input, stream_index, &output, &output_format)?
-            }
+            SubtitleCommands::Convert {
+                input,
+                input_format,
+                output,
+                output_format,
+            } => commands::subtitles::run_convert(&input, &input_format, &output, &output_format)?,
+            SubtitleCommands::Extract {
+                input,
+                stream_index,
+                output,
+                output_format,
+            } => commands::subtitles::run_extract(&input, stream_index, &output, &output_format)?,
         },
         Some(Commands::Video { subcommand }) => match subcommand {
             VideoCommands::Capabilities { format } => commands::video::run_capabilities(&format)?,
@@ -488,10 +533,15 @@ pub fn run_cli(cli: Cli) -> Result<()> {
         },
         Some(Commands::Version) => commands::system::run_version(),
         Some(Commands::Env) => commands::system::run_env(),
-        Some(Commands::Doctor { strict, profile, format }) => match profile {
+        Some(Commands::Doctor {
+            strict,
+            profile,
+            format,
+        }) => match profile {
             None => commands::system::run_doctor(strict)?,
             Some(DoctorProfile::CreativePublishing) => commands::system::run_creative_doctor(
-                strict, format.unwrap_or(DoctorReportFormat::Text),
+                strict,
+                format.unwrap_or(DoctorReportFormat::Text),
             )?,
         },
         None => {
@@ -510,16 +560,23 @@ pub fn run_cli(cli: Cli) -> Result<()> {
 
 /// Return the existing semantic root-help result without printing, logging,
 /// configuration loading or domain work. Decorative presentation stays in the binary.
-pub fn root_help_error_from_args(arguments:&[std::ffi::OsString])->Option<clap::Error>{
-    if arguments.len()!=2||!(arguments[1]=="--help"||arguments[1]=="-h"){return None;}
-    match Cli::try_parse_from(arguments){Err(e) if e.kind()==clap::error::ErrorKind::DisplayHelp=>Some(e),_=>None}
+pub fn root_help_error_from_args(arguments: &[std::ffi::OsString]) -> Option<clap::Error> {
+    if arguments.len() != 2 || !(arguments[1] == "--help" || arguments[1] == "-h") {
+        return None;
+    }
+    match Cli::try_parse_from(arguments) {
+        Err(e) if e.kind() == clap::error::ErrorKind::DisplayHelp => Some(e),
+        _ => None,
+    }
 }
 
 /// Parse CLI arguments from the process environment, initialize logging,
 /// and run the command dispatch.
 pub fn run_cli_from_env() -> Result<()> {
     let cli = Cli::parse();
-    if !matches!(&cli.command,Some(Commands::Diagnostics{..})){init_logging(&cli);}
+    if !matches!(&cli.command, Some(Commands::Diagnostics { .. })) {
+        init_logging(&cli);
+    }
     run_cli(cli)
 }
 

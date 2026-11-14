@@ -27,7 +27,10 @@ impl ProgressReporter for Events {
 impl Events {
     fn has_speech_phase(&self) -> bool {
         self.0.lock().unwrap().iter().any(|event| {
-            event.state.as_deref().is_some_and(|state| state.starts_with("speech."))
+            event
+                .state
+                .as_deref()
+                .is_some_and(|state| state.starts_with("speech."))
         })
     }
 }
@@ -77,13 +80,21 @@ impl Fixture {
             }
         });
         fs::write(&config, serde_yaml_ng::to_string(&spec).unwrap()).unwrap();
-        Self { directory, source, config, output }
+        Self {
+            directory,
+            source,
+            config,
+            output,
+        }
     }
 
-    fn state_directory(&self) -> PathBuf { self.directory.path().join(".renderflow") }
+    fn state_directory(&self) -> PathBuf {
+        self.directory.path().join(".renderflow")
+    }
 
     fn select_saved_result(&self, receipt: &std::path::Path, sha256: &str) {
-        let mut spec: serde_json::Value = serde_yaml_ng::from_str(&fs::read_to_string(&self.config).unwrap()).unwrap();
+        let mut spec: serde_json::Value =
+            serde_yaml_ng::from_str(&fs::read_to_string(&self.config).unwrap()).unwrap();
         spec["execution"]["speech"]["recovery"] = json!({
             "receipt_path": receipt,
             "receipt_sha256": sha256
@@ -96,17 +107,27 @@ impl Fixture {
 fn dry_run_with_resume_needs_no_provider_files_and_publishes_no_bundle() {
     let fixture = Fixture::new();
     let events = Arc::new(Events::default());
-    let engine = EngineBuilder::new().with_progress_reporter(events.clone()).build().unwrap();
-    let result = engine.execute(
-        ExecutionRequest::from_path(&fixture.config).dry_run(true).with_resume(true),
-    ).unwrap();
+    let engine = EngineBuilder::new()
+        .with_progress_reporter(events.clone())
+        .build()
+        .unwrap();
+    let result = engine
+        .execute(
+            ExecutionRequest::from_path(&fixture.config)
+                .dry_run(true)
+                .with_resume(true),
+        )
+        .unwrap();
 
     assert_eq!(result.run_manifest.state, RunState::Planned);
     assert!(result.run_manifest.steps.is_empty());
     assert!(result.manifest.artifacts.is_empty());
     assert!(!fixture.output.exists());
     assert!(!fixture.state_directory().exists());
-    assert!(!events.has_speech_phase(), "dry-run must not enter native speech phases");
+    assert!(
+        !events.has_speech_phase(),
+        "dry-run must not enter native speech phases"
+    );
 }
 
 #[test]
@@ -114,8 +135,13 @@ fn pre_cancelled_sdk_request_returns_typed_cancellation_before_planning() {
     let fixture = Fixture::new();
     let cancellation = CancellationToken::new();
     cancellation.cancel();
-    let engine = EngineBuilder::new().with_cancellation_token(cancellation).build().unwrap();
-    let error = engine.execute(ExecutionRequest::from_path(&fixture.config)).unwrap_err();
+    let engine = EngineBuilder::new()
+        .with_cancellation_token(cancellation)
+        .build()
+        .unwrap();
+    let error = engine
+        .execute(ExecutionRequest::from_path(&fixture.config))
+        .unwrap_err();
 
     assert!(matches!(error, RenderflowError::Cancelled));
     assert!(!fixture.output.exists());
@@ -130,14 +156,21 @@ fn cancellation_after_resolve_records_cancelled_steps_without_entering_provider_
     let engine = EngineBuilder::new()
         .with_cancellation_token(cancellation.clone())
         .with_progress_reporter(events.clone())
-        .build().unwrap();
-    let resolved = engine.resolve_execution(ExecutionRequest::from_path(&fixture.config)).unwrap();
+        .build()
+        .unwrap();
+    let resolved = engine
+        .resolve_execution(ExecutionRequest::from_path(&fixture.config))
+        .unwrap();
     cancellation.cancel();
     let result = engine.execute_resolved(resolved, false).unwrap();
 
     assert_eq!(result.run_manifest.state, RunState::Cancelled);
     assert!(!result.run_manifest.steps.is_empty());
-    assert!(result.run_manifest.steps.iter().all(|step| step.state == StepState::Cancelled));
+    assert!(result
+        .run_manifest
+        .steps
+        .iter()
+        .all(|step| step.state == StepState::Cancelled));
     assert!(result.manifest.outputs.is_empty());
     assert!(result.manifest.artifacts.is_empty());
     assert!(!events.has_speech_phase());
@@ -149,15 +182,22 @@ fn cancellation_after_resolve_records_cancelled_steps_without_entering_provider_
 fn changed_original_source_is_refused_before_native_speech_execution() {
     let fixture = Fixture::new();
     let events = Arc::new(Events::default());
-    let engine = EngineBuilder::new().with_progress_reporter(events.clone()).build().unwrap();
-    let resolved = engine.resolve_execution(ExecutionRequest::from_path(&fixture.config)).unwrap();
+    let engine = EngineBuilder::new()
+        .with_progress_reporter(events.clone())
+        .build()
+        .unwrap();
+    let resolved = engine
+        .resolve_execution(ExecutionRequest::from_path(&fixture.config))
+        .unwrap();
     fs::write(&fixture.source, b"source changed after resolution").unwrap();
     let result = engine.execute_resolved(resolved, false).unwrap();
 
     assert_eq!(result.run_manifest.state, RunState::Failed);
-    assert!(result.run_manifest.diagnostics.iter().any(|diagnostic| {
-        diagnostic.code == "execution.source_changed_after_intake"
-    }));
+    assert!(result
+        .run_manifest
+        .diagnostics
+        .iter()
+        .any(|diagnostic| { diagnostic.code == "execution.source_changed_after_intake" }));
     assert!(result.run_manifest.steps.is_empty());
     assert!(result.manifest.outputs.is_empty());
     assert!(!events.has_speech_phase());
@@ -168,10 +208,15 @@ fn changed_original_source_is_refused_before_native_speech_execution() {
 fn resume_assessment_explicitly_requires_recomputation_without_opening_state_store() {
     let fixture = Fixture::new();
     let engine = EngineBuilder::new().build().unwrap();
-    let assessment = engine.assess_resume(ExecutionRequest::from_path(&fixture.config)).unwrap();
+    let assessment = engine
+        .assess_resume(ExecutionRequest::from_path(&fixture.config))
+        .unwrap();
 
     assert_eq!(assessment.overall.action, RecoveryAction::Recompute);
-    assert_eq!(assessment.overall.reason_code, "speech.checkpoint_reuse_disabled");
+    assert_eq!(
+        assessment.overall.reason_code,
+        "speech.checkpoint_reuse_disabled"
+    );
     assert_eq!(assessment.decisions.len(), 1);
     assert!(assessment.overall.artifact_ids.is_empty());
     assert!(!fixture.output.exists());
@@ -184,11 +229,22 @@ fn explicit_missing_receipt_assessment_refuses_without_opening_state_or_native_f
     let receipt = fixture.directory.path().join("saved-result.json");
     fixture.select_saved_result(&receipt, &"c".repeat(64));
     let events = Arc::new(Events::default());
-    let engine = EngineBuilder::new().with_progress_reporter(events.clone()).build().unwrap();
-    let assessment = engine.assess_resume(ExecutionRequest::from_path(&fixture.config)).unwrap();
+    let engine = EngineBuilder::new()
+        .with_progress_reporter(events.clone())
+        .build()
+        .unwrap();
+    let assessment = engine
+        .assess_resume(ExecutionRequest::from_path(&fixture.config))
+        .unwrap();
 
-    assert_eq!(assessment.overall.action, RecoveryAction::TerminalIncompatibility);
-    assert_eq!(assessment.overall.reason_code, "speech.saved_result.rejected");
+    assert_eq!(
+        assessment.overall.action,
+        RecoveryAction::TerminalIncompatibility
+    );
+    assert_eq!(
+        assessment.overall.reason_code,
+        "speech.saved_result.rejected"
+    );
     assert_eq!(assessment.checkpoint_path, receipt.display().to_string());
     assert!(assessment.overall.artifact_ids.is_empty());
     assert!(!events.has_speech_phase());
@@ -204,10 +260,18 @@ fn explicit_corrupt_receipt_assessment_refuses_instead_of_recomputing() {
     fs::write(&receipt, bytes).unwrap();
     fixture.select_saved_result(&receipt, &format!("{:x}", Sha256::digest(bytes)));
     let engine = EngineBuilder::new().build().unwrap();
-    let assessment = engine.assess_resume(ExecutionRequest::from_path(&fixture.config)).unwrap();
+    let assessment = engine
+        .assess_resume(ExecutionRequest::from_path(&fixture.config))
+        .unwrap();
 
-    assert_eq!(assessment.overall.action, RecoveryAction::TerminalIncompatibility);
-    assert_eq!(assessment.overall.reason_code, "speech.saved_result.rejected");
+    assert_eq!(
+        assessment.overall.action,
+        RecoveryAction::TerminalIncompatibility
+    );
+    assert_eq!(
+        assessment.overall.reason_code,
+        "speech.saved_result.rejected"
+    );
     assert_eq!(fs::read(&receipt).unwrap(), bytes);
     assert!(!fixture.output.exists());
     assert!(!fixture.state_directory().exists());
@@ -216,28 +280,48 @@ fn explicit_corrupt_receipt_assessment_refuses_instead_of_recomputing() {
 #[test]
 fn selected_missing_receipt_execution_never_falls_back_to_native_transcription() {
     let fixture = Fixture::new();
-    fixture.select_saved_result(&fixture.directory.path().join("saved-result.json"), &"c".repeat(64));
+    fixture.select_saved_result(
+        &fixture.directory.path().join("saved-result.json"),
+        &"c".repeat(64),
+    );
     let events = Arc::new(Events::default());
-    let engine = EngineBuilder::new().with_progress_reporter(events.clone()).build().unwrap();
-    let result = engine.execute(ExecutionRequest::from_path(&fixture.config).with_resume(true)).unwrap();
+    let engine = EngineBuilder::new()
+        .with_progress_reporter(events.clone())
+        .build()
+        .unwrap();
+    let result = engine
+        .execute(ExecutionRequest::from_path(&fixture.config).with_resume(true))
+        .unwrap();
 
     assert_eq!(result.run_manifest.state, RunState::Failed);
     assert!(result.manifest.outputs.is_empty());
     assert!(!fixture.output.join("captions.vtt").exists());
     assert!(!fixture.state_directory().join("checkpoints.json").exists());
     let events = events.0.lock().unwrap();
-    assert!(events.iter().any(|event| event.state.as_deref() == Some("speech.reuse_saved_result")));
-    assert!(!events.iter().any(|event| matches!(event.state.as_deref(),
-        Some("speech.prepare_audio" | "speech.transcribe"))));
+    assert!(events
+        .iter()
+        .any(|event| event.state.as_deref() == Some("speech.reuse_saved_result")));
+    assert!(!events.iter().any(|event| matches!(
+        event.state.as_deref(),
+        Some("speech.prepare_audio" | "speech.transcribe")
+    )));
 }
 
 #[test]
 fn dry_run_with_explicit_saved_result_does_not_open_receipt_or_state() {
     let fixture = Fixture::new();
-    fixture.select_saved_result(&fixture.directory.path().join("missing-saved-result.json"), &"c".repeat(64));
+    fixture.select_saved_result(
+        &fixture.directory.path().join("missing-saved-result.json"),
+        &"c".repeat(64),
+    );
     let events = Arc::new(Events::default());
-    let engine = EngineBuilder::new().with_progress_reporter(events.clone()).build().unwrap();
-    let result = engine.execute(ExecutionRequest::from_path(&fixture.config).dry_run(true)).unwrap();
+    let engine = EngineBuilder::new()
+        .with_progress_reporter(events.clone())
+        .build()
+        .unwrap();
+    let result = engine
+        .execute(ExecutionRequest::from_path(&fixture.config).dry_run(true))
+        .unwrap();
 
     assert_eq!(result.run_manifest.state, RunState::Planned);
     assert!(!events.has_speech_phase());
@@ -247,7 +331,8 @@ fn dry_run_with_explicit_saved_result_does_not_open_receipt_or_state() {
 
 impl Fixture {
     fn enable_saved_results(&self) -> renderflow::speech::policy::SpeechPolicy {
-        let mut spec: serde_json::Value = serde_yaml_ng::from_str(&fs::read_to_string(&self.config).unwrap()).unwrap();
+        let mut spec: serde_json::Value =
+            serde_yaml_ng::from_str(&fs::read_to_string(&self.config).unwrap()).unwrap();
         spec["execution"]["speech"]["saved_results"] = json!("reuse_if_available");
         fs::write(&self.config, serde_yaml_ng::to_string(&spec).unwrap()).unwrap();
         serde_json::from_value(spec["execution"]["speech"].clone()).unwrap()
@@ -255,8 +340,12 @@ impl Fixture {
 
     fn write_corrupt_index(&self) -> PathBuf {
         let policy = self.enable_saved_results();
-        let path = renderflow::speech::cache::index_path(&self.state_directory().join("artifacts"),
-            &policy, renderflow::graph::Format::Wav).unwrap();
+        let path = renderflow::speech::cache::index_path(
+            &self.state_directory().join("artifacts"),
+            &policy,
+            renderflow::graph::Format::Wav,
+        )
+        .unwrap();
         fs::create_dir_all(path.parent().unwrap()).unwrap();
         fs::write(&path, b"corrupt historical index").unwrap();
         path
@@ -268,7 +357,9 @@ fn automatic_assessment_of_missing_index_is_read_only() {
     let fixture = Fixture::new();
     fixture.enable_saved_results();
     let engine = EngineBuilder::new().build().unwrap();
-    let assessment = engine.assess_resume(ExecutionRequest::from_path(&fixture.config)).unwrap();
+    let assessment = engine
+        .assess_resume(ExecutionRequest::from_path(&fixture.config))
+        .unwrap();
     assert_eq!(assessment.overall.action, RecoveryAction::Recompute);
     assert_eq!(assessment.overall.reason_code, "speech.saved_results.miss");
     assert!(!fixture.state_directory().exists());
@@ -280,19 +371,36 @@ fn automatic_assessment_and_execution_reject_corrupt_index_without_native_fallba
     let fixture = Fixture::new();
     let index = fixture.write_corrupt_index();
     let events = Arc::new(Events::default());
-    let engine = EngineBuilder::new().with_progress_reporter(events.clone()).build().unwrap();
-    let assessment = engine.assess_resume(ExecutionRequest::from_path(&fixture.config)).unwrap();
-    assert_eq!(assessment.overall.action, RecoveryAction::TerminalIncompatibility);
-    assert_eq!(assessment.overall.reason_code, "speech.saved_results.rejected");
+    let engine = EngineBuilder::new()
+        .with_progress_reporter(events.clone())
+        .build()
+        .unwrap();
+    let assessment = engine
+        .assess_resume(ExecutionRequest::from_path(&fixture.config))
+        .unwrap();
+    assert_eq!(
+        assessment.overall.action,
+        RecoveryAction::TerminalIncompatibility
+    );
+    assert_eq!(
+        assessment.overall.reason_code,
+        "speech.saved_results.rejected"
+    );
     assert!(!fixture.output.exists());
-    let result = engine.execute(ExecutionRequest::from_path(&fixture.config)).unwrap();
+    let result = engine
+        .execute(ExecutionRequest::from_path(&fixture.config))
+        .unwrap();
     assert_eq!(result.run_manifest.state, RunState::Failed);
     assert!(!fixture.output.join("captions.vtt").exists());
     assert_eq!(fs::read(&index).unwrap(), b"corrupt historical index");
     let events = events.0.lock().unwrap();
-    assert!(events.iter().any(|event| event.state.as_deref() == Some("speech.lookup_saved_result")));
-    assert!(!events.iter().any(|event| matches!(event.state.as_deref(),
-        Some("speech.prepare_audio" | "speech.transcribe" | "speech.saved_result_miss"))));
+    assert!(events
+        .iter()
+        .any(|event| event.state.as_deref() == Some("speech.lookup_saved_result")));
+    assert!(!events.iter().any(|event| matches!(
+        event.state.as_deref(),
+        Some("speech.prepare_audio" | "speech.transcribe" | "speech.saved_result_miss")
+    )));
 }
 
 #[test]
@@ -300,8 +408,13 @@ fn automatic_dry_run_does_not_inspect_even_corrupt_index() {
     let fixture = Fixture::new();
     let index = fixture.write_corrupt_index();
     let events = Arc::new(Events::default());
-    let engine = EngineBuilder::new().with_progress_reporter(events.clone()).build().unwrap();
-    let result = engine.execute(ExecutionRequest::from_path(&fixture.config).dry_run(true)).unwrap();
+    let engine = EngineBuilder::new()
+        .with_progress_reporter(events.clone())
+        .build()
+        .unwrap();
+    let result = engine
+        .execute(ExecutionRequest::from_path(&fixture.config).dry_run(true))
+        .unwrap();
     assert_eq!(result.run_manifest.state, RunState::Planned);
     assert_eq!(fs::read(index).unwrap(), b"corrupt historical index");
     assert!(!fixture.output.exists());

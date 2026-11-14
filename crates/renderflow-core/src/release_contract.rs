@@ -1,8 +1,8 @@
 //! Compiled source interfaces; no tool probes, environment discovery or execution.
+use crate::{graph::TransformGraph, toolchain::ToolRegistry};
 use anyhow::Result;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
-use crate::{graph::TransformGraph, toolchain::ToolRegistry};
 
 pub const RELEASE_CONTRACT_V2: &str = "renderflow.release-contract/v2";
 
@@ -44,12 +44,18 @@ pub fn describe() -> Result<Value> {
 
 /// Native receipt and actual confined payload bytes; keeps partial and fidelity
 /// states explicit. A verified file is not native-fidelity or creative approval.
-pub fn publication_status(manifest: &std::path::Path, sha256: &str, output_root: &std::path::Path) -> Result<Value> {
+pub fn publication_status(
+    manifest: &std::path::Path,
+    sha256: &str,
+    output_root: &std::path::Path,
+) -> Result<Value> {
     use crate::evidence::verification::{PinnedRunReceipt, VerificationLimits};
     let limits = VerificationLimits::default();
     let token = crate::process::ProcessCancellationToken::default();
     let receipt = PinnedRunReceipt::read(manifest, sha256, &limits, token.clone())?;
-    receipt.verify(output_root, &limits, token).map_err(Into::into)
+    receipt
+        .verify(output_root, &limits, token)
+        .map_err(Into::into)
 }
 
 #[cfg(test)]
@@ -57,9 +63,20 @@ mod tests {
     #[test]
     fn inventory_retains_graph_directions_and_unqualified_creative_requirements() {
         let contract = super::describe().unwrap();
-        assert!(contract["routes"].as_array().unwrap().iter().any(|r| r["input"] == "markdown" && r["output"] == "html"));
-        assert!(contract["routes"].as_array().unwrap().iter().any(|r| r["input"] != "markdown" && r["output"] != "pdf"));
-        assert_eq!(contract["qualification"], "not_established_by_contract_description");
+        assert!(contract["routes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|r| r["input"] == "markdown" && r["output"] == "html"));
+        assert!(contract["routes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|r| r["input"] != "markdown" && r["output"] != "pdf"));
+        assert_eq!(
+            contract["qualification"],
+            "not_established_by_contract_description"
+        );
         assert_eq!(contract, super::describe().unwrap());
     }
 }

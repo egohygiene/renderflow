@@ -53,8 +53,12 @@ pub enum SpeechSavedResultsPolicy {
 }
 
 impl SpeechSavedResultsPolicy {
-    pub fn is_enabled(&self) -> bool { matches!(self, Self::ReuseIfAvailable) }
-    fn is_disabled(&self) -> bool { !self.is_enabled() }
+    pub fn is_enabled(&self) -> bool {
+        matches!(self, Self::ReuseIfAvailable)
+    }
+    fn is_disabled(&self) -> bool {
+        !self.is_enabled()
+    }
 }
 
 impl<'de> Deserialize<'de> for SpeechSavedResultsPolicy {
@@ -63,7 +67,10 @@ impl<'de> Deserialize<'de> for SpeechSavedResultsPolicy {
         match value.as_str() {
             "disabled" => Ok(Self::Disabled),
             "reuse_if_available" => Ok(Self::ReuseIfAvailable),
-            _ => Err(serde::de::Error::unknown_variant(&value, &["disabled", "reuse_if_available"])),
+            _ => Err(serde::de::Error::unknown_variant(
+                &value,
+                &["disabled", "reuse_if_available"],
+            )),
         }
     }
 }
@@ -83,12 +90,17 @@ pub struct SpeechPolicy {
     pub saved_results: SpeechSavedResultsPolicy,
 }
 
-fn default_audio_timeout() -> u64 { 300 }
+fn default_audio_timeout() -> u64 {
+    300
+}
 
 // Derive's struct visitor also accepts positional arrays. Keep this public
 // opt-in contract object-only, including all nested provider/model/options.
 fn deserialize_object<'de, D, T>(deserializer: D) -> Result<T, D::Error>
-where D: Deserializer<'de>, T: Deserialize<'de> {
+where
+    D: Deserializer<'de>,
+    T: Deserialize<'de>,
+{
     struct ObjectVisitor<T>(PhantomData<T>);
     impl<'de, T: Deserialize<'de>> serde::de::Visitor<'de> for ObjectVisitor<T> {
         type Value = T;
@@ -106,9 +118,15 @@ impl<'de> Deserialize<'de> for SpeechToolPolicy {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         #[derive(Deserialize)]
         #[serde(deny_unknown_fields)]
-        struct Fields { path: String, sha256: String }
+        struct Fields {
+            path: String,
+            sha256: String,
+        }
         let fields: Fields = deserialize_object(deserializer)?;
-        Ok(Self { path: fields.path, sha256: fields.sha256 })
+        Ok(Self {
+            path: fields.path,
+            sha256: fields.sha256,
+        })
     }
 }
 
@@ -116,9 +134,17 @@ impl<'de> Deserialize<'de> for SpeechModelPolicy {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         #[derive(Deserialize)]
         #[serde(deny_unknown_fields)]
-        struct Fields { path: String, sha256: String, id: String }
+        struct Fields {
+            path: String,
+            sha256: String,
+            id: String,
+        }
         let fields: Fields = deserialize_object(deserializer)?;
-        Ok(Self { path: fields.path, sha256: fields.sha256, id: fields.id })
+        Ok(Self {
+            path: fields.path,
+            sha256: fields.sha256,
+            id: fields.id,
+        })
     }
 }
 
@@ -134,8 +160,12 @@ impl<'de> Deserialize<'de> for SpeechAudioPolicy {
             timeout_seconds: u64,
         }
         let fields: Fields = deserialize_object(deserializer)?;
-        Ok(Self { stream_index: fields.stream_index, ffprobe: fields.ffprobe,
-            ffmpeg: fields.ffmpeg, timeout_seconds: fields.timeout_seconds })
+        Ok(Self {
+            stream_index: fields.stream_index,
+            ffprobe: fields.ffprobe,
+            ffmpeg: fields.ffmpeg,
+            timeout_seconds: fields.timeout_seconds,
+        })
     }
 }
 
@@ -143,9 +173,15 @@ impl<'de> Deserialize<'de> for SpeechRecoveryPolicy {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         #[derive(Deserialize)]
         #[serde(deny_unknown_fields)]
-        struct Fields { receipt_path: String, receipt_sha256: String }
+        struct Fields {
+            receipt_path: String,
+            receipt_sha256: String,
+        }
         let fields: Fields = deserialize_object(deserializer)?;
-        Ok(Self { receipt_path: fields.receipt_path, receipt_sha256: fields.receipt_sha256 })
+        Ok(Self {
+            receipt_path: fields.receipt_path,
+            receipt_sha256: fields.receipt_sha256,
+        })
     }
 }
 
@@ -167,9 +203,15 @@ impl<'de> Deserialize<'de> for SpeechPolicy {
             saved_results: SpeechSavedResultsPolicy,
         }
         let fields: Fields = deserialize_object(deserializer)?;
-        Ok(Self { source_sha256: fields.source_sha256, provider: fields.provider,
-            model: fields.model, options: fields.options, audio: fields.audio,
-            recovery: fields.recovery, saved_results: fields.saved_results })
+        Ok(Self {
+            source_sha256: fields.source_sha256,
+            provider: fields.provider,
+            model: fields.model,
+            options: fields.options,
+            audio: fields.audio,
+            recovery: fields.recovery,
+            saved_results: fields.saved_results,
+        })
     }
 }
 
@@ -187,7 +229,9 @@ impl SpeechPolicy {
         validate_path(&self.model.path, "model")?;
         validate_digest(&self.model.sha256, "model")?;
         if !is_label(&self.model.id, 256) {
-            return Err(invalid("model.id must be nonempty, at most 256 characters, and contain no controls"));
+            return Err(invalid(
+                "model.id must be nonempty, at most 256 characters, and contain no controls",
+            ));
         }
         self.options.validate()?;
         if let Some(audio) = &self.audio {
@@ -223,16 +267,32 @@ impl SpeechPolicy {
 }
 
 pub fn supports_prepared_source_format(format: Format) -> bool {
-    matches!(format, Format::Wav | Format::Flac | Format::Mp3 | Format::M4aAlac
-        | Format::M4aAac | Format::Aac | Format::Ogg | Format::Opus | Format::Mkv
-        | Format::WebM | Format::Mp4 | Format::Mov | Format::Avi)
+    matches!(
+        format,
+        Format::Wav
+            | Format::Flac
+            | Format::Mp3
+            | Format::M4aAlac
+            | Format::M4aAac
+            | Format::Aac
+            | Format::Ogg
+            | Format::Opus
+            | Format::Mkv
+            | Format::WebM
+            | Format::Mp4
+            | Format::Mov
+            | Format::Avi
+    )
 }
 
 fn validate_path(value: &str, name: &str) -> Result<(), SpeechError> {
     let path = Path::new(value);
-    if !is_label(value, 4096) || !path.is_absolute()
+    if !is_label(value, 4096)
+        || !path.is_absolute()
         || path.file_name().is_none()
-        || path.components().any(|component| matches!(component, Component::ParentDir))
+        || path
+            .components()
+            .any(|component| matches!(component, Component::ParentDir))
     {
         return Err(invalid(&format!("{name}.path must be an absolute file path without parent traversal or control characters")));
     }
@@ -241,9 +301,13 @@ fn validate_path(value: &str, name: &str) -> Result<(), SpeechError> {
 
 fn validate_digest(value: &str, name: &str) -> Result<(), SpeechError> {
     if !is_sha256(value) {
-        return Err(invalid(&format!("{name} must carry a lowercase 64-character SHA-256")));
+        return Err(invalid(&format!(
+            "{name} must carry a lowercase 64-character SHA-256"
+        )));
     }
     Ok(())
 }
 
-fn invalid(message: &str) -> SpeechError { SpeechError::InvalidRequest(message.to_owned()) }
+fn invalid(message: &str) -> SpeechError {
+    SpeechError::InvalidRequest(message.to_owned())
+}

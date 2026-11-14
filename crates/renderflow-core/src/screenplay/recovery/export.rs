@@ -14,9 +14,9 @@ use thiserror::Error;
 use zip::CompressionMethod;
 
 use super::model::{validate_candidate, RecoveryCandidate};
-use crate::screenplay::native::{export_body, NativeScreenplayError, NativeScreenplayFormat};
 #[cfg(test)]
 use crate::screenplay::native::parse_native;
+use crate::screenplay::native::{export_body, NativeScreenplayError, NativeScreenplayFormat};
 use crate::screenplay::{
     render_json, validate, Screenplay, ScreenplayElementKind, ScreenplayLossDirection,
     ScreenplayLossEvidence, ScreenplayLossKind, MAX_INPUT_BYTES, MAX_LOSS_ENTRIES, MAX_TEXT_BYTES,
@@ -76,10 +76,15 @@ pub struct RecoveryExportError {
 type Checked<T> = Result<T, RecoveryExportError>;
 
 fn failure(code: &'static str, message: impl Into<String>) -> RecoveryExportError {
-    RecoveryExportError { code, message: message.into() }
+    RecoveryExportError {
+        code,
+        message: message.into(),
+    }
 }
 
-fn digest(bytes: &[u8]) -> String { format!("{:x}", Sha256::digest(bytes)) }
+fn digest(bytes: &[u8]) -> String {
+    format!("{:x}", Sha256::digest(bytes))
+}
 
 /// Export a verified recovery candidate into the adopted native body profile.
 ///
@@ -88,14 +93,18 @@ fn digest(bytes: &[u8]) -> String { format!("{:x}", Sha256::digest(bytes)) }
 /// native reader must reproduce the chosen body projection before bytes leave
 /// this function. This is structural evidence, not native-application or
 /// original-source fidelity qualification.
-pub fn export(candidate: &RecoveryCandidate, format: NativeScreenplayFormat) -> Checked<RecoveryExport> {
+pub fn export(
+    candidate: &RecoveryCandidate,
+    format: NativeScreenplayFormat,
+) -> Checked<RecoveryExport> {
     // The shared codec also serves original-source exports. Its target catalog
     // does not widen the separately versioned recovery evidence contract.
     if format == NativeScreenplayFormat::Trelby {
         return Err(failure("screenplay_recovery.export.unsupported",
             "Trelby is outside the recovery export target contract; retain the recovery candidate and choose an existing recovery target"));
     }
-    validate_candidate(candidate).map_err(|error| failure("screenplay_recovery.export.candidate", error.to_string()))?;
+    validate_candidate(candidate)
+        .map_err(|error| failure("screenplay_recovery.export.candidate", error.to_string()))?;
     let canonical = render_json(&candidate.screenplay)
         .map_err(|error| failure("screenplay_recovery.export.canonical", error.to_string()))?;
     let candidate_bytes = serde_json::to_vec(candidate)
@@ -110,11 +119,21 @@ pub fn export(candidate: &RecoveryCandidate, format: NativeScreenplayFormat) -> 
         (ScreenplayLossKind::Layout, "The exported body uses new formatting. Source indentation, line wrapping, pagination, and native application layout are not restored."),
     ];
     if losses.len().saturating_add(directional.len()) > MAX_LOSS_ENTRIES {
-        return Err(failure("screenplay_recovery.export.bounds", "export loss evidence exceeds its bound"));
+        return Err(failure(
+            "screenplay_recovery.export.bounds",
+            "export loss evidence exceeds its bound",
+        ));
     }
-    losses.extend(directional.into_iter().map(|(kind, detail)| ScreenplayLossEvidence {
-        direction: ScreenplayLossDirection::Export, format: format.as_str().to_owned(), kind, detail: detail.to_owned(),
-    }));
+    losses.extend(
+        directional
+            .into_iter()
+            .map(|(kind, detail)| ScreenplayLossEvidence {
+                direction: ScreenplayLossDirection::Export,
+                format: format.as_str().to_owned(),
+                kind,
+                detail: detail.to_owned(),
+            }),
+    );
     let evidence = RecoveryExportEvidence {
         schema_version: RECOVERY_EXPORT_SCHEMA_V1.to_owned(),
         profile: RECOVERY_EXPORT_PROFILE_V1.to_owned(),
@@ -148,33 +167,56 @@ pub fn validate_export(
     evidence: &RecoveryExportEvidence,
 ) -> Checked<()> {
     if bytes.is_empty() || bytes.len() > MAX_INPUT_BYTES {
-        return Err(failure("screenplay_recovery.export.bounds", "native output is empty or exceeds 16 MiB"));
+        return Err(failure(
+            "screenplay_recovery.export.bounds",
+            "native output is empty or exceeds 16 MiB",
+        ));
     }
     let expected = export(candidate, format)?;
     if bytes != expected.bytes.as_slice() || evidence != &expected.evidence {
-        return Err(failure("screenplay_recovery.export.identity", "native output or recovery export evidence differs from deterministic replay"));
+        return Err(failure(
+            "screenplay_recovery.export.identity",
+            "native output or recovery export evidence differs from deterministic replay",
+        ));
     }
     Ok(())
 }
 
-fn body_projection(screenplay: &Screenplay, format: NativeScreenplayFormat) -> Checked<(Screenplay, Vec<RecoveryDialogueJoin>)> {
-    validate(screenplay).map_err(|error| failure("screenplay_recovery.export.structure", error.to_string()))?;
+fn body_projection(
+    screenplay: &Screenplay,
+    format: NativeScreenplayFormat,
+) -> Checked<(Screenplay, Vec<RecoveryDialogueJoin>)> {
+    validate(screenplay)
+        .map_err(|error| failure("screenplay_recovery.export.structure", error.to_string()))?;
     if !screenplay.title_page.is_empty() || !screenplay.dual_dialogue.is_empty() {
-        return Err(failure("screenplay_recovery.export.unsupported", "the recovery body export does not serialize title pages or dual dialogue"));
+        return Err(failure(
+            "screenplay_recovery.export.unsupported",
+            "the recovery body export does not serialize title pages or dual dialogue",
+        ));
     }
     let mut body = screenplay.clone();
     body.losses.clear();
     body.extensions.clear();
     body.source.extensions.clear();
     for element in &mut body.elements {
-        if !matches!(element.kind, ScreenplayElementKind::SceneHeading | ScreenplayElementKind::Action
-            | ScreenplayElementKind::Character | ScreenplayElementKind::Dialogue
-            | ScreenplayElementKind::Parenthetical | ScreenplayElementKind::Transition)
-            || element.scene_number.is_some() || element.section_level.is_some()
+        if !matches!(
+            element.kind,
+            ScreenplayElementKind::SceneHeading
+                | ScreenplayElementKind::Action
+                | ScreenplayElementKind::Character
+                | ScreenplayElementKind::Dialogue
+                | ScreenplayElementKind::Parenthetical
+                | ScreenplayElementKind::Transition
+        ) || element.scene_number.is_some()
+            || element.section_level.is_some()
         {
-            return Err(failure("screenplay_recovery.export.unsupported", "the recovery body export supports only six unnumbered, unstyled paragraph kinds"));
+            return Err(failure(
+                "screenplay_recovery.export.unsupported",
+                "the recovery body export supports only six unnumbered, unstyled paragraph kinds",
+            ));
         }
-        if element.text.is_empty() || element.text.trim() != element.text
+        if element.text.is_empty()
+            || element.text.trim() != element.text
             || element.text.chars().any(char::is_control)
         {
             return Err(failure("screenplay_recovery.export.text", "native recovery paragraphs must contain one nonempty trimmed line without controls"));
@@ -193,9 +235,22 @@ fn body_projection(screenplay: &Screenplay, format: NativeScreenplayFormat) -> C
             if element.kind == ScreenplayElementKind::Dialogue {
                 let mut ids = vec![element.id.clone()];
                 while let Some(next) = body.elements.get(cursor) {
-                    if next.kind != ScreenplayElementKind::Dialogue || next.character_id != element.character_id { break; }
-                    if element.text.len().saturating_add(1).saturating_add(next.text.len()) > MAX_TEXT_BYTES {
-                        return Err(failure("screenplay_recovery.export.bounds", "joined Fountain dialogue exceeds the bounded native paragraph profile"));
+                    if next.kind != ScreenplayElementKind::Dialogue
+                        || next.character_id != element.character_id
+                    {
+                        break;
+                    }
+                    if element
+                        .text
+                        .len()
+                        .saturating_add(1)
+                        .saturating_add(next.text.len())
+                        > MAX_TEXT_BYTES
+                    {
+                        return Err(failure(
+                            "screenplay_recovery.export.bounds",
+                            "joined Fountain dialogue exceeds the bounded native paragraph profile",
+                        ));
                     }
                     element.text.push(' ');
                     element.text.push_str(&next.text);
@@ -204,7 +259,9 @@ fn body_projection(screenplay: &Screenplay, format: NativeScreenplayFormat) -> C
                 }
                 if ids.len() > 1 {
                     joins.push(RecoveryDialogueJoin {
-                        source_element_ids: ids, serialized_element_id: element.id.clone(), separator: " ".to_owned(),
+                        source_element_ids: ids,
+                        serialized_element_id: element.id.clone(),
+                        separator: " ".to_owned(),
                     });
                 }
             }
@@ -212,7 +269,8 @@ fn body_projection(screenplay: &Screenplay, format: NativeScreenplayFormat) -> C
         }
         body.elements = elements;
     }
-    validate(&body).map_err(|error| failure("screenplay_recovery.export.structure", error.to_string()))?;
+    validate(&body)
+        .map_err(|error| failure("screenplay_recovery.export.structure", error.to_string()))?;
     Ok((body, joins))
 }
 
@@ -226,7 +284,9 @@ fn native_export_error(error: NativeScreenplayError) -> RecoveryExportError {
         "screenplay.native.export.text" => "screenplay_recovery.export.text",
         "screenplay.native.export.bounds" => "screenplay_recovery.export.bounds",
         "screenplay.native.export.archive" => "screenplay_recovery.export.archive",
-        "screenplay.native.export.semantic_mismatch" => "screenplay_recovery.export.semantic_mismatch",
+        "screenplay.native.export.semantic_mismatch" => {
+            "screenplay_recovery.export.semantic_mismatch"
+        }
         _ => "screenplay_recovery.export.unsupported",
     };
     failure(code, error.message)

@@ -11,7 +11,12 @@ use super::build;
 
 fn ensure_supported_source(config_path: &str) -> Result<()> {
     if let Ok(loaded) = crate::spec::load_spec(config_path) {
-        if loaded.spec.sources.iter().any(|source| matches!(source.kind, crate::spec::SourceKind::Composition | crate::spec::SourceKind::Presentation)) {
+        if loaded.spec.sources.iter().any(|source| {
+            matches!(
+                source.kind,
+                crate::spec::SourceKind::Composition | crate::spec::SourceKind::Presentation
+            )
+        }) {
             anyhow::bail!("native.build.watch_unsupported: frozen native builds require a new output directory; use build with a fresh bundle_root for each run");
         }
     }
@@ -59,7 +64,8 @@ pub fn run(config_path: &str, debounce_ms: u64) -> Result<()> {
                     info!("File changed → rebuilding... ({})", event.path.display());
                 }
                 if let Err(e) = ensure_supported_source(config_path)
-                    .and_then(|_| build::run_resilient(config_path)) {
+                    .and_then(|_| build::run_resilient(config_path))
+                {
                     error!("Build failed: {:#}", e);
                 }
             }

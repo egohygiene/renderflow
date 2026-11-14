@@ -140,7 +140,7 @@ jobs:
       - name: Install Rust MSRV toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: "1.94"
+          toolchain: "1.94.0"
           components: clippy, rustfmt
 
       - name: Verify release manifest and refusal fixtures
@@ -155,7 +155,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cargo fmt --all -- --check
+          cargo +1.94.0 fmt --all -- --check
           cargo clippy --workspace --locked -- --deny warnings
           cargo test --workspace --locked
           RENDERFLOW_CONFORMANCE_TIER=fast cargo test --package renderflow --test golden_conformance --locked

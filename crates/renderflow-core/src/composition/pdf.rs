@@ -13,12 +13,19 @@
 use std::io::{BufReader, Cursor, Write};
 
 use anyhow::{ensure, Context, Result};
-use lopdf::{content::{Content, Operation}, dictionary, xref::XrefType, Document, Object, Stream};
+use lopdf::{
+    content::{Content, Operation},
+    dictionary,
+    xref::XrefType,
+    Document, Object, Stream,
+};
 
 use super::raster;
 use super::LoadedComposition;
 
-pub use super::pdf_plan::{plan, BindingSide, PdfPlan, PdfSettings, PDF_PROVIDER_PROFILE, PDF_SCHEMA_V1};
+pub use super::pdf_plan::{
+    plan, BindingSide, PdfPlan, PdfSettings, PDF_PROVIDER_PROFILE, PDF_SCHEMA_V1,
+};
 
 const MAX_OUTPUT_BYTES: usize = 64 * 1024 * 1024;
 const MAX_RGBA_BYTES: usize = 64 * 1024 * 1024;
@@ -52,8 +59,10 @@ pub(crate) fn render_pdf(
 /// vector or decompression buffer is allocated during admission.
 pub(crate) fn validate_output(bytes: &[u8], planned: &PdfPlan) -> Result<()> {
     super::pdf_plan::validate_plan(planned)?;
-    ensure!(bytes.len() <= MAX_OUTPUT_BYTES,
-        "composition.pdf.output_bounds: PDF output exceeds 64 MiB");
+    ensure!(
+        bytes.len() <= MAX_OUTPUT_BYTES,
+        "composition.pdf.output_bounds: PDF output exceeds 64 MiB"
+    );
     let expected = envelope(planned)?;
     ensure!(bytes.len() == expected.position
         && bytes.starts_with(&expected.prefix)
@@ -67,47 +76,65 @@ fn rgb_length(planned: &PdfPlan) -> Result<usize> {
         .checked_mul(u64::from(planned.raster.height_px))
         .and_then(|pixels| pixels.checked_mul(3))
         .context("composition.pdf.pixel_bounds: RGB byte length overflow")?;
-    ensure!(count > 0 && count <= MAX_RGB_BYTES as u64,
-        "composition.pdf.pixel_bounds: RGB image exceeds 48 MiB");
-    usize::try_from(count).context("composition.pdf.pixel_bounds: RGB byte length is not addressable")
+    ensure!(
+        count > 0 && count <= MAX_RGB_BYTES as u64,
+        "composition.pdf.pixel_bounds: RGB image exceeds 48 MiB"
+    );
+    usize::try_from(count)
+        .context("composition.pdf.pixel_bounds: RGB byte length is not addressable")
 }
 
 fn decode_opaque_png(bytes: &[u8], planned: &PdfPlan) -> Result<Vec<u8>> {
     raster::validate_output(bytes, &planned.raster)?;
     let expected_rgb = rgb_length(planned)?;
     let expected_rgba = expected_rgb / 3 * 4;
-    ensure!(expected_rgba <= MAX_RGBA_BYTES,
-        "composition.pdf.pixel_bounds: RGBA image exceeds 64 MiB");
-    let mut limits = png::Limits::default();
-    limits.bytes = MAX_RGBA_BYTES;
+    ensure!(
+        expected_rgba <= MAX_RGBA_BYTES,
+        "composition.pdf.pixel_bounds: RGBA image exceeds 64 MiB"
+    );
+    let limits = png::Limits {
+        bytes: MAX_RGBA_BYTES,
+    };
     let decoder = png::Decoder::new_with_limits(BufReader::new(Cursor::new(bytes)), limits);
-    let mut reader = decoder.read_info()
+    let mut reader = decoder
+        .read_info()
         .context("composition.pdf.png_decode: cannot read composed PNG")?;
-    ensure!(reader.info().width == planned.raster.width_px
-        && reader.info().height == planned.raster.height_px
-        && reader.info().color_type == png::ColorType::Rgba
-        && reader.info().bit_depth == png::BitDepth::Eight
-        && reader.info().animation_control.is_none()
-        && reader.info().frame_control.is_none()
-        && reader.output_buffer_size() == Some(expected_rgba),
-        "composition.pdf.png_decode: composed frame differs from the bounded RGBA8 plan");
+    ensure!(
+        reader.info().width == planned.raster.width_px
+            && reader.info().height == planned.raster.height_px
+            && reader.info().color_type == png::ColorType::Rgba
+            && reader.info().bit_depth == png::BitDepth::Eight
+            && reader.info().animation_control.is_none()
+            && reader.info().frame_control.is_none()
+            && reader.output_buffer_size() == Some(expected_rgba),
+        "composition.pdf.png_decode: composed frame differs from the bounded RGBA8 plan"
+    );
     let mut rgba = vec![0; expected_rgba];
-    let frame = reader.next_frame(&mut rgba)
+    let frame = reader
+        .next_frame(&mut rgba)
         .context("composition.pdf.png_decode: cannot decode composed PNG pixels")?;
-    ensure!(frame.width == planned.raster.width_px
-        && frame.height == planned.raster.height_px
-        && frame.color_type == png::ColorType::Rgba
-        && frame.bit_depth == png::BitDepth::Eight
-        && frame.buffer_size() == expected_rgba,
-        "composition.pdf.png_decode: decoded frame differs from the planned RGBA8 canvas");
-    reader.finish().context("composition.pdf.png_decode: invalid PNG trailing chunks")?;
+    ensure!(
+        frame.width == planned.raster.width_px
+            && frame.height == planned.raster.height_px
+            && frame.color_type == png::ColorType::Rgba
+            && frame.bit_depth == png::BitDepth::Eight
+            && frame.buffer_size() == expected_rgba,
+        "composition.pdf.png_decode: decoded frame differs from the planned RGBA8 canvas"
+    );
+    reader
+        .finish()
+        .context("composition.pdf.png_decode: invalid PNG trailing chunks")?;
     opaque_rgb(&rgba, expected_rgb)
 }
 
 fn opaque_rgb(rgba: &[u8], expected_rgb: usize) -> Result<Vec<u8>> {
-    ensure!(expected_rgb > 0 && expected_rgb <= MAX_RGB_BYTES && expected_rgb % 3 == 0
-        && rgba.len() == expected_rgb / 3 * 4,
-        "composition.pdf.pixel_bounds: RGBA sample length differs from the planned image");
+    ensure!(
+        expected_rgb > 0
+            && expected_rgb <= MAX_RGB_BYTES
+            && expected_rgb.is_multiple_of(3)
+            && rgba.len() == expected_rgb / 3 * 4,
+        "composition.pdf.pixel_bounds: RGBA sample length differs from the planned image"
+    );
     ensure!(rgba.chunks_exact(4).all(|pixel| pixel[3] == 255),
         "composition.pdf.alpha: PDF requires an opaque composed frame; transparency is not silently discarded");
     let mut rgb = Vec::with_capacity(expected_rgb);
@@ -119,18 +146,29 @@ fn opaque_rgb(rgba: &[u8], expected_rgb: usize) -> Result<Vec<u8>> {
 
 fn encode_pdf(rgb: Vec<u8>, planned: &PdfPlan) -> Result<Vec<u8>> {
     let length = rgb_length(planned)?;
-    ensure!(rgb.len() == length,
-        "composition.pdf.pixel_bounds: RGB sample length differs from the planned image");
+    ensure!(
+        rgb.len() == length,
+        "composition.pdf.pixel_bounds: RGB sample length differs from the planned image"
+    );
     let mut document = document(rgb, length, planned)?;
     let mut output = Vec::with_capacity(length + MAX_ENVELOPE_BYTES);
-    document.save_to(&mut output).context("composition.pdf.encode: cannot serialize composed PDF")?;
-    ensure!(output.len() <= MAX_OUTPUT_BYTES,
-        "composition.pdf.output_bounds: PDF output exceeds 64 MiB");
+    document
+        .save_to(&mut output)
+        .context("composition.pdf.encode: cannot serialize composed PDF")?;
+    ensure!(
+        output.len() <= MAX_OUTPUT_BYTES,
+        "composition.pdf.output_bounds: PDF output exceeds 64 MiB"
+    );
     Ok(output)
 }
 
 fn rectangle(values: [f64; 4]) -> Object {
-    Object::Array(values.into_iter().map(|value| Object::Real(value as f32)).collect())
+    Object::Array(
+        values
+            .into_iter()
+            .map(|value| Object::Real(value as f32))
+            .collect(),
+    )
 }
 
 fn content(planned: &PdfPlan) -> Result<Vec<u8>> {
@@ -141,15 +179,31 @@ fn content(planned: &PdfPlan) -> Result<Vec<u8>> {
             Operation::new("q", Vec::new()),
             // Keep the uniformly sampled image's subpixel right/bottom excess
             // outside the physical canvas, rather than stretching either axis.
-            Operation::new("re", vec![0.into(), 0.into(), Object::Real(width as f32), Object::Real(height as f32)]),
+            Operation::new(
+                "re",
+                vec![
+                    0.into(),
+                    0.into(),
+                    Object::Real(width as f32),
+                    Object::Real(height as f32),
+                ],
+            ),
             Operation::new("W", Vec::new()),
             Operation::new("n", Vec::new()),
-            Operation::new("cm", planned.image_draw_matrix.into_iter()
-                .map(|value| Object::Real(value as f32)).collect()),
+            Operation::new(
+                "cm",
+                planned
+                    .image_draw_matrix
+                    .into_iter()
+                    .map(|value| Object::Real(value as f32))
+                    .collect(),
+            ),
             Operation::new("Do", vec![Object::Name(b"Im0".to_vec())]),
             Operation::new("Q", Vec::new()),
         ],
-    }.encode().context("composition.pdf.encode: cannot serialize the planned page drawing")
+    }
+    .encode()
+    .context("composition.pdf.encode: cannot serialize the planned page drawing")
 }
 
 fn document(rgb: Vec<u8>, declared_length: usize, planned: &PdfPlan) -> Result<Document> {
@@ -158,22 +212,27 @@ fn document(rgb: Vec<u8>, declared_length: usize, planned: &PdfPlan) -> Result<D
     // The fixed profile explicitly uses a classic table and no object streams.
     document.reference_table.cross_reference_type = XrefType::CrossReferenceTable;
     let pages_id = document.new_object_id();
-    let mut image = Stream::new(dictionary! {
-        "Type" => "XObject",
-        "Subtype" => "Image",
-        "Width" => i64::from(planned.raster.width_px),
-        "Height" => i64::from(planned.raster.height_px),
-        "ColorSpace" => "DeviceRGB",
-        "BitsPerComponent" => 8,
-        "Interpolate" => false,
-    }, rgb);
+    let mut image = Stream::new(
+        dictionary! {
+            "Type" => "XObject",
+            "Subtype" => "Image",
+            "Width" => i64::from(planned.raster.width_px),
+            "Height" => i64::from(planned.raster.height_px),
+            "ColorSpace" => "DeviceRGB",
+            "BitsPerComponent" => 8,
+            "Interpolate" => false,
+        },
+        rgb,
+    );
     // The empty reference skeleton uses the actual declared length so its
     // payload offset has exactly the same numeral width as the final PDF.
     image.dict.set("Length", declared_length as i64);
     image.allows_compression = false;
     let image_id = document.add_object(image);
-    ensure!(image_id == (2, 0),
-        "composition.pdf.provider_contract: fixed image object identity changed");
+    ensure!(
+        image_id == (2, 0),
+        "composition.pdf.provider_contract: fixed image object identity changed"
+    );
     let mut drawing = Stream::new(dictionary! {}, content(planned)?);
     drawing.allows_compression = false;
     let drawing_id = document.add_object(drawing);
@@ -190,11 +249,14 @@ fn document(rgb: Vec<u8>, declared_length: usize, planned: &PdfPlan) -> Result<D
         },
         "Contents" => drawing_id,
     });
-    document.objects.insert(pages_id, Object::Dictionary(dictionary! {
-        "Type" => "Pages",
-        "Kids" => vec![Object::Reference(page_id)],
-        "Count" => 1,
-    }));
+    document.objects.insert(
+        pages_id,
+        Object::Dictionary(dictionary! {
+            "Type" => "Pages",
+            "Kids" => vec![Object::Reference(page_id)],
+            "Count" => 1,
+        }),
+    );
     let catalog_id = document.add_object(dictionary! {
         "Type" => "Catalog",
         "Pages" => pages_id,
@@ -207,39 +269,56 @@ fn envelope(planned: &PdfPlan) -> Result<EnvelopeWriter> {
     let length = rgb_length(planned)?;
     let mut skeleton = document(Vec::new(), length, planned)?;
     let mut bytes = Vec::new();
-    skeleton.save_to(&mut bytes)
+    skeleton
+        .save_to(&mut bytes)
         .context("composition.pdf.provider_contract: cannot serialize reference skeleton")?;
-    ensure!(bytes.len() <= MAX_ENVELOPE_BYTES,
-        "composition.pdf.provider_contract: reference skeleton exceeds 16 KiB");
+    ensure!(
+        bytes.len() <= MAX_ENVELOPE_BYTES,
+        "composition.pdf.provider_contract: reference skeleton exceeds 16 KiB"
+    );
     let object_start = find_bytes(&bytes, b"2 0 obj\n")
         .context("composition.pdf.provider_contract: missing reference image object")?;
     let marker = b">>stream\n";
     let relative = find_bytes(&bytes[object_start..], marker)
         .context("composition.pdf.provider_contract: missing reference image payload")?;
-    ensure!(relative <= 1024,
-        "composition.pdf.provider_contract: reference image dictionary is too large");
+    ensure!(
+        relative <= 1024,
+        "composition.pdf.provider_contract: reference image dictionary is too large"
+    );
     let pixel_start = object_start + relative + marker.len();
-    ensure!(bytes[pixel_start..].starts_with(b"\nendstream \nendobj\n"),
-        "composition.pdf.provider_contract: reference image must contain an empty raw stream");
-    let pixel_end = pixel_start.checked_add(length)
+    ensure!(
+        bytes[pixel_start..].starts_with(b"\nendstream \nendobj\n"),
+        "composition.pdf.provider_contract: reference image must contain an empty raw stream"
+    );
+    let pixel_end = pixel_start
+        .checked_add(length)
         .context("composition.pdf.pixel_bounds: image payload range overflow")?;
     let mut expected = EnvelopeWriter {
-        pixel_start, pixel_end, position: 0, prefix: Vec::new(), suffix: Vec::new(),
+        pixel_start,
+        pixel_end,
+        position: 0,
+        prefix: Vec::new(),
+        suffix: Vec::new(),
     };
     // The pinned writer computes every offset and trailer byte itself. The
     // sink discards the zero image samples while retaining the entire envelope.
     let mut reference = document(vec![0; length], length, planned)?;
-    reference.save_to(&mut expected)
+    reference
+        .save_to(&mut expected)
         .context("composition.pdf.provider_contract: cannot serialize reference envelope")?;
-    ensure!(expected.prefix.len() == pixel_start
-        && expected.position >= pixel_end
-        && expected.suffix.len() == expected.position - pixel_end,
-        "composition.pdf.provider_contract: reference image span is inconsistent");
+    ensure!(
+        expected.prefix.len() == pixel_start
+            && expected.position >= pixel_end
+            && expected.suffix.len() == expected.position - pixel_end,
+        "composition.pdf.provider_contract: reference image span is inconsistent"
+    );
     Ok(expected)
 }
 
 fn find_bytes(bytes: &[u8], needle: &[u8]) -> Option<usize> {
-    bytes.windows(needle.len()).position(|window| window == needle)
+    bytes
+        .windows(needle.len())
+        .position(|window| window == needle)
 }
 
 /// Records only the structural bytes around a known raw image interval.
@@ -254,16 +333,27 @@ struct EnvelopeWriter {
 
 impl Write for EnvelopeWriter {
     fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
-        let end = self.position.checked_add(bytes.len())
+        let end = self
+            .position
+            .checked_add(bytes.len())
             .ok_or_else(|| std::io::Error::other("PDF reference byte count overflow"))?;
         if end > MAX_OUTPUT_BYTES {
             return Err(std::io::Error::other("PDF reference exceeds 64 MiB"));
         }
-        let prefix_length = self.pixel_start.saturating_sub(self.position).min(bytes.len());
-        let suffix_start = self.pixel_end.saturating_sub(self.position).min(bytes.len());
-        let retained = self.prefix.len() + self.suffix.len() + prefix_length + bytes.len() - suffix_start;
+        let prefix_length = self
+            .pixel_start
+            .saturating_sub(self.position)
+            .min(bytes.len());
+        let suffix_start = self
+            .pixel_end
+            .saturating_sub(self.position)
+            .min(bytes.len());
+        let retained =
+            self.prefix.len() + self.suffix.len() + prefix_length + bytes.len() - suffix_start;
         if retained > MAX_ENVELOPE_BYTES {
-            return Err(std::io::Error::other("PDF reference envelope exceeds 16 KiB"));
+            return Err(std::io::Error::other(
+                "PDF reference envelope exceeds 16 KiB",
+            ));
         }
         self.prefix.extend_from_slice(&bytes[..prefix_length]);
         self.suffix.extend_from_slice(&bytes[suffix_start..]);
@@ -271,16 +361,23 @@ impl Write for EnvelopeWriter {
         Ok(bytes.len())
     }
 
-    fn flush(&mut self) -> std::io::Result<()> { Ok(()) }
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use super::super::raster::{
+        RasterPlan, RasterSettings, RASTER_PROVIDER_PROFILE, RASTER_SCHEMA_V1,
+    };
     use super::*;
-    use super::super::raster::{RasterPlan, RasterSettings, RASTER_PROVIDER_PROFILE, RASTER_SCHEMA_V1};
 
     fn tiny_plan() -> PdfPlan {
-        let settings = PdfSettings { dpi: 36, ..PdfSettings::default() };
+        let settings = PdfSettings {
+            dpi: 36,
+            ..PdfSettings::default()
+        };
         PdfPlan {
             schema: PDF_SCHEMA_V1.to_owned(),
             provider_profile: PDF_PROVIDER_PROFILE.to_owned(),
@@ -288,9 +385,14 @@ mod tests {
             raster: RasterPlan {
                 schema: RASTER_SCHEMA_V1.to_owned(),
                 provider_profile: RASTER_PROVIDER_PROFILE.to_owned(),
-                settings: RasterSettings { dpi: settings.dpi, background: settings.background.clone() },
-                width_px: 2, height_px: 2,
-                pixel_format: "rgba8".to_owned(), alpha: "straight".to_owned(),
+                settings: RasterSettings {
+                    dpi: settings.dpi,
+                    background: settings.background.clone(),
+                },
+                width_px: 2,
+                height_px: 2,
+                pixel_format: "rgba8".to_owned(),
+                alpha: "straight".to_owned(),
                 color_policy: "assumed_srgb_no_profile_conversion".to_owned(),
                 runtime_qualified: false,
             },
@@ -311,7 +413,10 @@ mod tests {
         let bytes = encode_pdf(rgb.clone(), &planned).unwrap();
         validate_output(&bytes, &planned).unwrap();
         let expected = envelope(&planned).unwrap();
-        assert_eq!(&bytes[expected.pixel_start..expected.pixel_end], rgb.as_slice());
+        assert_eq!(
+            &bytes[expected.pixel_start..expected.pixel_end],
+            rgb.as_slice()
+        );
         let mut changed = bytes.clone();
         let position = find_bytes(&changed, b"/TrimBox").unwrap();
         changed[position + 1] = b'C';
@@ -328,22 +433,34 @@ mod tests {
         let bytes = encode_pdf(vec![255; 12], &planned).unwrap();
         // This parser sees only the just-generated, envelope-validated fixture.
         validate_output(&bytes, &planned).unwrap();
-        let document = Document::load_mem_with_options(&bytes, lopdf::LoadOptions {
-            strict: true, max_decompressed_size: Some(1024), ..Default::default()
-        }).unwrap();
+        let document = Document::load_mem_with_options(
+            &bytes,
+            lopdf::LoadOptions {
+                strict: true,
+                max_decompressed_size: Some(1024),
+                ..Default::default()
+            },
+        )
+        .unwrap();
         assert_eq!(document.objects.len(), 5);
         let page = document.get_dictionary((4, 0)).unwrap();
         for name in [b"MediaBox".as_slice(), b"CropBox", b"BleedBox", b"TrimBox"] {
             let actual = page.get(name).unwrap().as_array().unwrap();
-            let values = actual.iter().map(|value| match value {
-                Object::Integer(number) => *number as f64,
-                Object::Real(number) => f64::from(*number),
-                _ => panic!("box coordinates must be numeric"),
-            }).collect::<Vec<_>>();
+            let values = actual
+                .iter()
+                .map(|value| match value {
+                    Object::Integer(number) => *number as f64,
+                    Object::Real(number) => f64::from(*number),
+                    _ => panic!("box coordinates must be numeric"),
+                })
+                .collect::<Vec<_>>();
             assert_eq!(values, vec![0.0, 0.0, 4.0, 4.0]);
         }
         let image = document.get_object((2, 0)).unwrap().as_stream().unwrap();
-        assert_eq!(image.dict.get(b"ColorSpace").unwrap().as_name().unwrap(), b"DeviceRGB");
+        assert_eq!(
+            image.dict.get(b"ColorSpace").unwrap().as_name().unwrap(),
+            b"DeviceRGB"
+        );
         assert!(image.dict.get(b"Filter").is_err());
         assert!(image.dict.get(b"SMask").is_err());
         assert_eq!(image.content, vec![255; 12]);
@@ -355,7 +472,6 @@ mod tests {
         assert!(opaque_rgb(&[1, 2, 3, 254], 3).is_err());
         assert!(opaque_rgb(&[1, 2, 3, 255], 6).is_err());
     }
-
 
     #[test]
     fn validator_refuses_actions_filters_changed_boxes_and_drawing() {
@@ -410,8 +526,11 @@ mod tests {
     #[test]
     fn envelope_sink_handles_writes_crossing_both_boundaries() {
         let mut sink = EnvelopeWriter {
-            pixel_start: 3, pixel_end: 7, position: 0,
-            prefix: Vec::new(), suffix: Vec::new(),
+            pixel_start: 3,
+            pixel_end: 7,
+            position: 0,
+            prefix: Vec::new(),
+            suffix: Vec::new(),
         };
         sink.write_all(b"0123456789").unwrap();
         assert_eq!(sink.prefix, b"012");

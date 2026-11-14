@@ -2,11 +2,13 @@
 
 use renderflow::RunManifest;
 use serde_json::json;
-use sha2::{Digest,Sha256};
+use sha2::{Digest, Sha256};
 
-pub fn digest(bytes:&[u8])->String {format!("{:x}",Sha256::digest(bytes))}
+pub fn digest(bytes: &[u8]) -> String {
+    format!("{:x}", Sha256::digest(bytes))
+}
 
-pub fn manifest(bytes:&[u8])->RunManifest {
+pub fn manifest(bytes: &[u8]) -> RunManifest {
     serde_json::from_value(json!({
         "schema_version":"renderflow.run/v1","run_id":"synthetic-files",
         "execution_plan_digest":{"algorithm":"sha256","value":"0".repeat(64)},
@@ -31,23 +33,32 @@ pub fn manifest(bytes:&[u8])->RunManifest {
     })).unwrap()
 }
 
-pub fn relocate(run:&mut RunManifest,locator:&str) {
-    run.artifact_manifest.artifacts[0].locator=locator.into();
-    run.artifact_forest.as_mut().unwrap().execution.as_mut().unwrap().targets[0].locator=Some(locator.into());
+pub fn relocate(run: &mut RunManifest, locator: &str) {
+    run.artifact_manifest.artifacts[0].locator = locator.into();
+    run.artifact_forest
+        .as_mut()
+        .unwrap()
+        .execution
+        .as_mut()
+        .unwrap()
+        .targets[0]
+        .locator = Some(locator.into());
 }
 
-pub fn second_target(run:&mut RunManifest) {
-    let forest=run.artifact_forest.as_mut().unwrap();
-    let mut branch=forest.branches[0].clone();
-    branch.target_id="target-two".into();
+pub fn second_target(run: &mut RunManifest) {
+    let forest = run.artifact_forest.as_mut().unwrap();
+    let mut branch = forest.branches[0].clone();
+    branch.target_id = "target-two".into();
     forest.branches.push(branch);
-    let mut target=forest.execution.as_ref().unwrap().targets[0].clone();
-    target.target_id="target-two".into();
-    target.artifact_evidence_index=Some(1);
-    target.locator=Some("bundle:second.txt".into());
+    let mut target = forest.execution.as_ref().unwrap().targets[0].clone();
+    target.target_id = "target-two".into();
+    target.artifact_evidence_index = Some(1);
+    target.locator = Some("bundle:second.txt".into());
     forest.execution.as_mut().unwrap().targets.push(target);
-    let mut record=run.artifact_manifest.artifacts[0].clone();
-    record.locator="bundle:second.txt".into();
+    let mut record = run.artifact_manifest.artifacts[0].clone();
+    record.locator = "bundle:second.txt".into();
     run.artifact_manifest.artifacts.push(record);
-    run.artifact_manifest.outputs.push("unused/second.txt".into());
+    run.artifact_manifest
+        .outputs
+        .push("unused/second.txt".into());
 }

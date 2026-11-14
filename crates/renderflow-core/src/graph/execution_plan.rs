@@ -570,18 +570,22 @@ impl ExecutionPlan {
         for (group_index, plan) in plans.iter().enumerate() {
             let group = (group_index + 1).to_string();
             for node in &plan.nodes {
-                let existing = nodes.entry(node.format.clone()).or_insert_with(|| node.clone());
+                let existing = nodes
+                    .entry(node.format.clone())
+                    .or_insert_with(|| node.clone());
                 // A source remains the source; otherwise expose a terminal role
                 // whenever at least one isolated group requests this format.
                 if node.node_type == NodeType::Source
-                    || (existing.node_type != NodeType::Source && node.node_type == NodeType::Output)
+                    || (existing.node_type != NodeType::Source
+                        && node.node_type == NodeType::Output)
                 {
                     existing.node_type = node.node_type.clone();
                 }
             }
             let with_group = |edge: &PlanEdge| {
                 let mut edge = edge.clone();
-                edge.evidence.insert("forest_execution_group".to_string(), group.clone());
+                edge.evidence
+                    .insert("forest_execution_group".to_string(), group.clone());
                 edge
             };
             edges.extend(plan.edges.iter().map(&with_group));
@@ -606,9 +610,15 @@ impl ExecutionPlan {
         )));
         let nodes: Vec<_> = nodes.into_values().collect();
         Self {
-            source: plans.first().map(|plan| plan.source.clone()).unwrap_or_default(),
+            source: plans
+                .first()
+                .map(|plan| plan.source.clone())
+                .unwrap_or_default(),
             targets: targets.to_vec(),
-            optimization: plans.first().map(|plan| plan.optimization.clone()).unwrap_or_else(|| "balanced".to_string()),
+            optimization: plans
+                .first()
+                .map(|plan| plan.optimization.clone())
+                .unwrap_or_else(|| "balanced".to_string()),
             metadata: ExecutionMetadata {
                 total_nodes: nodes.len(),
                 total_edges: edges.len(),
@@ -624,7 +634,9 @@ impl ExecutionPlan {
             waves,
             diagnostics,
             source_artifact: plans.first().and_then(|plan| plan.source_artifact.clone()),
-            source_collection: plans.first().and_then(|plan| plan.source_collection.clone()),
+            source_collection: plans
+                .first()
+                .and_then(|plan| plan.source_collection.clone()),
             toolchain: None,
             artifact_forest: None,
         }
@@ -1019,12 +1031,20 @@ mod tests {
                     TransformEdge::new(Format::Html, Format::Pdf, cost, quality)
                         .with_provider(provider, "document.pdf"),
                 );
-                let dag = graph.build_multi_target_dag(Format::Html, &[Format::Pdf]).unwrap();
-                ExecutionPlan::from_dag(&dag, Format::Html, &[Format::Pdf], OptimizationMode::Quality)
+                let dag = graph
+                    .build_multi_target_dag(Format::Html, &[Format::Pdf])
+                    .unwrap();
+                ExecutionPlan::from_dag(
+                    &dag,
+                    Format::Html,
+                    &[Format::Pdf],
+                    OptimizationMode::Quality,
+                )
             })
             .collect();
         let plan = ExecutionPlan::from_branch_plans(
-            &plans, &["target:print".to_string(), "target:preview".to_string()],
+            &plans,
+            &["target:print".to_string(), "target:preview".to_string()],
         );
 
         assert_eq!(plan.edges.len(), 2);
@@ -1032,13 +1052,19 @@ mod tests {
         assert_eq!(plan.edges[1].provider_id.as_deref(), Some("tool.preview"));
         assert_eq!(plan.edges[0].evidence["forest_execution_group"], "1");
         assert_eq!(plan.edges[1].evidence["forest_execution_group"], "2");
-        assert_eq!(plan.waves.iter().map(|wave| wave.index).collect::<Vec<_>>(), vec![1, 2]);
+        assert_eq!(
+            plan.waves.iter().map(|wave| wave.index).collect::<Vec<_>>(),
+            vec![1, 2]
+        );
         assert_eq!(plan.metadata.output_count, 2);
         assert_eq!(plan.metadata.total_nodes, 2);
         assert_eq!(plan.metadata.execution_depth, 2);
         assert!((plan.metadata.estimated_cost - 0.7).abs() < f32::EPSILON);
         assert_eq!(plan.metadata.estimated_quality, 0.8);
-        assert!(plan.diagnostics.iter().any(|diagnostic| diagnostic.message.contains("routes are authoritative")));
+        assert!(plan
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.message.contains("routes are authoritative")));
     }
 
     #[test]
@@ -1048,7 +1074,8 @@ mod tests {
                 "format": "pdf", "requirement": "optional", "state": "unavailable",
                 "reason_code": "provider_unavailable", "reason": "Provider was not available."
             }]
-        })).unwrap();
+        }))
+        .unwrap();
         assert_eq!(forest.schema, "renderflow/artifact-forest-v1");
         assert!(forest.identity.is_empty());
         assert!(forest.branches[0].target_id.is_empty());
@@ -1073,8 +1100,10 @@ mod tests {
                 "target_id": "target:unsupported", "format": "docx", "requirement": "optional",
                 "state": "unsupported", "reason_code": "no_route", "reason": "No eligible route."
             }]
-        })).unwrap();
-        let decoded: ArtifactForest = serde_json::from_str(&serde_json::to_string(&forest).unwrap()).unwrap();
+        }))
+        .unwrap();
+        let decoded: ArtifactForest =
+            serde_json::from_str(&serde_json::to_string(&forest).unwrap()).unwrap();
         assert_eq!(decoded, forest);
         assert!(decoded.branches[0].route.as_ref().unwrap().steps.is_empty());
         assert_eq!(decoded.branches[1].state, ForestBranchState::Unsupported);

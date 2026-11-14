@@ -18,7 +18,12 @@ pub fn run_inspect(input: &str) -> Result<()> {
     Ok(())
 }
 
-pub fn run_convert(input: &str, input_format: &str, output: &str, output_format: &str) -> Result<()> {
+pub fn run_convert(
+    input: &str,
+    input_format: &str,
+    output: &str,
+    output_format: &str,
+) -> Result<()> {
     if !std::fs::symlink_metadata(input)?.file_type().is_file() {
         bail!("subtitle input must be a regular file, not a symlink or special file");
     }
@@ -36,9 +41,20 @@ pub fn run_convert(input: &str, input_format: &str, output: &str, output_format:
     write_transcript(&transcript, &input_sha256, output, output_format)
 }
 
-pub fn run_extract(input: &str, stream_index: u32, output: &str, output_format: &str) -> Result<()> {
-    let transcript = provider::extract_with_cancellation(Path::new(input), stream_index, cancellation()?)?;
-    write_transcript(&transcript, &transcript.source.sha256, output, output_format)
+pub fn run_extract(
+    input: &str,
+    stream_index: u32,
+    output: &str,
+    output_format: &str,
+) -> Result<()> {
+    let transcript =
+        provider::extract_with_cancellation(Path::new(input), stream_index, cancellation()?)?;
+    write_transcript(
+        &transcript,
+        &transcript.source.sha256,
+        output,
+        output_format,
+    )
 }
 
 fn cancellation() -> Result<ProcessCancellationToken> {
@@ -58,7 +74,12 @@ fn parse_format(value: &str) -> Result<TimedTextFormat> {
     }
 }
 
-fn write_transcript(transcript: &TimedTranscript, input_sha256: &str, output: &str, output_format: &str) -> Result<()> {
+fn write_transcript(
+    transcript: &TimedTranscript,
+    input_sha256: &str,
+    output: &str,
+    output_format: &str,
+) -> Result<()> {
     let format = parse_format(output_format)?;
     let bytes = timed_text::render(transcript, format)?;
     let losses = timed_text::export_losses(transcript, format);
@@ -79,12 +100,16 @@ fn write_transcript(transcript: &TimedTranscript, input_sha256: &str, output: &s
 }
 
 fn write_new(output: &Path, bytes: &[u8]) -> Result<()> {
-    let parent = output.parent().filter(|path| !path.as_os_str().is_empty()).unwrap_or(Path::new("."));
+    let parent = output
+        .parent()
+        .filter(|path| !path.as_os_str().is_empty())
+        .unwrap_or(Path::new("."));
     let mut temporary = tempfile::NamedTempFile::new_in(parent)
         .context("output parent must already exist and be writable")?;
     temporary.write_all(bytes)?;
     temporary.as_file().sync_all()?;
-    temporary.persist_noclobber(output)
+    temporary
+        .persist_noclobber(output)
         .map_err(|error| error.error)
         .context("cannot publish subtitle output; destination must not already exist")?;
     Ok(())

@@ -1,7 +1,7 @@
 //! Authored source regressions. Execution is deferred by the current sprint.
 
-use std::path::Path;
 use std::collections::{BTreeMap, BTreeSet};
+use std::path::Path;
 
 use super::*;
 use crate::composition::model::LocaleOverride;
@@ -9,35 +9,76 @@ use crate::composition::typography;
 use crate::font::{FontRole, LoadedFontRegistry};
 
 fn fixture() -> LoadedComposition {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().parent().unwrap();
-    LoadedComposition::load(root.join("examples/page-composition/measured-typography/page.composition.json")).unwrap()
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap();
+    LoadedComposition::load(
+        root.join("examples/page-composition/measured-typography/page.composition.json"),
+    )
+    .unwrap()
 }
 
 fn structural_fixture() -> LoadedComposition {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().parent().unwrap();
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap();
     LoadedComposition::load(root.join("examples/page-composition/page.composition.json")).unwrap()
 }
 
 fn replace_caption(snapshot: &mut LoadedComposition, text: &str) {
     // Unit-only mutation exercises diagnostics. Public snapshots expose no
     // mutation API; normal callers reload a freshly pinned content document.
-    snapshot.contents.get_mut("en").unwrap().document.content
+    snapshot
+        .contents
+        .get_mut("en")
+        .unwrap()
+        .document
+        .content
         .insert("panel.one.caption".into(), text.into());
 }
 
 fn replace_font_bytes(snapshot: &mut LoadedComposition, id: &str, bytes: Vec<u8>) {
     let mut registry = snapshot.fonts.registry.clone();
-    let mut assets = registry.assets.iter().map(|asset|
-        (asset.id.clone(), snapshot.fonts.captured_asset_bytes(&asset.id).unwrap().to_vec())
-    ).collect::<BTreeMap<_, _>>();
-    registry.assets.iter_mut().find(|asset| asset.id == id).unwrap().digest.value =
-        crate::composition::hash_bytes(&bytes);
+    let mut assets = registry
+        .assets
+        .iter()
+        .map(|asset| {
+            (
+                asset.id.clone(),
+                snapshot
+                    .fonts
+                    .captured_asset_bytes(&asset.id)
+                    .unwrap()
+                    .to_vec(),
+            )
+        })
+        .collect::<BTreeMap<_, _>>();
+    registry
+        .assets
+        .iter_mut()
+        .find(|asset| asset.id == id)
+        .unwrap()
+        .digest
+        .value = crate::composition::hash_bytes(&bytes);
     assets.insert(id.to_string(), bytes);
-    let licenses = registry.assets.iter().map(|asset| asset.license.license_file.clone()).collect();
+    let licenses = registry
+        .assets
+        .iter()
+        .map(|asset| asset.license.license_file.clone())
+        .collect();
     let mut registry_digest = snapshot.fonts.registry_digest.clone();
     registry_digest.value = crate::composition::hash_bytes(&serde_json::to_vec(&registry).unwrap());
-    snapshot.fonts = LoadedFontRegistry::from_snapshot(registry, snapshot.fonts.source_path.clone(),
-        registry_digest, assets, licenses);
+    snapshot.fonts = LoadedFontRegistry::from_snapshot(
+        registry,
+        snapshot.fonts.source_path.clone(),
+        registry_digest,
+        assets,
+        licenses,
+    );
 }
 
 /// Fixture-only mutation: remove ASCII A from the bundled TTF's Unicode cmap.
@@ -52,8 +93,10 @@ fn without_capital_a(mut bytes: Vec<u8>) -> Vec<u8> {
         u32::from_be_bytes(bytes[offset..offset + 4].try_into().unwrap())
     }
     let directory = 12;
-    let cmap = (0..usize::from(u16_at(&bytes, 4))).map(|index| directory + index * 16)
-        .find(|offset| &bytes[*offset..*offset + 4] == b"cmap").unwrap();
+    let cmap = (0..usize::from(u16_at(&bytes, 4)))
+        .map(|index| directory + index * 16)
+        .find(|offset| &bytes[*offset..*offset + 4] == b"cmap")
+        .unwrap();
     let start = usize::try_from(u32_at(&bytes, cmap + 8)).unwrap();
     let offsets = (0..usize::from(u16_at(&bytes, start + 2)))
         .map(|index| start + usize::try_from(u32_at(&bytes, start + 4 + index * 8 + 4)).unwrap())
@@ -70,7 +113,8 @@ fn without_capital_a(mut bytes: Vec<u8>) -> Vec<u8> {
                 let range_offsets = deltas + segments * 2;
                 for index in 0..segments {
                     if u32::from(u16_at(&bytes, start_codes + index * 2)) <= scalar
-                        && scalar <= u32::from(u16_at(&bytes, end_codes + index * 2)) {
+                        && scalar <= u32::from(u16_at(&bytes, end_codes + index * 2))
+                    {
                         bytes[deltas + index * 2..deltas + index * 2 + 2]
                             .copy_from_slice(&0u16.wrapping_sub(scalar as u16).to_be_bytes());
                         bytes[range_offsets + index * 2..range_offsets + index * 2 + 2]
@@ -93,7 +137,10 @@ fn without_capital_a(mut bytes: Vec<u8>) -> Vec<u8> {
             _ => {}
         }
     }
-    assert!(changed > 0, "bundled fixture must expose format 4 or 12 Unicode cmap");
+    assert!(
+        changed > 0,
+        "bundled fixture must expose format 4 or 12 Unicode cmap"
+    );
     bytes
 }
 
@@ -117,17 +164,42 @@ fn same_snapshot_produces_equal_outline_bytes_and_keeps_review_requirements() {
 #[test]
 fn localized_content_is_escaped_and_retains_explicit_lines() {
     let mut snapshot = fixture();
-    snapshot.contents.get_mut("en").unwrap().document.content.insert(
-        "panel.one.caption".into(), "<script> & \"hello\"\nA second line.".into());
-    let svg = String::from_utf8(render(&snapshot, "en", CompositionOutput::Svg).unwrap().bytes).unwrap();
+    snapshot
+        .contents
+        .get_mut("en")
+        .unwrap()
+        .document
+        .content
+        .insert(
+            "panel.one.caption".into(),
+            "<script> & \"hello\"\nA second line.".into(),
+        );
+    let svg = String::from_utf8(
+        render(&snapshot, "en", CompositionOutput::Svg)
+            .unwrap()
+            .bytes,
+    )
+    .unwrap();
     assert!(!svg.contains("<script>"));
     assert!(svg.contains("&lt;script&gt; &amp; &quot;hello&quot;"));
     assert!(svg.contains("A second line."));
     assert!(!svg.contains("<text"));
     let transcript: serde_json::Value = serde_json::from_slice(
-        &render(&snapshot, "en", CompositionOutput::TranscriptJson).unwrap().bytes).unwrap();
-    assert_eq!(transcript["entries"][0]["text"], "<script> & \"hello\"\nA second line.");
-    let html = String::from_utf8(render(&snapshot, "en", CompositionOutput::Html).unwrap().bytes).unwrap();
+        &render(&snapshot, "en", CompositionOutput::TranscriptJson)
+            .unwrap()
+            .bytes,
+    )
+    .unwrap();
+    assert_eq!(
+        transcript["entries"][0]["text"],
+        "<script> & \"hello\"\nA second line."
+    );
+    let html = String::from_utf8(
+        render(&snapshot, "en", CompositionOutput::Html)
+            .unwrap()
+            .bytes,
+    )
+    .unwrap();
     assert!(!html.contains("<script>"));
     assert!(html.contains("Content-Security-Policy"));
     assert!(html.contains("<figure aria-hidden=\"true\">"));
@@ -142,20 +214,43 @@ fn reading_order_does_not_rearrange_paint_order() {
     assert_eq!(transcript["entries"][0]["layer_id"], "caption.text.two");
     assert_eq!(transcript["entries"][1]["layer_id"], "caption.text.one");
     assert_eq!(transcript["requires_human_review"], true);
-    let svg = String::from_utf8(render(&snapshot, "en", CompositionOutput::Svg).unwrap().bytes).unwrap();
-    assert!(svg.find("data-layer-id=\"caption.text.one\"").unwrap()
-        < svg.find("data-layer-id=\"caption.text.two\"").unwrap());
+    let svg = String::from_utf8(
+        render(&snapshot, "en", CompositionOutput::Svg)
+            .unwrap()
+            .bytes,
+    )
+    .unwrap();
+    assert!(
+        svg.find("data-layer-id=\"caption.text.one\"").unwrap()
+            < svg.find("data-layer-id=\"caption.text.two\"").unwrap()
+    );
 }
 
 #[test]
 fn locale_override_changes_only_the_named_layer_and_locale() {
     let mut snapshot = fixture();
-    let bounds = NormalizedRect { x: 0.15, y: 0.2, width: 0.5, height: 0.3 };
-    snapshot.manifest.locale_overrides.insert("en".into(), vec![LocaleOverride {
-        layer_id: "caption.text.one".into(), reason: "Explicit reviewed placement".into(),
-        author: "fixture".into(), bounds: Some(bounds), font_size_pt: Some(10.0),
-    }]);
-    let first = snapshot.manifest.layers.iter().find(|layer| layer.id == "caption.text.one").unwrap();
+    let bounds = NormalizedRect {
+        x: 0.15,
+        y: 0.2,
+        width: 0.5,
+        height: 0.3,
+    };
+    snapshot.manifest.locale_overrides.insert(
+        "en".into(),
+        vec![LocaleOverride {
+            layer_id: "caption.text.one".into(),
+            reason: "Explicit reviewed placement".into(),
+            author: "fixture".into(),
+            bounds: Some(bounds),
+            font_size_pt: Some(10.0),
+        }],
+    );
+    let first = snapshot
+        .manifest
+        .layers
+        .iter()
+        .find(|layer| layer.id == "caption.text.one")
+        .unwrap();
     let (actual, size) = effective_geometry(&snapshot, "en", first, 12.0);
     assert_eq!(actual.x, 0.15);
     assert_eq!(actual.height, 0.3);
@@ -168,10 +263,16 @@ fn locale_override_changes_only_the_named_layer_and_locale() {
 #[test]
 fn known_vertical_overflow_blocks_visual_output_without_shrinking() {
     let mut snapshot = fixture();
-    let layer = snapshot.manifest.layers.iter_mut().find(|layer| layer.id == "caption.text.one").unwrap();
+    let layer = snapshot
+        .manifest
+        .layers
+        .iter_mut()
+        .find(|layer| layer.id == "caption.text.one")
+        .unwrap();
     layer.bounds.height = 0.04;
     let checks = typography::measure(&snapshot, "en");
-    assert!(checks.diagnostics.iter().any(|item| item.code == "composition.typography.vertical_overflow"
+    assert!(checks.diagnostics.iter().any(|item| item.code
+        == "composition.typography.vertical_overflow"
         && item.severity == DiagnosticSeverity::Error));
     assert!(render(&snapshot, "en", CompositionOutput::Svg).is_err());
     // The transcript preserves text even when a visual container cannot fit it.
@@ -186,13 +287,19 @@ fn unsupported_visual_layout_still_allows_direction_tagged_transcripts() {
     for locale in ["ar", "ja"] {
         snapshot.contents.get_mut(locale).unwrap().document.reviewed = true;
     }
-    snapshot.diagnostics.retain(|item| item.code != "composition.content.unreviewed");
-    assert!(diagnostics(&snapshot, "ar").iter().any(|item| item.code == "composition.layout.unsupported"));
+    snapshot
+        .diagnostics
+        .retain(|item| item.code != "composition.content.unreviewed");
+    assert!(diagnostics(&snapshot, "ar")
+        .iter()
+        .any(|item| item.code == "composition.layout.unsupported"));
     assert!(render(&snapshot, "ar", CompositionOutput::Svg).is_err());
     assert!(render(&snapshot, "ja", CompositionOutput::Html).is_err());
     assert!(render(&snapshot, "ar", CompositionOutput::Pdf).is_err());
     assert!(render(&snapshot, "ja", CompositionOutput::Pdf).is_err());
-    let bytes = render(&snapshot, "ar", CompositionOutput::TranscriptJson).unwrap().bytes;
+    let bytes = render(&snapshot, "ar", CompositionOutput::TranscriptJson)
+        .unwrap()
+        .bytes;
     let transcript: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
     assert_eq!(transcript["direction"], "rtl");
     assert_eq!(transcript["qualification"], "unqualified");
@@ -204,7 +311,12 @@ fn raw_font_family_never_becomes_generated_markup() {
     for asset in &mut snapshot.fonts.registry.assets {
         asset.family = "bad\";} body{background:url(https://invalid.example/)} /*".into();
     }
-    let svg = String::from_utf8(render(&snapshot, "en", CompositionOutput::Svg).unwrap().bytes).unwrap();
+    let svg = String::from_utf8(
+        render(&snapshot, "en", CompositionOutput::Svg)
+            .unwrap()
+            .bytes,
+    )
+    .unwrap();
     assert!(svg.contains("<path"));
     assert!(!svg.contains("font-family"));
     assert!(!svg.contains("invalid.example"));
@@ -213,30 +325,58 @@ fn raw_font_family_never_becomes_generated_markup() {
 #[test]
 fn content_approval_diagnostics_cannot_be_bypassed_by_direct_rendering() {
     let mut snapshot = fixture();
-    snapshot.diagnostics.push(CompositionDiagnostic::new(DiagnosticSeverity::Error,
-        "composition.content.unreviewed", "not reviewed", Some("en"), None));
+    snapshot.diagnostics.push(CompositionDiagnostic::new(
+        DiagnosticSeverity::Error,
+        "composition.content.unreviewed",
+        "not reviewed",
+        Some("en"),
+        None,
+    ));
     let error = render(&snapshot, "en", CompositionOutput::TranscriptJson).unwrap_err();
     assert!(error.to_string().contains("composition.content.unreviewed"));
-    assert!(render(&snapshot, "en", CompositionOutput::Pdf).unwrap_err().to_string()
+    assert!(render(&snapshot, "en", CompositionOutput::Pdf)
+        .unwrap_err()
+        .to_string()
         .contains("composition.content.unreviewed"));
 }
 
 #[test]
 fn effective_locale_bounds_must_stay_inside_safe_area_and_clip() {
     let mut snapshot = fixture();
-    let layer = snapshot.manifest.layers.iter_mut().find(|layer| layer.id == "caption.text.one").unwrap();
+    let layer = snapshot
+        .manifest
+        .layers
+        .iter_mut()
+        .find(|layer| layer.id == "caption.text.one")
+        .unwrap();
     layer.clip = Some(layer.bounds);
-    snapshot.manifest.locale_overrides.insert("de".into(), vec![LocaleOverride {
-        layer_id: "caption.text.one".into(), reason: "Negative geometry fixture".into(),
-        author: "fixture".into(), font_size_pt: None,
-        bounds: Some(NormalizedRect { x: 0.01, y: 0.09, width: 0.4, height: 0.2 }),
-    }]);
+    snapshot.manifest.locale_overrides.insert(
+        "de".into(),
+        vec![LocaleOverride {
+            layer_id: "caption.text.one".into(),
+            reason: "Negative geometry fixture".into(),
+            author: "fixture".into(),
+            font_size_pt: None,
+            bounds: Some(NormalizedRect {
+                x: 0.01,
+                y: 0.09,
+                width: 0.4,
+                height: 0.2,
+            }),
+        }],
+    );
     let english = diagnostics(&snapshot, "en");
-    assert!(!english.iter().any(|item| matches!(item.code.as_str(),
-        "composition.text.outside_safe_area" | "composition.text.clip_excludes_bounds")));
+    assert!(!english.iter().any(|item| matches!(
+        item.code.as_str(),
+        "composition.text.outside_safe_area" | "composition.text.clip_excludes_bounds"
+    )));
     let german = diagnostics(&snapshot, "de");
-    for code in ["composition.text.outside_safe_area", "composition.text.clip_excludes_bounds"] {
-        assert!(german.iter().any(|item| item.code == code && item.severity == DiagnosticSeverity::Error
+    for code in [
+        "composition.text.outside_safe_area",
+        "composition.text.clip_excludes_bounds",
+    ] {
+        assert!(german.iter().any(|item| item.code == code
+            && item.severity == DiagnosticSeverity::Error
             && item.layer_id.as_deref() == Some("caption.text.one")));
     }
     assert!(render(&snapshot, "de", CompositionOutput::Svg).is_err());
@@ -249,9 +389,14 @@ fn gutter_intent_is_unresolved_and_output_limit_matches_executor() {
     let mut snapshot = fixture();
     snapshot.manifest.page.gutter_mm = 2.0;
     let checks = diagnostics(&snapshot, "en");
-    assert!(checks.iter().any(|item| item.code == "composition.page.gutter_unresolved"
-        && item.severity == DiagnosticSeverity::Warning && item.layer_id.is_none()));
-    assert!(!checks.iter().any(|item| item.severity == DiagnosticSeverity::Error));
+    assert!(checks
+        .iter()
+        .any(|item| item.code == "composition.page.gutter_unresolved"
+            && item.severity == DiagnosticSeverity::Warning
+            && item.layer_id.is_none()));
+    assert!(!checks
+        .iter()
+        .any(|item| item.severity == DiagnosticSeverity::Error));
     assert!(check_output_bound(64 * 1024 * 1024).is_ok());
     assert!(check_output_bound(64 * 1024 * 1024 + 1).is_err());
 }
@@ -260,16 +405,21 @@ fn gutter_intent_is_unresolved_and_output_limit_matches_executor() {
 fn structural_font_stub_blocks_visuals_but_preserves_semantic_transcripts() {
     let snapshot = structural_fixture();
     let report = typography::measure(&snapshot, "en");
-    assert!(report.diagnostics.iter().any(|item| item.code == "composition.typography.font_unavailable"
+    assert!(report.diagnostics.iter().any(|item| item.code
+        == "composition.typography.font_unavailable"
         && item.severity == DiagnosticSeverity::Error));
     assert!(render(&snapshot, "en", CompositionOutput::Svg).is_err());
     assert!(render(&snapshot, "en", CompositionOutput::Html).is_err());
     assert!(render(&snapshot, "en", CompositionOutput::Png).is_err());
     assert!(render(&snapshot, "en", CompositionOutput::Pdf).is_err());
-    let bytes = render(&snapshot, "en", CompositionOutput::TranscriptJson).unwrap().bytes;
+    let bytes = render(&snapshot, "en", CompositionOutput::TranscriptJson)
+        .unwrap()
+        .bytes;
     let transcript: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
-    assert_eq!(transcript["entries"][0]["text"],
-        snapshot.contents["en"].document.content["panel.one.caption"]);
+    assert_eq!(
+        transcript["entries"][0]["text"],
+        snapshot.contents["en"].document.content["panel.one.caption"]
+    );
 }
 
 #[test]
@@ -278,35 +428,60 @@ fn measured_horizontal_overflow_refuses_visual_output_without_rewriting_copy() {
     let copy = "W".repeat(100);
     replace_caption(&mut snapshot, &copy);
     let report = typography::measure(&snapshot, "en");
-    assert!(report.diagnostics.iter().any(|item| item.code == "composition.typography.horizontal_overflow"
+    assert!(report.diagnostics.iter().any(|item| item.code
+        == "composition.typography.horizontal_overflow"
         && item.severity == DiagnosticSeverity::Error
         && item.layer_id.as_deref() == Some("caption.text.one")));
     assert!(render(&snapshot, "en", CompositionOutput::Svg).is_err());
     let transcript: serde_json::Value = serde_json::from_slice(
-        &render(&snapshot, "en", CompositionOutput::TranscriptJson).unwrap().bytes).unwrap();
+        &render(&snapshot, "en", CompositionOutput::TranscriptJson)
+            .unwrap()
+            .bytes,
+    )
+    .unwrap();
     assert_eq!(transcript["entries"][0]["text"], copy);
-    let layer = snapshot.manifest.layers.iter().find(|layer| layer.id == "caption.text.one").unwrap();
-    let LayerContent::Text { typography, .. } = &layer.content else { panic!("text fixture required") };
+    let layer = snapshot
+        .manifest
+        .layers
+        .iter()
+        .find(|layer| layer.id == "caption.text.one")
+        .unwrap();
+    let LayerContent::Text { typography, .. } = &layer.content else {
+        panic!("text fixture required")
+    };
     assert_eq!(typography.font_size_pt, 14.0);
 }
 
 #[test]
 fn unsafe_line_starts_unhandled_scripts_and_text_budgets_fail_explicitly() {
     for (text, code) in [
-        ("First line\n\u{0301}orphan mark".to_string(), "composition.typography.unsafe_line_start"),
-        ("\u{0627}".to_string(), "composition.typography.unsupported_character"),
+        (
+            "First line\n\u{0301}orphan mark".to_string(),
+            "composition.typography.unsafe_line_start",
+        ),
+        (
+            "\u{0627}".to_string(),
+            "composition.typography.unsupported_character",
+        ),
         ("a".repeat(4097), "composition.typography.text_bounds"),
         ("\n".repeat(256), "composition.typography.text_bounds"),
     ] {
         let mut snapshot = fixture();
         replace_caption(&mut snapshot, &text);
         let report = typography::measure(&snapshot, "en");
-        assert!(report.diagnostics.iter().any(|item| item.code == code
-            && item.severity == DiagnosticSeverity::Error
-            && item.layer_id.as_deref() == Some("caption.text.one")), "expected {code}");
+        assert!(
+            report.diagnostics.iter().any(|item| item.code == code
+                && item.severity == DiagnosticSeverity::Error
+                && item.layer_id.as_deref() == Some("caption.text.one")),
+            "expected {code}"
+        );
         assert!(render(&snapshot, "en", CompositionOutput::Svg).is_err());
         let transcript: serde_json::Value = serde_json::from_slice(
-            &render(&snapshot, "en", CompositionOutput::TranscriptJson).unwrap().bytes).unwrap();
+            &render(&snapshot, "en", CompositionOutput::TranscriptJson)
+                .unwrap()
+                .bytes,
+        )
+        .unwrap();
         assert_eq!(transcript["entries"][0]["text"], text);
     }
 }
@@ -323,21 +498,55 @@ fn unsupported_primary_has_an_explicit_measured_fallback_path() {
     binding.primary = stub.id.clone();
     binding.fallbacks = vec![good_id.clone()];
     let assets = BTreeMap::from([
-        (good_id.clone(), snapshot.fonts.captured_asset_bytes(&good_id).unwrap().to_vec()),
-        (stub.id.clone(), structural.fonts.captured_asset_bytes(&stub.id).unwrap().to_vec()),
+        (
+            good_id.clone(),
+            snapshot
+                .fonts
+                .captured_asset_bytes(&good_id)
+                .unwrap()
+                .to_vec(),
+        ),
+        (
+            stub.id.clone(),
+            structural
+                .fonts
+                .captured_asset_bytes(&stub.id)
+                .unwrap()
+                .to_vec(),
+        ),
     ]);
-    let licenses = registry.assets.iter().map(|asset| asset.license.license_file.clone()).collect::<BTreeSet<_>>();
-    snapshot.fonts = LoadedFontRegistry::from_snapshot(registry, snapshot.fonts.source_path.clone(),
-        snapshot.fonts.registry_digest.clone(), assets, licenses);
+    let licenses = registry
+        .assets
+        .iter()
+        .map(|asset| asset.license.license_file.clone())
+        .collect::<BTreeSet<_>>();
+    snapshot.fonts = LoadedFontRegistry::from_snapshot(
+        registry,
+        snapshot.fonts.source_path.clone(),
+        snapshot.fonts.registry_digest.clone(),
+        assets,
+        licenses,
+    );
     let report = typography::measure(&snapshot, "en");
-    assert!(!report.diagnostics.iter().any(|item| item.severity == DiagnosticSeverity::Error));
-    assert!(report.diagnostics.iter().any(|item| item.code == "composition.typography.fallback_selected"));
+    assert!(!report
+        .diagnostics
+        .iter()
+        .any(|item| item.severity == DiagnosticSeverity::Error));
+    assert!(report
+        .diagnostics
+        .iter()
+        .any(|item| item.code == "composition.typography.fallback_selected"));
     for layer in &report.layers {
         let selected = layer.selected_font.as_ref().unwrap();
         assert_eq!(selected.asset_id, good_id);
         assert_eq!(selected.fallback_index, 1);
     }
-    let svg = String::from_utf8(render(&snapshot, "en", CompositionOutput::Svg).unwrap().bytes).unwrap();
+    let svg = String::from_utf8(
+        render(&snapshot, "en", CompositionOutput::Svg)
+            .unwrap()
+            .bytes,
+    )
+    .unwrap();
     assert!(svg.contains("<path"));
     assert!(!svg.contains("data:font/"));
 }
@@ -350,15 +559,27 @@ fn an_unmapped_character_is_reported_instead_of_a_notdef_outline() {
     let bytes = without_capital_a(snapshot.fonts.captured_asset_bytes(&id).unwrap().to_vec());
     replace_font_bytes(&mut snapshot, &id, bytes);
     let report = typography::measure(&snapshot, "en");
-    let layer = report.layers.iter().find(|layer| layer.layer_id == "caption.text.one").unwrap();
+    let layer = report
+        .layers
+        .iter()
+        .find(|layer| layer.layer_id == "caption.text.one")
+        .unwrap();
     assert!(layer.selected_font.is_none());
-    assert!(layer.rejected_candidates.iter().any(|candidate|
-        candidate.asset_id == id && candidate.reason.contains("typography_missing_glyph")));
-    assert!(report.diagnostics.iter().any(|item| item.code == "composition.typography.font_unavailable"
+    assert!(layer
+        .rejected_candidates
+        .iter()
+        .any(|candidate| candidate.asset_id == id
+            && candidate.reason.contains("typography_missing_glyph")));
+    assert!(report.diagnostics.iter().any(|item| item.code
+        == "composition.typography.font_unavailable"
         && item.layer_id.as_deref() == Some("caption.text.one")));
     assert!(render(&snapshot, "en", CompositionOutput::Svg).is_err());
     let transcript: serde_json::Value = serde_json::from_slice(
-        &render(&snapshot, "en", CompositionOutput::TranscriptJson).unwrap().bytes).unwrap();
+        &render(&snapshot, "en", CompositionOutput::TranscriptJson)
+            .unwrap()
+            .bytes,
+    )
+    .unwrap();
     assert_eq!(transcript["entries"][0]["text"], "A");
 }
 
@@ -370,8 +591,13 @@ fn a_signature_only_ttf_is_not_accepted_as_a_measurable_font() {
     stub[..4].copy_from_slice(b"\0\x01\0\0");
     replace_font_bytes(&mut snapshot, &id, stub);
     let report = typography::measure(&snapshot, "en");
-    assert!(report.layers.iter().all(|layer| layer.selected_font.is_none()));
-    assert!(report.layers.iter().all(|layer| layer.rejected_candidates.iter()
+    assert!(report
+        .layers
+        .iter()
+        .all(|layer| layer.selected_font.is_none()));
+    assert!(report.layers.iter().all(|layer| layer
+        .rejected_candidates
+        .iter()
         .any(|candidate| candidate.reason.contains("typography_invalid_font"))));
     assert!(render(&snapshot, "en", CompositionOutput::Html).is_err());
     assert!(render(&snapshot, "en", CompositionOutput::TranscriptText).is_ok());
@@ -385,54 +611,99 @@ fn measured_lines_retain_global_utf8_clusters_and_bounded_glyph_geometry() {
     let first = typography::measure(&snapshot, "en");
     let second = typography::measure(&snapshot, "en");
     assert!(!first.runtime_qualified);
-    assert!(!first.diagnostics.iter().any(|item| item.severity == DiagnosticSeverity::Error));
-    assert_eq!(serde_json::to_vec(&first).unwrap(), serde_json::to_vec(&second).unwrap());
-    let layer = first.layers.iter().find(|layer| layer.layer_id == "caption.text.one").unwrap();
+    assert!(!first
+        .diagnostics
+        .iter()
+        .any(|item| item.severity == DiagnosticSeverity::Error));
+    assert_eq!(
+        serde_json::to_vec(&first).unwrap(),
+        serde_json::to_vec(&second).unwrap()
+    );
+    let layer = first
+        .layers
+        .iter()
+        .find(|layer| layer.layer_id == "caption.text.one")
+        .unwrap();
     assert_eq!(layer.lines.len(), 2);
     assert_eq!(layer.lines[0].source_byte_start, 0);
     assert_eq!(layer.lines[0].source_byte_end, "Café".len());
     assert_eq!(layer.lines[1].source_byte_start, "Café\n".len());
     assert_eq!(layer.lines[1].source_byte_end, text.len());
-    assert_eq!(layer.selected_font.as_ref().unwrap().asset_id, "font.dejavu-sans.regular");
+    assert_eq!(
+        layer.selected_font.as_ref().unwrap().asset_id,
+        "font.dejavu-sans.regular"
+    );
     assert_eq!(layer.outline_digest.as_ref().unwrap().len(), 64);
     for line in &layer.lines {
         assert!(line.origin_x_pt.is_finite() && line.baseline_y_pt.is_finite());
         assert!(line.advance_pt.is_finite() && line.advance_pt > 0.0);
         assert!(!line.glyphs.is_empty());
-        let summed_advance = line.glyphs.iter().map(|glyph| glyph.x_advance_pt).sum::<f64>();
+        let summed_advance = line
+            .glyphs
+            .iter()
+            .map(|glyph| glyph.x_advance_pt)
+            .sum::<f64>();
         assert!((summed_advance - line.advance_pt).abs() < 1e-6);
         let line_bounds = line.conservative_outline_bounds.unwrap();
         for glyph in &line.glyphs {
             assert_ne!(glyph.glyph_id, 0);
-            assert!(glyph.cluster_utf8 >= line.source_byte_start && glyph.cluster_utf8 < line.source_byte_end);
+            assert!(
+                glyph.cluster_utf8 >= line.source_byte_start
+                    && glyph.cluster_utf8 < line.source_byte_end
+            );
             assert!(text.is_char_boundary(glyph.cluster_utf8));
-            assert!([glyph.x_pt, glyph.y_pt, glyph.x_advance_pt, glyph.y_advance_pt]
-                .into_iter().all(f64::is_finite));
+            assert!([
+                glyph.x_pt,
+                glyph.y_pt,
+                glyph.x_advance_pt,
+                glyph.y_advance_pt
+            ]
+            .into_iter()
+            .all(f64::is_finite));
             if let Some(ink) = glyph.conservative_outline_bounds {
-                assert!(ink.x_min.is_finite() && ink.x_max.is_finite()
-                    && ink.y_min.is_finite() && ink.y_max.is_finite());
+                assert!(
+                    ink.x_min.is_finite()
+                        && ink.x_max.is_finite()
+                        && ink.y_min.is_finite()
+                        && ink.y_max.is_finite()
+                );
                 assert!(ink.x_min <= ink.x_max && ink.y_min <= ink.y_max);
                 assert!(line_bounds.x_min <= ink.x_min && line_bounds.x_max >= ink.x_max);
                 assert!(line_bounds.y_min <= ink.y_min && line_bounds.y_max >= ink.y_max);
             }
         }
     }
-    let glyphs = first.layers.iter().flat_map(|layer| &layer.lines)
-        .map(|line| line.glyphs.len()).sum::<usize>();
+    let glyphs = first
+        .layers
+        .iter()
+        .flat_map(|layer| &layer.lines)
+        .map(|line| line.glyphs.len())
+        .sum::<usize>();
     assert!(glyphs <= 4096);
-    let path_bytes = first.layers.iter().filter_map(|layer| first.outlines(&layer.layer_id))
-        .flatten().map(|outline| outline.path.len()).sum::<usize>();
+    let path_bytes = first
+        .layers
+        .iter()
+        .filter_map(|layer| first.outlines(&layer.layer_id))
+        .flatten()
+        .map(|outline| outline.path.len())
+        .sum::<usize>();
     assert!(path_bytes <= 4 * 1024 * 1024);
     let bytes = serde_json::to_vec(&first).unwrap();
     assert!(bytes.len() <= 2 * 1024 * 1024);
     let recovered: typography::TypographyReport = serde_json::from_slice(&bytes).unwrap();
     assert!(first.outlines("caption.text.one").is_some());
     assert!(recovered.outlines("caption.text.one").is_none());
-    assert_eq!(crate::composition::hash_json(&first).unwrap(), crate::composition::hash_json(&recovered).unwrap());
-    assert!(render_with_typography(&snapshot, "en", CompositionOutput::Svg, Some(&recovered)).is_err());
-    assert!(render_with_typography(&snapshot, "en", CompositionOutput::Pdf, Some(&recovered)).is_err());
+    assert_eq!(
+        crate::composition::hash_json(&first).unwrap(),
+        crate::composition::hash_json(&recovered).unwrap()
+    );
+    assert!(
+        render_with_typography(&snapshot, "en", CompositionOutput::Svg, Some(&recovered)).is_err()
+    );
+    assert!(
+        render_with_typography(&snapshot, "en", CompositionOutput::Pdf, Some(&recovered)).is_err()
+    );
 }
-
 
 #[test]
 fn direct_pdf_render_requires_binding_and_retains_explicit_flattening_diagnostics() {
@@ -445,16 +716,24 @@ fn direct_pdf_render_requires_binding_and_retains_explicit_flattening_diagnostic
         binding_side: crate::composition::pdf::BindingSide::Left,
         ..crate::composition::pdf::PdfSettings::default()
     };
-    let result = render_with_pdf_settings(&snapshot, "en", CompositionOutput::Pdf, &settings).unwrap();
+    let result =
+        render_with_pdf_settings(&snapshot, "en", CompositionOutput::Pdf, &settings).unwrap();
     assert_eq!(result.media_type, "application/pdf");
     assert_eq!(result.extension, "pdf");
     assert!(result.bytes.starts_with(b"%PDF-"));
-    assert!(result.diagnostics.iter().any(|item| item.code == "composition.pdf.flattened_profile"
-        && item.severity == DiagnosticSeverity::Warning));
-    assert!(!result.diagnostics.iter().any(|item| item.code == "composition.page.gutter_unresolved"));
+    assert!(result
+        .diagnostics
+        .iter()
+        .any(|item| item.code == "composition.pdf.flattened_profile"
+            && item.severity == DiagnosticSeverity::Warning));
+    assert!(!result
+        .diagnostics
+        .iter()
+        .any(|item| item.code == "composition.page.gutter_unresolved"));
     assert_eq!(serde_json::to_value(&snapshot.manifest).unwrap(), canonical);
     // A binding declaration is a clearance check, never a request to translate text.
-    let second = render_with_pdf_settings(&snapshot, "en", CompositionOutput::Pdf, &settings).unwrap();
+    let second =
+        render_with_pdf_settings(&snapshot, "en", CompositionOutput::Pdf, &settings).unwrap();
     assert_eq!(result.bytes, second.bytes);
 }
 
@@ -471,9 +750,17 @@ fn unsupported_pdf_color_claims_cannot_bypass_planning_through_direct_render() {
             ..crate::composition::pdf::PdfSettings::default()
         },
     ] {
-        assert!(render_with_pdf_settings(&snapshot, "en", CompositionOutput::Pdf, &settings).is_err());
+        assert!(
+            render_with_pdf_settings(&snapshot, "en", CompositionOutput::Pdf, &settings).is_err()
+        );
         let expected = render(&snapshot, "en", CompositionOutput::TranscriptJson).unwrap();
-        let actual = render_with_pdf_settings(&snapshot, "en", CompositionOutput::TranscriptJson, &settings).unwrap();
+        let actual = render_with_pdf_settings(
+            &snapshot,
+            "en",
+            CompositionOutput::TranscriptJson,
+            &settings,
+        )
+        .unwrap();
         assert_eq!(expected.bytes, actual.bytes);
     }
 }

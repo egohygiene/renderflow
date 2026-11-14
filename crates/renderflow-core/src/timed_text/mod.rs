@@ -154,33 +154,59 @@ pub enum TimedTextError {
 }
 
 fn invalid(context: impl Into<String>) -> TimedTextError {
-    TimedTextError::Invalid { context: context.into() }
+    TimedTextError::Invalid {
+        context: context.into(),
+    }
 }
 
 fn bounded_label(value: &str, name: &str, maximum: usize) -> Result<(), TimedTextError> {
-    if value.trim().is_empty() || value.chars().count() > maximum || value.chars().any(char::is_control) {
-        return Err(invalid(format!("{name} must be nonempty, at most {maximum} characters, and contain no controls")));
+    if value.trim().is_empty()
+        || value.chars().count() > maximum
+        || value.chars().any(char::is_control)
+    {
+        return Err(invalid(format!(
+            "{name} must be nonempty, at most {maximum} characters, and contain no controls"
+        )));
     }
     Ok(())
 }
 
 fn digest(value: &str, name: &str) -> Result<(), TimedTextError> {
-    if value.len() != 64 || !value.bytes().all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte)) {
-        return Err(invalid(format!("{name} must be a lowercase SHA-256 hex digest")));
+    if value.len() != 64
+        || !value
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+    {
+        return Err(invalid(format!(
+            "{name} must be a lowercase SHA-256 hex digest"
+        )));
     }
     Ok(())
 }
 
 fn validate_text(value: &str) -> Result<(), TimedTextError> {
-    if value.is_empty() || value.len() > MAX_CUE_TEXT_BYTES || value.lines().any(|line| line.trim().is_empty()) {
-        return Err(invalid("cue text must contain nonempty lines and fit within 65536 UTF-8 bytes"));
+    if value.is_empty()
+        || value.len() > MAX_CUE_TEXT_BYTES
+        || value.lines().any(|line| line.trim().is_empty())
+    {
+        return Err(invalid(
+            "cue text must contain nonempty lines and fit within 65536 UTF-8 bytes",
+        ));
     }
-    if value.ends_with('\n') || value.chars().any(|ch| ch.is_control() && ch != '\n' && ch != '\t') {
-        return Err(invalid("cue text contains a control character or trailing newline"));
+    if value.ends_with('\n')
+        || value
+            .chars()
+            .any(|ch| ch.is_control() && ch != '\n' && ch != '\t')
+    {
+        return Err(invalid(
+            "cue text contains a control character or trailing newline",
+        ));
     }
     if value.contains(['<', '>', '&']) || value.contains("{\\") {
         return Err(TimedTextError::UnsupportedFeature {
-            feature: "cue markup, entities or style overrides; this profile accepts plain text only".to_owned(),
+            feature:
+                "cue markup, entities or style overrides; this profile accepts plain text only"
+                    .to_owned(),
         });
     }
     Ok(())
@@ -201,12 +227,25 @@ pub fn validate(transcript: &TimedTranscript) -> Result<(), TimedTextError> {
     }
     if let Some(extraction) = &transcript.source.extraction {
         if transcript.source.stream.is_none() {
-            return Err(invalid("extraction provenance requires a source stream identity"));
+            return Err(invalid(
+                "extraction provenance requires a source stream identity",
+            ));
         }
         bounded_label(&extraction.provider, "source.extraction.provider", 256)?;
-        bounded_label(&extraction.ffprobe_version, "source.extraction.ffprobe_version", 4096)?;
-        bounded_label(&extraction.ffmpeg_version, "source.extraction.ffmpeg_version", 4096)?;
-        digest(&extraction.subtitle_sha256, "source.extraction.subtitle_sha256")?;
+        bounded_label(
+            &extraction.ffprobe_version,
+            "source.extraction.ffprobe_version",
+            4096,
+        )?;
+        bounded_label(
+            &extraction.ffmpeg_version,
+            "source.extraction.ffmpeg_version",
+            4096,
+        )?;
+        digest(
+            &extraction.subtitle_sha256,
+            "source.extraction.subtitle_sha256",
+        )?;
     }
     if let Some(language) = &transcript.language {
         bounded_label(language, "language", 128)?;
@@ -228,25 +267,38 @@ pub fn validate(transcript: &TimedTranscript) -> Result<(), TimedTextError> {
     let mut text_bytes = 0_usize;
     for cue in &transcript.cues {
         bounded_label(&cue.id, "cue.id", 128)?;
-        if cue.id.contains("-->") || matches!(cue.id.as_str(), "WEBVTT" | "STYLE" | "REGION" | "NOTE") || cue.id.starts_with("NOTE ") || cue.id.starts_with("NOTE\t") {
-            return Err(invalid("cue.id conflicts with a WebVTT delimiter or reserved block"));
+        if cue.id.contains("-->")
+            || matches!(cue.id.as_str(), "WEBVTT" | "STYLE" | "REGION" | "NOTE")
+            || cue.id.starts_with("NOTE ")
+            || cue.id.starts_with("NOTE\t")
+        {
+            return Err(invalid(
+                "cue.id conflicts with a WebVTT delimiter or reserved block",
+            ));
         }
         if !ids.insert(&cue.id) {
             return Err(invalid(format!("duplicate cue id: {}", cue.id)));
         }
         if cue.start_ms >= cue.end_ms || cue.end_ms > MAX_TIMESTAMP_MS {
-            return Err(invalid(format!("cue {} must have 0 <= start_ms < end_ms <= {MAX_TIMESTAMP_MS}", cue.id)));
+            return Err(invalid(format!(
+                "cue {} must have 0 <= start_ms < end_ms <= {MAX_TIMESTAMP_MS}",
+                cue.id
+            )));
         }
         if previous_start.is_some_and(|start| cue.start_ms < start) {
             return Err(invalid("cue starts must be in nondecreasing order"));
         }
         if transcript.overlap_policy == OverlapPolicy::Reject && cue.start_ms < furthest_end {
-            return Err(invalid("overlapping cues are refused by the reject overlap policy"));
+            return Err(invalid(
+                "overlapping cues are refused by the reject overlap policy",
+            ));
         }
         previous_start = Some(cue.start_ms);
         furthest_end = furthest_end.max(cue.end_ms);
         validate_text(&cue.text)?;
-        text_bytes = text_bytes.checked_add(cue.text.len()).ok_or(TimedTextError::InputTooLarge)?;
+        text_bytes = text_bytes
+            .checked_add(cue.text.len())
+            .ok_or(TimedTextError::InputTooLarge)?;
         if text_bytes > MAX_INPUT_BYTES {
             return Err(TimedTextError::InputTooLarge);
         }
@@ -262,17 +314,32 @@ pub fn export_losses(transcript: &TimedTranscript, format: TimedTextFormat) -> V
     if format == TimedTextFormat::Json {
         return Vec::new();
     }
-    let mut losses = vec![TimedTextLoss::SourceProvenance, TimedTextLoss::OverlapPolicy];
+    let mut losses = vec![
+        TimedTextLoss::SourceProvenance,
+        TimedTextLoss::OverlapPolicy,
+    ];
     if format == TimedTextFormat::Text {
         losses.push(TimedTextLoss::Timing);
         losses.push(TimedTextLoss::CueIds);
-    } else if format == TimedTextFormat::Srt && transcript.cues.iter().enumerate().any(|(index, cue)| cue.id != (index + 1).to_string()) {
+    } else if format == TimedTextFormat::Srt
+        && transcript
+            .cues
+            .iter()
+            .enumerate()
+            .any(|(index, cue)| cue.id != (index + 1).to_string())
+    {
         losses.push(TimedTextLoss::CueIds);
     }
     if transcript.cues.iter().any(|cue| cue.speaker.is_some()) {
         losses.push(TimedTextLoss::Speakers);
     }
-    if transcript.language.is_some() || transcript.source.stream.as_ref().is_some_and(|stream| stream.language.is_some()) {
+    if transcript.language.is_some()
+        || transcript
+            .source
+            .stream
+            .as_ref()
+            .is_some_and(|stream| stream.language.is_some())
+    {
         losses.push(TimedTextLoss::Language);
     }
     if !transcript.losses.is_empty() {

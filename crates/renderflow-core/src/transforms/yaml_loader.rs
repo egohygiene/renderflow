@@ -1,5 +1,5 @@
-use std::fs;
 use std::collections::BTreeMap;
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -11,12 +11,14 @@ use super::{
     aggregation::{AggregationRegistry, CommandAggregationTransform},
     ai::{AiBackend, AiTransform},
     command::CommandTransform,
-    command_plugin::{CommandPlugin, CommandPluginDefinition, validate_command_config},
+    command_plugin::{validate_command_config, CommandPlugin, CommandPluginDefinition},
     plugin::{PluginRegistry, PluginTransform},
     Transform, TransformRegistry,
 };
 use crate::ai::providers::{OllamaProvider, OpenAiProvider};
-use crate::toolchain::{transform_capability_id, CapabilityId, ToolDiscovery, ToolId, ToolRegistry};
+use crate::toolchain::{
+    transform_capability_id, CapabilityId, ToolDiscovery, ToolId, ToolRegistry,
+};
 
 /// Top-level structure of a YAML transform configuration file.
 ///
@@ -185,23 +187,47 @@ impl YamlTransformDef {
     ///
     /// [`Format`]: crate::graph::Format
     pub fn validate(&self) -> Result<()> {
-        anyhow::ensure!(usize::from(self.program.is_some()) + usize::from(self.plugin.is_some())
-            + usize::from(self.ai.is_some()) == 1,
-            "transform '{}': exactly one of 'program', 'plugin', or 'ai' must be provided", self.name);
+        anyhow::ensure!(
+            usize::from(self.program.is_some())
+                + usize::from(self.plugin.is_some())
+                + usize::from(self.ai.is_some())
+                == 1,
+            "transform '{}': exactly one of 'program', 'plugin', or 'ai' must be provided",
+            self.name
+        );
         if self.plugin.is_some() {
-            anyhow::ensure!(self.args.is_empty(), "transform '{}': plugin arguments belong in the plugin declaration", self.name);
-            anyhow::ensure!(self.model.is_none() && self.prompt.is_none() && self.endpoint.is_none()
-                && self.api_key.is_none() && self.api_key_env.is_none() && self.artifact_path.is_none()
-                && self.cache_path.is_none() && self.prompt_version.is_none(),
-                "transform '{}': plugin settings belong in config, not AI backend fields", self.name);
+            anyhow::ensure!(
+                self.args.is_empty(),
+                "transform '{}': plugin arguments belong in the plugin declaration",
+                self.name
+            );
+            anyhow::ensure!(
+                self.model.is_none()
+                    && self.prompt.is_none()
+                    && self.endpoint.is_none()
+                    && self.api_key.is_none()
+                    && self.api_key_env.is_none()
+                    && self.artifact_path.is_none()
+                    && self.cache_path.is_none()
+                    && self.prompt_version.is_none(),
+                "transform '{}': plugin settings belong in config, not AI backend fields",
+                self.name
+            );
         }
         if let Some(config) = &self.config {
-            anyhow::ensure!(self.plugin.is_some(), "transform '{}': config is only supported for plugins", self.name);
+            anyhow::ensure!(
+                self.plugin.is_some(),
+                "transform '{}': config is only supported for plugins",
+                self.name
+            );
             validate_command_config(config)?;
         }
         if let Some(kind) = &self.input_kind {
-            anyhow::ensure!(matches!(kind.as_str(), "single" | "collection"),
-                "transform '{}': input_kind must be single or collection", self.name);
+            anyhow::ensure!(
+                matches!(kind.as_str(), "single" | "collection"),
+                "transform '{}': input_kind must be single or collection",
+                self.name
+            );
         }
         if self.name.trim().is_empty() {
             anyhow::bail!("transform 'name' must not be empty");
@@ -514,8 +540,10 @@ pub fn parse_transforms_from_str_with_plugins(
 ) -> Result<TransformRegistry> {
     let config: YamlTransformConfig =
         serde_yaml_ng::from_str(yaml).context("Failed to parse YAML transform config")?;
-    anyhow::ensure!(config.plugins.is_empty() && config.transforms.iter().all(|def| def.config.is_none()),
-        "configured command plugins require the artifact graph loader, not the legacy text loader");
+    anyhow::ensure!(
+        config.plugins.is_empty() && config.transforms.iter().all(|def| def.config.is_none()),
+        "configured command plugins require the artifact graph loader, not the legacy text loader"
+    );
 
     let mut registry = TransformRegistry::new();
     for def in &config.transforms {
@@ -553,7 +581,10 @@ pub fn parse_transforms_from_str_with_plugins(
 pub fn parse_aggregation_transforms_from_str(yaml: &str) -> Result<AggregationRegistry> {
     let config: YamlTransformConfig =
         serde_yaml_ng::from_str(yaml).context("Failed to parse YAML transform config")?;
-    anyhow::ensure!(config.plugins.is_empty(), "configured command plugins require the artifact graph loader");
+    anyhow::ensure!(
+        config.plugins.is_empty(),
+        "configured command plugins require the artifact graph loader"
+    );
 
     let mut registry = AggregationRegistry::new();
     for def in &config.transforms {
@@ -620,7 +651,10 @@ pub fn parse_tool_registry_from_str(yaml: &str) -> Result<ToolRegistry> {
     tool_registry_for_config(&parse_graph_config(yaml)?, &std::env::current_dir()?)
 }
 
-fn tool_registry_for_config(config: &YamlTransformConfig, registry_dir: &Path) -> Result<ToolRegistry> {
+fn tool_registry_for_config(
+    config: &YamlTransformConfig,
+    registry_dir: &Path,
+) -> Result<ToolRegistry> {
     let mut registry = ToolRegistry::builtins();
 
     for def in &config.transforms {
@@ -637,9 +671,12 @@ fn tool_registry_for_config(config: &YamlTransformConfig, registry_dir: &Path) -
         if let Some(plugin) = plugin {
             let program = plugin.resolved_program(registry_dir)?;
             if let Some(existing) = registry.get(provider.as_str()) {
-                anyhow::ensure!(matches!(&existing.discovery,
+                anyhow::ensure!(
+                    matches!(&existing.discovery,
                     ToolDiscovery::Executable { candidates, .. } if candidates == &vec![program.clone()]),
-                    "command plugin provider '{}' conflicts with an existing provider", provider);
+                    "command plugin provider '{}' conflicts with an existing provider",
+                    provider
+                );
             }
             registry.ensure_command_provider(provider, program, capability)?;
         } else if let Some(program) = &def.program {
@@ -682,10 +719,14 @@ pub fn build_graph_executor_and_tools_from_str(
     build_graph_executor_and_tools_at(yaml, &std::env::current_dir()?)
 }
 
-fn build_graph_executor_and_tools_at(yaml: &str, registry_dir: &Path) -> Result<(
-    crate::graph::TransformGraph, crate::graph::DagExecutor, ToolRegistry,
+fn build_graph_executor_and_tools_at(
+    yaml: &str,
+    registry_dir: &Path,
+) -> Result<(
+    crate::graph::TransformGraph,
+    crate::graph::DagExecutor,
+    ToolRegistry,
 )> {
-
     use crate::graph::{DagExecutor, Format, InputKind, TransformEdge, TransformGraph};
 
     let config = parse_graph_config(yaml)?;
@@ -694,10 +735,16 @@ fn build_graph_executor_and_tools_at(yaml: &str, registry_dir: &Path) -> Result<
     // potentially sensitive transform settings in public evidence.
     let registry_digest = crate::evidence::sha256_text(yaml).value;
     let tool_registry = tool_registry_for_config(&config, registry_dir)?;
-    let plugins = config.plugins.iter().map(|definition| {
-        Ok((definition.descriptor.id.clone(),
-            Arc::new(CommandPlugin::new(definition.clone(), registry_dir)?)))
-    }).collect::<Result<BTreeMap<_, _>>>()?;
+    let plugins = config
+        .plugins
+        .iter()
+        .map(|definition| {
+            Ok((
+                definition.descriptor.id.clone(),
+                Arc::new(CommandPlugin::new(definition.clone(), registry_dir)?),
+            ))
+        })
+        .collect::<Result<BTreeMap<_, _>>>()?;
     let mut graph = TransformGraph::new();
     let mut executor = DagExecutor::new();
     let mut transform_ids = std::collections::HashSet::new();
@@ -734,15 +781,19 @@ fn build_graph_executor_and_tools_at(yaml: &str, registry_dir: &Path) -> Result<
             .with_evidence("transform_id", def.name.clone())
             .with_evidence("registry_sha256", registry_digest.clone());
         if let Some(plugin) = definition {
-            edge = edge.with_evidence("plugin_id", plugin.descriptor.id.clone())
+            edge = edge
+                .with_evidence("plugin_id", plugin.descriptor.id.clone())
                 .with_evidence("plugin_version", plugin.descriptor.version.clone())
                 .with_evidence("plugin_protocol", plugin.protocol.clone());
         }
         graph.add_transform(edge.clone());
 
         if let Some(plugin) = definition {
-            let transform = plugins.get(&plugin.descriptor.id).expect("validated plugin declaration")
-                .clone().configured(def.config.clone().unwrap_or_else(|| serde_json::json!({})))?;
+            let transform = plugins
+                .get(&plugin.descriptor.id)
+                .expect("validated plugin declaration")
+                .clone()
+                .configured(def.config.clone().unwrap_or_else(|| serde_json::json!({})))?;
             executor.register_artifact_for_edge(&edge, Arc::new(transform));
         } else if def.is_collection() {
             let agg = Arc::new(def.to_aggregation_transform()?);
@@ -762,39 +813,63 @@ fn build_graph_executor_and_tools_at(yaml: &str, registry_dir: &Path) -> Result<
 
 fn registry_directory(path: &str) -> Result<PathBuf> {
     let path = fs::canonicalize(path).context("cannot resolve transform registry path")?;
-    Ok(path.parent().context("transform registry has no parent directory")?.to_path_buf())
+    Ok(path
+        .parent()
+        .context("transform registry has no parent directory")?
+        .to_path_buf())
 }
 
 fn parse_graph_config(yaml: &str) -> Result<YamlTransformConfig> {
-    let config: YamlTransformConfig = serde_yaml_ng::from_str(yaml)
-        .context("Failed to parse YAML transform config")?;
-    anyhow::ensure!(config.plugins.len() <= 128, "at most 128 command plugins may be declared");
+    let config: YamlTransformConfig =
+        serde_yaml_ng::from_str(yaml).context("Failed to parse YAML transform config")?;
+    anyhow::ensure!(
+        config.plugins.len() <= 128,
+        "at most 128 command plugins may be declared"
+    );
     let mut ids = std::collections::HashSet::new();
     for plugin in &config.plugins {
         plugin.validate()?;
         CapabilityId::new(plugin.descriptor.capability_id.clone())?;
-        anyhow::ensure!(ids.insert(&plugin.descriptor.id), "duplicate command plugin '{}'", plugin.descriptor.id);
+        anyhow::ensure!(
+            ids.insert(&plugin.descriptor.id),
+            "duplicate command plugin '{}'",
+            plugin.descriptor.id
+        );
     }
     let mut transform_ids = std::collections::HashSet::new();
     for def in &config.transforms {
         def.validate()?;
-        anyhow::ensure!(transform_ids.insert(&def.name), "duplicate transform identity '{}'", def.name);
+        anyhow::ensure!(
+            transform_ids.insert(&def.name),
+            "duplicate transform identity '{}'",
+            def.name
+        );
         referenced_command_plugin(&config, def)?;
     }
     Ok(config)
 }
 
-fn referenced_command_plugin<'a>(config: &'a YamlTransformConfig, def: &YamlTransformDef)
-    -> Result<Option<&'a CommandPluginDefinition>> {
-    let Some(id) = &def.plugin else { return Ok(None); };
+fn referenced_command_plugin<'a>(
+    config: &'a YamlTransformConfig,
+    def: &YamlTransformDef,
+) -> Result<Option<&'a CommandPluginDefinition>> {
+    let Some(id) = &def.plugin else {
+        return Ok(None);
+    };
     let plugin = config.plugins.iter().find(|plugin| &plugin.descriptor.id == id)
         .with_context(|| format!("transform '{}': plugin '{id}' is not declared in this registry; register it under plugins", def.name))?;
-    anyhow::ensure!(!def.is_collection(), "command plugin '{id}' supports single input only");
+    anyhow::ensure!(
+        !def.is_collection(),
+        "command plugin '{id}' supports single input only"
+    );
     let from = def.from.parse::<crate::graph::Format>()?.to_string();
     let to = def.to.parse::<crate::graph::Format>()?.to_string();
-    anyhow::ensure!(plugin.descriptor.input_formats.contains(&from)
-        && plugin.descriptor.output_formats.contains(&to),
-        "transform '{}': plugin '{id}' does not declare route {from} -> {to}", def.name);
+    anyhow::ensure!(
+        plugin.descriptor.input_formats.contains(&from)
+            && plugin.descriptor.output_formats.contains(&to),
+        "transform '{}': plugin '{id}' does not declare route {from} -> {to}",
+        def.name
+    );
     Ok(Some(plugin))
 }
 
@@ -1356,7 +1431,9 @@ transforms:
     cost: 0.5
     quality: 1.0
 "#;
-        let error = parse_transforms_from_str_with_plugins(yaml, &plugins).err().unwrap();
+        let error = parse_transforms_from_str_with_plugins(yaml, &plugins)
+            .err()
+            .unwrap();
         assert!(error.to_string().contains("exactly one"));
     }
 
@@ -1560,7 +1637,11 @@ transforms:
     quality: 1.0
 "#;
         let config: YamlTransformConfig = serde_yaml_ng::from_str(yaml).expect("should parse");
-        assert!(config.transforms[0].validate().unwrap_err().to_string().contains("exactly one"));
+        assert!(config.transforms[0]
+            .validate()
+            .unwrap_err()
+            .to_string()
+            .contains("exactly one"));
     }
 
     #[test]
@@ -1917,7 +1998,9 @@ transforms:
     quality: 1.0
 "#;
         let error = build_graph_and_executor_from_str(yaml).err().unwrap();
-        assert!(error.to_string().contains("duplicate transform identity 'same-renderer'"));
+        assert!(error
+            .to_string()
+            .contains("duplicate transform identity 'same-renderer'"));
     }
 
     #[test]

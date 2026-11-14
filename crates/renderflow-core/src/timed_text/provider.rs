@@ -93,7 +93,11 @@ pub enum SubtitleProviderError {
     #[error("subtitle stream index {0} was not present in the source")]
     StreamNotFound(u32),
     #[error("subtitle stream {index} uses unsupported codec '{codec}': {reason}")]
-    UnsupportedCodec { index: u32, codec: String, reason: String },
+    UnsupportedCodec {
+        index: u32,
+        codec: String,
+        reason: String,
+    },
     #[error("extracted subtitle data is unsupported or invalid: {0}")]
     InvalidSubtitle(String),
     #[error("subtitle source I/O failed: {0}")]
@@ -167,7 +171,11 @@ pub(crate) fn extract_stored(
         Format::WebM => "webm",
         Format::Mp4 => "mp4",
         Format::Mov => "mov",
-        _ => return Err(SubtitleProviderError::UnsupportedContainer(format.to_string())),
+        _ => {
+            return Err(SubtitleProviderError::UnsupportedContainer(
+                format.to_string(),
+            ))
+        }
     };
     let source = SourceSnapshot::read_as(input, Some(extension), &cancellation)?;
     if source.sha256 != expected_sha256 {
@@ -191,8 +199,18 @@ fn extract_snapshot(
     };
     let (executable, ffmpeg_version) = provider_version("tool.ffmpeg", &executor, &cancellation)?;
     source.recheck(&cancellation)?;
-    let request = bounded_request(&executable, MAX_SUBTITLE_BYTES, EXTRACT_TIMEOUT, &cancellation)
-        .args(extraction_arguments(&source.path, source.container, stream_index, &stream.codec)?);
+    let request = bounded_request(
+        &executable,
+        MAX_SUBTITLE_BYTES,
+        EXTRACT_TIMEOUT,
+        &cancellation,
+    )
+    .args(extraction_arguments(
+        &source.path,
+        source.container,
+        stream_index,
+        &stream.codec,
+    )?);
     let result = run_checked(&executor, request, &executable)?;
     refuse_media_errors(&result, &executable)?;
     source.recheck(&cancellation)?;
@@ -248,11 +266,13 @@ fn bounded_request(
         .stderr(ProcessOutputMode::capture(MAX_DIAGNOSTIC_BYTES))
         .timeout(timeout)
         .cancellation(cancellation.clone())
-        .environment(ProcessEnvironment::filtered_inherit()
-            .deny("FFREPORT")
-            .deny("AV_LOG_FORCE_COLOR")
-            .set("AV_LOG_FORCE_NOCOLOR", "1")
-            .set("LC_ALL", "C"))
+        .environment(
+            ProcessEnvironment::filtered_inherit()
+                .deny("FFREPORT")
+                .deny("AV_LOG_FORCE_COLOR")
+                .set("AV_LOG_FORCE_NOCOLOR", "1")
+                .set("LC_ALL", "C"),
+        )
         .network_policy(ProcessNetworkPolicy::Deny)
 }
 
@@ -263,25 +283,44 @@ fn provider_version(
 ) -> Result<(String, String), SubtitleProviderError> {
     ensure_not_cancelled(cancellation)?;
     let registry = ToolRegistry::builtins();
-    let descriptor = registry.get(id)
+    let descriptor = registry
+        .get(id)
         .ok_or_else(|| SubtitleProviderError::ProviderConfiguration(id.to_string()))?;
-    let ToolDiscovery::Executable { candidates, version_args } = &descriptor.discovery else {
+    let ToolDiscovery::Executable {
+        candidates,
+        version_args,
+    } = &descriptor.discovery
+    else {
         return Err(SubtitleProviderError::ProviderConfiguration(id.to_string()));
     };
-    let executable = candidates.first()
+    let executable = candidates
+        .first()
         .ok_or_else(|| SubtitleProviderError::ProviderConfiguration(id.to_string()))?;
-    let result = run_checked(executor,
-        bounded_request(executable, MAX_DIAGNOSTIC_BYTES, Duration::from_secs(5), cancellation)
-            .args(version_args.iter().cloned()), executable)?;
-    let line = result.stdout().redacted_text().lines()
+    let result = run_checked(
+        executor,
+        bounded_request(
+            executable,
+            MAX_DIAGNOSTIC_BYTES,
+            Duration::from_secs(5),
+            cancellation,
+        )
+        .args(version_args.iter().cloned()),
+        executable,
+    )?;
+    let line = result
+        .stdout()
+        .redacted_text()
+        .lines()
         .chain(result.stderr().redacted_text().lines())
         .find(|line| !line.trim().is_empty())
         .ok_or_else(|| SubtitleProviderError::ProviderFailed {
-            tool: executable.clone(), diagnostic: "version response was empty".to_string(),
+            tool: executable.clone(),
+            diagnostic: "version response was empty".to_string(),
         })?;
     if line.len() > 4096 || line.chars().any(char::is_control) {
         return Err(SubtitleProviderError::ProviderFailed {
-            tool: executable.clone(), diagnostic: "version response is not a bounded plain-text line".to_string(),
+            tool: executable.clone(),
+            diagnostic: "version response is not a bounded plain-text line".to_string(),
         });
     }
     let version = line.trim().to_string();
@@ -296,11 +335,13 @@ fn provider_version(
         diagnostic: None,
     });
     let inventory = registry.assess_ids_with([id], &recorded, &ToolRuntimeContext::current());
-    let availability = inventory.get(id)
+    let availability = inventory
+        .get(id)
         .ok_or_else(|| SubtitleProviderError::ProviderConfiguration(id.to_string()))?;
     if !availability.is_available() {
         return Err(SubtitleProviderError::ProviderFailed {
-            tool: executable.clone(), diagnostic: availability.summary(),
+            tool: executable.clone(),
+            diagnostic: availability.summary(),
         });
     }
     Ok((executable.clone(), version))
@@ -326,8 +367,13 @@ fn run_checked(
     tool: &str,
 ) -> Result<ProcessResult, SubtitleProviderError> {
     let result = executor.execute(request).map_err(|error| match error {
-        ProcessError::MissingExecutable { .. } => SubtitleProviderError::MissingProvider(tool.to_string()),
-        error => SubtitleProviderError::ProviderFailed { tool: tool.to_string(), diagnostic: error.to_string() },
+        ProcessError::MissingExecutable { .. } => {
+            SubtitleProviderError::MissingProvider(tool.to_string())
+        }
+        error => SubtitleProviderError::ProviderFailed {
+            tool: tool.to_string(),
+            diagnostic: error.to_string(),
+        },
     })?;
     if result.termination() == ProcessTermination::Cancelled {
         return Err(SubtitleProviderError::Cancelled);
@@ -337,7 +383,8 @@ fn run_checked(
     }
     if !result.is_success() {
         return Err(SubtitleProviderError::ProviderFailed {
-            tool: tool.to_string(), diagnostic: result.failure_message(),
+            tool: tool.to_string(),
+            diagnostic: result.failure_message(),
         });
     }
     Ok(result)
@@ -348,7 +395,12 @@ fn refuse_media_errors(result: &ProcessResult, tool: &str) -> Result<(), Subtitl
     // muxer can skip packets without timestamps with only a warning and return
     // success. Reject all such diagnostics rather than accept partial output.
     // Version probes may print to stderr and do not use this media-only check.
-    if result.stderr().bytes().iter().any(|byte| !byte.is_ascii_whitespace()) {
+    if result
+        .stderr()
+        .bytes()
+        .iter()
+        .any(|byte| !byte.is_ascii_whitespace())
+    {
         return Err(SubtitleProviderError::ProviderFailed {
             tool: tool.to_string(),
             diagnostic: format!(
@@ -361,32 +413,56 @@ fn refuse_media_errors(result: &ProcessResult, tool: &str) -> Result<(), Subtitl
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Container { Matroska, Mov }
+enum Container {
+    Matroska,
+    Mov,
+}
 
 impl Container {
     fn from_extension(extension: &str) -> Result<Self, SubtitleProviderError> {
         match extension {
             "mkv" | "mka" | "webm" => Ok(Self::Matroska),
             "mp4" | "m4v" | "mov" => Ok(Self::Mov),
-            _ => Err(SubtitleProviderError::UnsupportedContainer(extension.to_string())),
+            _ => Err(SubtitleProviderError::UnsupportedContainer(
+                extension.to_string(),
+            )),
         }
     }
 
     fn demuxer(self) -> &'static str {
-        match self { Self::Matroska => "matroska", Self::Mov => "mov" }
+        match self {
+            Self::Matroska => "matroska",
+            Self::Mov => "mov",
+        }
     }
 }
 
-fn input_arguments(path: &Path, container: Container) -> Result<Vec<String>, SubtitleProviderError> {
+fn input_arguments(
+    path: &Path,
+    container: Container,
+) -> Result<Vec<String>, SubtitleProviderError> {
     if !path.is_absolute() {
-        return Err(SubtitleProviderError::InvalidSource("native input must be absolute".to_string()));
+        return Err(SubtitleProviderError::InvalidSource(
+            "native input must be absolute".to_string(),
+        ));
     }
-    let input = path.to_str().ok_or_else(|| SubtitleProviderError::InvalidSource(
-        "native input path must be UTF-8".to_string()))?;
+    let input = path.to_str().ok_or_else(|| {
+        SubtitleProviderError::InvalidSource("native input path must be UTF-8".to_string())
+    })?;
     let mut arguments: Vec<String> = [
-        "-protocol_whitelist", "file,pipe", "-format_whitelist", container.demuxer(),
-        "-f", container.demuxer(), "-nofind_stream_info", "-max_streams", "256",
-    ].into_iter().map(str::to_string).collect();
+        "-protocol_whitelist",
+        "file,pipe",
+        "-format_whitelist",
+        container.demuxer(),
+        "-f",
+        container.demuxer(),
+        "-nofind_stream_info",
+        "-max_streams",
+        "256",
+    ]
+    .into_iter()
+    .map(str::to_string)
+    .collect();
     if container == Container::Mov {
         arguments.extend(["-enable_drefs", "0", "-use_absolute_path", "0"].map(str::to_string));
     }
@@ -394,12 +470,24 @@ fn input_arguments(path: &Path, container: Container) -> Result<Vec<String>, Sub
     Ok(arguments)
 }
 
-fn probe_arguments(path: &Path, container: Container) -> Result<Vec<String>, SubtitleProviderError> {
+fn probe_arguments(
+    path: &Path,
+    container: Container,
+) -> Result<Vec<String>, SubtitleProviderError> {
     let mut arguments: Vec<String> = [
-        "-hide_banner", "-loglevel", "warning", "-select_streams", "s",
-        "-show_entries", "stream=index,codec_name,codec_type:stream_tags=language",
-        "-print_format", "json",
-    ].into_iter().map(str::to_string).collect();
+        "-hide_banner",
+        "-loglevel",
+        "warning",
+        "-select_streams",
+        "s",
+        "-show_entries",
+        "stream=index,codec_name,codec_type:stream_tags=language",
+        "-print_format",
+        "json",
+    ]
+    .into_iter()
+    .map(str::to_string)
+    .collect();
     arguments.extend(input_arguments(path, container)?);
     Ok(arguments)
 }
@@ -416,8 +504,16 @@ fn extraction_arguments(
         _ => return Err(unsupported_codec(stream_index, codec)),
     };
     let mut arguments: Vec<String> = [
-        "-hide_banner", "-loglevel", "warning", "-nostdin", "-xerror", "-copyts",
-    ].into_iter().map(str::to_string).collect();
+        "-hide_banner",
+        "-loglevel",
+        "warning",
+        "-nostdin",
+        "-xerror",
+        "-copyts",
+    ]
+    .into_iter()
+    .map(str::to_string)
+    .collect();
     // FFmpeg can warn while guessing layouts on unrelated audio streams even
     // when only subtitles are mapped. No audio layout is needed for this copy
     // route. Disable that inference rather than weaken warning refusal. This
@@ -425,19 +521,30 @@ fn extraction_arguments(
     arguments.extend(["-guess_layout_max", "0"].map(str::to_string));
     arguments.extend(input_arguments(path, container)?);
     arguments.extend([
-        "-map".to_string(), format!("0:{stream_index}"),
-        "-vn".to_string(), "-an".to_string(), "-dn".to_string(),
-        "-codec:s".to_string(), "copy".to_string(),
-        "-map_metadata".to_string(), "-1".to_string(),
-        "-map_chapters".to_string(), "-1".to_string(),
-        "-avoid_negative_ts".to_string(), "disabled".to_string(),
-        "-f".to_string(), muxer.to_string(), "pipe:1".to_string(),
+        "-map".to_string(),
+        format!("0:{stream_index}"),
+        "-vn".to_string(),
+        "-an".to_string(),
+        "-dn".to_string(),
+        "-codec:s".to_string(),
+        "copy".to_string(),
+        "-map_metadata".to_string(),
+        "-1".to_string(),
+        "-map_chapters".to_string(),
+        "-1".to_string(),
+        "-avoid_negative_ts".to_string(),
+        "disabled".to_string(),
+        "-f".to_string(),
+        muxer.to_string(),
+        "pipe:1".to_string(),
     ]);
     Ok(arguments)
 }
 
 #[derive(Deserialize)]
-struct ProbeDocument { streams: Vec<ProbeStream> }
+struct ProbeDocument {
+    streams: Vec<ProbeStream>,
+}
 
 #[derive(Deserialize)]
 struct ProbeStream {
@@ -449,33 +556,52 @@ struct ProbeStream {
 }
 
 #[derive(Default, Deserialize)]
-struct ProbeTags { language: Option<String> }
+struct ProbeTags {
+    language: Option<String>,
+}
 
 fn parse_probe(bytes: &[u8]) -> Result<Vec<SubtitleStream>, SubtitleProviderError> {
     if bytes.len() > MAX_PROBE_BYTES {
-        return Err(SubtitleProviderError::TruncatedCapture("ffprobe".to_string()));
+        return Err(SubtitleProviderError::TruncatedCapture(
+            "ffprobe".to_string(),
+        ));
     }
     let document: ProbeDocument = serde_json::from_slice(bytes)
         .map_err(|error| SubtitleProviderError::MalformedProbe(error.to_string()))?;
     if document.streams.len() > MAX_STREAMS {
-        return Err(SubtitleProviderError::MalformedProbe("more than 256 subtitle streams".to_string()));
+        return Err(SubtitleProviderError::MalformedProbe(
+            "more than 256 subtitle streams".to_string(),
+        ));
     }
     let mut seen = BTreeSet::new();
     let mut streams = Vec::with_capacity(document.streams.len());
     for stream in document.streams {
         if stream.codec_type != "subtitle" || !seen.insert(stream.index) {
-            return Err(SubtitleProviderError::MalformedProbe("non-subtitle or duplicate stream index".to_string()));
+            return Err(SubtitleProviderError::MalformedProbe(
+                "non-subtitle or duplicate stream index".to_string(),
+            ));
         }
-        if stream.codec_name.is_empty() || stream.codec_name.len() > 128
-            || !stream.codec_name.bytes().all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
+        if stream.codec_name.is_empty()
+            || stream.codec_name.len() > 128
+            || !stream
+                .codec_name
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
         {
-            return Err(SubtitleProviderError::MalformedProbe("invalid codec name".to_string()));
+            return Err(SubtitleProviderError::MalformedProbe(
+                "invalid codec name".to_string(),
+            ));
         }
-        if stream.tags.language.as_ref().is_some_and(|language|
-            language.is_empty() || language.len() > 64 || !language.bytes().all(|byte|
-                byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_')))
-        {
-            return Err(SubtitleProviderError::MalformedProbe("invalid stream language tag".to_string()));
+        if stream.tags.language.as_ref().is_some_and(|language| {
+            language.is_empty()
+                || language.len() > 64
+                || !language
+                    .bytes()
+                    .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
+        }) {
+            return Err(SubtitleProviderError::MalformedProbe(
+                "invalid stream language tag".to_string(),
+            ));
         }
         let reason = unsupported_reason(&stream.codec_name);
         streams.push(SubtitleStream {
@@ -493,9 +619,12 @@ fn parse_probe(bytes: &[u8]) -> Result<Vec<SubtitleStream>, SubtitleProviderErro
 fn unsupported_reason(codec: &str) -> Option<&'static str> {
     match codec {
         "subrip" | "webvtt" => None,
-        "hdmv_pgs_subtitle" | "dvd_subtitle" | "dvb_subtitle" | "xsub" =>
-            Some("bitmap subtitles require a separate OCR provider; OCR is not performed"),
-        "ass" | "ssa" => Some("styled ASS/SSA needs a style-preserving adapter or explicit loss policy"),
+        "hdmv_pgs_subtitle" | "dvd_subtitle" | "dvb_subtitle" | "xsub" => {
+            Some("bitmap subtitles require a separate OCR provider; OCR is not performed")
+        }
+        "ass" | "ssa" => {
+            Some("styled ASS/SSA needs a style-preserving adapter or explicit loss policy")
+        }
         "mov_text" => Some("MOV timed text is not supported by this stream-copy profile"),
         _ => Some("only embedded SubRip and WebVTT are supported by this profile"),
     }
@@ -503,14 +632,24 @@ fn unsupported_reason(codec: &str) -> Option<&'static str> {
 
 fn unsupported_codec(index: u32, codec: &str) -> SubtitleProviderError {
     SubtitleProviderError::UnsupportedCodec {
-        index, codec: codec.to_string(),
-        reason: unsupported_reason(codec).unwrap_or("codec is not supported").to_string(),
+        index,
+        codec: codec.to_string(),
+        reason: unsupported_reason(codec)
+            .unwrap_or("codec is not supported")
+            .to_string(),
     }
 }
 
-fn selected_stream(streams: &[SubtitleStream], index: u32) -> Result<&SubtitleStream, SubtitleProviderError> {
-    if streams.is_empty() { return Err(SubtitleProviderError::NoSubtitleStreams); }
-    let stream = streams.iter().find(|stream| stream.index == index)
+fn selected_stream(
+    streams: &[SubtitleStream],
+    index: u32,
+) -> Result<&SubtitleStream, SubtitleProviderError> {
+    if streams.is_empty() {
+        return Err(SubtitleProviderError::NoSubtitleStreams);
+    }
+    let stream = streams
+        .iter()
+        .find(|stream| stream.index == index)
         .ok_or(SubtitleProviderError::StreamNotFound(index))?;
     if unsupported_reason(&stream.codec).is_some() {
         return Err(unsupported_codec(index, &stream.codec));
@@ -527,7 +666,10 @@ struct SourceSnapshot {
 }
 
 impl SourceSnapshot {
-    fn read(input: &Path, cancellation: &ProcessCancellationToken) -> Result<Self, SubtitleProviderError> {
+    fn read(
+        input: &Path,
+        cancellation: &ProcessCancellationToken,
+    ) -> Result<Self, SubtitleProviderError> {
         Self::read_as(input, None, cancellation)
     }
 
@@ -540,20 +682,32 @@ impl SourceSnapshot {
         let metadata = fs::symlink_metadata(input)
             .map_err(|error| SubtitleProviderError::InvalidSource(error.to_string()))?;
         if !metadata.is_file() || metadata.file_type().is_symlink() {
-            return Err(SubtitleProviderError::InvalidSource(input.display().to_string()));
+            return Err(SubtitleProviderError::InvalidSource(
+                input.display().to_string(),
+            ));
         }
         let path = fs::canonicalize(input)?;
         let extension = declared_extension
             .or_else(|| path.extension().and_then(|extension| extension.to_str()))
-            .unwrap_or("").to_ascii_lowercase();
+            .unwrap_or("")
+            .to_ascii_lowercase();
         let container = Container::from_extension(&extension)?;
         // Validate representability before hashing a potentially large file.
         input_arguments(&path, container)?;
         let (metadata, sha256) = hash_source(&path, cancellation)?;
-        Ok(Self { path, extension, container, metadata, sha256 })
+        Ok(Self {
+            path,
+            extension,
+            container,
+            metadata,
+            sha256,
+        })
     }
 
-    fn recheck(&self, cancellation: &ProcessCancellationToken) -> Result<(), SubtitleProviderError> {
+    fn recheck(
+        &self,
+        cancellation: &ProcessCancellationToken,
+    ) -> Result<(), SubtitleProviderError> {
         let (metadata, digest) = hash_source(&self.path, cancellation)?;
         if digest != self.sha256 || !same_metadata(&self.metadata, &metadata) {
             return Err(SubtitleProviderError::SourceChanged);
@@ -563,50 +717,80 @@ impl SourceSnapshot {
 }
 
 fn same_metadata(left: &Metadata, right: &Metadata) -> bool {
-    if !left.is_file() || !right.is_file() || left.len() != right.len()
+    if !left.is_file()
+        || !right.is_file()
+        || left.len() != right.len()
         || left.modified().ok() != right.modified().ok()
-    { return false; }
+    {
+        return false;
+    }
     #[cfg(unix)]
     {
         use std::os::unix::fs::MetadataExt;
-        if left.dev() != right.dev() || left.ino() != right.ino()
-            || left.ctime() != right.ctime() || left.ctime_nsec() != right.ctime_nsec()
-        { return false; }
+        if left.dev() != right.dev()
+            || left.ino() != right.ino()
+            || left.ctime() != right.ctime()
+            || left.ctime_nsec() != right.ctime_nsec()
+        {
+            return false;
+        }
     }
     true
 }
 
-fn hash_source(path: &Path, cancellation: &ProcessCancellationToken) -> Result<(Metadata, String), SubtitleProviderError> {
+fn hash_source(
+    path: &Path,
+    cancellation: &ProcessCancellationToken,
+) -> Result<(Metadata, String), SubtitleProviderError> {
     let path_metadata = fs::symlink_metadata(path)?;
     if !path_metadata.is_file() || path_metadata.file_type().is_symlink() {
         return Err(SubtitleProviderError::SourceChanged);
     }
     let mut file = File::open(path)?;
     let metadata = file.metadata()?;
-    if !same_metadata(&path_metadata, &metadata) { return Err(SubtitleProviderError::SourceChanged); }
-    if metadata.len() > MAX_SOURCE_BYTES { return Err(SubtitleProviderError::SourceTooLarge); }
+    if !same_metadata(&path_metadata, &metadata) {
+        return Err(SubtitleProviderError::SourceChanged);
+    }
+    if metadata.len() > MAX_SOURCE_BYTES {
+        return Err(SubtitleProviderError::SourceTooLarge);
+    }
     let started = Instant::now();
     let mut hash = Sha256::new();
     let mut buffer = [0_u8; 64 * 1024];
     let mut total = 0_u64;
     loop {
         ensure_not_cancelled(cancellation)?;
-        if started.elapsed() >= HASH_TIMEOUT { return Err(SubtitleProviderError::HashTimeout); }
+        if started.elapsed() >= HASH_TIMEOUT {
+            return Err(SubtitleProviderError::HashTimeout);
+        }
         let count = file.read(&mut buffer)?;
-        if count == 0 { break; }
+        if count == 0 {
+            break;
+        }
         total += count as u64;
-        if total > MAX_SOURCE_BYTES { return Err(SubtitleProviderError::SourceTooLarge); }
+        if total > MAX_SOURCE_BYTES {
+            return Err(SubtitleProviderError::SourceTooLarge);
+        }
         hash.update(&buffer[..count]);
     }
     let after = file.metadata()?;
-    if total != metadata.len() || !same_metadata(&metadata, &after)
+    if total != metadata.len()
+        || !same_metadata(&metadata, &after)
         || !same_metadata(&after, &fs::symlink_metadata(path)?)
-    { return Err(SubtitleProviderError::SourceChanged); }
+    {
+        return Err(SubtitleProviderError::SourceChanged);
+    }
     Ok((metadata, format!("{:x}", hash.finalize())))
 }
 
-fn ensure_not_cancelled(cancellation: &ProcessCancellationToken) -> Result<(), SubtitleProviderError> {
-    if cancellation.is_cancelled() { Err(SubtitleProviderError::Cancelled) } else { Ok(()) }
+fn ensure_not_cancelled(
+    cancellation: &ProcessCancellationToken,
+) -> Result<(), SubtitleProviderError> {
+    if cancellation.is_cancelled() {
+        Err(SubtitleProviderError::Cancelled)
+    } else {
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -620,14 +804,21 @@ mod tests {
         assert_eq!(streams[0].language.as_deref(), Some("eng"));
         assert!(streams[0].supported);
         assert!(!streams[1].supported);
-        assert!(streams[1].unsupported_reason.as_deref().unwrap().contains("OCR"));
+        assert!(streams[1]
+            .unsupported_reason
+            .as_deref()
+            .unwrap()
+            .contains("OCR"));
     }
 
     #[test]
     fn empty_discovery_is_distinct_from_extracting_absent_stream() {
         let streams = parse_probe(br#"{"streams":[]}"#).unwrap();
         assert!(streams.is_empty());
-        assert!(matches!(selected_stream(&streams, 0), Err(SubtitleProviderError::NoSubtitleStreams)));
+        assert!(matches!(
+            selected_stream(&streams, 0),
+            Err(SubtitleProviderError::NoSubtitleStreams)
+        ));
     }
 
     #[test]
@@ -643,16 +834,30 @@ mod tests {
 
     #[test]
     fn absent_selected_stream_never_falls_back_to_first_stream() {
-        let streams = parse_probe(br#"{"streams":[{"index":3,"codec_name":"subrip","codec_type":"subtitle"}]}"#).unwrap();
-        assert!(matches!(selected_stream(&streams, 0), Err(SubtitleProviderError::StreamNotFound(0))));
+        let streams = parse_probe(
+            br#"{"streams":[{"index":3,"codec_name":"subrip","codec_type":"subtitle"}]}"#,
+        )
+        .unwrap();
+        assert!(matches!(
+            selected_stream(&streams, 0),
+            Err(SubtitleProviderError::StreamNotFound(0))
+        ));
     }
 
     #[test]
     fn bitmap_styled_and_mov_text_are_typed_refusals() {
         for codec in ["hdmv_pgs_subtitle", "ass", "ssa", "mov_text", "unknown"] {
-            let streams = vec![SubtitleStream { index: 2, codec: codec.to_string(), language: None,
-                supported: false, unsupported_reason: None }];
-            assert!(matches!(selected_stream(&streams, 2), Err(SubtitleProviderError::UnsupportedCodec { .. })));
+            let streams = vec![SubtitleStream {
+                index: 2,
+                codec: codec.to_string(),
+                language: None,
+                supported: false,
+                unsupported_reason: None,
+            }];
+            assert!(matches!(
+                selected_stream(&streams, 2),
+                Err(SubtitleProviderError::UnsupportedCodec { .. })
+            ));
         }
     }
 
@@ -662,15 +867,22 @@ mod tests {
         let args = extraction_arguments(&path, Container::Matroska, 7, "subrip").unwrap();
         assert!(args.windows(2).any(|pair| pair == ["-map", "0:7"]));
         assert!(args.windows(2).any(|pair| pair == ["-codec:s", "copy"]));
-        assert!(args.windows(2).any(|pair| pair == ["-avoid_negative_ts", "disabled"]));
+        assert!(args
+            .windows(2)
+            .any(|pair| pair == ["-avoid_negative_ts", "disabled"]));
         assert!(args.contains(&"-copyts".to_string()));
         assert!(args.contains(&"-nofind_stream_info".to_string()));
-        let layout_option = args.iter().position(|arg| arg == "-guess_layout_max").unwrap();
+        let layout_option = args
+            .iter()
+            .position(|arg| arg == "-guess_layout_max")
+            .unwrap();
         let input_option = args.iter().position(|arg| arg == "-i").unwrap();
         assert_eq!(args[layout_option + 1], "0");
         assert!(layout_option < input_option);
-        assert!(!probe_arguments(&path, Container::Matroska).unwrap()
-            .iter().any(|arg| arg == "-guess_layout_max"));
+        assert!(!probe_arguments(&path, Container::Matroska)
+            .unwrap()
+            .iter()
+            .any(|arg| arg == "-guess_layout_max"));
         assert!(args.contains(&"-vn".to_string()) && args.contains(&"-an".to_string()));
         assert_eq!(args.last().map(String::as_str), Some("pipe:1"));
         assert!(args.contains(&path.to_str().unwrap().to_string()));
@@ -680,15 +892,23 @@ mod tests {
     fn mov_input_disables_external_tracks_and_forces_local_demuxing() {
         let path = std::env::temp_dir().join("source.mp4");
         let args = probe_arguments(&path, Container::Mov).unwrap();
-        for pair in [["-enable_drefs", "0"], ["-use_absolute_path", "0"],
-            ["-format_whitelist", "mov"], ["-protocol_whitelist", "file,pipe"]]
-        { assert!(args.windows(2).any(|window| window == pair)); }
+        for pair in [
+            ["-enable_drefs", "0"],
+            ["-use_absolute_path", "0"],
+            ["-format_whitelist", "mov"],
+            ["-protocol_whitelist", "file,pipe"],
+        ] {
+            assert!(args.windows(2).any(|window| window == pair));
+        }
     }
 
     #[test]
     fn playlists_and_unknown_containers_are_refused_before_launch() {
         for extension in ["m3u8", "mpd", "ffconcat", "avi", "", "srt"] {
-            assert!(matches!(Container::from_extension(extension), Err(SubtitleProviderError::UnsupportedContainer(_))));
+            assert!(matches!(
+                Container::from_extension(extension),
+                Err(SubtitleProviderError::UnsupportedContainer(_))
+            ));
         }
         assert!(input_arguments(Path::new("relative.mkv"), Container::Matroska).is_err());
     }
@@ -701,20 +921,29 @@ mod tests {
         let token = ProcessCancellationToken::new();
         let snapshot = SourceSnapshot::read(&path, &token).unwrap();
         fs::write(&path, b"synthetic-two").unwrap();
-        assert!(matches!(snapshot.recheck(&token), Err(SubtitleProviderError::SourceChanged)));
+        assert!(matches!(
+            snapshot.recheck(&token),
+            Err(SubtitleProviderError::SourceChanged)
+        ));
     }
 
     #[test]
     fn cancellation_prevents_source_and_provider_work() {
         let token = ProcessCancellationToken::new();
         token.cancel();
-        assert!(matches!(inspect_with_cancellation(Path::new("missing.mkv"), token), Err(SubtitleProviderError::Cancelled)));
+        assert!(matches!(
+            inspect_with_cancellation(Path::new("missing.mkv"), token),
+            Err(SubtitleProviderError::Cancelled)
+        ));
     }
 
     #[test]
     fn overlarge_probe_capture_is_not_parsed_as_complete() {
         let bytes = vec![b' '; MAX_PROBE_BYTES + 1];
-        assert!(matches!(parse_probe(&bytes), Err(SubtitleProviderError::TruncatedCapture(_))));
+        assert!(matches!(
+            parse_probe(&bytes),
+            Err(SubtitleProviderError::TruncatedCapture(_))
+        ));
     }
 
     #[test]
@@ -728,7 +957,9 @@ mod tests {
         assert_eq!(snapshot.extension, "mkv");
         assert_eq!(snapshot.container, Container::Matroska);
         assert_eq!(fs::read_dir(directory.path()).unwrap().count(), 1);
-        assert!(matches!(extract_stored(&path, Format::Mkv, &"0".repeat(64), 2, token),
-            Err(SubtitleProviderError::SourceChanged)));
+        assert!(matches!(
+            extract_stored(&path, Format::Mkv, &"0".repeat(64), 2, token),
+            Err(SubtitleProviderError::SourceChanged)
+        ));
     }
 }

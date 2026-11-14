@@ -252,11 +252,9 @@ impl ValidationRegistry {
             Format::Epub | Format::Kepub => Some("validator.core.epub"),
             Format::Zip | Format::Docx | Format::Cbz => Some("validator.core.zip"),
             Format::Wav | Format::Bwf => Some("validator.core.riff_wave"),
-            Format::Text
-            | Format::Markdown
-            | Format::Rst
-            | Format::Latex
-            | Format::Toml => Some("validator.core.utf8"),
+            Format::Text | Format::Markdown | Format::Rst | Format::Latex | Format::Toml => {
+                Some("validator.core.utf8")
+            }
             _ => Some("validator.core.declared_signature"),
         };
         if let Some(specific) = specific {
@@ -379,12 +377,19 @@ impl ArtifactValidator for Utf8Validator {
 
     fn validate(&self, artifact: &Artifact, store: &ArtifactStore) -> Result<ValidationCheck> {
         if artifact.format().as_str() == Format::Text.to_string()
-            && artifact.metadata().contains_key(crate::timed_text::graph::SUBTITLE_ARTIFACT_METADATA_KEY)
+            && artifact
+                .metadata()
+                .contains_key(crate::timed_text::graph::SUBTITLE_ARTIFACT_METADATA_KEY)
         {
-            return Ok(match crate::timed_text::graph::validate_text_export_artifact(artifact, store) {
-                Ok(_) => ValidationCheck::valid(),
-                Err(error) => ValidationCheck::invalid("validation.invalid_transcript_text", error.to_string()),
-            });
+            return Ok(
+                match crate::timed_text::graph::validate_text_export_artifact(artifact, store) {
+                    Ok(_) => ValidationCheck::valid(),
+                    Err(error) => ValidationCheck::invalid(
+                        "validation.invalid_transcript_text",
+                        error.to_string(),
+                    ),
+                },
+            );
         }
         match String::from_utf8(store.read_bytes(artifact)?) {
             Ok(_) => Ok(ValidationCheck::valid()),
@@ -439,7 +444,8 @@ impl ArtifactValidator for TimedTextValidator {
         // Bound the actual read as well as both size declarations: an object
         // may have grown after its metadata was observed.
         let mut bytes = Vec::new();
-        file.take(MAX_INPUT_BYTES as u64 + 1).read_to_end(&mut bytes)?;
+        file.take(MAX_INPUT_BYTES as u64 + 1)
+            .read_to_end(&mut bytes)?;
         if bytes.len() > MAX_INPUT_BYTES {
             return Ok(too_large());
         }
@@ -486,7 +492,8 @@ impl ArtifactValidator for ScreenplayValidator {
             return Ok(too_large());
         }
         let mut bytes = Vec::new();
-        file.take(MAX_INPUT_BYTES as u64 + 1).read_to_end(&mut bytes)?;
+        file.take(MAX_INPUT_BYTES as u64 + 1)
+            .read_to_end(&mut bytes)?;
         if bytes.len() > MAX_INPUT_BYTES {
             return Ok(too_large());
         }
@@ -518,16 +525,25 @@ impl ArtifactValidator for FountainSubsetValidator {
         use crate::screenplay::native::{parse_native, NativeScreenplayFormat};
         use crate::screenplay::MAX_INPUT_BYTES;
 
-        let too_large = || ValidationCheck::invalid(
-            "validation.fountain_subset_too_large",
-            "Fountain artifact exceeds the subset validator's 16 MiB input limit",
-        );
-        if artifact.size_bytes() > MAX_INPUT_BYTES as u64 { return Ok(too_large()); }
+        let too_large = || {
+            ValidationCheck::invalid(
+                "validation.fountain_subset_too_large",
+                "Fountain artifact exceeds the subset validator's 16 MiB input limit",
+            )
+        };
+        if artifact.size_bytes() > MAX_INPUT_BYTES as u64 {
+            return Ok(too_large());
+        }
         let file = store.open(artifact)?;
-        if file.metadata()?.len() > MAX_INPUT_BYTES as u64 { return Ok(too_large()); }
+        if file.metadata()?.len() > MAX_INPUT_BYTES as u64 {
+            return Ok(too_large());
+        }
         let mut bytes = Vec::new();
-        file.take(MAX_INPUT_BYTES as u64 + 1).read_to_end(&mut bytes)?;
-        if bytes.len() > MAX_INPUT_BYTES { return Ok(too_large()); }
+        file.take(MAX_INPUT_BYTES as u64 + 1)
+            .read_to_end(&mut bytes)?;
+        if bytes.len() > MAX_INPUT_BYTES {
+            return Ok(too_large());
+        }
         match parse_native(&bytes, NativeScreenplayFormat::Fountain) {
             Ok(_) => Ok(ValidationCheck::valid()),
             Err(error) => Ok(ValidationCheck::invalid(
@@ -1030,22 +1046,35 @@ mod tests {
             evidence.validator_id == "validator.core.screenplay"
                 && evidence.state == ValidationState::Valid
         }));
-        assert_eq!(timed_text_outcome(Format::ScreenplayJson, b"{}").state, ValidationState::Invalid);
-        assert_eq!(timed_text_outcome(Format::Json, b"{}").state, ValidationState::Valid);
+        assert_eq!(
+            timed_text_outcome(Format::ScreenplayJson, b"{}").state,
+            ValidationState::Invalid
+        );
+        assert_eq!(
+            timed_text_outcome(Format::Json, b"{}").state,
+            ValidationState::Valid
+        );
 
         let mut invalid: serde_json::Value = serde_json::from_slice(bytes).unwrap();
         invalid["dual_dialogue"][0]["right_character_id"] = serde_json::json!("missing-character");
-        let outcome = timed_text_outcome(Format::ScreenplayJson, &serde_json::to_vec(&invalid).unwrap());
+        let outcome = timed_text_outcome(
+            Format::ScreenplayJson,
+            &serde_json::to_vec(&invalid).unwrap(),
+        );
         assert_eq!(outcome.state, ValidationState::Invalid);
         assert!(outcome.validators.iter().any(|evidence| {
-            evidence.diagnostics.iter().any(|diagnostic| diagnostic.code == "validation.invalid_screenplay")
+            evidence
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "validation.invalid_screenplay")
         }));
     }
 
     #[test]
     fn native_screenplay_defaults_do_not_claim_structural_validation() {
         for format in [Format::Fdx, Format::FadeIn, Format::Osf] {
-            let outcome = timed_text_outcome(format, b"nonempty text is not a validated screenplay");
+            let outcome =
+                timed_text_outcome(format, b"nonempty text is not a validated screenplay");
             assert_eq!(outcome.state, ValidationState::Unavailable);
             assert!(!outcome.validators.iter().any(|evidence| {
                 evidence.validator_id == "validator.core.utf8"
@@ -1061,10 +1090,17 @@ mod tests {
         let outcome = timed_text_outcome(Format::Fountain, bytes);
         assert_eq!(outcome.state, ValidationState::Valid);
         assert!(outcome.validators.iter().any(|evidence| {
-            evidence.validator_id == "validator.core.fountain_subset" && evidence.state == ValidationState::Valid
+            evidence.validator_id == "validator.core.fountain_subset"
+                && evidence.state == ValidationState::Valid
         }));
-        assert!(!outcome.validators.iter().any(|evidence| evidence.validator_id == "validator.core.declared_signature"));
-        let descriptor = ValidationRegistry::builtins().get("validator.core.fountain_subset").unwrap().descriptor();
+        assert!(!outcome
+            .validators
+            .iter()
+            .any(|evidence| evidence.validator_id == "validator.core.declared_signature"));
+        let descriptor = ValidationRegistry::builtins()
+            .get("validator.core.fountain_subset")
+            .unwrap()
+            .descriptor();
         assert_eq!(descriptor.support_tier, ValidatorSupportTier::Experimental);
         assert_eq!(descriptor.formats, vec!["fountain".to_owned()]);
     }
@@ -1080,9 +1116,14 @@ mod tests {
         ] {
             let outcome = timed_text_outcome(Format::Fountain, bytes);
             assert_eq!(outcome.state, ValidationState::Invalid);
-            assert!(outcome.validators.iter().any(|evidence| evidence.diagnostics.iter()
+            assert!(outcome.validators.iter().any(|evidence| evidence
+                .diagnostics
+                .iter()
                 .any(|diagnostic| diagnostic.code == "validation.invalid_fountain_subset")));
-            assert!(!outcome.validators.iter().any(|evidence| evidence.validator_id == "validator.core.utf8"));
+            assert!(!outcome
+                .validators
+                .iter()
+                .any(|evidence| evidence.validator_id == "validator.core.utf8"));
         }
     }
 
@@ -1090,26 +1131,39 @@ mod tests {
     fn fountain_subset_validator_bounds_actual_store_payload_before_read() {
         let directory = tempfile::tempdir().unwrap();
         let store = ArtifactStore::new(directory.path()).unwrap();
-        let artifact = store.put_bytes(
-            b"small",
-            ArtifactDescriptor::for_format(Format::Fountain, ArtifactStorageClass::Terminal),
-        ).unwrap();
-        std::fs::OpenOptions::new().write(true)
-            .open(store.payload_path(&artifact).unwrap()).unwrap()
-            .set_len(crate::screenplay::MAX_INPUT_BYTES as u64 + 1).unwrap();
+        let artifact = store
+            .put_bytes(
+                b"small",
+                ArtifactDescriptor::for_format(Format::Fountain, ArtifactStorageClass::Terminal),
+            )
+            .unwrap();
+        std::fs::OpenOptions::new()
+            .write(true)
+            .open(store.payload_path(&artifact).unwrap())
+            .unwrap()
+            .set_len(crate::screenplay::MAX_INPUT_BYTES as u64 + 1)
+            .unwrap();
         let check = FountainSubsetValidator.validate(&artifact, &store).unwrap();
         assert_eq!(check.state, ValidationState::Invalid);
-        assert_eq!(check.diagnostics[0].code, "validation.fountain_subset_too_large");
+        assert_eq!(
+            check.diagnostics[0].code,
+            "validation.fountain_subset_too_large"
+        );
     }
 
     #[test]
     fn screenplay_validator_bounds_actual_store_payload_before_read() {
         let directory = tempfile::tempdir().unwrap();
         let store = ArtifactStore::new(directory.path()).unwrap();
-        let artifact = store.put_bytes(
-            b"small",
-            ArtifactDescriptor::for_format(Format::ScreenplayJson, ArtifactStorageClass::Terminal),
-        ).unwrap();
+        let artifact = store
+            .put_bytes(
+                b"small",
+                ArtifactDescriptor::for_format(
+                    Format::ScreenplayJson,
+                    ArtifactStorageClass::Terminal,
+                ),
+            )
+            .unwrap();
         std::fs::OpenOptions::new()
             .write(true)
             .open(store.payload_path(&artifact).unwrap())
@@ -1124,8 +1178,14 @@ mod tests {
     #[test]
     fn subtitle_defaults_parse_timing_and_supported_profile() {
         for (format, bytes) in [
-            (Format::Srt, b"1\n00:00:01,000 --> 00:00:02,000\nHello.\n".as_slice()),
-            (Format::WebVtt, b"WEBVTT\n\ncue-one\n00:00:01.000 --> 00:00:02.000\nHello.\n".as_slice()),
+            (
+                Format::Srt,
+                b"1\n00:00:01,000 --> 00:00:02,000\nHello.\n".as_slice(),
+            ),
+            (
+                Format::WebVtt,
+                b"WEBVTT\n\ncue-one\n00:00:01.000 --> 00:00:02.000\nHello.\n".as_slice(),
+            ),
         ] {
             let outcome = timed_text_outcome(format, bytes);
             assert_eq!(outcome.state, ValidationState::Valid);
@@ -1133,60 +1193,105 @@ mod tests {
                 evidence.validator_id == "validator.core.timed_text"
                     && evidence.state == ValidationState::Valid
             }));
-            assert!(!outcome.validators.iter().any(|evidence| {
-                evidence.validator_id == "validator.core.utf8"
-            }));
+            assert!(!outcome
+                .validators
+                .iter()
+                .any(|evidence| { evidence.validator_id == "validator.core.utf8" }));
         }
     }
 
     #[test]
     fn transcript_text_uses_utf8_with_evidence_and_payload_checks_without_timing_import() {
         use crate::artifact::ArtifactTransform;
-        use crate::timed_text::graph::{TimedTextArtifactTransform, SUBTITLE_ARTIFACT_METADATA_KEY};
+        use crate::timed_text::graph::{
+            TimedTextArtifactTransform, SUBTITLE_ARTIFACT_METADATA_KEY,
+        };
 
         let directory = tempfile::tempdir().unwrap();
         let store = ArtifactStore::new(directory.path()).unwrap();
-        let source = store.put_bytes(b"1\n00:00:01,000 --> 00:00:02,000\nSynthetic cue\n",
-            ArtifactDescriptor::for_format(Format::Srt, ArtifactStorageClass::Source)).unwrap();
-        let canonical = TimedTextArtifactTransform::new(Format::Srt, Format::TimedTranscriptJson).unwrap()
-            .apply(&source, Format::TimedTranscriptJson, &store).unwrap();
-        let text = TimedTextArtifactTransform::new(Format::TimedTranscriptJson, Format::Text).unwrap()
-            .apply(&canonical, Format::Text, &store).unwrap();
+        let source = store
+            .put_bytes(
+                b"1\n00:00:01,000 --> 00:00:02,000\nSynthetic cue\n",
+                ArtifactDescriptor::for_format(Format::Srt, ArtifactStorageClass::Source),
+            )
+            .unwrap();
+        let canonical = TimedTextArtifactTransform::new(Format::Srt, Format::TimedTranscriptJson)
+            .unwrap()
+            .apply(&source, Format::TimedTranscriptJson, &store)
+            .unwrap();
+        let text = TimedTextArtifactTransform::new(Format::TimedTranscriptJson, Format::Text)
+            .unwrap()
+            .apply(&canonical, Format::Text, &store)
+            .unwrap();
         let registry = ValidationRegistry::builtins();
         let outcome = registry.validate_in_store(&text, Format::Text, &[], &store);
         assert_eq!(outcome.state, ValidationState::Valid);
-        assert!(outcome.validators.iter().any(|evidence| evidence.validator_id == "validator.core.utf8"));
-        assert!(!outcome.validators.iter().any(|evidence| evidence.validator_id == "validator.core.timed_text"));
+        assert!(outcome
+            .validators
+            .iter()
+            .any(|evidence| evidence.validator_id == "validator.core.utf8"));
+        assert!(!outcome
+            .validators
+            .iter()
+            .any(|evidence| evidence.validator_id == "validator.core.timed_text"));
         let mut changed = serde_json::to_value(&text).unwrap();
-        changed["metadata"][SUBTITLE_ARTIFACT_METADATA_KEY]["export_losses"].as_array_mut().unwrap()
+        changed["metadata"][SUBTITLE_ARTIFACT_METADATA_KEY]["export_losses"]
+            .as_array_mut()
+            .unwrap()
             .retain(|loss| loss.as_str() != Some("timing"));
         let changed: Artifact = serde_json::from_value(changed).unwrap();
         let outcome = registry.validate_in_store(&changed, Format::Text, &[], &store);
         assert_eq!(outcome.state, ValidationState::Invalid);
-        assert!(outcome.validators.iter().any(|evidence| evidence.diagnostics.iter()
+        assert!(outcome.validators.iter().any(|evidence| evidence
+            .diagnostics
+            .iter()
             .any(|diagnostic| diagnostic.code == "validation.invalid_transcript_text")));
-        std::fs::OpenOptions::new().write(true).open(store.payload_path(&text).unwrap()).unwrap()
-            .set_len(crate::timed_text::MAX_INPUT_BYTES as u64 + 1).unwrap();
-        assert_eq!(registry.validate_in_store(&text, Format::Text, &[], &store).state, ValidationState::Invalid);
-        assert_eq!(timed_text_outcome(Format::Text, "Ordinary UTF-8 document 🐸\n".as_bytes()).state,
-            ValidationState::Valid);
+        std::fs::OpenOptions::new()
+            .write(true)
+            .open(store.payload_path(&text).unwrap())
+            .unwrap()
+            .set_len(crate::timed_text::MAX_INPUT_BYTES as u64 + 1)
+            .unwrap();
+        assert_eq!(
+            registry
+                .validate_in_store(&text, Format::Text, &[], &store)
+                .state,
+            ValidationState::Invalid
+        );
+        assert_eq!(
+            timed_text_outcome(Format::Text, "Ordinary UTF-8 document 🐸\n".as_bytes()).state,
+            ValidationState::Valid
+        );
     }
 
     #[test]
     fn subtitle_defaults_refuse_utf8_with_invalid_timing_or_unsupported_features() {
         for (format, bytes) in [
-            (Format::Srt, b"1\n00:00:02,000 --> 00:00:01,000\nHello.\n".as_slice()),
-            (Format::Srt, b"1\n00:00:01,000 --> 00:00:02,000\n<i>Hello.</i>\n".as_slice()),
-            (Format::WebVtt, b"WEBVTT\n\n00:00:01.000 --> 00:00:02.000 align:start\nHello.\n".as_slice()),
-            (Format::WebVtt, b"WEBVTT\n\nSTYLE\n::cue { color: lime; }\n".as_slice()),
+            (
+                Format::Srt,
+                b"1\n00:00:02,000 --> 00:00:01,000\nHello.\n".as_slice(),
+            ),
+            (
+                Format::Srt,
+                b"1\n00:00:01,000 --> 00:00:02,000\n<i>Hello.</i>\n".as_slice(),
+            ),
+            (
+                Format::WebVtt,
+                b"WEBVTT\n\n00:00:01.000 --> 00:00:02.000 align:start\nHello.\n".as_slice(),
+            ),
+            (
+                Format::WebVtt,
+                b"WEBVTT\n\nSTYLE\n::cue { color: lime; }\n".as_slice(),
+            ),
             (Format::Srt, b"ordinary nonempty UTF-8 text".as_slice()),
         ] {
             let outcome = timed_text_outcome(format, bytes);
             assert_eq!(outcome.state, ValidationState::Invalid);
             assert!(outcome.validators.iter().any(|evidence| {
-                evidence.diagnostics.iter().any(|diagnostic| {
-                    diagnostic.code == "validation.invalid_timed_text"
-                })
+                evidence
+                    .diagnostics
+                    .iter()
+                    .any(|diagnostic| diagnostic.code == "validation.invalid_timed_text")
             }));
         }
     }
@@ -1198,7 +1303,8 @@ mod tests {
         let transcript = timed_text::parse(
             b"1\n00:00:01,000 --> 00:00:02,000\nHello.\n",
             TimedTextFormat::Srt,
-        ).unwrap();
+        )
+        .unwrap();
         let bytes = timed_text::render(&transcript, TimedTextFormat::Json).unwrap();
         assert_eq!(
             timed_text_outcome(Format::TimedTranscriptJson, &bytes).state,
@@ -1215,7 +1321,11 @@ mod tests {
         let mut invalid: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
         invalid["cues"][0]["end_ms"] = serde_json::json!(0);
         assert_eq!(
-            timed_text_outcome(Format::TimedTranscriptJson, &serde_json::to_vec(&invalid).unwrap()).state,
+            timed_text_outcome(
+                Format::TimedTranscriptJson,
+                &serde_json::to_vec(&invalid).unwrap()
+            )
+            .state,
             ValidationState::Invalid,
         );
     }
@@ -1224,10 +1334,12 @@ mod tests {
     fn timed_text_validator_bounds_actual_file_before_payload_allocation() {
         let directory = tempfile::tempdir().unwrap();
         let store = ArtifactStore::new(directory.path()).unwrap();
-        let artifact = store.put_bytes(
-            b"small",
-            ArtifactDescriptor::for_format(Format::Srt, ArtifactStorageClass::Terminal),
-        ).unwrap();
+        let artifact = store
+            .put_bytes(
+                b"small",
+                ArtifactDescriptor::for_format(Format::Srt, ArtifactStorageClass::Terminal),
+            )
+            .unwrap();
         // Simulate an object growing after import without allocating a large
         // in-memory fixture. Call the structural validator directly so the
         // independent immutable-digest guard does not mask this size check.

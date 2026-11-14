@@ -1,5 +1,5 @@
-use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 
 pub const API_SCHEMA: &str = "renderflow.api/v1";
 pub const SERVICE_SCHEMA: &str = "renderflow.api-service/v1";
@@ -51,17 +51,29 @@ pub enum PipelineProfile {
     Presentation,
 }
 impl PipelineProfile {
-    pub const ALL: [Self;7] = [Self::Composition,Self::ManualLyrics,Self::TimedText,Self::FountainBody,Self::Editorial,Self::Briefing,Self::Presentation];
-    pub fn name(self) -> &'static str {match self {
-        Self::Composition=>renderflow::composition::COMPOSITION_PROFILE,
-        Self::ManualLyrics=>"renderflow.api-profile/manual-lyrics/v1",
-        Self::TimedText=>"renderflow.api-profile/timed-text/v1",
-        Self::FountainBody=>"renderflow.api-profile/fountain-body/v1",
-        Self::Editorial=>"renderflow.api-profile/editorial/v1",
-        Self::Briefing=>"renderflow.api-profile/briefing/v1",
-        Self::Presentation=>"renderflow.api-profile/presentation/v1",
-    }}
-    pub fn local_processes(self) -> bool {matches!(self,Self::Editorial|Self::Presentation)}
+    pub const ALL: [Self; 7] = [
+        Self::Composition,
+        Self::ManualLyrics,
+        Self::TimedText,
+        Self::FountainBody,
+        Self::Editorial,
+        Self::Briefing,
+        Self::Presentation,
+    ];
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Composition => renderflow::composition::COMPOSITION_PROFILE,
+            Self::ManualLyrics => "renderflow.api-profile/manual-lyrics/v1",
+            Self::TimedText => "renderflow.api-profile/timed-text/v1",
+            Self::FountainBody => "renderflow.api-profile/fountain-body/v1",
+            Self::Editorial => "renderflow.api-profile/editorial/v1",
+            Self::Briefing => "renderflow.api-profile/briefing/v1",
+            Self::Presentation => "renderflow.api-profile/presentation/v1",
+        }
+    }
+    pub fn local_processes(self) -> bool {
+        matches!(self, Self::Editorial | Self::Presentation)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -85,44 +97,81 @@ pub struct Limits {
     pub upload_bytes: u64,
     pub all_upload_bytes: u64,
     pub upload_retention_seconds: u64,
-    pub stream_downloads:usize,
-    pub stream_download_bytes:u64,
-    pub all_stream_download_bytes:u64,
-    pub stream_timeout_seconds:u64,
+    pub stream_downloads: usize,
+    pub stream_download_bytes: u64,
+    pub all_stream_download_bytes: u64,
+    pub stream_timeout_seconds: u64,
 }
 
 impl Default for Limits {
     fn default() -> Self {
-        Self { workers: 2, queued_jobs: 4, retained_jobs: 32, package_files: 256,
-            package_bytes: 32 * 1024 * 1024, all_package_bytes: 64 * 1024 * 1024,
-            result_bytes: 2 * 1024 * 1024, progress_events: 64, progress_bytes: 64 * 1024,
-            download_bytes: 8 * 1024 * 1024, job_storage_bytes: 256 * 1024 * 1024,workspace_storage_bytes:512*1024*1024,
-            job_timeout_seconds: 120, retention_seconds: 900,
-            upload_count:16,upload_bytes:8*1024*1024,all_upload_bytes:32*1024*1024,upload_retention_seconds:900,
-            stream_downloads:2,stream_download_bytes:128*1024*1024,all_stream_download_bytes:256*1024*1024,stream_timeout_seconds:30 }
+        Self {
+            workers: 2,
+            queued_jobs: 4,
+            retained_jobs: 32,
+            package_files: 256,
+            package_bytes: 32 * 1024 * 1024,
+            all_package_bytes: 64 * 1024 * 1024,
+            result_bytes: 2 * 1024 * 1024,
+            progress_events: 64,
+            progress_bytes: 64 * 1024,
+            download_bytes: 8 * 1024 * 1024,
+            job_storage_bytes: 256 * 1024 * 1024,
+            workspace_storage_bytes: 512 * 1024 * 1024,
+            job_timeout_seconds: 120,
+            retention_seconds: 900,
+            upload_count: 16,
+            upload_bytes: 8 * 1024 * 1024,
+            all_upload_bytes: 32 * 1024 * 1024,
+            upload_retention_seconds: 900,
+            stream_downloads: 2,
+            stream_download_bytes: 128 * 1024 * 1024,
+            all_stream_download_bytes: 256 * 1024 * 1024,
+            stream_timeout_seconds: 30,
+        }
     }
 }
 
 impl Limits {
     pub fn validate(&self) -> ApiResult<()> {
-        if !(1..=8).contains(&self.workers) || !(1..=64).contains(&self.queued_jobs)
-            || self.retained_jobs < self.workers + self.queued_jobs || self.retained_jobs > 256
-            || !(1..=512).contains(&self.package_files) || self.package_bytes == 0
-            || self.package_bytes > 64 * 1024 * 1024 || self.all_package_bytes < self.package_bytes
+        if !(1..=8).contains(&self.workers)
+            || !(1..=64).contains(&self.queued_jobs)
+            || self.retained_jobs < self.workers + self.queued_jobs
+            || self.retained_jobs > 256
+            || !(1..=512).contains(&self.package_files)
+            || self.package_bytes == 0
+            || self.package_bytes > 64 * 1024 * 1024
+            || self.all_package_bytes < self.package_bytes
             || self.all_package_bytes > 128 * 1024 * 1024
             || !(1024..=4 * 1024 * 1024).contains(&self.result_bytes)
-            || !(1..=256).contains(&self.progress_events) || !(1024..=256 * 1024).contains(&self.progress_bytes)
-            || self.download_bytes == 0 || self.download_bytes > 32 * 1024 * 1024
-            || self.job_storage_bytes < self.package_bytes || self.job_storage_bytes > 512 * 1024 * 1024
-            || self.workspace_storage_bytes < self.job_storage_bytes || self.workspace_storage_bytes > 2*1024*1024*1024
-            || !(1..=600).contains(&self.job_timeout_seconds) || !(1..=86400).contains(&self.retention_seconds)
-            || !(1..=64).contains(&self.upload_count) || self.upload_bytes==0 || self.upload_bytes>64*1024*1024
-            || self.all_upload_bytes<self.upload_bytes || self.all_upload_bytes>64*1024*1024
+            || !(1..=256).contains(&self.progress_events)
+            || !(1024..=256 * 1024).contains(&self.progress_bytes)
+            || self.download_bytes == 0
+            || self.download_bytes > 32 * 1024 * 1024
+            || self.job_storage_bytes < self.package_bytes
+            || self.job_storage_bytes > 512 * 1024 * 1024
+            || self.workspace_storage_bytes < self.job_storage_bytes
+            || self.workspace_storage_bytes > 2 * 1024 * 1024 * 1024
+            || !(1..=600).contains(&self.job_timeout_seconds)
+            || !(1..=86400).contains(&self.retention_seconds)
+            || !(1..=64).contains(&self.upload_count)
+            || self.upload_bytes == 0
+            || self.upload_bytes > 64 * 1024 * 1024
+            || self.all_upload_bytes < self.upload_bytes
+            || self.all_upload_bytes > 64 * 1024 * 1024
             || !(1..=86400).contains(&self.upload_retention_seconds)
-            || !(1..=8).contains(&self.stream_downloads) || self.stream_download_bytes==0 || self.stream_download_bytes>512*1024*1024
-            || self.all_stream_download_bytes<self.stream_download_bytes || self.all_stream_download_bytes>1024*1024*1024
-            || !(1..=120).contains(&self.stream_timeout_seconds) {
-            return Err(ApiError::new("invalid_limits", "Service limits exceed the supported local profile", 400));
+            || !(1..=8).contains(&self.stream_downloads)
+            || self.stream_download_bytes == 0
+            || self.stream_download_bytes > 512 * 1024 * 1024
+            || self.all_stream_download_bytes < self.stream_download_bytes
+            || self.all_stream_download_bytes > 1024 * 1024 * 1024
+            || !(1..=120).contains(&self.stream_timeout_seconds)
+        {
+            return Err(ApiError::new(
+                "invalid_limits",
+                "Service limits exceed the supported local profile",
+                400,
+            ));
         }
         Ok(())
     }
@@ -130,7 +179,11 @@ impl Limits {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum Operation { Inspect, Plan, Execute }
+pub enum Operation {
+    Inspect,
+    Plan,
+    Execute,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -143,27 +196,47 @@ pub struct SubmitRequest {
     pub upload_id: Option<String>,
 }
 
-#[derive(Debug,Clone,Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct UploadView {
     pub schema_version: &'static str,
-    pub upload_id:String,pub pipeline_id:String,pub sha256:String,pub size_bytes:u64,
-    pub expires_at_unix_ms:u64,
-    pub review_inherited:bool,
+    pub upload_id: String,
+    pub pipeline_id: String,
+    pub sha256: String,
+    pub size_bytes: u64,
+    pub expires_at_unix_ms: u64,
+    pub review_inherited: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum JobState { Queued, Running, Cancelling, Planned, Complete, Partial, Failed, Cancelled }
+pub enum JobState {
+    Queued,
+    Running,
+    Cancelling,
+    Planned,
+    Complete,
+    Partial,
+    Failed,
+    Cancelled,
+}
 
 impl JobState {
     pub fn terminal(self) -> bool {
-        matches!(self,Self::Planned|Self::Complete|Self::Partial|Self::Failed|Self::Cancelled)
+        matches!(
+            self,
+            Self::Planned | Self::Complete | Self::Partial | Self::Failed | Self::Cancelled
+        )
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum CancelReason { Client, Deadline, Storage, Shutdown }
+pub enum CancelReason {
+    Client,
+    Deadline,
+    Storage,
+    Shutdown,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "operation", content = "value", rename_all = "snake_case")]
@@ -203,26 +276,41 @@ pub struct JobView {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct PipelineView {
-    pub id: String, pub package_sha256: String, pub file_count: usize,
-    pub size_bytes: u64, pub profile: &'static str,
+    pub id: String,
+    pub package_sha256: String,
+    pub file_count: usize,
+    pub size_bytes: u64,
+    pub profile: &'static str,
     pub local_processes: bool,
     pub source_uploads: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
-pub struct RecordedEvent { pub id: u64, pub event: renderflow::ProgressEvent }
+pub struct RecordedEvent {
+    pub id: u64,
+    pub event: renderflow::ProgressEvent,
+}
 
 #[derive(Debug, Clone, Serialize)]
 pub struct EventsView {
-    pub schema_version: &'static str, pub job_id: String, pub state: JobState,
-    pub events: Vec<RecordedEvent>, pub last_event_id: u64,
-    pub dropped_events: u64, pub cursor_gap: bool,
+    pub schema_version: &'static str,
+    pub job_id: String,
+    pub state: JobState,
+    pub events: Vec<RecordedEvent>,
+    pub last_event_id: u64,
+    pub dropped_events: u64,
+    pub cursor_gap: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
 pub struct ArtifactView {
-    pub id: String, pub target_id: String, pub artifact_id: String,
-    pub format: String, pub media_type: String, pub size_bytes: u64, pub sha256: String,
+    pub id: String,
+    pub target_id: String,
+    pub artifact_id: String,
+    pub format: String,
+    pub media_type: String,
+    pub size_bytes: u64,
+    pub sha256: String,
     pub validation: renderflow::evidence::ValidationState,
     pub fidelity: renderflow::evidence::FidelityDeclaration,
     pub evidence: &'static str,
@@ -231,7 +319,10 @@ pub struct ArtifactView {
 
 #[derive(Debug)]
 pub struct Download {
-    pub bytes: Vec<u8>, pub sha256: String, pub media_type: String, pub filename: String,
+    pub bytes: Vec<u8>,
+    pub sha256: String,
+    pub media_type: String,
+    pub filename: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -243,17 +334,39 @@ pub struct ApiError {
 }
 impl ApiError {
     pub fn new(code: &str, message: &str, status: u16) -> Self {
-        Self { code:code.into(),message:message.into(),status }
+        Self {
+            code: code.into(),
+            message: message.into(),
+            status,
+        }
     }
-    pub(crate) fn io() -> Self { Self::new("storage_error","A bounded service storage operation failed",500) }
-    pub(crate) fn internal() -> Self { Self::new("internal_error","The service could not complete the request",500) }
+    pub(crate) fn io() -> Self {
+        Self::new(
+            "storage_error",
+            "A bounded service storage operation failed",
+            500,
+        )
+    }
+    pub(crate) fn internal() -> Self {
+        Self::new(
+            "internal_error",
+            "The service could not complete the request",
+            500,
+        )
+    }
 }
 impl std::fmt::Display for ApiError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { write!(f,"{}: {}",self.code,self.message) }
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}: {}", self.code, self.message)
+    }
 }
 impl std::error::Error for ApiError {}
-pub type ApiResult<T> = Result<T,ApiError>;
+pub type ApiResult<T> = Result<T, ApiError>;
 
 pub fn stable_id(value: &str) -> bool {
-    !value.is_empty() && value.len() <= 64 && value.bytes().all(|byte|byte.is_ascii_alphanumeric() || matches!(byte,b'-'|b'_'|b'.'))
+    !value.is_empty()
+        && value.len() <= 64
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.'))
 }

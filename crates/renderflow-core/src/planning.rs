@@ -5,26 +5,32 @@
 //! both engines execute frozen state without implicit target/path re-planning.
 
 pub mod build;
+mod build_briefing;
 mod build_composition;
 mod build_presentation;
-mod build_briefing;
 pub mod composition;
 pub(crate) mod composition_evidence;
 pub use composition::{
-    execute_composition, resolve_composition, CompositionExecutionPlan,
-    CompositionPlanningRequest, CompositionStagePlan, ResolvedCompositionExecution,
+    execute_composition, resolve_composition, CompositionExecutionPlan, CompositionPlanningRequest,
+    CompositionStagePlan, ResolvedCompositionExecution,
 };
 
 mod forest;
-use forest::{plan_forest_routes, group_forest_routes, finalize_forest_identity, attach_forest_execution,
-    hygiene_candidate_key, record_target_hygiene};
+use forest::{
+    attach_forest_execution, finalize_forest_identity, group_forest_routes, hygiene_candidate_key,
+    plan_forest_routes, record_target_hygiene,
+};
 mod screenplay_recovery;
-use screenplay_recovery::{recovery_provider_ids, register_recovery_edges,
-    register_recovery_executors, validate_recovery_source, validate_recovery_targets};
-mod screenplay_body;
+use screenplay_recovery::{
+    recovery_provider_ids, register_recovery_edges, register_recovery_executors,
+    validate_recovery_source, validate_recovery_targets,
+};
 mod lyrics;
-use screenplay_body::{register_body_edges, register_body_executors,
-    validate_body_source, validate_body_targets, SCREENPLAY_BODY_ADAPTER_EVIDENCE};
+mod screenplay_body;
+use screenplay_body::{
+    register_body_edges, register_body_executors, validate_body_source, validate_body_targets,
+    SCREENPLAY_BODY_ADAPTER_EVIDENCE,
+};
 
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::fs;
@@ -65,40 +71,42 @@ use crate::optimization::OptimizationMode;
 use crate::print_pdf::{PrintInteriorPdfTransform, PRINT_PDF_CAPABILITY, PRINT_PDF_PROVIDER};
 use crate::print_pdf_image::{inspect_print_image, PrintImageColorSpace};
 use crate::print_pdf_inspect::ExpectedPrintPage;
+use crate::process::ProcessCancellationToken;
 use crate::publication::write_release_metadata;
+use crate::screenplay::afterwriting::{
+    self, AfterwritingConfig, AFTERWRITING_PROVIDER_ID, NODE_PROVIDER_ID,
+};
+use crate::screenplay::afterwriting_graph::{
+    validate_published_artifact, AfterwritingArtifactTransform, SCREENPLAY_PDF_CAPABILITY,
+};
+use crate::screenplay::body_graph::{
+    retained_canonical as retained_body_canonical,
+    validate_artifact as validate_screenplay_body_artifact, SCREENPLAY_BODY_CAPABILITY,
+};
+use crate::screenplay::graph::{native_format, ScreenplayArtifactTransform};
+use crate::screenplay::provider::{supported_route, supported_version_line, ScripttoolConfig};
 use crate::spec::{
     load_spec, AiPolicy, CollisionPolicy, DerivativeProfile, FixedLayoutEpubPolicy, HygienePolicy,
     IntermediatePolicy, NetworkPolicy, PrintPdfInteriorPolicy, RejectedLossClass, SelectorSet,
-    SourceKind, SourceSpec, SourceSpecVersion, SpecV2, TargetRequirement, TargetSelection,
-    SubtitlePolicy, TargetSpec, ValidationFailureMode,
+    SourceKind, SourceSpec, SourceSpecVersion, SpecV2, SubtitlePolicy, TargetRequirement,
+    TargetSelection, TargetSpec, ValidationFailureMode,
 };
 use crate::speech::graph::{
-    retained_artifacts, retained_artifact_name, SpeechArtifactTransform, SpeechProgressObserver,
+    retained_artifact_name, retained_artifacts, SpeechArtifactTransform, SpeechProgressObserver,
     SpeechProgressPhase,
 };
 use crate::speech::policy::SpeechPolicy;
 use crate::speech::recovery::{receipt_bytes, SAVED_RESULT_FILENAME, SAVED_RESULT_SCHEMA};
 use crate::speech::WHISPER_PROVIDER_ID;
-use crate::screenplay::graph::{native_format, ScreenplayArtifactTransform};
-use crate::screenplay::body_graph::{
-    retained_canonical as retained_body_canonical, validate_artifact as validate_screenplay_body_artifact,
-    SCREENPLAY_BODY_CAPABILITY,
-};
-use crate::screenplay::afterwriting::{self, AfterwritingConfig, AFTERWRITING_PROVIDER_ID, NODE_PROVIDER_ID};
-use crate::screenplay::afterwriting_graph::{
-    validate_published_artifact, AfterwritingArtifactTransform, SCREENPLAY_PDF_CAPABILITY,
-};
-use crate::process::ProcessCancellationToken;
-use crate::screenplay::provider::{supported_route, supported_version_line, ScripttoolConfig};
 use crate::super_resolution::{select_upscayl_variants, UpscaylModelCatalog};
 use crate::timed_text::graph::{
     supports_media_format, validate_text_export_from_canonical, SubtitleExtractionTransform,
     TimedTextArtifactTransform, SUBTITLE_ARTIFACT_METADATA_KEY,
 };
 use crate::toolchain::{
-    transform_capability_id, CapabilityId, ToolDeterminism, ToolDiscovery, ToolFidelity, ToolId,
-    ToolLocality, ToolRegistry, ToolRuntimeContext, ToolVersionRequirement, ToolchainSnapshot,
-    ToolAvailability, ToolAvailabilityStatus, ToolInventory, ToolSupportTier,
+    transform_capability_id, CapabilityId, ToolAvailability, ToolAvailabilityStatus,
+    ToolDeterminism, ToolDiscovery, ToolFidelity, ToolId, ToolInventory, ToolLocality,
+    ToolRegistry, ToolRuntimeContext, ToolSupportTier, ToolVersionRequirement, ToolchainSnapshot,
 };
 use crate::transforms::yaml_loader::build_graph_executor_and_tools_from_yaml;
 use crate::validation::{ArtifactValidationOutcome, ValidationRegistry};
@@ -111,9 +119,15 @@ struct SpeechRunObserver {
 
 impl SpeechRunObserver {
     fn record(&self, code: &str, message: String) {
-        self.diagnostics.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).push(ExecutionDiagnostic {
-            severity: DiagnosticSeverity::Info, code: code.to_owned(), message, step_id: None,
-        });
+        self.diagnostics
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .push(ExecutionDiagnostic {
+                severity: DiagnosticSeverity::Info,
+                code: code.to_owned(),
+                message,
+                step_id: None,
+            });
     }
 }
 
@@ -128,13 +142,17 @@ impl SpeechProgressObserver for SpeechRunObserver {
                 "Execution entered native speech recognition".to_owned()),
             _ => {}
         }
-        if let Some(observer) = &self.downstream { observer.phase(phase); }
+        if let Some(observer) = &self.downstream {
+            observer.phase(phase);
+        }
     }
 
     fn saved_result(&self, receipt_sha256: &str) {
         self.record("speech.saved_result.selected", format!(
             "Selected historical speech receipt SHA-256 {receipt_sha256}; execution revalidates the current source before restoring artifacts"));
-        if let Some(observer) = &self.downstream { observer.saved_result(receipt_sha256); }
+        if let Some(observer) = &self.downstream {
+            observer.saved_result(receipt_sha256);
+        }
     }
 }
 
@@ -280,8 +298,12 @@ impl ResolvedTarget {
             "capability": self.capability, "transform": self.transform, "provider": self.provider,
             "include": self.include_selectors, "exclude": self.exclude_selectors,
         });
-        format!("target-{:x}", Sha256::digest(serde_json::to_vec(&material)
-            .expect("target identity is JSON serializable")))
+        format!(
+            "target-{:x}",
+            Sha256::digest(
+                serde_json::to_vec(&material).expect("target identity is JSON serializable")
+            )
+        )
     }
 }
 
@@ -440,13 +462,21 @@ pub fn resolve(request: PlanningRequest) -> Result<ResolvedExecution> {
         .to_str()
         .context("Config path contains non-UTF8 characters")?;
     let loaded = load_spec(config_path)?;
-    if loaded.spec.sources.iter().any(|source| matches!(source.kind, SourceKind::Composition | SourceKind::Presentation | SourceKind::Briefing)) {
+    if loaded.spec.sources.iter().any(|source| {
+        matches!(
+            source.kind,
+            SourceKind::Composition | SourceKind::Presentation | SourceKind::Briefing
+        )
+    }) {
         anyhow::bail!("composition.build.entrypoint: use planning::build::resolve for native publication sources");
     }
     resolve_loaded(request, loaded)
 }
 
-fn resolve_loaded(request: PlanningRequest, loaded: crate::spec::LoadedSpec) -> Result<ResolvedExecution> {
+fn resolve_loaded(
+    request: PlanningRequest,
+    loaded: crate::spec::LoadedSpec,
+) -> Result<ResolvedExecution> {
     let source_version = loaded.source_version;
     let mut spec = loaded.spec;
     apply_request_overrides(&mut spec, &request)?;
@@ -567,12 +597,16 @@ fn resolve_loaded(request: PlanningRequest, loaded: crate::spec::LoadedSpec) -> 
     }
     let source_format = source_format.context("source collection has no members")?;
     if let Some(policy) = &spec.execution.lyrics {
-        lyrics::validate_source(source_format,collection,policy,&spec)?;
-        anyhow::ensure!(source_members[0].intake.source.digest().value() == policy.source_sha256,
-            "lyrics.source.changed: intake differs from explicit manual-source binding");
+        lyrics::validate_source(source_format, collection, policy, &spec)?;
+        anyhow::ensure!(
+            source_members[0].intake.source.digest().value() == policy.source_sha256,
+            "lyrics.source.changed: intake differs from explicit manual-source binding"
+        );
         let mut bytes = Vec::new();
-        fs::File::open(&source_members[0].path)?.take(crate::timed_text::MAX_INPUT_BYTES as u64 + 1).read_to_end(&mut bytes)?;
-        crate::lyrics::normalize(&bytes,source_format,policy)?;
+        fs::File::open(&source_members[0].path)?
+            .take(crate::timed_text::MAX_INPUT_BYTES as u64 + 1)
+            .read_to_end(&mut bytes)?;
+        crate::lyrics::normalize(&bytes, source_format, policy)?;
     }
     let source_path = source_members[0].path.clone();
     let source_intake = &source_members[0].intake;
@@ -601,7 +635,9 @@ fn resolve_loaded(request: PlanningRequest, loaded: crate::spec::LoadedSpec) -> 
         if source_intake.profile.conflicts.iter().any(|conflict| {
             !screenplay_wrapper_conflict(source_format, source.format.as_deref(), &conflict.formats)
         }) {
-            anyhow::bail!("screenplay.source.format_conflict: original source has conflicting format signals");
+            anyhow::bail!(
+                "screenplay.source.format_conflict: original source has conflicting format signals"
+            );
         }
     }
     if let Some(policy) = &spec.execution.speech {
@@ -610,7 +646,9 @@ fn resolve_loaded(request: PlanningRequest, loaded: crate::spec::LoadedSpec) -> 
             anyhow::bail!("speech.source.digest_mismatch: original source differs from execution.speech.source_sha256");
         }
         if !source_intake.profile.conflicts.is_empty() {
-            anyhow::bail!("speech.source.format_conflict: original source has conflicting format signals");
+            anyhow::bail!(
+                "speech.source.format_conflict: original source has conflicting format signals"
+            );
         }
         if spec.transforms.is_some() || spec.execution.hygiene_policy.is_some() {
             anyhow::bail!("speech.policy.route: custom transforms and post-transcription hygiene are unsupported for this bounded route");
@@ -643,23 +681,31 @@ fn resolve_loaded(request: PlanningRequest, loaded: crate::spec::LoadedSpec) -> 
 
     register_builtin_strategy_edges(&mut graph, &mut tool_registry)?;
     if let Some(policy) = &spec.execution.lyrics {
-        lyrics::register_edges(&mut graph,&mut tool_registry,source_format,policy)?;
-        graph = graph.filtered_by(|edge| edge.evidence.get("adapter").map(String::as_str) == Some(lyrics::LYRICS_ADAPTER));
+        lyrics::register_edges(&mut graph, &mut tool_registry, source_format, policy)?;
+        graph = graph.filtered_by(|edge| {
+            edge.evidence.get("adapter").map(String::as_str) == Some(lyrics::LYRICS_ADAPTER)
+        });
     }
     if let Some(policy) = &spec.execution.screenplay_body {
         register_body_edges(&mut graph, &mut tool_registry, source_format, policy)?;
-        graph = graph.filtered_by(|edge| edge.evidence.get("adapter").map(String::as_str)
-            == Some(SCREENPLAY_BODY_ADAPTER_EVIDENCE));
+        graph = graph.filtered_by(|edge| {
+            edge.evidence.get("adapter").map(String::as_str)
+                == Some(SCREENPLAY_BODY_ADAPTER_EVIDENCE)
+        });
     }
     if let Some(policy) = &spec.execution.screenplay_recovery {
         register_recovery_edges(&mut graph, &mut tool_registry, source_format, policy)?;
-        graph = graph.filtered_by(|edge| edge.evidence.get("adapter").map(String::as_str)
-            == Some(SCREENPLAY_RECOVERY_ADAPTER_EVIDENCE));
+        graph = graph.filtered_by(|edge| {
+            edge.evidence.get("adapter").map(String::as_str)
+                == Some(SCREENPLAY_RECOVERY_ADAPTER_EVIDENCE)
+        });
     }
     if let Some(policy) = &spec.execution.screenplay_pdf {
         register_screenplay_pdf_edge(&mut graph, &mut tool_registry, source_format, policy)?;
-        graph = graph.filtered_by(|edge| edge.evidence.get("adapter").map(String::as_str)
-            == Some(SCREENPLAY_PDF_ADAPTER_EVIDENCE));
+        graph = graph.filtered_by(|edge| {
+            edge.evidence.get("adapter").map(String::as_str)
+                == Some(SCREENPLAY_PDF_ADAPTER_EVIDENCE)
+        });
     }
     if let Some(policy) = &spec.execution.screenplay {
         register_screenplay_edges(&mut graph, &mut tool_registry, source_format, policy)?;
@@ -696,7 +742,8 @@ fn resolve_loaded(request: PlanningRequest, loaded: crate::spec::LoadedSpec) -> 
         // unrelated media conversion silently change the waveform or identity.
         graph = graph.filtered_by(|edge| {
             edge.evidence.get("adapter").map(String::as_str) == Some(SPEECH_ADAPTER_EVIDENCE)
-                || (edge.evidence.get("adapter").map(String::as_str) == Some(SUBTITLE_ADAPTER_EVIDENCE)
+                || (edge.evidence.get("adapter").map(String::as_str)
+                    == Some(SUBTITLE_ADAPTER_EVIDENCE)
                     && edge.from == Format::TimedTranscriptJson
                     && matches!(edge.to, Format::Srt | Format::WebVtt | Format::Text))
         });
@@ -709,12 +756,22 @@ fn resolve_loaded(request: PlanningRequest, loaded: crate::spec::LoadedSpec) -> 
         policy_graph
     };
     let requested_targets = resolve_target_intent(&spec, &graph, source_format)?;
-    if spec.execution.lyrics.is_some() { lyrics::validate_targets(&requested_targets)?; }
-    if requested_targets.iter().any(|target| target.preset.as_deref() == Some(crate::strategies::editorial::EDITORIAL_PRESET)) {
-        anyhow::ensure!(!collection && source_format == Format::Markdown,
-            "editorial.source: select one canonical Markdown article");
-        let mut pandoc = tool_registry.get("tool.pandoc").context("editorial.provider.missing")?.clone();
-        pandoc.version.min_inclusive = Some(crate::strategies::editorial::MIN_PANDOC_VERSION.to_string());
+    if spec.execution.lyrics.is_some() {
+        lyrics::validate_targets(&requested_targets)?;
+    }
+    if requested_targets.iter().any(|target| {
+        target.preset.as_deref() == Some(crate::strategies::editorial::EDITORIAL_PRESET)
+    }) {
+        anyhow::ensure!(
+            !collection && source_format == Format::Markdown,
+            "editorial.source: select one canonical Markdown article"
+        );
+        let mut pandoc = tool_registry
+            .get("tool.pandoc")
+            .context("editorial.provider.missing")?
+            .clone();
+        pandoc.version.min_inclusive =
+            Some(crate::strategies::editorial::MIN_PANDOC_VERSION.to_string());
         tool_registry.register(pandoc)?;
     }
     if spec.execution.screenplay_body.is_some() {
@@ -723,15 +780,22 @@ fn resolve_loaded(request: PlanningRequest, loaded: crate::spec::LoadedSpec) -> 
     if spec.execution.screenplay_recovery.is_some() {
         validate_recovery_targets(&requested_targets)?;
     }
-    if spec.execution.speech.is_some() && requested_targets.iter().any(|target| {
-        !matches!(target.format, Format::TimedTranscriptJson | Format::Srt | Format::WebVtt | Format::Text)
-    }) {
+    if spec.execution.speech.is_some()
+        && requested_targets.iter().any(|target| {
+            !matches!(
+                target.format,
+                Format::TimedTranscriptJson | Format::Srt | Format::WebVtt | Format::Text
+            )
+        })
+    {
         anyhow::bail!("speech.target.unsupported: speech targets are timed_transcript_json, srt, vtt, or text");
     }
-    if spec.execution.screenplay.is_some() && requested_targets.iter().any(|target| {
-        !matches!((native_format(source_format), native_format(target.format)),
+    if spec.execution.screenplay.is_some()
+        && requested_targets.iter().any(|target| {
+            !matches!((native_format(source_format), native_format(target.format)),
             (Some(from), Some(to)) if supported_route(from, to))
-    }) {
+        })
+    {
         anyhow::bail!("screenplay.target.unsupported: choose a directly supported scripttool conversion; same-format, transitive, PDF, text, and canonical screenplay JSON routes are not supplied by this policy");
     }
     if spec.execution.screenplay_pdf.is_some() {
@@ -758,51 +822,85 @@ fn resolve_loaded(request: PlanningRequest, loaded: crate::spec::LoadedSpec) -> 
     // Speech paths/hashes are declarations until their bounded native adapter
     // verifies them at execution. Planning never launches their version probes.
     let deferred_speech_ids = speech_provider_ids(spec.execution.speech.as_ref());
-    let deferred_recovery_ids = recovery_provider_ids(source_format, spec.execution.screenplay_recovery.as_ref());
-    let mut provider_inventory = tool_registry.assess_ids_current(
-        policy_graph.provider_ids().into_iter().filter(|id|
-            !deferred_speech_ids.contains(id) && !deferred_recovery_ids.contains(id)
-                && !is_screenplay_pdf_provider(id, spec.execution.screenplay_pdf.as_ref())),
+    let deferred_recovery_ids =
+        recovery_provider_ids(source_format, spec.execution.screenplay_recovery.as_ref());
+    let mut provider_inventory =
+        tool_registry.assess_ids_current(policy_graph.provider_ids().into_iter().filter(|id| {
+            !deferred_speech_ids.contains(id)
+                && !deferred_recovery_ids.contains(id)
+                && !is_screenplay_pdf_provider(id, spec.execution.screenplay_pdf.as_ref())
+        }));
+    apply_screenplay_version_requirement(
+        &mut provider_inventory,
+        spec.execution.screenplay.as_ref(),
     );
-    apply_screenplay_version_requirement(&mut provider_inventory, spec.execution.screenplay.as_ref());
     assess_screenplay_pdf_availability(
-        &mut provider_inventory, &spec, &tool_registry, &policy_graph.all_edges(),
-        |policy| afterwriting::preflight(policy, ProcessCancellationToken::default())
-            .map(|observation| (observation.node_version, observation.provider_version))
-            .map_err(|error| error.to_string()),
+        &mut provider_inventory,
+        &spec,
+        &tool_registry,
+        &policy_graph.all_edges(),
+        |policy| {
+            afterwriting::preflight(policy, ProcessCancellationToken::default())
+                .map(|observation| (observation.node_version, observation.provider_version))
+                .map_err(|error| error.to_string())
+        },
     );
     let mut planning_provider_ids = provider_inventory.available_ids();
     planning_provider_ids.extend(deferred_speech_ids.iter().cloned());
     planning_provider_ids.extend(deferred_recovery_ids.iter().cloned());
     let available_graph = policy_graph.filtered_by_available_providers(&planning_provider_ids);
     let planned_forest = plan_forest_routes(
-        &spec, &graph, &policy_graph, &available_graph, source_format, requested_targets,
+        &spec,
+        &graph,
+        &policy_graph,
+        &available_graph,
+        source_format,
+        requested_targets,
     )?;
-    let targets = planned_forest.routes.iter().map(|(target, _)| target.clone()).collect::<Vec<_>>();
+    let targets = planned_forest
+        .routes
+        .iter()
+        .map(|(target, _)| target.clone())
+        .collect::<Vec<_>>();
     let optimization = spec.execution.optimization;
     let grouped_routes = group_forest_routes(source_format, &planned_forest.routes)?;
-    if grouped_routes.len() > 1 && (collection || spec.execution.speech.is_some()
-        || spec.execution.screenplay.is_some() || spec.execution.screenplay_pdf.is_some()
-        || spec.execution.screenplay_recovery.is_some() || spec.execution.screenplay_body.is_some()
-        || spec.execution.subtitles.is_some() || print_pages.is_some() || fixed_epub_pages.is_some()) {
+    if grouped_routes.len() > 1
+        && (collection
+            || spec.execution.speech.is_some()
+            || spec.execution.screenplay.is_some()
+            || spec.execution.screenplay_pdf.is_some()
+            || spec.execution.screenplay_recovery.is_some()
+            || spec.execution.screenplay_body.is_some()
+            || spec.execution.subtitles.is_some()
+            || print_pages.is_some()
+            || fixed_epub_pages.is_some())
+    {
         anyhow::bail!("forest.native_group_conflict: this bounded native/collection policy requires one compatible execution group; use separate requests for distinct render settings");
     }
     let mut execution_groups = Vec::new();
     for (group_dag, group_targets) in grouped_routes {
         let mut group_executor = executor.clone();
         register_builtin_strategy_executors(
-            &mut group_executor, &group_dag, &spec, &group_targets,
-            source_format, &source_path, &request.config_path,
+            &mut group_executor,
+            &group_dag,
+            &spec,
+            &group_targets,
+            source_format,
+            &source_path,
+            &request.config_path,
         )?;
         execution_groups.push(ResolvedExecutionGroup {
-            dag: group_dag, targets: group_targets, executor: group_executor,
+            dag: group_dag,
+            targets: group_targets,
+            executor: group_executor,
         });
     }
     // Format-only compatibility APIs expose the first group; forest routes and
     // dags() expose the complete plan without collapsing rendition identities.
     let dag = execution_groups[0].dag.clone();
     executor = execution_groups[0].executor.clone();
-    if collection && !targets.is_empty()
+    if collection
+        && !targets.is_empty()
         && (dag.all_edges().is_empty()
             || dag
                 .all_edges()
@@ -812,7 +910,8 @@ fn resolve_loaded(request: PlanningRequest, loaded: crate::spec::LoadedSpec) -> 
     {
         anyhow::bail!("collection.transform.unsupported: a collection requires a registered collection-input transform and a distinct output format");
     }
-    if print_pages.is_some() && !targets.is_empty()
+    if print_pages.is_some()
+        && !targets.is_empty()
         && (dag.all_edges().len() != 1
             || dag.all_edges()[0].capability_id.as_deref() != Some(PRINT_PDF_CAPABILITY))
     {
@@ -820,25 +919,47 @@ fn resolve_loaded(request: PlanningRequest, loaded: crate::spec::LoadedSpec) -> 
             "print_pdf.route: selected plan must contain only the exact print-interior capability"
         );
     }
-    if fixed_epub_pages.is_some() && !targets.is_empty()
+    if fixed_epub_pages.is_some()
+        && !targets.is_empty()
         && (dag.all_edges().len() != 1
             || dag.all_edges()[0].capability_id.as_deref() != Some(FIXED_EPUB_CAPABILITY))
     {
         anyhow::bail!("fixed_epub.route: selected plan must contain only the exact fixed-layout EPUB capability");
     }
 
-    if spec.execution.screenplay_pdf.is_some() && !targets.is_empty()
+    if spec.execution.screenplay_pdf.is_some()
+        && !targets.is_empty()
         && (dag.all_edges().len() != 1
             || dag.all_edges()[0].capability_id.as_deref() != Some(SCREENPLAY_PDF_CAPABILITY))
     {
         anyhow::bail!("screenplay_pdf.route: selected plan must contain only the original Fountain to PDF edge");
     }
 
-    let branch_plans = execution_groups.iter().map(|group| ExecutionPlan::from_dag(
-        &group.dag, source_format, &group.targets.iter().map(|target| target.format).collect::<Vec<_>>(), optimization,
-    )).collect::<Vec<_>>();
-    let mut plan = if branch_plans.len() == 1 { branch_plans[0].clone() } else {
-        ExecutionPlan::from_branch_plans(&branch_plans, &targets.iter().map(|target| target.format.to_string()).collect::<Vec<_>>())
+    let branch_plans = execution_groups
+        .iter()
+        .map(|group| {
+            ExecutionPlan::from_dag(
+                &group.dag,
+                source_format,
+                &group
+                    .targets
+                    .iter()
+                    .map(|target| target.format)
+                    .collect::<Vec<_>>(),
+                optimization,
+            )
+        })
+        .collect::<Vec<_>>();
+    let mut plan = if branch_plans.len() == 1 {
+        branch_plans[0].clone()
+    } else {
+        ExecutionPlan::from_branch_plans(
+            &branch_plans,
+            &targets
+                .iter()
+                .map(|target| target.format.to_string())
+                .collect::<Vec<_>>(),
+        )
     };
     plan.metadata.output_count = targets.len();
     plan.attach_artifact_forest(planned_forest.evidence);
@@ -872,17 +993,34 @@ fn resolve_loaded(request: PlanningRequest, loaded: crate::spec::LoadedSpec) -> 
             "v1 configuration normalized into renderflow/v2 before canonical planning",
         );
     }
-    let selected_edges = execution_groups.iter().flat_map(|group| group.dag.all_edges()).collect::<Vec<_>>();
-    let selected_ids = selected_edges.iter().flat_map(|edge| edge_provider_ids(edge).into_iter().map(str::to_owned)).collect::<BTreeSet<_>>();
-    let mut selected_inventory = tool_registry.assess_ids_current(
-        selected_ids.iter().filter(|id|
-            !deferred_speech_ids.contains(*id) && !deferred_recovery_ids.contains(*id)
-                && !is_screenplay_pdf_provider(id, spec.execution.screenplay_pdf.as_ref())),
+    let selected_edges = execution_groups
+        .iter()
+        .flat_map(|group| group.dag.all_edges())
+        .collect::<Vec<_>>();
+    let selected_ids = selected_edges
+        .iter()
+        .flat_map(|edge| edge_provider_ids(edge).into_iter().map(str::to_owned))
+        .collect::<BTreeSet<_>>();
+    let mut selected_inventory =
+        tool_registry.assess_ids_current(selected_ids.iter().filter(|id| {
+            !deferred_speech_ids.contains(*id)
+                && !deferred_recovery_ids.contains(*id)
+                && !is_screenplay_pdf_provider(id, spec.execution.screenplay_pdf.as_ref())
+        }));
+    apply_screenplay_version_requirement(
+        &mut selected_inventory,
+        spec.execution.screenplay.as_ref(),
     );
-    apply_screenplay_version_requirement(&mut selected_inventory, spec.execution.screenplay.as_ref());
-    selected_inventory.tools.extend(provider_inventory.tools.iter().filter(|tool|
-        is_screenplay_pdf_provider(tool.id.as_str(), spec.execution.screenplay_pdf.as_ref())
-            && selected_ids.contains(tool.id.as_str())).cloned());
+    selected_inventory.tools.extend(
+        provider_inventory
+            .tools
+            .iter()
+            .filter(|tool| {
+                is_screenplay_pdf_provider(tool.id.as_str(), spec.execution.screenplay_pdf.as_ref())
+                    && selected_ids.contains(tool.id.as_str())
+            })
+            .cloned(),
+    );
     if spec.execution.screenplay_recovery.is_some() {
         plan.add_tool_diagnostic("screenplay_recovery.provider.unobserved: recovery and its exporters are authored and unqualified. Native paths, versions, and digests are declarations checked only at execution; planning launches no probes. Every result remains lossy and review-required. No AI fallback, source PDF regeneration, cache, checkpoint, or observed-toolchain claim is supplied.");
     }
@@ -920,15 +1058,19 @@ fn resolve_loaded(request: PlanningRequest, loaded: crate::spec::LoadedSpec) -> 
             blocked.summary()
         ));
     }
-    if spec.execution.speech.is_none() && spec.execution.screenplay.is_none()
-        && spec.execution.screenplay_pdf.is_none() && spec.execution.screenplay_recovery.is_none()
-        && spec.execution.screenplay_body.is_none() && selected_inventory
-        .tools
-        .iter()
-        .all(|tool| tool.is_available())
+    if spec.execution.speech.is_none()
+        && spec.execution.screenplay.is_none()
+        && spec.execution.screenplay_pdf.is_none()
+        && spec.execution.screenplay_recovery.is_none()
+        && spec.execution.screenplay_body.is_none()
+        && selected_inventory
+            .tools
+            .iter()
+            .all(|tool| tool.is_available())
     {
         let context = ToolRuntimeContext::current();
-        let snapshot = tool_registry.fingerprint_for_edges(&selected_inventory, &selected_edges, &context)?;
+        let snapshot =
+            tool_registry.fingerprint_for_edges(&selected_inventory, &selected_edges, &context)?;
         plan.attach_toolchain(snapshot);
     }
 
@@ -1128,7 +1270,12 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
     let source_artifact = source_artifacts[0].clone();
 
     let mut executor = std::mem::take(&mut resolved.executor);
-    lyrics::register_executors(&mut executor,&resolved.dag,resolved.spec.execution.lyrics.as_ref(),resolved.cancellation.clone())?;
+    lyrics::register_executors(
+        &mut executor,
+        &resolved.dag,
+        resolved.spec.execution.lyrics.as_ref(),
+        resolved.cancellation.clone(),
+    )?;
     register_subtitle_executors(
         &mut executor,
         &resolved.dag,
@@ -1137,26 +1284,38 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
         resolved.spec.execution.speech.is_some(),
     )?;
     let speech_run_observer = Arc::new(SpeechRunObserver {
-        downstream: resolved.speech_observer.clone(), diagnostics: Mutex::new(Vec::new()),
+        downstream: resolved.speech_observer.clone(),
+        diagnostics: Mutex::new(Vec::new()),
     });
     register_speech_executors(
-        &mut executor, &resolved.dag, resolved.spec.execution.speech.as_ref(),
-        resolved.cancellation.clone(), Some(speech_run_observer.clone()),
+        &mut executor,
+        &resolved.dag,
+        resolved.spec.execution.speech.as_ref(),
+        resolved.cancellation.clone(),
+        Some(speech_run_observer.clone()),
     )?;
     register_screenplay_pdf_executors(
-        &mut executor, &resolved.dag, resolved.spec.execution.screenplay_pdf.as_ref(),
+        &mut executor,
+        &resolved.dag,
+        resolved.spec.execution.screenplay_pdf.as_ref(),
         resolved.cancellation.clone(),
     )?;
     register_screenplay_executors(
-        &mut executor, &resolved.dag, resolved.spec.execution.screenplay.as_ref(),
+        &mut executor,
+        &resolved.dag,
+        resolved.spec.execution.screenplay.as_ref(),
         resolved.cancellation.clone(),
     )?;
     register_recovery_executors(
-        &mut executor, &resolved.dag, resolved.spec.execution.screenplay_recovery.as_ref(),
+        &mut executor,
+        &resolved.dag,
+        resolved.spec.execution.screenplay_recovery.as_ref(),
         resolved.cancellation.clone(),
     )?;
     register_body_executors(
-        &mut executor, &resolved.dag, resolved.spec.execution.screenplay_body.as_ref(),
+        &mut executor,
+        &resolved.dag,
+        resolved.spec.execution.screenplay_body.as_ref(),
         resolved.cancellation.clone(),
     )?;
     if let Some(pages) = &resolved.print_pages {
@@ -1225,16 +1384,24 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
         "canonical-cache.json".to_string()
     };
     let multiple_groups = resolved.execution_groups.len() > 1;
-    let executor = if multiple_groups || resolved.spec.execution.speech.is_some() || resolved.spec.execution.screenplay.is_some()
-        || resolved.spec.execution.screenplay_pdf.is_some() || resolved.spec.execution.screenplay_recovery.is_some()
-        || resolved.spec.execution.screenplay_body.is_some() {
+    let executor = if multiple_groups
+        || resolved.spec.execution.speech.is_some()
+        || resolved.spec.execution.screenplay.is_some()
+        || resolved.spec.execution.screenplay_pdf.is_some()
+        || resolved.spec.execution.screenplay_recovery.is_some()
+        || resolved.spec.execution.screenplay_body.is_some()
+    {
         // Unqualified native routes and isolated rendition groups never read
         // or amend a shared cache/checkpoint file.
         executor
     } else {
-        executor.with_cache(state_dir.join(cache_name)).with_checkpoints(
-            state_dir.join("checkpoints.json"), checkpoint_context, resolved.resume_checkpoints,
-        )
+        executor
+            .with_cache(state_dir.join(cache_name))
+            .with_checkpoints(
+                state_dir.join("checkpoints.json"),
+                checkpoint_context,
+                resolved.resume_checkpoints,
+            )
     };
     let mut executor = executor.with_max_parallel(resolved.spec.execution.max_parallel);
     if let Some(cancellation) = &resolved.cancellation {
@@ -1292,12 +1459,21 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
     let mut target_artifacts = HashMap::<String, Artifact>::new();
     let mut target_steps = HashMap::<String, String>::new();
     let mut all_artifacts = HashMap::<String, Artifact>::new();
-    let first_targets = resolved.execution_groups.first()
-        .map(|group| group.targets.as_slice()).unwrap_or(&resolved.targets);
+    let first_targets = resolved
+        .execution_groups
+        .first()
+        .map(|group| group.targets.as_slice())
+        .unwrap_or(&resolved.targets);
     if multiple_groups {
         namespace_forest_steps(&mut report, first_targets)?;
     }
-    record_forest_group(&report, first_targets, &mut target_artifacts, &mut target_steps, &mut all_artifacts);
+    record_forest_group(
+        &report,
+        first_targets,
+        &mut target_artifacts,
+        &mut target_steps,
+        &mut all_artifacts,
+    );
     for index in 1..resolved.execution_groups.len() {
         let mut group_executor = std::mem::take(&mut resolved.execution_groups[index].executor)
             .with_max_parallel(resolved.spec.execution.max_parallel);
@@ -1305,17 +1481,27 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
             group_executor = group_executor.with_cancellation_flag(cancellation.clone());
         }
         if let Some(snapshot) = &resolved.plan.toolchain {
-            group_executor = group_executor.with_toolchain_fingerprint(snapshot.fingerprint.clone());
+            group_executor =
+                group_executor.with_toolchain_fingerprint(snapshot.fingerprint.clone());
         }
         // Each group starts from the original source. Persistent reuse stays
         // disabled until the executor can key checkpoints by branch identity.
         let group = &resolved.execution_groups[index];
         match group_executor.execute_artifact_with_evidence(
-            &group.dag, resolved.source_format, source_artifact.clone(), &store,
+            &group.dag,
+            resolved.source_format,
+            source_artifact.clone(),
+            &store,
         ) {
             Ok(mut branch_report) => {
                 namespace_forest_steps(&mut branch_report, &group.targets)?;
-                record_forest_group(&branch_report, &group.targets, &mut target_artifacts, &mut target_steps, &mut all_artifacts);
+                record_forest_group(
+                    &branch_report,
+                    &group.targets,
+                    &mut target_artifacts,
+                    &mut target_steps,
+                    &mut all_artifacts,
+                );
                 report.steps.extend(branch_report.steps);
                 report.diagnostics.extend(branch_report.diagnostics);
             }
@@ -1331,8 +1517,12 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
 
     let mut diagnostics = plan_diagnostics(&resolved);
     diagnostics.append(&mut report.diagnostics);
-    diagnostics.append(&mut speech_run_observer.diagnostics.lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner()));
+    diagnostics.append(
+        &mut speech_run_observer
+            .diagnostics
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner()),
+    );
     let mut hygiene_evidence = HashMap::<String, HygieneEvidence>::new();
     let mut hygiene_blocked = HashSet::<String>::new();
     let mut hygiene_failures = false;
@@ -1347,8 +1537,12 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
             };
             let candidate_key = hygiene_candidate_key(&candidate)?;
             if let Some((outcome, producer)) = hygienic_artifacts.get(&candidate_key) {
-                hygiene_failures |= record_target_hygiene(&identity, outcome,
-                    &mut hygiene_evidence, &mut hygiene_blocked);
+                hygiene_failures |= record_target_hygiene(
+                    &identity,
+                    outcome,
+                    &mut hygiene_evidence,
+                    &mut hygiene_blocked,
+                );
                 target_artifacts.insert(identity.clone(), outcome.artifact.clone());
                 if let Some(producer) = producer {
                     target_steps.insert(identity, producer.clone());
@@ -1371,8 +1565,12 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
                     step_id: Some(step_id.clone()),
                 });
             }
-            hygiene_failures |= record_target_hygiene(&identity, &outcome,
-                &mut hygiene_evidence, &mut hygiene_blocked);
+            hygiene_failures |= record_target_hygiene(
+                &identity,
+                &outcome,
+                &mut hygiene_evidence,
+                &mut hygiene_blocked,
+            );
             let changed = !outcome.evidence.changed_field_classes.is_empty();
             report.steps.push(StepEvidence {
                 step_id: step_id.clone(),
@@ -1402,7 +1600,7 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
                 target_steps.insert(identity.clone(), producer.clone());
             }
             for representative in report.artifacts.values_mut() {
-                if &*representative == &candidate {
+                if *representative == candidate {
                     *representative = outcome.artifact.clone();
                 }
             }
@@ -1424,11 +1622,22 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
         Err(error) => {
             target_failures = true;
             speech_publication_failed = true;
-            speech_publication_cancelled = matches!(error.downcast_ref::<crate::speech::SpeechError>(),
-                Some(crate::speech::SpeechError::Cancelled));
+            speech_publication_cancelled = matches!(
+                error.downcast_ref::<crate::speech::SpeechError>(),
+                Some(crate::speech::SpeechError::Cancelled)
+            );
             diagnostics.push(ExecutionDiagnostic {
-                severity: if speech_publication_cancelled { DiagnosticSeverity::Cancelled } else { DiagnosticSeverity::FatalFailure },
-                code: if speech_publication_cancelled { "execution.cancelled" } else { "speech.evidence.invalid" }.to_owned(),
+                severity: if speech_publication_cancelled {
+                    DiagnosticSeverity::Cancelled
+                } else {
+                    DiagnosticSeverity::FatalFailure
+                },
+                code: if speech_publication_cancelled {
+                    "execution.cancelled"
+                } else {
+                    "speech.evidence.invalid"
+                }
+                .to_owned(),
                 message: redact_sensitive_text(&error.to_string()),
                 step_id: None,
             });
@@ -1443,7 +1652,9 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
         for artifact in target_artifacts.values() {
             match retained_body_canonical(artifact, &source_artifact, &store, policy) {
                 Ok(canonical) => {
-                    all_artifacts.entry(canonical.id().to_string()).or_insert(canonical);
+                    all_artifacts
+                        .entry(canonical.id().to_string())
+                        .or_insert(canonical);
                 }
                 Err(error) => {
                     target_failures = true;
@@ -1451,14 +1662,20 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
                     diagnostics.push(ExecutionDiagnostic {
                         severity: DiagnosticSeverity::FatalFailure,
                         code: "screenplay_body.evidence.invalid".to_owned(),
-                        message: redact_sensitive_text(&error.to_string()), step_id: None,
+                        message: redact_sensitive_text(&error.to_string()),
+                        step_id: None,
                     });
                 }
             }
         }
     }
 
-    if let Err(error) = validate_post_execution_budgets(&resolved, &target_artifacts, &all_artifacts, &retained_speech) {
+    if let Err(error) = validate_post_execution_budgets(
+        &resolved,
+        &target_artifacts,
+        &all_artifacts,
+        &retained_speech,
+    ) {
         target_failures = true;
         diagnostics.push(ExecutionDiagnostic {
             severity: DiagnosticSeverity::FatalFailure,
@@ -1476,17 +1693,17 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
             diagnostics.push(ExecutionDiagnostic {
                 severity: DiagnosticSeverity::RecoverableFailure,
                 code: "execution.target_missing".to_string(),
-                message: format!(
-                    "Execution did not produce selected target '{}'",
-                    identity
-                ),
+                message: format!("Execution did not produce selected target '{}'", identity),
                 step_id: None,
             });
             continue;
         };
 
-        let mut outcome = if resolved.print_pages.is_some() || resolved.spec.execution.screenplay_pdf.is_some()
-            || resolved.spec.execution.screenplay_recovery.is_some() || resolved.spec.execution.screenplay_body.is_some() {
+        let mut outcome = if resolved.print_pages.is_some()
+            || resolved.spec.execution.screenplay_pdf.is_some()
+            || resolved.spec.execution.screenplay_recovery.is_some()
+            || resolved.spec.execution.screenplay_body.is_some()
+        {
             if resolved.spec.execution.validation.validators.is_empty() {
                 ArtifactValidationOutcome {
                     state: ValidationState::Valid,
@@ -1547,79 +1764,164 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
         }
         if let Some(policy) = &resolved.spec.execution.screenplay_pdf {
             let check = validate_published_artifact(artifact, &source_artifact, &store, policy);
-            let state = if check.is_ok() { ValidationState::Valid } else { ValidationState::Invalid };
-            let validation_diagnostics = check.err().map(|error| vec![ValidationDiagnostic {
-                code: "screenplay_pdf.validation.evidence".to_owned(), message: error.to_string(),
-            }]).unwrap_or_default();
+            let state = if check.is_ok() {
+                ValidationState::Valid
+            } else {
+                ValidationState::Invalid
+            };
+            let validation_diagnostics = check
+                .err()
+                .map(|error| {
+                    vec![ValidationDiagnostic {
+                        code: "screenplay_pdf.validation.evidence".to_owned(),
+                        message: error.to_string(),
+                    }]
+                })
+                .unwrap_or_default();
             outcome.validators.push(ValidatorEvidence {
                 validator_id: "validator.screenplay_pdf.afterwriting".to_owned(),
                 validator_version: env!("CARGO_PKG_VERSION").to_owned(),
-                provider: "renderflow.core".to_owned(), state,
+                provider: "renderflow.core".to_owned(),
+                state,
                 diagnostics: validation_diagnostics,
             });
-            if state == ValidationState::Invalid { outcome.state = state; }
+            if state == ValidationState::Invalid {
+                outcome.state = state;
+            }
         }
         if let Some(policy) = &resolved.spec.execution.screenplay_recovery {
             let check = crate::screenplay::recovery::graph::validate_published_artifact(
-                artifact, &source_artifact, &store, policy,
+                artifact,
+                &source_artifact,
+                &store,
+                policy,
             );
-            let state = if check.is_ok() { ValidationState::Valid } else { ValidationState::Invalid };
+            let state = if check.is_ok() {
+                ValidationState::Valid
+            } else {
+                ValidationState::Invalid
+            };
             outcome.validators.push(ValidatorEvidence {
                 validator_id: "validator.screenplay_recovery.evidence".to_owned(),
                 validator_version: env!("CARGO_PKG_VERSION").to_owned(),
-                provider: "renderflow.core".to_owned(), state,
-                diagnostics: check.err().map(|error| vec![ValidationDiagnostic {
-                    code: "screenplay_recovery.validation.evidence".to_owned(), message: error.to_string(),
-                }]).unwrap_or_default(),
+                provider: "renderflow.core".to_owned(),
+                state,
+                diagnostics: check
+                    .err()
+                    .map(|error| {
+                        vec![ValidationDiagnostic {
+                            code: "screenplay_recovery.validation.evidence".to_owned(),
+                            message: error.to_string(),
+                        }]
+                    })
+                    .unwrap_or_default(),
             });
-            if state == ValidationState::Invalid { outcome.state = state; }
+            if state == ValidationState::Invalid {
+                outcome.state = state;
+            }
         }
         if let Some(policy) = &resolved.spec.execution.screenplay_body {
             // This source-bound admission check is mandatory even when the
             // caller disables the optional generic validator registry.
-            let check = validate_screenplay_body_artifact(artifact, &source_artifact, &store, policy);
-            let state = if check.is_ok() { ValidationState::Valid } else { ValidationState::Invalid };
+            let check =
+                validate_screenplay_body_artifact(artifact, &source_artifact, &store, policy);
+            let state = if check.is_ok() {
+                ValidationState::Valid
+            } else {
+                ValidationState::Invalid
+            };
             outcome.validators.push(ValidatorEvidence {
                 validator_id: "validator.screenplay_body.evidence".to_owned(),
                 validator_version: env!("CARGO_PKG_VERSION").to_owned(),
-                provider: "renderflow.core".to_owned(), state,
-                diagnostics: check.err().map(|error| vec![ValidationDiagnostic {
-                    code: "screenplay_body.validation.evidence".to_owned(), message: error.to_string(),
-                }]).unwrap_or_default(),
+                provider: "renderflow.core".to_owned(),
+                state,
+                diagnostics: check
+                    .err()
+                    .map(|error| {
+                        vec![ValidationDiagnostic {
+                            code: "screenplay_body.validation.evidence".to_owned(),
+                            message: error.to_string(),
+                        }]
+                    })
+                    .unwrap_or_default(),
             });
-            if state == ValidationState::Invalid { outcome.state = state; }
+            if state == ValidationState::Invalid {
+                outcome.state = state;
+            }
         }
         if let Some(policy) = &resolved.spec.execution.lyrics {
-            let check = crate::lyrics::graph::validate_published(artifact,&source_artifact,&store,policy);
-            let state = if check.is_ok() {ValidationState::Valid} else {ValidationState::Invalid};
+            let check = crate::lyrics::graph::validate_published(
+                artifact,
+                &source_artifact,
+                &store,
+                policy,
+            );
+            let state = if check.is_ok() {
+                ValidationState::Valid
+            } else {
+                ValidationState::Invalid
+            };
             outcome.validators.push(ValidatorEvidence {
-                validator_id:"validator.lyrics.source_binding".into(),validator_version:env!("CARGO_PKG_VERSION").into(),
-                provider:"renderflow.core".into(),state,
-                diagnostics:check.err().map(|error| vec![ValidationDiagnostic {code:"lyrics.validation.source_binding".into(),message:error.to_string()}]).unwrap_or_default(),
+                validator_id: "validator.lyrics.source_binding".into(),
+                validator_version: env!("CARGO_PKG_VERSION").into(),
+                provider: "renderflow.core".into(),
+                state,
+                diagnostics: check
+                    .err()
+                    .map(|error| {
+                        vec![ValidationDiagnostic {
+                            code: "lyrics.validation.source_binding".into(),
+                            message: error.to_string(),
+                        }]
+                    })
+                    .unwrap_or_default(),
             });
-            if state == ValidationState::Invalid {outcome.state = state;}
+            if state == ValidationState::Invalid {
+                outcome.state = state;
+            }
         }
-        if target.format == Format::Text && (resolved.spec.execution.subtitles.is_some()
-            || resolved.spec.execution.speech.is_some()
-            || artifact.metadata().contains_key(SUBTITLE_ARTIFACT_METADATA_KEY)) {
+        if target.format == Format::Text
+            && (resolved.spec.execution.subtitles.is_some()
+                || resolved.spec.execution.speech.is_some()
+                || artifact
+                    .metadata()
+                    .contains_key(SUBTITLE_ARTIFACT_METADATA_KEY))
+        {
             // Persistent subtitle records can bypass transform application.
             // Never publish a cached text export with detached loss/lineage evidence.
             let check = report.artifacts.get(&Format::TimedTranscriptJson)
                 .context("subtitle.text.validation.canonical: the actual retained canonical transcript is required")
                 .and_then(|canonical| validate_text_export_from_canonical(artifact, canonical, &store));
-            let state = if check.is_ok() { ValidationState::Valid } else { ValidationState::Invalid };
+            let state = if check.is_ok() {
+                ValidationState::Valid
+            } else {
+                ValidationState::Invalid
+            };
             outcome.validators.push(ValidatorEvidence {
                 validator_id: "validator.subtitle.text_evidence".to_owned(),
                 validator_version: env!("CARGO_PKG_VERSION").to_owned(),
-                provider: "renderflow.core".to_owned(), state,
-                diagnostics: check.err().map(|error| vec![ValidationDiagnostic {
-                    code: "subtitle.text.validation.evidence".to_owned(), message: error.to_string(),
-                }]).unwrap_or_default(),
+                provider: "renderflow.core".to_owned(),
+                state,
+                diagnostics: check
+                    .err()
+                    .map(|error| {
+                        vec![ValidationDiagnostic {
+                            code: "subtitle.text.validation.evidence".to_owned(),
+                            message: error.to_string(),
+                        }]
+                    })
+                    .unwrap_or_default(),
             });
-            if state == ValidationState::Invalid { outcome.state = state; }
+            if state == ValidationState::Invalid {
+                outcome.state = state;
+            }
         }
         let step_id = target_steps.get(&identity).cloned();
-        if let Some(step) = report.steps.iter_mut().find(|step| Some(step.step_id.as_str()) == step_id.as_deref()) {
+        if let Some(step) = report
+            .steps
+            .iter_mut()
+            .find(|step| Some(step.step_id.as_str()) == step_id.as_deref())
+        {
             step.validation = outcome.state;
         }
         for validator in &outcome.validators {
@@ -1653,9 +1955,18 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
         let validation_blocked = outcome.state == ValidationState::Invalid
             || (outcome.state == ValidationState::Unavailable
                 && !resolved.spec.execution.validation.allow_unavailable);
-        let fidelity = report.steps.iter()
+        let fidelity = report
+            .steps
+            .iter()
             .find(|step| Some(step.step_id.as_str()) == step_id.as_deref())
-            .map(|step| step.fidelity).unwrap_or_else(|| if artifact.id() == source_artifact.id() { FidelityDeclaration::Lossless } else { FidelityDeclaration::Unknown });
+            .map(|step| step.fidelity)
+            .unwrap_or_else(|| {
+                if artifact.id() == source_artifact.id() {
+                    FidelityDeclaration::Lossless
+                } else {
+                    FidelityDeclaration::Unknown
+                }
+            });
         let fidelity_blocked = resolved
             .spec
             .execution
@@ -1688,24 +1999,45 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
 
     let mut retained_locators = HashMap::<String, String>::new();
     if resolved.spec.execution.speech.is_some() {
-        speech_publication_failed |= fatal_validation_failure || !blocked_targets.is_empty()
-            || diagnostics.iter().any(|diagnostic| diagnostic.code == "execution.post_budget_failed");
+        speech_publication_failed |= fatal_validation_failure
+            || !blocked_targets.is_empty()
+            || diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "execution.post_budget_failed");
         if !speech_publication_failed {
-            match publish_speech_artifacts(&resolved, &retained_speech, &store, &output_root, &predicted) {
+            match publish_speech_artifacts(
+                &resolved,
+                &retained_speech,
+                &store,
+                &output_root,
+                &predicted,
+            ) {
                 Ok(published) => {
                     for (artifact_id, destination) in published {
-                        retained_locators.insert(artifact_id, bundle_locator(&output_root, &destination));
+                        retained_locators
+                            .insert(artifact_id, bundle_locator(&output_root, &destination));
                         actual_outputs.push(destination.display().to_string());
                     }
                 }
                 Err(error) => {
                     target_failures = true;
                     speech_publication_failed = true;
-                    speech_publication_cancelled = matches!(error.downcast_ref::<crate::speech::SpeechError>(),
-                        Some(crate::speech::SpeechError::Cancelled));
+                    speech_publication_cancelled = matches!(
+                        error.downcast_ref::<crate::speech::SpeechError>(),
+                        Some(crate::speech::SpeechError::Cancelled)
+                    );
                     diagnostics.push(ExecutionDiagnostic {
-                        severity: if speech_publication_cancelled { DiagnosticSeverity::Cancelled } else { DiagnosticSeverity::FatalFailure },
-                        code: if speech_publication_cancelled { "execution.cancelled" } else { "speech.evidence.publication_failed" }.to_owned(),
+                        severity: if speech_publication_cancelled {
+                            DiagnosticSeverity::Cancelled
+                        } else {
+                            DiagnosticSeverity::FatalFailure
+                        },
+                        code: if speech_publication_cancelled {
+                            "execution.cancelled"
+                        } else {
+                            "speech.evidence.publication_failed"
+                        }
+                        .to_owned(),
                         message: redact_sensitive_text(&error.to_string()),
                         step_id: None,
                     });
@@ -1720,7 +2052,8 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
             diagnostics.push(ExecutionDiagnostic {
                 severity: DiagnosticSeverity::Cancelled,
                 code: "execution.cancelled".to_owned(),
-                message: "speech publication was cancelled before selected target materialization".to_owned(),
+                message: "speech publication was cancelled before selected target materialization"
+                    .to_owned(),
                 step_id: None,
             });
             break;
@@ -1728,7 +2061,10 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
         let Some(artifact) = target_artifacts.get(&target.identity()) else {
             continue;
         };
-        if fatal_validation_failure || speech_publication_failed || blocked_targets.contains(&target.identity()) {
+        if fatal_validation_failure
+            || speech_publication_failed
+            || blocked_targets.contains(&target.identity())
+        {
             continue;
         }
         if target_failures
@@ -1753,20 +2089,20 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
         actual_outputs.push(destination.display().to_string());
     }
 
-    let artifacts = artifact_evidence(
-        &resolved,
-        &source_artifacts,
-        &report,
-        &target_artifacts,
-        &target_steps,
-        &all_artifacts,
-        &output_locators,
-        &diagnostics,
-        &validation_outcomes,
-        &hygiene_evidence,
-        &retained_speech,
-        &retained_locators,
-    );
+    let artifacts = artifact_evidence(ArtifactEvidenceInputs {
+        resolved: &resolved,
+        sources: &source_artifacts,
+        report: &report,
+        target_artifacts: &target_artifacts,
+        target_steps: &target_steps,
+        all_artifacts: &all_artifacts,
+        output_locators: &output_locators,
+        diagnostics: &diagnostics,
+        validation_outcomes: &validation_outcomes,
+        hygiene_evidence: &hygiene_evidence,
+        retained_speech: &retained_speech,
+        retained_locators: &retained_locators,
+    });
     let materialized_artifact_count = actual_outputs.len();
     if let Some(publication) = &resolved.spec.publication {
         let source_spec_digest = sha256_serialized(&resolved.spec)?;
@@ -1811,18 +2147,34 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
     )?;
     let manifest_path = persist_run_manifest(&output_root, &run_manifest)?;
     if run_manifest.state == RunState::Complete {
-        if let Some(policy) = resolved.spec.execution.speech.as_ref()
+        if let Some(policy) = resolved
+            .spec
+            .execution
+            .speech
+            .as_ref()
             .filter(|policy| policy.saved_results.is_enabled())
         {
             // Only successful exports with a durable run manifest enter index
             // promotion. Cancellation after atomic promotion can leave a valid
             // pointer; never remove a concurrently selected verified result.
-            let cancellation = resolved.cancellation.clone()
-                .map(crate::process::ProcessCancellationToken::from_shared).unwrap_or_default();
-            let remembered = report.artifacts.get(&Format::TimedTranscriptJson)
+            let cancellation = resolved
+                .cancellation
+                .clone()
+                .map(crate::process::ProcessCancellationToken::from_shared)
+                .unwrap_or_default();
+            let remembered = report
+                .artifacts
+                .get(&Format::TimedTranscriptJson)
                 .context("speech saved-result indexing requires a canonical transcript")
-                .and_then(|canonical| crate::speech::cache::remember_saved_result(
-                    &store, policy, &source_artifact, canonical, &cancellation));
+                .and_then(|canonical| {
+                    crate::speech::cache::remember_saved_result(
+                        &store,
+                        policy,
+                        &source_artifact,
+                        canonical,
+                        &cancellation,
+                    )
+                });
             let diagnostic = match remembered {
                 Ok(saved) => ExecutionDiagnostic {
                     severity: DiagnosticSeverity::Info,
@@ -1867,8 +2219,14 @@ mod forest_execution_tests;
 #[cfg(test)]
 mod forest_tests;
 
-fn namespace_forest_steps(report: &mut DagExecutionReport, targets: &[ResolvedTarget]) -> Result<()> {
-    let mut identities = targets.iter().map(ResolvedTarget::identity).collect::<Vec<_>>();
+fn namespace_forest_steps(
+    report: &mut DagExecutionReport,
+    targets: &[ResolvedTarget],
+) -> Result<()> {
+    let mut identities = targets
+        .iter()
+        .map(ResolvedTarget::identity)
+        .collect::<Vec<_>>();
     identities.sort();
     identities.dedup();
     let prefix = format!("forest:{}:", sha256_serialized(&identities)?.value);
@@ -1934,7 +2292,9 @@ pub fn cancelled(resolved: ResolvedExecution) -> Result<CanonicalExecutionResult
             Ok(StepEvidence {
                 step_id: if let Some(group) = edge.evidence.get("forest_execution_group") {
                     format!("forest-group:{group}:step:{}-to-{}", edge.from, edge.to)
-                } else { format!("step:{}-to-{}", edge.from, edge.to) },
+                } else {
+                    format!("step:{}-to-{}", edge.from, edge.to)
+                },
                 transform: edge
                     .evidence
                     .get("transform_id")
@@ -2047,8 +2407,14 @@ fn build_run_manifest(
     let run_id = run_id(&execution_plan_digest, started_at_unix_ms);
     let mut artifact_forest = resolved.plan.artifact_forest.clone();
     if let Some(forest) = &mut artifact_forest {
-        attach_forest_execution(forest, state, &resolved.spec.output.bundle_root,
-            &outputs, &artifacts, &steps);
+        attach_forest_execution(
+            forest,
+            state,
+            &resolved.spec.output.bundle_root,
+            &outputs,
+            &artifacts,
+            &steps,
+        );
     }
     Ok(RunManifest {
         schema_version: RUN_MANIFEST_SCHEMA_V1.to_string(),
@@ -2142,20 +2508,36 @@ fn source_evidence(resolved: &ResolvedExecution, sources: &[Artifact]) -> Vec<Ar
         .collect()
 }
 
-fn artifact_evidence(
-    resolved: &ResolvedExecution,
-    sources: &[Artifact],
-    report: &DagExecutionReport,
-    target_artifacts: &HashMap<String, Artifact>,
-    target_steps: &HashMap<String, String>,
-    all_artifacts: &HashMap<String, Artifact>,
-    output_locators: &HashMap<String, String>,
-    diagnostics: &[ExecutionDiagnostic],
-    validation_outcomes: &HashMap<String, ArtifactValidationOutcome>,
-    hygiene_evidence: &HashMap<String, HygieneEvidence>,
-    retained_speech: &[Artifact],
-    retained_locators: &HashMap<String, String>,
-) -> Vec<ArtifactEvidence> {
+struct ArtifactEvidenceInputs<'a> {
+    resolved: &'a ResolvedExecution,
+    sources: &'a [Artifact],
+    report: &'a DagExecutionReport,
+    target_artifacts: &'a HashMap<String, Artifact>,
+    target_steps: &'a HashMap<String, String>,
+    all_artifacts: &'a HashMap<String, Artifact>,
+    output_locators: &'a HashMap<String, String>,
+    diagnostics: &'a [ExecutionDiagnostic],
+    validation_outcomes: &'a HashMap<String, ArtifactValidationOutcome>,
+    hygiene_evidence: &'a HashMap<String, HygieneEvidence>,
+    retained_speech: &'a [Artifact],
+    retained_locators: &'a HashMap<String, String>,
+}
+
+fn artifact_evidence(input: ArtifactEvidenceInputs<'_>) -> Vec<ArtifactEvidence> {
+    let ArtifactEvidenceInputs {
+        resolved,
+        sources,
+        report,
+        target_artifacts,
+        target_steps,
+        all_artifacts,
+        output_locators,
+        diagnostics,
+        validation_outcomes,
+        hygiene_evidence,
+        retained_speech,
+        retained_locators,
+    } = input;
     let mut evidence = source_evidence(resolved, sources);
     let mut artifacts = all_artifacts.values().collect::<Vec<_>>();
     artifacts.sort_by(|left, right| {
@@ -2166,15 +2548,20 @@ fn artifact_evidence(
     });
     for artifact in artifacts {
         if sources.iter().any(|source| artifact.id() == source.id())
-            && !target_artifacts.values().any(|target| target.id() == artifact.id())
+            && !target_artifacts
+                .values()
+                .any(|target| target.id() == artifact.id())
         {
             continue;
         }
         let targets = resolved
             .targets
             .iter()
-            .filter(|target| target_artifacts.get(&target.identity())
-                .is_some_and(|terminal| terminal.id() == artifact.id()))
+            .filter(|target| {
+                target_artifacts
+                    .get(&target.identity())
+                    .is_some_and(|terminal| terminal.id() == artifact.id())
+            })
             .collect::<Vec<_>>();
         let outcome = validation_outcomes.get(artifact.id().as_str());
         let validation = outcome
@@ -2189,31 +2576,53 @@ fn artifact_evidence(
             // Record IDs commit bytes, format and lineage, but not metadata.
             // Equal-byte renditions must retain their own native evidence instead
             // of borrowing the deduplicated storage representative's metadata.
-            let artifact = target.and_then(|target| target_artifacts.get(&target.identity()))
+            let artifact = target
+                .and_then(|target| target_artifacts.get(&target.identity()))
                 .unwrap_or(artifact);
             let producing_step = if let Some(target) = target {
-                target_steps.get(&target.identity()).and_then(|step_id|
-                    report.steps.iter().find(|step| &step.step_id == step_id))
+                target_steps
+                    .get(&target.identity())
+                    .and_then(|step_id| report.steps.iter().find(|step| &step.step_id == step_id))
             } else {
-                report.steps.iter().find(|step| step.output_artifacts.iter()
-                    .any(|artifact_id| artifact_id == artifact.id().as_str()))
-                    .or_else(|| if resolved.spec.execution.screenplay_body.is_some()
-                        && artifact.format().as_str() == "screenplay_json" {
-                        // Auxiliary canonical bytes are produced by the direct
-                        // body step, without introducing a canonical graph hop.
-                        report.steps.iter().find(|step| step.capability.as_deref()
-                            == Some(SCREENPLAY_BODY_CAPABILITY) && step.state == StepState::Complete)
-                    } else { None })
+                report
+                    .steps
+                    .iter()
+                    .find(|step| {
+                        step.output_artifacts
+                            .iter()
+                            .any(|artifact_id| artifact_id == artifact.id().as_str())
+                    })
+                    .or_else(|| {
+                        if resolved.spec.execution.screenplay_body.is_some()
+                            && artifact.format().as_str() == "screenplay_json"
+                        {
+                            // Auxiliary canonical bytes are produced by the direct
+                            // body step, without introducing a canonical graph hop.
+                            report.steps.iter().find(|step| {
+                                step.capability.as_deref() == Some(SCREENPLAY_BODY_CAPABILITY)
+                                    && step.state == StepState::Complete
+                            })
+                        } else {
+                            None
+                        }
+                    })
             };
-            let producer = producing_step.map(|step| ProducerEvidence {
-                system: "renderflow".to_string(),
-                transform: Some(step.transform.clone()),
-                capability: step.capability.clone(),
-                provider: step.provider.clone(),
-                version: Some(step.transform_version.clone()),
-            }).unwrap_or_else(ProducerEvidence::source);
-            let fidelity = producing_step.map(|step| step.fidelity)
-                .unwrap_or_else(|| if sources.iter().any(|source| source.id() == artifact.id()) { FidelityDeclaration::Lossless } else { FidelityDeclaration::Unknown });
+            let producer = producing_step
+                .map(|step| ProducerEvidence {
+                    system: "renderflow".to_string(),
+                    transform: Some(step.transform.clone()),
+                    capability: step.capability.clone(),
+                    provider: step.provider.clone(),
+                    version: Some(step.transform_version.clone()),
+                })
+                .unwrap_or_else(ProducerEvidence::source);
+            let fidelity = producing_step.map(|step| step.fidelity).unwrap_or_else(|| {
+                if sources.iter().any(|source| source.id() == artifact.id()) {
+                    FidelityDeclaration::Lossless
+                } else {
+                    FidelityDeclaration::Unknown
+                }
+            });
             let lifecycle = if target.is_some() {
                 ArtifactRole::Terminal
             } else {
@@ -2227,18 +2636,14 @@ fn artifact_evidence(
                 .or_else(|| retained_locators.get(artifact.id().as_str()).cloned())
                 .unwrap_or_else(|| artifact_store_locator(artifact));
             let mut item = ArtifactEvidence::from_artifact(
-                artifact,
-                role,
-                lifecycle,
-                locator,
-                producer,
-                validation,
-                fidelity,
+                artifact, role, lifecycle, locator, producer, validation, fidelity,
             );
             item.validation_evidence = outcome
                 .map(|outcome| outcome.validators.clone())
                 .unwrap_or_default();
-            item.hygiene = target.and_then(|target| hygiene_evidence.get(&target.identity())).cloned();
+            item.hygiene = target
+                .and_then(|target| hygiene_evidence.get(&target.identity()))
+                .cloned();
             if let Some(target) = target {
                 item.metadata.insert(
                     "renderflow.target.identity".to_string(),
@@ -2254,11 +2659,15 @@ fn artifact_evidence(
                 );
                 // A retained canonical artifact can already have a bundle locator
                 // even when this target's separate destination was not published.
-                item.metadata.insert("renderflow.target.published".to_owned(),
-                    serde_json::json!(output_locators.contains_key(&target.identity())));
+                item.metadata.insert(
+                    "renderflow.target.published".to_owned(),
+                    serde_json::json!(output_locators.contains_key(&target.identity())),
+                );
                 if let Some(step) = producing_step {
-                    item.metadata.insert("renderflow.target.producing_step_id".to_owned(),
-                        serde_json::json!(step.step_id));
+                    item.metadata.insert(
+                        "renderflow.target.producing_step_id".to_owned(),
+                        serde_json::json!(step.step_id),
+                    );
                 }
             }
             if let Some(step) = producing_step {
@@ -2275,22 +2684,41 @@ fn artifact_evidence(
         }
     }
     for artifact in retained_speech {
-        if evidence.iter().any(|item| item.artifact_id == artifact.id().as_str()) {
+        if evidence
+            .iter()
+            .any(|item| item.artifact_id == artifact.id().as_str())
+        {
             continue;
         }
-        let producing_step = report.steps.iter().find(|step| step.capability.as_deref() == Some(SPEECH_CAPABILITY));
-        let producer = producing_step.map(|step| ProducerEvidence {
-            system: "renderflow".to_owned(), transform: Some(step.transform.clone()),
-            capability: step.capability.clone(), provider: step.provider.clone(),
-            version: Some(step.transform_version.clone()),
-        }).unwrap_or_else(ProducerEvidence::source);
-        let role = artifact.metadata().get("renderflow.speech.role")
-            .and_then(serde_json::Value::as_str).unwrap_or("speech_evidence");
+        let producing_step = report
+            .steps
+            .iter()
+            .find(|step| step.capability.as_deref() == Some(SPEECH_CAPABILITY));
+        let producer = producing_step
+            .map(|step| ProducerEvidence {
+                system: "renderflow".to_owned(),
+                transform: Some(step.transform.clone()),
+                capability: step.capability.clone(),
+                provider: step.provider.clone(),
+                version: Some(step.transform_version.clone()),
+            })
+            .unwrap_or_else(ProducerEvidence::source);
+        let role = artifact
+            .metadata()
+            .get("renderflow.speech.role")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("speech_evidence");
         evidence.push(ArtifactEvidence::from_artifact(
-            artifact, format!("speech.{role}"), ArtifactRole::Intermediate,
-            retained_locators.get(artifact.id().as_str()).cloned()
+            artifact,
+            format!("speech.{role}"),
+            ArtifactRole::Intermediate,
+            retained_locators
+                .get(artifact.id().as_str())
+                .cloned()
                 .unwrap_or_else(|| artifact_store_locator(artifact)),
-            producer, ValidationState::NotRequested, FidelityDeclaration::Unknown,
+            producer,
+            ValidationState::NotRequested,
+            FidelityDeclaration::Unknown,
         ));
     }
     evidence
@@ -2304,11 +2732,14 @@ fn collect_speech_artifacts(
     report: &DagExecutionReport,
     store: &ArtifactStore,
 ) -> Result<Vec<Artifact>> {
-    let Some(policy) = &resolved.spec.execution.speech else { return Ok(Vec::new()); };
+    let Some(policy) = &resolved.spec.execution.speech else {
+        return Ok(Vec::new());
+    };
     let Some(canonical) = report.artifacts.get(&Format::TimedTranscriptJson) else {
-        if report.steps.iter().any(|step| step.capability.as_deref() == Some(SPEECH_CAPABILITY)
-            && step.state == StepState::Complete)
-        {
+        if report.steps.iter().any(|step| {
+            step.capability.as_deref() == Some(SPEECH_CAPABILITY)
+                && step.state == StepState::Complete
+        }) {
             anyhow::bail!("completed speech step did not retain its canonical transcript");
         }
         return Ok(Vec::new());
@@ -2318,9 +2749,13 @@ fn collect_speech_artifacts(
     if retained.len() != expected_count {
         anyhow::bail!("speech canonical transcript is missing required retained artifacts");
     }
-    let source = report.artifacts.get(&resolved.source_format)
+    let source = report
+        .artifacts
+        .get(&resolved.source_format)
         .context("speech execution did not retain its original source record")?;
-    let metadata = canonical.metadata().get("renderflow.speech")
+    let metadata = canonical
+        .metadata()
+        .get("renderflow.speech")
         .context("speech canonical metadata is missing")?;
     if metadata["input_sha256"].as_str() != Some(policy.source_sha256.as_str())
         || metadata["input_artifact_id"].as_str() != Some(source.id().as_str())
@@ -2329,7 +2764,9 @@ fn collect_speech_artifacts(
         anyhow::bail!("speech evidence does not reference the pinned original source");
     }
     for (format, artifact) in &report.artifacts {
-        if *format == resolved.source_format { continue; }
+        if *format == resolved.source_format {
+            continue;
+        }
         if retained_artifacts(artifact)? != retained
             || artifact.metadata().get("renderflow.speech") != Some(metadata)
         {
@@ -2345,15 +2782,22 @@ fn collect_speech_artifacts(
     // The receipt commits the canonical record and its supporting records;
     // canonical lineage never points back to the receipt. Keep it last so a
     // portable completion marker is published only after every required file.
-    let cancellation = resolved.cancellation.clone()
-        .map(crate::process::ProcessCancellationToken::from_shared).unwrap_or_default();
+    let cancellation = resolved
+        .cancellation
+        .clone()
+        .map(crate::process::ProcessCancellationToken::from_shared)
+        .unwrap_or_default();
     let bytes = receipt_bytes(source, policy, canonical, store, &cancellation)?;
     speech_not_cancelled(resolved)?;
-    retained.push(store.put_bytes(&bytes,
-        ArtifactDescriptor::for_format(Format::Json, ArtifactStorageClass::Intermediate)
-            .with_source(canonical.id().clone())
-            .with_metadata("renderflow.speech.role", "saved_result")
-            .with_metadata("renderflow.speech.saved_result_schema", SAVED_RESULT_SCHEMA))?);
+    retained.push(
+        store.put_bytes(
+            &bytes,
+            ArtifactDescriptor::for_format(Format::Json, ArtifactStorageClass::Intermediate)
+                .with_source(canonical.id().clone())
+                .with_metadata("renderflow.speech.role", "saved_result")
+                .with_metadata("renderflow.speech.saved_result_schema", SAVED_RESULT_SCHEMA),
+        )?,
+    );
     Ok(retained)
 }
 
@@ -2368,17 +2812,22 @@ fn publish_speech_artifacts(
     output_root: &Path,
     target_paths: &[PathBuf],
 ) -> Result<Vec<(String, PathBuf)>> {
-    if artifacts.is_empty() { return Ok(Vec::new()); }
+    if artifacts.is_empty() {
+        return Ok(Vec::new());
+    }
     // A selected target alias must not overwrite a retained file through an
     // existing directory symlink after the lexical collision check below.
     for target in target_paths {
-        let relative = target.strip_prefix(output_root)
+        let relative = target
+            .strip_prefix(output_root)
             .context("speech target must remain inside its output bundle")?;
         let mut prefix = output_root.to_path_buf();
         for component in std::iter::once(None).chain(relative.components().map(Some)) {
             if let Some(component) = component {
                 if !matches!(component, Component::Normal(_)) {
-                    anyhow::bail!("speech target paths must contain only normal relative components");
+                    anyhow::bail!(
+                        "speech target paths must contain only normal relative components"
+                    );
                 }
                 prefix.push(component.as_os_str());
             }
@@ -2392,16 +2841,25 @@ fn publish_speech_artifacts(
             }
         }
     }
-    let envelope = artifacts.iter().find(|artifact| {
-        artifact.metadata().get("renderflow.speech.role").and_then(serde_json::Value::as_str)
-            == Some("transcription")
-    }).context("retained speech transcription envelope is missing")?;
+    let envelope = artifacts
+        .iter()
+        .find(|artifact| {
+            artifact
+                .metadata()
+                .get("renderflow.speech.role")
+                .and_then(serde_json::Value::as_str)
+                == Some("transcription")
+        })
+        .context("retained speech transcription envelope is missing")?;
     let parent = output_root.join("speech");
     let directory = parent.join(envelope.digest().value());
     let mut destinations = Vec::new();
     for artifact in artifacts {
-        let name = if artifact.metadata().get("renderflow.speech.role")
-            .and_then(serde_json::Value::as_str) == Some("saved_result")
+        let name = if artifact
+            .metadata()
+            .get("renderflow.speech.role")
+            .and_then(serde_json::Value::as_str)
+            == Some("saved_result")
         {
             SAVED_RESULT_FILENAME
         } else if artifact.format().as_str() == Format::TimedTranscriptJson.to_string() {
@@ -2432,13 +2890,21 @@ fn publish_speech_artifacts(
                 loop {
                     speech_not_cancelled(resolved)?;
                     let count = input.read(&mut buffer)?;
-                    if count == 0 { break; }
-                    size = size.checked_add(count as u64).context("speech evidence size overflow")?;
-                    if size > artifact.size_bytes() { anyhow::bail!("speech payload changed during publication"); }
+                    if count == 0 {
+                        break;
+                    }
+                    size = size
+                        .checked_add(count as u64)
+                        .context("speech evidence size overflow")?;
+                    if size > artifact.size_bytes() {
+                        anyhow::bail!("speech payload changed during publication");
+                    }
                     hasher.update(&buffer[..count]);
                     temporary.write_all(&buffer[..count])?;
                 }
-                if size != artifact.size_bytes() || format!("{:x}", hasher.finalize()) != artifact.digest().value() {
+                if size != artifact.size_bytes()
+                    || format!("{:x}", hasher.finalize()) != artifact.digest().value()
+                {
                     anyhow::bail!("speech payload changed during publication");
                 }
                 temporary.as_file().sync_all()?;
@@ -2471,9 +2937,16 @@ fn ensure_speech_directory(path: &Path) -> Result<()> {
     Ok(())
 }
 
-fn verify_speech_file(resolved: &ResolvedExecution, path: &Path, artifact: &Artifact) -> Result<()> {
+fn verify_speech_file(
+    resolved: &ResolvedExecution,
+    path: &Path,
+    artifact: &Artifact,
+) -> Result<()> {
     let metadata = fs::symlink_metadata(path)?;
-    if !metadata.is_file() || metadata.file_type().is_symlink() || metadata.len() != artifact.size_bytes() {
+    if !metadata.is_file()
+        || metadata.file_type().is_symlink()
+        || metadata.len() != artifact.size_bytes()
+    {
         anyhow::bail!("existing speech evidence path is not the required immutable payload");
     }
     let mut file = fs::File::open(path)?;
@@ -2483,19 +2956,31 @@ fn verify_speech_file(resolved: &ResolvedExecution, path: &Path, artifact: &Arti
     loop {
         speech_not_cancelled(resolved)?;
         let count = file.read(&mut buffer)?;
-        if count == 0 { break; }
-        size = size.checked_add(count as u64).context("speech evidence size overflow")?;
-        if size > artifact.size_bytes() { anyhow::bail!("existing speech evidence grew while read"); }
+        if count == 0 {
+            break;
+        }
+        size = size
+            .checked_add(count as u64)
+            .context("speech evidence size overflow")?;
+        if size > artifact.size_bytes() {
+            anyhow::bail!("existing speech evidence grew while read");
+        }
         hasher.update(&buffer[..count]);
     }
-    if size != artifact.size_bytes() || format!("{:x}", hasher.finalize()) != artifact.digest().value() {
+    if size != artifact.size_bytes()
+        || format!("{:x}", hasher.finalize()) != artifact.digest().value()
+    {
         anyhow::bail!("existing speech evidence differs from the required immutable payload");
     }
     Ok(())
 }
 
 fn speech_not_cancelled(resolved: &ResolvedExecution) -> Result<()> {
-    if resolved.cancellation.as_ref().is_some_and(|flag| flag.load(std::sync::atomic::Ordering::SeqCst)) {
+    if resolved
+        .cancellation
+        .as_ref()
+        .is_some_and(|flag| flag.load(std::sync::atomic::Ordering::SeqCst))
+    {
         return Err(crate::speech::SpeechError::Cancelled.into());
     }
     Ok(())
@@ -3251,7 +3736,10 @@ fn validate_subtitle_policy(
         if policy.stream_index.is_none() {
             anyhow::bail!("subtitle.stream_index.required: media extraction requires execution.subtitles.stream_index from subtitles inspect; the first stream is never selected implicitly");
         }
-    } else if matches!(source_format, Format::Srt | Format::WebVtt | Format::TimedTranscriptJson) {
+    } else if matches!(
+        source_format,
+        Format::Srt | Format::WebVtt | Format::TimedTranscriptJson
+    ) {
         if policy.stream_index.is_some() {
             anyhow::bail!("subtitle.stream_index.unexpected: standalone subtitle conversion does not accept an embedded stream index");
         }
@@ -3300,7 +3788,10 @@ fn register_subtitle_edges(
                 .with_required_provider("tool.ffprobe")
                 .with_evidence("adapter", SUBTITLE_EXTRACTION_EVIDENCE)
                 .with_evidence("family", "subtitle")
-                .with_evidence("transform_id", format!("builtin.subtitle.extract.{source_format}"))
+                .with_evidence(
+                    "transform_id",
+                    format!("builtin.subtitle.extract.{source_format}"),
+                )
                 .with_evidence("subtitle_stream_index", stream_index.to_string()),
         );
     }
@@ -3319,7 +3810,11 @@ fn register_subtitle_executors(
         match edge.evidence.get("adapter").map(String::as_str) {
             Some(SUBTITLE_ADAPTER_EVIDENCE) => {
                 let transform = TimedTextArtifactTransform::new(edge.from, edge.to)?;
-                let transform = if speech { transform.without_cache() } else { transform };
+                let transform = if speech {
+                    transform.without_cache()
+                } else {
+                    transform
+                };
                 executor.register_artifact_for_edge(edge, Arc::new(transform));
             }
             Some(SUBTITLE_EXTRACTION_EVIDENCE) => {
@@ -3345,7 +3840,11 @@ fn register_subtitle_executors(
     Ok(())
 }
 
-fn validate_screenplay_pdf_policy(source: Format, collection: bool, policy: &AfterwritingConfig) -> Result<()> {
+fn validate_screenplay_pdf_policy(
+    source: Format,
+    collection: bool,
+    policy: &AfterwritingConfig,
+) -> Result<()> {
     policy.validate()?;
     if collection || source != Format::Fountain {
         anyhow::bail!("screenplay_pdf.policy.source: exactly one original Fountain source is required; native normalization and collections are separate work");
@@ -3365,7 +3864,11 @@ fn validate_screenplay_pdf_targets(targets: &[ResolvedTarget]) -> Result<()> {
         anyhow::bail!("screenplay_pdf.target.unsupported: choose exactly one PDF target; same-format, text, canonical JSON, native screenplay formats, and transitive routes are unavailable");
     }
     let target = &targets[0];
-    if target.preset.is_some() || target.template.is_some() || target.variant.is_some() || !target.options.is_empty() {
+    if target.preset.is_some()
+        || target.template.is_some()
+        || target.variant.is_some()
+        || !target.options.is_empty()
+    {
         anyhow::bail!("screenplay_pdf.target.options: formatting is selected only by execution.screenplay_pdf.profile; target presets, templates, variants, and custom options are unsupported");
     }
     Ok(())
@@ -3379,8 +3882,10 @@ fn register_screenplay_pdf_edge(
 ) -> Result<()> {
     validate_screenplay_pdf_policy(source, false, policy)?;
     for id in [AFTERWRITING_PROVIDER_ID, NODE_PROVIDER_ID] {
-        let mut descriptor = tools.get(id)
-            .with_context(|| format!("screenplay_pdf.provider.registry: {id} descriptor missing"))?.clone();
+        let mut descriptor = tools
+            .get(id)
+            .with_context(|| format!("screenplay_pdf.provider.registry: {id} descriptor missing"))?
+            .clone();
         // These providers deliberately retain explicit-configuration discovery.
         // Only the bounded, environment-clearing adapter may probe Node.
         descriptor.discovery = ToolDiscovery::RuntimeService {
@@ -3395,16 +3900,21 @@ fn register_screenplay_pdf_edge(
         }
         tools.register(descriptor)?;
     }
-    graph.add_transform(TransformEdge::new(Format::Fountain, Format::Pdf, 1.0, 0.0)
-        .with_provider(AFTERWRITING_PROVIDER_ID, SCREENPLAY_PDF_CAPABILITY)
-        .with_required_provider(NODE_PROVIDER_ID)
-        .with_evidence("adapter", SCREENPLAY_PDF_ADAPTER_EVIDENCE)
-        .with_evidence("family", "screenplay")
-        .with_evidence("transform_id", SCREENPLAY_PDF_CAPABILITY)
-        .with_evidence("screenplay_pdf_policy_sha256", sha256_serialized(policy)?.value)
-        .with_evidence("qualification", "authored_unqualified")
-        .with_evidence("quality_interpretation", "unqualified_not_fidelity_score")
-        .with_evidence("cache", "disabled"));
+    graph.add_transform(
+        TransformEdge::new(Format::Fountain, Format::Pdf, 1.0, 0.0)
+            .with_provider(AFTERWRITING_PROVIDER_ID, SCREENPLAY_PDF_CAPABILITY)
+            .with_required_provider(NODE_PROVIDER_ID)
+            .with_evidence("adapter", SCREENPLAY_PDF_ADAPTER_EVIDENCE)
+            .with_evidence("family", "screenplay")
+            .with_evidence("transform_id", SCREENPLAY_PDF_CAPABILITY)
+            .with_evidence(
+                "screenplay_pdf_policy_sha256",
+                sha256_serialized(policy)?.value,
+            )
+            .with_evidence("qualification", "authored_unqualified")
+            .with_evidence("quality_interpretation", "unqualified_not_fidelity_score")
+            .with_evidence("cache", "disabled"),
+    );
     Ok(())
 }
 
@@ -3422,16 +3932,22 @@ fn assess_screenplay_pdf_availability(
     edges: &[&TransformEdge],
     probe: impl FnOnce(&AfterwritingConfig) -> std::result::Result<(String, String), String>,
 ) -> bool {
-    let Some(policy) = &spec.execution.screenplay_pdf else { return false; };
+    let Some(policy) = &spec.execution.screenplay_pdf else {
+        return false;
+    };
     let allowed = edges.iter().any(|edge| {
-        edge.from == Format::Fountain && edge.to == Format::Pdf
-            && edge.evidence.get("adapter").map(String::as_str) == Some(SCREENPLAY_PDF_ADAPTER_EVIDENCE)
+        edge.from == Format::Fountain
+            && edge.to == Format::Pdf
+            && edge.evidence.get("adapter").map(String::as_str)
+                == Some(SCREENPLAY_PDF_ADAPTER_EVIDENCE)
             && edge.provider_id.as_deref() == Some(AFTERWRITING_PROVIDER_ID)
             && edge.required_provider_ids == vec![NODE_PROVIDER_ID.to_owned()]
             && edge.capability_id.as_deref() == Some(SCREENPLAY_PDF_CAPABILITY)
             && edge_allowed(edge, tools, spec)
     });
-    if !allowed { return false; }
+    if !allowed {
+        return false;
+    }
     append_screenplay_pdf_availability(inventory, policy, probe(policy));
     true
 }
@@ -3443,7 +3959,10 @@ fn append_screenplay_pdf_availability(
     policy: &AfterwritingConfig,
     observed: std::result::Result<(String, String), String>,
 ) {
-    for (id, name) in [(NODE_PROVIDER_ID, "Configured Node.js"), (AFTERWRITING_PROVIDER_ID, "Configured afterwriting")] {
+    for (id, name) in [
+        (NODE_PROVIDER_ID, "Configured Node.js"),
+        (AFTERWRITING_PROVIDER_ID, "Configured afterwriting"),
+    ] {
         let (status, version_line, diagnostic) = match &observed {
             Ok((node_version, provider_version)) => (
                 ToolAvailabilityStatus::Available,
@@ -3456,10 +3975,18 @@ fn append_screenplay_pdf_availability(
             ),
         };
         inventory.tools.push(ToolAvailability {
-            id: ToolId::new(id).expect("static provider ID"), name: name.to_owned(), status,
+            id: ToolId::new(id).expect("static provider ID"),
+            name: name.to_owned(),
+            status,
             support_tier: ToolSupportTier::Experimental,
-            selected_executable: if id == NODE_PROVIDER_ID { Some(policy.node_executable.to_string_lossy().into_owned()) } else { None },
-            normalized_version: version_line.clone(), version_line, diagnostic,
+            selected_executable: if id == NODE_PROVIDER_ID {
+                Some(policy.node_executable.to_string_lossy().into_owned())
+            } else {
+                None
+            },
+            normalized_version: version_line.clone(),
+            version_line,
+            diagnostic,
         });
     }
 }
@@ -3471,18 +3998,30 @@ fn register_screenplay_pdf_executors(
     cancellation: Option<Arc<AtomicBool>>,
 ) -> Result<()> {
     for edge in dag.all_edges() {
-        if edge.evidence.get("adapter").map(String::as_str) != Some(SCREENPLAY_PDF_ADAPTER_EVIDENCE) { continue; }
-        let policy = policy.context("screenplay_pdf.policy.missing: explicit afterwriting configuration is required")?;
-        if edge.from != Format::Fountain || edge.to != Format::Pdf
+        if edge.evidence.get("adapter").map(String::as_str) != Some(SCREENPLAY_PDF_ADAPTER_EVIDENCE)
+        {
+            continue;
+        }
+        let policy = policy.context(
+            "screenplay_pdf.policy.missing: explicit afterwriting configuration is required",
+        )?;
+        if edge.from != Format::Fountain
+            || edge.to != Format::Pdf
             || edge.provider_id.as_deref() != Some(AFTERWRITING_PROVIDER_ID)
             || edge.required_provider_ids != vec![NODE_PROVIDER_ID.to_owned()]
             || edge.capability_id.as_deref() != Some(SCREENPLAY_PDF_CAPABILITY)
-            || edge.evidence.get("screenplay_pdf_policy_sha256") != Some(&sha256_serialized(policy)?.value)
+            || edge.evidence.get("screenplay_pdf_policy_sha256")
+                != Some(&sha256_serialized(policy)?.value)
         {
             anyhow::bail!("screenplay_pdf.plan.inconsistent: selected edge differs from the frozen direct rendering policy");
         }
-        executor.register_artifact_for_edge(edge,
-            Arc::new(AfterwritingArtifactTransform::new(policy.clone(), cancellation.clone())?));
+        executor.register_artifact_for_edge(
+            edge,
+            Arc::new(AfterwritingArtifactTransform::new(
+                policy.clone(),
+                cancellation.clone(),
+            )?),
+        );
     }
     Ok(())
 }
@@ -3498,24 +4037,34 @@ fn validate_screenplay_hygiene(spec: &SpecV2) -> Result<()> {
 /// dialect. Only an explicit dialect declaration may resolve this exact pair;
 /// the native adapter still validates the envelope and its bounded semantics.
 fn screenplay_wrapper_conflict(source: Format, declared: Option<&str>, formats: &[String]) -> bool {
-    if declared.and_then(|value| value.parse::<Format>().ok()) != Some(source) { return false; }
+    if declared.and_then(|value| value.parse::<Format>().ok()) != Some(source) {
+        return false;
+    }
     let wrapper = match source {
         Format::Fdx | Format::Osf => "xml",
         Format::FadeIn => "zip",
         _ => return false,
     };
-    formats.len() == 2 && formats.iter().any(|format| format == wrapper)
+    formats.len() == 2
+        && formats.iter().any(|format| format == wrapper)
         && formats.iter().any(|format| format == &source.to_string())
 }
 
-fn validate_screenplay_policy(source: Format, collection: bool, policy: &ScripttoolConfig) -> Result<()> {
+fn validate_screenplay_policy(
+    source: Format,
+    collection: bool,
+    policy: &ScripttoolConfig,
+) -> Result<()> {
     policy.validate()?;
     if collection {
         anyhow::bail!("screenplay.policy.collection: scripttool requires one source artifact");
     }
     let from = native_format(source)
         .context("screenplay.policy.source: supported sources are FDX, OSF, or Fade In")?;
-    if !supported_route(from, crate::screenplay::native::NativeScreenplayFormat::Fountain) {
+    if !supported_route(
+        from,
+        crate::screenplay::native::NativeScreenplayFormat::Fountain,
+    ) {
         anyhow::bail!("screenplay.policy.source: only the FDX, OSF, and Fade In imports to Fountain are adopted; reverse writers and provider JSON are unavailable");
     }
     Ok(())
@@ -3530,12 +4079,17 @@ fn register_screenplay_edges(
     policy: &ScripttoolConfig,
 ) -> Result<()> {
     validate_screenplay_policy(source, false, policy)?;
-    let mut descriptor = tools.get(SCREENPLAY_PROVIDER)
-        .context("screenplay.provider.registry: scripttool descriptor missing")?.clone();
-    let executable = policy.executable.to_str()
+    let mut descriptor = tools
+        .get(SCREENPLAY_PROVIDER)
+        .context("screenplay.provider.registry: scripttool descriptor missing")?
+        .clone();
+    let executable = policy
+        .executable
+        .to_str()
         .context("screenplay.provider.path: executable must be valid UTF-8")?;
     descriptor.discovery = ToolDiscovery::Executable {
-        candidates: vec![executable.to_owned()], version_args: vec!["-version".to_owned()],
+        candidates: vec![executable.to_owned()],
+        version_args: vec!["-version".to_owned()],
     };
     // Exact version-line compatibility is applied to observations below. A
     // numeric min/max range would accept builds outside this bounded adapter.
@@ -3546,35 +4100,52 @@ fn register_screenplay_edges(
     let capability = CapabilityId::new(format!("screenplay.import.{source}.fountain"))?;
     descriptor.capabilities = vec![capability.clone()];
     tools.register(descriptor)?;
-    graph.add_transform(TransformEdge::new(source, Format::Fountain, 1.0, 0.0)
-        .with_provider(SCREENPLAY_PROVIDER, capability.to_string())
-        .with_evidence("adapter", SCREENPLAY_ADAPTER_EVIDENCE)
-        .with_evidence("family", "screenplay")
-        .with_evidence("transform_id", format!("builtin.screenplay.{source}.fountain"))
-        .with_evidence("screenplay_policy_sha256", sha256_serialized(policy)?.value)
-        .with_evidence("qualification", "authored_unqualified")
-        .with_evidence("quality_interpretation", "unqualified_not_fidelity_score")
-        .with_evidence("cache", "disabled"));
+    graph.add_transform(
+        TransformEdge::new(source, Format::Fountain, 1.0, 0.0)
+            .with_provider(SCREENPLAY_PROVIDER, capability.to_string())
+            .with_evidence("adapter", SCREENPLAY_ADAPTER_EVIDENCE)
+            .with_evidence("family", "screenplay")
+            .with_evidence(
+                "transform_id",
+                format!("builtin.screenplay.{source}.fountain"),
+            )
+            .with_evidence("screenplay_policy_sha256", sha256_serialized(policy)?.value)
+            .with_evidence("qualification", "authored_unqualified")
+            .with_evidence("quality_interpretation", "unqualified_not_fidelity_score")
+            .with_evidence("cache", "disabled"),
+    );
     Ok(())
 }
 
 /// Keep missing and incompatible configured providers in the ordinary inventory
 /// so only their own graph branches are pruned. A successful version probe does
 /// not verify the executable SHA-256; the native adapter verifies that pin.
-fn apply_screenplay_version_requirement(inventory: &mut ToolInventory, policy: Option<&ScripttoolConfig>) {
-    let Some(policy) = policy else { return; };
+fn apply_screenplay_version_requirement(
+    inventory: &mut ToolInventory,
+    policy: Option<&ScripttoolConfig>,
+) {
+    let Some(policy) = policy else {
+        return;
+    };
     for tool in &mut inventory.tools {
-        if tool.id.as_str() != SCREENPLAY_PROVIDER { continue; }
-        if tool.is_available() && !tool.version_line.as_deref().is_some_and(|line| {
-            supported_version_line(line, &policy.expected_version, &policy.executable)
-        }) {
+        if tool.id.as_str() != SCREENPLAY_PROVIDER {
+            continue;
+        }
+        if tool.is_available()
+            && !tool.version_line.as_deref().is_some_and(|line| {
+                supported_version_line(line, &policy.expected_version, &policy.executable)
+            })
+        {
             tool.status = ToolAvailabilityStatus::UnsupportedVersion;
             tool.diagnostic = Some(format!(
                 "configured scripttool version probe did not match the supported {} version line; select the supported executable and update execution.screenplay.executable_sha256 to its verified digest",
                 policy.expected_version,
             ));
         } else if !tool.is_available() {
-            let original = tool.diagnostic.as_deref().unwrap_or("configured executable unavailable");
+            let original = tool
+                .diagnostic
+                .as_deref()
+                .unwrap_or("configured executable unavailable");
             tool.diagnostic = Some(format!(
                 "{original}; configure execution.screenplay.executable as an installed compatible scripttool path with an explicit SHA-256 pin; no installation or PATH fallback is performed"
             ));
@@ -3592,16 +4163,28 @@ fn register_screenplay_executors(
         if edge.evidence.get("adapter").map(String::as_str) != Some(SCREENPLAY_ADAPTER_EVIDENCE) {
             continue;
         }
-        let policy = policy.context("screenplay.policy.missing: selected edge requires explicit scripttool configuration")?;
+        let policy = policy.context(
+            "screenplay.policy.missing: selected edge requires explicit scripttool configuration",
+        )?;
         if edge.provider_id.as_deref() != Some(SCREENPLAY_PROVIDER)
-            || edge.capability_id.as_deref() != Some(format!("screenplay.import.{}.{}", edge.from, edge.to).as_str())
-            || edge.evidence.get("screenplay_policy_sha256") != Some(&sha256_serialized(policy)?.value)
+            || edge.capability_id.as_deref()
+                != Some(format!("screenplay.import.{}.{}", edge.from, edge.to).as_str())
+            || edge.evidence.get("screenplay_policy_sha256")
+                != Some(&sha256_serialized(policy)?.value)
         {
-            anyhow::bail!("screenplay.plan.inconsistent: edge differs from the frozen scripttool policy");
+            anyhow::bail!(
+                "screenplay.plan.inconsistent: edge differs from the frozen scripttool policy"
+            );
         }
-        executor.register_artifact_for_edge(edge, Arc::new(ScreenplayArtifactTransform::new(
-            edge.from, edge.to, policy.clone(), cancellation.clone(),
-        )?));
+        executor.register_artifact_for_edge(
+            edge,
+            Arc::new(ScreenplayArtifactTransform::new(
+                edge.from,
+                edge.to,
+                policy.clone(),
+                cancellation.clone(),
+            )?),
+        );
     }
     Ok(())
 }
@@ -3624,11 +4207,14 @@ fn register_speech_edges(
     policy: &SpeechPolicy,
 ) -> Result<()> {
     policy.validate_source(source_format, false)?;
-    let mut descriptor = tools.get("tool.whisper_cpp")
-        .context("speech.provider.registry: whisper.cpp descriptor missing")?.clone();
+    let mut descriptor = tools
+        .get("tool.whisper_cpp")
+        .context("speech.provider.registry: whisper.cpp descriptor missing")?
+        .clone();
     descriptor.id = ToolId::new(WHISPER_PROVIDER_ID)?;
     descriptor.discovery = ToolDiscovery::Executable {
-        candidates: vec![policy.provider.path.clone()], version_args: vec!["--version".to_owned()],
+        candidates: vec![policy.provider.path.clone()],
+        version_args: vec!["--version".to_owned()],
     };
     descriptor.capabilities = vec![CapabilityId::new(SPEECH_CAPABILITY)?];
     descriptor.determinism = ToolDeterminism::ConfigurationDependent;
@@ -3642,24 +4228,40 @@ fn register_speech_edges(
         .with_evidence("transform_id", SPEECH_CAPABILITY)
         .with_evidence("family", "speech")
         .with_evidence("speech_policy_sha256", sha256_serialized(policy)?.value)
-        .with_evidence("provider_identity", if policy.recovery.is_some() {
-            "historical_receipt_unverified"
-        } else if policy.saved_results.is_enabled() {
-            "historical_index_unverified"
-        } else { "declared_unobserved" })
-        .with_evidence("speech_execution", if policy.recovery.is_some() {
-            "explicit_saved_result"
-        } else if policy.saved_results.is_enabled() {
-            "reuse_saved_result_if_available"
-        } else { "native" })
+        .with_evidence(
+            "provider_identity",
+            if policy.recovery.is_some() {
+                "historical_receipt_unverified"
+            } else if policy.saved_results.is_enabled() {
+                "historical_index_unverified"
+            } else {
+                "declared_unobserved"
+            },
+        )
+        .with_evidence(
+            "speech_execution",
+            if policy.recovery.is_some() {
+                "explicit_saved_result"
+            } else if policy.saved_results.is_enabled() {
+                "reuse_saved_result_if_available"
+            } else {
+                "native"
+            },
+        )
         .with_evidence("quality_interpretation", "unqualified_not_accuracy")
         .with_evidence("cache", "disabled");
     if let Some(audio) = &policy.audio {
-        for (id, pinned) in [("tool.ffmpeg", &audio.ffmpeg), ("tool.ffprobe", &audio.ffprobe)] {
-            let mut descriptor = tools.get(id)
-                .with_context(|| format!("speech.provider.registry: {id} descriptor missing"))?.clone();
+        for (id, pinned) in [
+            ("tool.ffmpeg", &audio.ffmpeg),
+            ("tool.ffprobe", &audio.ffprobe),
+        ] {
+            let mut descriptor = tools
+                .get(id)
+                .with_context(|| format!("speech.provider.registry: {id} descriptor missing"))?
+                .clone();
             descriptor.discovery = ToolDiscovery::Executable {
-                candidates: vec![pinned.path.clone()], version_args: vec!["-version".to_owned()],
+                candidates: vec![pinned.path.clone()],
+                version_args: vec!["-version".to_owned()],
             };
             descriptor.locality = ToolLocality::Local;
             descriptor.determinism = ToolDeterminism::ConfigurationDependent;
@@ -3676,12 +4278,14 @@ fn register_speech_edges(
         let from = Format::TimedTranscriptJson;
         let capability = CapabilityId::new(format!("subtitle.convert.{from}.{to}"))?;
         tools.add_capability(&ToolId::new(TIMED_TEXT_PROVIDER)?, capability.clone())?;
-        graph.add_transform(TransformEdge::new(from, to, 0.1, if to == Format::Text { 0.5 } else { 0.95 })
-            .with_provider(TIMED_TEXT_PROVIDER, capability.to_string())
-            .with_evidence("adapter", SUBTITLE_ADAPTER_EVIDENCE)
-            .with_evidence("family", "subtitle")
-            .with_evidence("transform_id", format!("builtin.subtitle.{from}.{to}"))
-            .with_evidence("cache", "disabled"));
+        graph.add_transform(
+            TransformEdge::new(from, to, 0.1, if to == Format::Text { 0.5 } else { 0.95 })
+                .with_provider(TIMED_TEXT_PROVIDER, capability.to_string())
+                .with_evidence("adapter", SUBTITLE_ADAPTER_EVIDENCE)
+                .with_evidence("family", "subtitle")
+                .with_evidence("transform_id", format!("builtin.subtitle.{from}.{to}"))
+                .with_evidence("cache", "disabled"),
+        );
     }
     Ok(())
 }
@@ -3697,15 +4301,19 @@ fn register_speech_executors(
         if edge.evidence.get("adapter").map(String::as_str) != Some(SPEECH_ADAPTER_EVIDENCE) {
             continue;
         }
-        let policy = policy.context("speech.policy.missing: selected ASR edge has no explicit policy")?;
+        let policy =
+            policy.context("speech.policy.missing: selected ASR edge has no explicit policy")?;
         if edge.to != Format::TimedTranscriptJson
             || edge.provider_id.as_deref() != Some(WHISPER_PROVIDER_ID)
             || edge.capability_id.as_deref() != Some(SPEECH_CAPABILITY)
             || edge.evidence.get("speech_policy_sha256") != Some(&sha256_serialized(policy)?.value)
         {
-            anyhow::bail!("speech.plan.inconsistent: selected ASR edge differs from frozen speech policy");
+            anyhow::bail!(
+                "speech.plan.inconsistent: selected ASR edge differs from frozen speech policy"
+            );
         }
-        let transform = SpeechArtifactTransform::new(edge.from, policy.clone(), cancellation.clone())?;
+        let transform =
+            SpeechArtifactTransform::new(edge.from, policy.clone(), cancellation.clone())?;
         let transform = match &observer {
             Some(observer) => transform.with_observer(observer.clone()),
             None => transform,
@@ -3850,17 +4458,26 @@ fn apply_execution_policy(
 
 fn edge_allowed(edge: &TransformEdge, tools: &ToolRegistry, spec: &SpecV2) -> bool {
     if edge.evidence.get("adapter").map(String::as_str) == Some(lyrics::LYRICS_ADAPTER)
-        && spec.execution.lyrics.is_none() { return false; }
-    if edge.from == Format::Text && (spec.execution.subtitles.is_some()
-        || spec.execution.speech.is_some()) {
-        return false;
-    }
-    if edge.evidence.get("adapter").map(String::as_str) == Some(SCREENPLAY_BODY_ADAPTER_EVIDENCE)
-        && spec.execution.screenplay_body.as_ref().is_none_or(|policy| !policy.allow_unqualified)
+        && spec.execution.lyrics.is_none()
     {
         return false;
     }
-    if edge.evidence.get("adapter").map(String::as_str) == Some(SCREENPLAY_RECOVERY_ADAPTER_EVIDENCE)
+    if edge.from == Format::Text
+        && (spec.execution.subtitles.is_some() || spec.execution.speech.is_some())
+    {
+        return false;
+    }
+    if edge.evidence.get("adapter").map(String::as_str) == Some(SCREENPLAY_BODY_ADAPTER_EVIDENCE)
+        && spec
+            .execution
+            .screenplay_body
+            .as_ref()
+            .is_none_or(|policy| !policy.allow_unqualified)
+    {
+        return false;
+    }
+    if edge.evidence.get("adapter").map(String::as_str)
+        == Some(SCREENPLAY_RECOVERY_ADAPTER_EVIDENCE)
         && spec.execution.screenplay_recovery.is_none()
     {
         return false;
@@ -4017,32 +4634,66 @@ fn resolve_target_intent(
     }
     if !spec.targets.include.is_empty() {
         selected.retain(|target| selector_matches(target, &spec.targets.include, graph));
-        for target in &mut selected { target.include_selectors.push(spec.targets.include.clone()); }
+        for target in &mut selected {
+            target.include_selectors.push(spec.targets.include.clone());
+        }
     }
     apply_exclusions(&mut selected, &profile_exclusions, graph);
     apply_exclusions(&mut selected, &spec.targets.exclude, graph);
-    selected.sort_by(|a, b| a.format.to_string().cmp(&b.format.to_string()).then_with(|| a.identity().cmp(&b.identity())));
+    selected.sort_by(|a, b| {
+        a.format
+            .to_string()
+            .cmp(&b.format.to_string())
+            .then_with(|| a.identity().cmp(&b.identity()))
+    });
     Ok(selected)
 }
 
 fn extend_target_spec(
-    selected: &mut Vec<ResolvedTarget>, target: &TargetSpec, graph: &TransformGraph,
-    source: Format, reachable: &[Format],
+    selected: &mut Vec<ResolvedTarget>,
+    target: &TargetSpec,
+    graph: &TransformGraph,
+    source: Format,
+    reachable: &[Format],
 ) -> Result<()> {
     let candidates = if let Some(format) = &target.format {
         // Preserve an explicit unsupported request as a diagnostic branch.
-        vec![format.parse().with_context(|| format!("unknown target format '{format}'"))?]
+        vec![format
+            .parse()
+            .with_context(|| format!("unknown target format '{format}'"))?]
     } else {
-        let mut candidates = reachable.iter().copied().filter(|format| {
-            target.family.as_ref().is_none_or(|family| format_in_family(*format, family))
-                && graph.transforms_to(*format).iter().any(|edge| {
-                    target.capability.as_ref().is_none_or(|id| edge.capability_id.as_ref() == Some(id))
-                        && target.transform.as_ref().is_none_or(|id| edge.evidence.get("transform_id") == Some(id))
-                        && target.provider.as_ref().is_none_or(|id| edge.provider_id.as_ref() == Some(id))
-                        && target.variant.as_ref().is_none_or(|id| edge.variant_id.as_ref() == Some(id))
-                })
-        }).collect::<Vec<_>>();
-        if candidates.is_empty() && target.capability.as_deref() == Some(crate::super_resolution::SUPER_RESOLUTION_CAPABILITY_ID) {
+        let mut candidates = reachable
+            .iter()
+            .copied()
+            .filter(|format| {
+                target
+                    .family
+                    .as_ref()
+                    .is_none_or(|family| format_in_family(*format, family))
+                    && graph.transforms_to(*format).iter().any(|edge| {
+                        target
+                            .capability
+                            .as_ref()
+                            .is_none_or(|id| edge.capability_id.as_ref() == Some(id))
+                            && target
+                                .transform
+                                .as_ref()
+                                .is_none_or(|id| edge.evidence.get("transform_id") == Some(id))
+                            && target
+                                .provider
+                                .as_ref()
+                                .is_none_or(|id| edge.provider_id.as_ref() == Some(id))
+                            && target
+                                .variant
+                                .as_ref()
+                                .is_none_or(|id| edge.variant_id.as_ref() == Some(id))
+                    })
+            })
+            .collect::<Vec<_>>();
+        if candidates.is_empty()
+            && target.capability.as_deref()
+                == Some(crate::super_resolution::SUPER_RESOLUTION_CAPABILITY_ID)
+        {
             candidates.push(source);
         }
         if candidates.is_empty() {
@@ -4050,7 +4701,9 @@ fn extend_target_spec(
         }
         candidates
     };
-    for format in candidates { insert_target(selected, ResolvedTarget::from_spec(format, target))?; }
+    for format in candidates {
+        insert_target(selected, ResolvedTarget::from_spec(format, target))?;
+    }
     Ok(())
 }
 
@@ -4072,13 +4725,22 @@ fn extend_selector(
 }
 
 fn insert_target(selected: &mut Vec<ResolvedTarget>, candidate: ResolvedTarget) -> Result<()> {
-    if let Some(existing) = selected.iter_mut().find(|target| target.identity() == candidate.identity()) {
-        if candidate.requirement == TargetRequirement::Required { existing.requirement = TargetRequirement::Required; }
+    if let Some(existing) = selected
+        .iter_mut()
+        .find(|target| target.identity() == candidate.identity())
+    {
+        if candidate.requirement == TargetRequirement::Required {
+            existing.requirement = TargetRequirement::Required;
+        }
         return Ok(());
     }
     // Explicit declarations replace format-only expansion. Two explicit render
     // identities remain distinct even when their extension is the same.
-    if is_generated(&candidate) && selected.iter().any(|target| target.format == candidate.format) {
+    if is_generated(&candidate)
+        && selected
+            .iter()
+            .any(|target| target.format == candidate.format)
+    {
         return Ok(());
     }
     if !is_generated(&candidate) {
@@ -4089,21 +4751,42 @@ fn insert_target(selected: &mut Vec<ResolvedTarget>, candidate: ResolvedTarget) 
 }
 
 fn is_generated(target: &ResolvedTarget) -> bool {
-    target.id.is_none() && target.role.as_deref() == Some(target.format.to_string().as_str())
-        && target.preset.is_none() && target.template.is_none() && target.variant.is_none()
-        && target.capability.is_none() && target.transform.is_none() && target.provider.is_none()
-        && target.options.is_empty() && target.requirement == TargetRequirement::Optional
+    target.id.is_none()
+        && target.role.as_deref() == Some(target.format.to_string().as_str())
+        && target.preset.is_none()
+        && target.template.is_none()
+        && target.variant.is_none()
+        && target.capability.is_none()
+        && target.transform.is_none()
+        && target.provider.is_none()
+        && target.options.is_empty()
+        && target.requirement == TargetRequirement::Optional
 }
 
-fn apply_exclusions(selected: &mut Vec<ResolvedTarget>, selector: &SelectorSet, _graph: &TransformGraph) {
-    if selector.is_empty() { return; }
+fn apply_exclusions(
+    selected: &mut Vec<ResolvedTarget>,
+    selector: &SelectorSet,
+    _graph: &TransformGraph,
+) {
+    if selector.is_empty() {
+        return;
+    }
     selected.retain(|target| !forest::selector_matches_identity(target, selector));
-    for target in selected { target.exclude_selectors.push(selector.clone()); }
+    for target in selected {
+        target.exclude_selectors.push(selector.clone());
+    }
 }
 
-fn selector_matches(target: &ResolvedTarget, selector: &SelectorSet, graph: &TransformGraph) -> bool {
-    forest::selector_matches_identity(target, selector) || graph.transforms_to(target.format).iter().any(|edge|
-        forest::target_edge_matches(target, edge) && forest::selector_matches_edge(selector, edge))
+fn selector_matches(
+    target: &ResolvedTarget,
+    selector: &SelectorSet,
+    graph: &TransformGraph,
+) -> bool {
+    forest::selector_matches_identity(target, selector)
+        || graph.transforms_to(target.format).iter().any(|edge| {
+            forest::target_edge_matches(target, edge)
+                && forest::selector_matches_edge(selector, edge)
+        })
 }
 
 fn format_in_family(format: Format, family: &str) -> bool {
@@ -4211,32 +4894,70 @@ fn selected_provider_ids(dag: &MultiTargetDag) -> BTreeSet<String> {
 
 fn preflight_selected_providers(resolved: &ResolvedExecution) -> Result<()> {
     if let Some(forest) = &resolved.plan.artifact_forest {
-        let blocked = forest.branches.iter().filter(|branch| branch.requirement == "required"
-            && matches!(branch.state, ForestBranchState::Unavailable | ForestBranchState::Unsupported | ForestBranchState::BudgetPruned))
-            .map(|branch| format!("{} ({}): {}", branch.target_id, branch.reason_code, branch.reason)).collect::<Vec<_>>();
-        if !blocked.is_empty() { anyhow::bail!("forest.required_targets_blocked: {}", blocked.join("; ")); }
+        let blocked = forest
+            .branches
+            .iter()
+            .filter(|branch| {
+                branch.requirement == "required"
+                    && matches!(
+                        branch.state,
+                        ForestBranchState::Unavailable
+                            | ForestBranchState::Unsupported
+                            | ForestBranchState::BudgetPruned
+                    )
+            })
+            .map(|branch| {
+                format!(
+                    "{} ({}): {}",
+                    branch.target_id, branch.reason_code, branch.reason
+                )
+            })
+            .collect::<Vec<_>>();
+        if !blocked.is_empty() {
+            anyhow::bail!("forest.required_targets_blocked: {}", blocked.join("; "));
+        }
     }
-    if resolved.targets.is_empty() { anyhow::bail!("forest.no_selected_targets: the forest contains diagnostics only; no transform or output was scheduled"); }
+    if resolved.targets.is_empty() {
+        anyhow::bail!("forest.no_selected_targets: the forest contains diagnostics only; no transform or output was scheduled");
+    }
     if resolved.print_pages.is_some() && resolved.plan.toolchain.is_none() {
         anyhow::bail!("print_pdf.provider.unavailable: print interior was planned without an observed compatible img2pdf toolchain; re-plan when it is installed");
     }
-    let ids = resolved.execution_groups.iter().flat_map(|group| selected_provider_ids(&group.dag)).collect::<BTreeSet<_>>();
+    let ids = resolved
+        .execution_groups
+        .iter()
+        .flat_map(|group| selected_provider_ids(&group.dag))
+        .collect::<BTreeSet<_>>();
     let deferred_speech_ids = speech_provider_ids(resolved.spec.execution.speech.as_ref());
-    let deferred_recovery_ids = recovery_provider_ids(resolved.source_format, resolved.spec.execution.screenplay_recovery.as_ref());
-    let mut inventory = resolved.tool_registry.assess_ids_current(
-        ids.iter().filter(|id|
+    let deferred_recovery_ids = recovery_provider_ids(
+        resolved.source_format,
+        resolved.spec.execution.screenplay_recovery.as_ref(),
+    );
+    let mut inventory = resolved
+        .tool_registry
+        .assess_ids_current(ids.iter().filter(|id| {
             !deferred_speech_ids.contains(*id)
                 && !deferred_recovery_ids.contains(*id)
-                && !is_screenplay_pdf_provider(id, resolved.spec.execution.screenplay_pdf.as_ref())),
+                && !is_screenplay_pdf_provider(id, resolved.spec.execution.screenplay_pdf.as_ref())
+        }));
+    apply_screenplay_version_requirement(
+        &mut inventory,
+        resolved.spec.execution.screenplay.as_ref(),
     );
-    apply_screenplay_version_requirement(&mut inventory, resolved.spec.execution.screenplay.as_ref());
     let screenplay_pdf_probed = assess_screenplay_pdf_availability(
-        &mut inventory, &resolved.spec, &resolved.tool_registry, &resolved.dag.all_edges(),
+        &mut inventory,
+        &resolved.spec,
+        &resolved.tool_registry,
+        &resolved.dag.all_edges(),
         |policy| {
-            let cancellation = resolved.cancellation.clone().map(ProcessCancellationToken::from_shared).unwrap_or_default();
+            let cancellation = resolved
+                .cancellation
+                .clone()
+                .map(ProcessCancellationToken::from_shared)
+                .unwrap_or_default();
             afterwriting::preflight(policy, cancellation)
-            .map(|observation| (observation.node_version, observation.provider_version))
-            .map_err(|error| error.to_string())
+                .map(|observation| (observation.node_version, observation.provider_version))
+                .map_err(|error| error.to_string())
         },
     );
     if resolved.spec.execution.screenplay_pdf.is_some() && !screenplay_pdf_probed {
@@ -4278,7 +4999,21 @@ fn validate_print_provider_version(
 fn validate_pre_execution_budgets(resolved: &ResolvedExecution) -> Result<()> {
     let budgets = &resolved.spec.execution.budgets;
     if let Some(max_depth) = budgets.max_depth {
-        let deepest = resolved.execution_groups.iter().map(|group| ExecutionPlan::from_dag(&group.dag, resolved.source_format, &[], resolved.spec.execution.optimization).metadata.execution_depth).max().unwrap_or(0);
+        let deepest = resolved
+            .execution_groups
+            .iter()
+            .map(|group| {
+                ExecutionPlan::from_dag(
+                    &group.dag,
+                    resolved.source_format,
+                    &[],
+                    resolved.spec.execution.optimization,
+                )
+                .metadata
+                .execution_depth
+            })
+            .max()
+            .unwrap_or(0);
         if deepest as u32 > max_depth {
             anyhow::bail!(
                 "execution plan depth {} exceeds max_depth budget {}",
@@ -4288,12 +5023,28 @@ fn validate_pre_execution_budgets(resolved: &ResolvedExecution) -> Result<()> {
         }
     }
     if let Some(max_artifacts) = budgets.max_artifacts {
-        let retained_count = resolved.spec.execution.speech.as_ref()
-            .map(|policy| if policy.audio.is_some() { 5 } else { 3 }).unwrap_or(0)
-            + u64::from(resolved.spec.execution.screenplay_body.is_some()
-                && !resolved.targets.iter().any(|target| target.format == Format::ScreenplayJson));
-        let nodes = resolved.source_members.len() as u64 + resolved.execution_groups.iter().map(|group| group.dag.node_count().saturating_sub(1) as u64).sum::<u64>();
-        let estimate = nodes.checked_add(retained_count)
+        let retained_count = resolved
+            .spec
+            .execution
+            .speech
+            .as_ref()
+            .map(|policy| if policy.audio.is_some() { 5 } else { 3 })
+            .unwrap_or(0)
+            + u64::from(
+                resolved.spec.execution.screenplay_body.is_some()
+                    && !resolved
+                        .targets
+                        .iter()
+                        .any(|target| target.format == Format::ScreenplayJson),
+            );
+        let nodes = resolved.source_members.len() as u64
+            + resolved
+                .execution_groups
+                .iter()
+                .map(|group| group.dag.node_count().saturating_sub(1) as u64)
+                .sum::<u64>();
+        let estimate = nodes
+            .checked_add(retained_count)
             .context("execution artifact estimate overflow")?;
         if estimate > max_artifacts {
             anyhow::bail!("execution plan artifact estimate {estimate} exceeds max_artifacts budget {max_artifacts}");
@@ -4312,11 +5063,17 @@ fn validate_post_execution_budgets(
     if let Some(max_output) = budgets.max_output_bytes {
         // Count every selected publication, even when two identities happen to
         // render identical bytes. Storage accounting below deduplicates IDs.
-        let total: u64 = resolved.targets.iter()
+        let total: u64 = resolved
+            .targets
+            .iter()
             .filter_map(|target| target_artifacts.get(&target.identity()))
             .map(Artifact::size_bytes)
             .chain(retained_speech.iter().map(Artifact::size_bytes))
-            .try_fold(0_u64, |total, size| total.checked_add(size).context("artifact byte count overflow"))?;
+            .try_fold(0_u64, |total, size| {
+                total
+                    .checked_add(size)
+                    .context("artifact byte count overflow")
+            })?;
         if total > max_output {
             anyhow::bail!(
                 "produced output bytes {total} exceed max_output_bytes budget {max_output}"
@@ -4325,14 +5082,29 @@ fn validate_post_execution_budgets(
     }
     if let Some(max_storage) = budgets.max_storage_bytes {
         let mut seen = HashSet::new();
-        let total: u64 = artifacts.values().chain(retained_speech.iter())
+        let total: u64 = artifacts
+            .values()
+            .chain(retained_speech.iter())
             .filter(|artifact| seen.insert(artifact.id().to_string()))
             .map(Artifact::size_bytes)
-            .try_fold(0_u64, |total, size| total.checked_add(size).context("artifact byte count overflow"))?;
-        let total = if resolved.spec.execution.speech.as_ref().is_some_and(|policy| policy.saved_results.is_enabled()) {
-            total.checked_add(crate::speech::cache::MAX_INDEX_BYTES as u64)
+            .try_fold(0_u64, |total, size| {
+                total
+                    .checked_add(size)
+                    .context("artifact byte count overflow")
+            })?;
+        let total = if resolved
+            .spec
+            .execution
+            .speech
+            .as_ref()
+            .is_some_and(|policy| policy.saved_results.is_enabled())
+        {
+            total
+                .checked_add(crate::speech::cache::MAX_INDEX_BYTES)
                 .context("speech index storage reservation overflow")?
-        } else { total };
+        } else {
+            total
+        };
         if total > max_storage {
             anyhow::bail!(
                 "execution artifact bytes {total} exceed max_storage_bytes budget {max_storage}"
@@ -4340,10 +5112,16 @@ fn validate_post_execution_budgets(
         }
     }
     if let Some(max_artifacts) = budgets.max_artifacts {
-        let count = artifacts.values().chain(retained_speech.iter())
-            .map(|artifact| artifact.id().to_string()).collect::<HashSet<_>>().len() as u64;
+        let count = artifacts
+            .values()
+            .chain(retained_speech.iter())
+            .map(|artifact| artifact.id().to_string())
+            .collect::<HashSet<_>>()
+            .len() as u64;
         if count > max_artifacts {
-            anyhow::bail!("execution artifact count {count} exceeds max_artifacts budget {max_artifacts}");
+            anyhow::bail!(
+                "execution artifact count {count} exceeds max_artifacts budget {max_artifacts}"
+            );
         }
     }
     Ok(())
@@ -4380,8 +5158,14 @@ fn render_output_paths(resolved: &ResolvedExecution) -> Result<Vec<PathBuf>> {
             rendered = rendered.replace("{target.identity}", &target.identity());
             rendered = rendered.replace("{target.role}", target_role);
             rendered = rendered.replace("{target.format}", &format_string);
-            rendered = rendered.replace("{target.variant}", target.variant.as_deref().unwrap_or("default"));
-            rendered = rendered.replace("{target.preset}", target.preset.as_deref().unwrap_or("default"));
+            rendered = rendered.replace(
+                "{target.variant}",
+                target.variant.as_deref().unwrap_or("default"),
+            );
+            rendered = rendered.replace(
+                "{target.preset}",
+                target.preset.as_deref().unwrap_or("default"),
+            );
             rendered = rendered.replace("{ext}", &artifact_extension(target.format));
             let path = PathBuf::from(rendered);
             validate_relative_output_path(&path)?;
@@ -4556,7 +5340,9 @@ mod tests {
     #[test]
     fn subtitle_policy_requires_explicit_media_stream_and_rejects_other_inputs() {
         let conversion = SubtitlePolicy::default();
-        let extraction = SubtitlePolicy { stream_index: Some(0) };
+        let extraction = SubtitlePolicy {
+            stream_index: Some(0),
+        };
         for media in [Format::Mkv, Format::WebM, Format::Mp4, Format::Mov] {
             assert!(validate_subtitle_policy(media, false, &conversion).is_err());
             assert!(validate_subtitle_policy(media, false, &extraction).is_ok());
@@ -4566,7 +5352,13 @@ mod tests {
             assert!(validate_subtitle_policy(subtitle, false, &extraction).is_err());
             assert!(validate_subtitle_policy(subtitle, true, &conversion).is_err());
         }
-        for unsupported in [Format::Json, Format::Ass, Format::Ssa, Format::Ttml, Format::Avi] {
+        for unsupported in [
+            Format::Json,
+            Format::Ass,
+            Format::Ssa,
+            Format::Ttml,
+            Format::Avi,
+        ] {
             assert!(validate_subtitle_policy(unsupported, false, &conversion).is_err());
             assert!(validate_subtitle_policy(unsupported, false, &extraction).is_err());
         }
@@ -4581,15 +5373,23 @@ mod tests {
             &mut tools,
             Format::Mkv,
             false,
-            &SubtitlePolicy { stream_index: Some(3) },
-        ).unwrap();
+            &SubtitlePolicy {
+                stream_index: Some(3),
+            },
+        )
+        .unwrap();
         let extraction = graph.transforms_from(Format::Mkv);
         assert_eq!(extraction.len(), 1);
         let edge = &extraction[0];
         assert_eq!(edge.to, Format::TimedTranscriptJson);
         assert_eq!(edge.provider_id.as_deref(), Some("tool.ffmpeg"));
         assert_eq!(edge.required_provider_ids, vec!["tool.ffprobe".to_string()]);
-        assert_eq!(edge.evidence.get("subtitle_stream_index").map(String::as_str), Some("3"));
+        assert_eq!(
+            edge.evidence
+                .get("subtitle_stream_index")
+                .map(String::as_str),
+            Some("3")
+        );
         let mut spec = minimal_spec("mkv");
         spec.execution.tools.deny.push("tool.ffprobe".to_string());
         let filtered = apply_execution_policy(&graph, &tools, &spec);
@@ -4607,23 +5407,42 @@ mod tests {
             Format::Srt,
             false,
             &SubtitlePolicy::default(),
-        ).unwrap();
+        )
+        .unwrap();
         assert!(graph.find_path(Format::Srt, Format::WebVtt).is_some());
-        assert!(graph.find_path(Format::Mkv, Format::TimedTranscriptJson).is_none());
+        assert!(graph
+            .find_path(Format::Mkv, Format::TimedTranscriptJson)
+            .is_none());
         for unsupported in [Format::Ass, Format::Ssa, Format::Ttml, Format::Json] {
-            assert!(graph.find_path(unsupported, Format::TimedTranscriptJson).is_none());
+            assert!(graph
+                .find_path(unsupported, Format::TimedTranscriptJson)
+                .is_none());
         }
-        assert_eq!(artifact_extension(Format::TimedTranscriptJson), "timed-transcript.json");
+        assert_eq!(
+            artifact_extension(Format::TimedTranscriptJson),
+            "timed-transcript.json"
+        );
     }
 
     #[test]
     fn transcript_text_is_a_lossy_terminal_even_with_custom_outgoing_text_edges() {
         let mut graph = TransformGraph::new();
         let mut tools = ToolRegistry::builtins();
-        register_subtitle_edges(&mut graph, &mut tools, Format::Srt, false,
-            &SubtitlePolicy::default()).unwrap();
+        register_subtitle_edges(
+            &mut graph,
+            &mut tools,
+            Format::Srt,
+            false,
+            &SubtitlePolicy::default(),
+        )
+        .unwrap();
         graph.add_transform(TransformEdge::new(Format::Text, Format::Pdf, 0.1, 1.0));
-        graph.add_transform(TransformEdge::new(Format::Text, Format::TimedTranscriptJson, 0.1, 1.0));
+        graph.add_transform(TransformEdge::new(
+            Format::Text,
+            Format::TimedTranscriptJson,
+            0.1,
+            1.0,
+        ));
         let mut spec = minimal_spec("srt");
         spec.execution.subtitles = Some(SubtitlePolicy::default());
         let filtered = apply_execution_policy(&graph, &tools, &spec);
@@ -4659,12 +5478,25 @@ mod tests {
         assert!(graph.transforms_from(Format::Text).is_empty());
         let exports = graph.transforms_from(Format::TimedTranscriptJson);
         let text = exports.iter().find(|edge| edge.to == Format::Text).unwrap();
-        assert_eq!(text.evidence.get("cache").map(String::as_str), Some("disabled"));
-        assert!(text.quality < exports.iter().find(|edge| edge.to == Format::Srt).unwrap().quality);
+        assert_eq!(
+            text.evidence.get("cache").map(String::as_str),
+            Some("disabled")
+        );
+        assert!(
+            text.quality
+                < exports
+                    .iter()
+                    .find(|edge| edge.to == Format::Srt)
+                    .unwrap()
+                    .quality
+        );
         let mut spec = minimal_spec("wav");
         spec.execution.ai = AiPolicy::LocalOnly;
         spec.execution.speech = Some(policy);
-        spec.targets.exact.push(TargetSpec { format: Some("text".to_owned()), ..Default::default() });
+        spec.targets.exact.push(TargetSpec {
+            format: Some("text".to_owned()),
+            ..Default::default()
+        });
         let targets = resolve_target_intent(&spec, &graph, Format::Wav).unwrap();
         assert_eq!(targets.len(), 1);
         assert_eq!(targets[0].format, Format::Text);
@@ -4688,16 +5520,23 @@ mod tests {
             assert!(graph.find_path(format, Format::Pdf).is_none());
             assert!(document_input_format(format).is_none());
         }
-        assert_eq!(artifact_extension(Format::ScreenplayJson), "screenplay.json");
+        assert_eq!(
+            artifact_extension(Format::ScreenplayJson),
+            "screenplay.json"
+        );
     }
 
     fn screenplay_pdf_policy() -> AfterwritingConfig {
         AfterwritingConfig {
-            node_executable: std::env::temp_dir().join("node"), node_sha256: "a".repeat(64),
-            expected_node_version: "v24.0.0".to_owned(), package_root: std::env::temp_dir().join("afterwriting"),
-            package_tree_sha256: "b".repeat(64), expected_provider_version: "1.17.3".to_owned(),
+            node_executable: std::env::temp_dir().join("node"),
+            node_sha256: "a".repeat(64),
+            expected_node_version: "v24.0.0".to_owned(),
+            package_root: std::env::temp_dir().join("afterwriting"),
+            package_tree_sha256: "b".repeat(64),
+            expected_provider_version: "1.17.3".to_owned(),
             profile: crate::screenplay::afterwriting::ScreenplayPdfProfile::A4,
-            timeout_seconds: 30, allow_unqualified: true,
+            timeout_seconds: 30,
+            allow_unqualified: true,
         }
     }
 
@@ -4709,12 +5548,30 @@ mod tests {
         register_screenplay_pdf_edge(&mut graph, &mut tools, Format::Fountain, &policy).unwrap();
         let edges = graph.all_edges();
         assert_eq!(edges.len(), 1);
-        assert_eq!((edges[0].from, edges[0].to), (Format::Fountain, Format::Pdf));
-        assert_eq!(edges[0].provider_id.as_deref(), Some(AFTERWRITING_PROVIDER_ID));
-        assert_eq!(edges[0].required_provider_ids, vec![NODE_PROVIDER_ID.to_owned()]);
-        assert_eq!(edges[0].capability_id.as_deref(), Some(SCREENPLAY_PDF_CAPABILITY));
+        assert_eq!(
+            (edges[0].from, edges[0].to),
+            (Format::Fountain, Format::Pdf)
+        );
+        assert_eq!(
+            edges[0].provider_id.as_deref(),
+            Some(AFTERWRITING_PROVIDER_ID)
+        );
+        assert_eq!(
+            edges[0].required_provider_ids,
+            vec![NODE_PROVIDER_ID.to_owned()]
+        );
+        assert_eq!(
+            edges[0].capability_id.as_deref(),
+            Some(SCREENPLAY_PDF_CAPABILITY)
+        );
         assert_eq!(edges[0].evidence["cache"], "disabled");
-        for source in [Format::Fdx, Format::FadeIn, Format::Osf, Format::ScreenplayJson, Format::Markdown] {
+        for source in [
+            Format::Fdx,
+            Format::FadeIn,
+            Format::Osf,
+            Format::ScreenplayJson,
+            Format::Markdown,
+        ] {
             assert!(validate_screenplay_pdf_policy(source, false, &policy).is_err());
             assert!(graph.find_path(source, Format::Pdf).is_none());
         }
@@ -4725,14 +5582,29 @@ mod tests {
     fn screenplay_pdf_policy_and_provider_denials_remove_the_exact_edge() {
         let mut graph = TransformGraph::new();
         let mut tools = ToolRegistry::builtins();
-        register_screenplay_pdf_edge(&mut graph, &mut tools, Format::Fountain, &screenplay_pdf_policy()).unwrap();
+        register_screenplay_pdf_edge(
+            &mut graph,
+            &mut tools,
+            Format::Fountain,
+            &screenplay_pdf_policy(),
+        )
+        .unwrap();
         let mut spec = minimal_spec("fountain");
-        assert!(apply_execution_policy(&graph, &tools, &spec).all_edges().is_empty());
+        assert!(apply_execution_policy(&graph, &tools, &spec)
+            .all_edges()
+            .is_empty());
         spec.execution.screenplay_pdf = Some(screenplay_pdf_policy());
-        assert_eq!(apply_execution_policy(&graph, &tools, &spec).all_edges().len(), 1);
+        assert_eq!(
+            apply_execution_policy(&graph, &tools, &spec)
+                .all_edges()
+                .len(),
+            1
+        );
         for denied in [NODE_PROVIDER_ID, AFTERWRITING_PROVIDER_ID] {
             spec.execution.tools.deny = vec![denied.to_owned()];
-            assert!(apply_execution_policy(&graph, &tools, &spec).all_edges().is_empty());
+            assert!(apply_execution_policy(&graph, &tools, &spec)
+                .all_edges()
+                .is_empty());
         }
     }
 
@@ -4740,10 +5612,19 @@ mod tests {
     fn screenplay_pdf_denied_routes_never_invoke_the_probe_callback() {
         let mut graph = TransformGraph::new();
         let mut tools = ToolRegistry::builtins();
-        register_screenplay_pdf_edge(&mut graph, &mut tools, Format::Fountain, &screenplay_pdf_policy()).unwrap();
+        register_screenplay_pdf_edge(
+            &mut graph,
+            &mut tools,
+            Format::Fountain,
+            &screenplay_pdf_policy(),
+        )
+        .unwrap();
         let mut base = minimal_spec("fountain");
         base.execution.screenplay_pdf = Some(screenplay_pdf_policy());
-        base.targets.exact = vec![TargetSpec { format: Some("pdf".to_owned()), ..Default::default() }];
+        base.targets.exact = vec![TargetSpec {
+            format: Some("pdf".to_owned()),
+            ..Default::default()
+        }];
         let mut denied_specs = Vec::new();
         for provider in [NODE_PROVIDER_ID, AFTERWRITING_PROVIDER_ID] {
             let mut denied = base.clone();
@@ -4754,7 +5635,11 @@ mod tests {
             denied_specs.push(excluded);
         }
         let mut denied_transform = base.clone();
-        denied_transform.execution.transforms.deny.push(SCREENPLAY_PDF_CAPABILITY.to_owned());
+        denied_transform
+            .execution
+            .transforms
+            .deny
+            .push(SCREENPLAY_PDF_CAPABILITY.to_owned());
         denied_specs.push(denied_transform);
         let mut deterministic = base;
         deterministic.execution.requirements.deterministic = true;
@@ -4772,10 +5657,16 @@ mod tests {
             for edges in [filtered.all_edges(), graph.all_edges()] {
                 let mut inventory = ToolInventory { tools: Vec::new() };
                 let mut calls = 0;
-                let probed = assess_screenplay_pdf_availability(&mut inventory, &spec, &tools, &edges, |_| {
-                    calls += 1;
-                    Ok(("v24.0.0".to_owned(), "1.17.3".to_owned()))
-                });
+                let probed = assess_screenplay_pdf_availability(
+                    &mut inventory,
+                    &spec,
+                    &tools,
+                    &edges,
+                    |_| {
+                        calls += 1;
+                        Ok(("v24.0.0".to_owned(), "1.17.3".to_owned()))
+                    },
+                );
                 assert!(!probed);
                 assert_eq!(calls, 0);
                 assert!(inventory.tools.is_empty());
@@ -4787,15 +5678,27 @@ mod tests {
     fn screenplay_pdf_probe_requires_its_exact_selected_edge() {
         let mut graph = TransformGraph::new();
         let mut tools = ToolRegistry::builtins();
-        register_screenplay_pdf_edge(&mut graph, &mut tools, Format::Fountain, &screenplay_pdf_policy()).unwrap();
+        register_screenplay_pdf_edge(
+            &mut graph,
+            &mut tools,
+            Format::Fountain,
+            &screenplay_pdf_policy(),
+        )
+        .unwrap();
         let mut spec = minimal_spec("fountain");
         spec.execution.screenplay_pdf = Some(screenplay_pdf_policy());
         let mut inventory = ToolInventory { tools: Vec::new() };
         let mut calls = 0;
-        assert!(assess_screenplay_pdf_availability(&mut inventory, &spec, &tools, &graph.all_edges(), |_| {
-            calls += 1;
-            Ok(("v24.0.0".to_owned(), "1.17.3".to_owned()))
-        }));
+        assert!(assess_screenplay_pdf_availability(
+            &mut inventory,
+            &spec,
+            &tools,
+            &graph.all_edges(),
+            |_| {
+                calls += 1;
+                Ok(("v24.0.0".to_owned(), "1.17.3".to_owned()))
+            }
+        ));
         assert_eq!(calls, 1);
         assert_eq!(inventory.tools.len(), 2);
         assert!(inventory.tools.iter().all(ToolAvailability::is_available));
@@ -4804,10 +5707,16 @@ mod tests {
         unrelated.capability_id = Some("screenplay.other".to_owned());
         let mut unselected = ToolInventory { tools: Vec::new() };
         for edges in [Vec::new(), vec![&unrelated]] {
-            assert!(!assess_screenplay_pdf_availability(&mut unselected, &spec, &tools, &edges, |_| {
-                calls += 1;
-                Ok(("v24.0.0".to_owned(), "1.17.3".to_owned()))
-            }));
+            assert!(!assess_screenplay_pdf_availability(
+                &mut unselected,
+                &spec,
+                &tools,
+                &edges,
+                |_| {
+                    calls += 1;
+                    Ok(("v24.0.0".to_owned(), "1.17.3".to_owned()))
+                }
+            ));
         }
         assert_eq!(calls, 1);
         assert!(unselected.tools.is_empty());
@@ -4819,15 +5728,31 @@ mod tests {
         let mut tools = ToolRegistry::builtins();
         let policy = screenplay_pdf_policy();
         register_screenplay_pdf_edge(&mut graph, &mut tools, Format::Fountain, &policy).unwrap();
-        graph.add_transform(TransformEdge::new(Format::Srt, Format::TimedTranscriptJson, 0.1, 1.0));
-        for failure in ["missing package font assets", "node version mismatch", "package SHA-256 mismatch", "cancelled probe"] {
+        graph.add_transform(TransformEdge::new(
+            Format::Srt,
+            Format::TimedTranscriptJson,
+            0.1,
+            1.0,
+        ));
+        for failure in [
+            "missing package font assets",
+            "node version mismatch",
+            "package SHA-256 mismatch",
+            "cancelled probe",
+        ] {
             let mut inventory = ToolInventory { tools: Vec::new() };
             append_screenplay_pdf_availability(&mut inventory, &policy, Err(failure.to_owned()));
             assert!(inventory.tools.iter().all(|tool| !tool.is_available()));
-            assert!(inventory.tools.iter().all(|tool| tool.diagnostic.as_deref().unwrap().contains("execution.screenplay_pdf")));
+            assert!(inventory.tools.iter().all(|tool| tool
+                .diagnostic
+                .as_deref()
+                .unwrap()
+                .contains("execution.screenplay_pdf")));
             let available = graph.filtered_by_available_providers(&inventory.available_ids());
             assert!(available.find_path(Format::Fountain, Format::Pdf).is_none());
-            assert!(available.find_path(Format::Srt, Format::TimedTranscriptJson).is_some());
+            assert!(available
+                .find_path(Format::Srt, Format::TimedTranscriptJson)
+                .is_some());
         }
     }
 
@@ -4835,12 +5760,33 @@ mod tests {
     fn screenplay_pdf_availability_uses_safe_preflight_observations_without_generic_probe() {
         let mut inventory = ToolInventory { tools: Vec::new() };
         let policy = screenplay_pdf_policy();
-        append_screenplay_pdf_availability(&mut inventory, &policy, Ok(("v24.0.0".to_owned(), "1.17.3".to_owned())));
+        append_screenplay_pdf_availability(
+            &mut inventory,
+            &policy,
+            Ok(("v24.0.0".to_owned(), "1.17.3".to_owned())),
+        );
         assert!(inventory.tools.iter().all(ToolAvailability::is_available));
-        assert_eq!(inventory.get(NODE_PROVIDER_ID).unwrap().version_line.as_deref(), Some("v24.0.0"));
-        assert_eq!(inventory.get(AFTERWRITING_PROVIDER_ID).unwrap().version_line.as_deref(), Some("1.17.3"));
+        assert_eq!(
+            inventory
+                .get(NODE_PROVIDER_ID)
+                .unwrap()
+                .version_line
+                .as_deref(),
+            Some("v24.0.0")
+        );
+        assert_eq!(
+            inventory
+                .get(AFTERWRITING_PROVIDER_ID)
+                .unwrap()
+                .version_line
+                .as_deref(),
+            Some("1.17.3")
+        );
         assert!(is_screenplay_pdf_provider(NODE_PROVIDER_ID, Some(&policy)));
-        assert!(is_screenplay_pdf_provider(AFTERWRITING_PROVIDER_ID, Some(&policy)));
+        assert!(is_screenplay_pdf_provider(
+            AFTERWRITING_PROVIDER_ID,
+            Some(&policy)
+        ));
         assert!(!is_screenplay_pdf_provider("tool.ffmpeg", Some(&policy)));
         assert!(!is_screenplay_pdf_provider(NODE_PROVIDER_ID, None));
     }
@@ -4849,11 +5795,18 @@ mod tests {
     fn screenplay_pdf_targets_refuse_same_format_and_ignored_formatting_options() {
         assert!(validate_screenplay_pdf_targets(&[ResolvedTarget::generated(Format::Pdf)]).is_ok());
         assert!(validate_screenplay_pdf_targets(&[]).is_err());
-        for format in [Format::Fountain, Format::ScreenplayJson, Format::Json, Format::Fdx] {
+        for format in [
+            Format::Fountain,
+            Format::ScreenplayJson,
+            Format::Json,
+            Format::Fdx,
+        ] {
             assert!(validate_screenplay_pdf_targets(&[ResolvedTarget::generated(format)]).is_err());
         }
         let mut target = ResolvedTarget::generated(Format::Pdf);
-        target.options.insert("font_family".to_owned(), serde_json::json!("Custom"));
+        target
+            .options
+            .insert("font_family".to_owned(), serde_json::json!("Custom"));
         assert!(validate_screenplay_pdf_targets(&[target]).is_err());
         let mut target = ResolvedTarget::generated(Format::Pdf);
         target.template = Some("custom.html".to_owned());
@@ -4864,15 +5817,27 @@ mod tests {
     fn screenplay_pdf_refuses_hygiene_inherited_through_profiles() {
         let mut spec = minimal_spec("fountain");
         spec.execution.screenplay_pdf = Some(screenplay_pdf_policy());
-        spec.hygiene.insert("hygiene.screenplay".to_owned(), HygienePolicy::default());
-        spec.profiles.insert("screenplay.parent".to_owned(), DerivativeProfile {
-            hygiene_policy: Some("hygiene.screenplay".to_owned()), ..Default::default()
-        });
-        spec.profiles.insert("screenplay.child".to_owned(), DerivativeProfile {
-            extends: vec!["screenplay.parent".to_owned()], ..Default::default()
-        });
+        spec.hygiene
+            .insert("hygiene.screenplay".to_owned(), HygienePolicy::default());
+        spec.profiles.insert(
+            "screenplay.parent".to_owned(),
+            DerivativeProfile {
+                hygiene_policy: Some("hygiene.screenplay".to_owned()),
+                ..Default::default()
+            },
+        );
+        spec.profiles.insert(
+            "screenplay.child".to_owned(),
+            DerivativeProfile {
+                extends: vec!["screenplay.parent".to_owned()],
+                ..Default::default()
+            },
+        );
         spec.targets.profiles.push("screenplay.child".to_owned());
-        assert!(validate_screenplay_pdf_hygiene(&spec).unwrap_err().to_string().contains("screenplay_pdf.policy.hygiene"));
+        assert!(validate_screenplay_pdf_hygiene(&spec)
+            .unwrap_err()
+            .to_string()
+            .contains("screenplay_pdf.policy.hygiene"));
     }
 
     fn screenplay_policy() -> ScripttoolConfig {
@@ -4901,7 +5866,8 @@ mod tests {
                 version_line: self.line.clone(),
                 duration_ms: 0,
                 platform: crate::process::ProcessPlatform {
-                    os: "linux", arch: "x86_64",
+                    os: "linux",
+                    arch: "x86_64",
                     tree_termination: crate::process::ProcessTreeTermination::DirectChild,
                 },
                 diagnostic: None,
@@ -4922,44 +5888,89 @@ mod tests {
             assert_eq!(edges[0].provider_id.as_deref(), Some(SCREENPLAY_PROVIDER));
             assert_eq!(edges[0].evidence["qualification"], "authored_unqualified");
             assert_eq!(edges[0].evidence["cache"], "disabled");
-            for unsupported in [Format::Fdx, Format::Osf, Format::FadeIn, Format::ScreenplayJson, Format::Json] {
+            for unsupported in [
+                Format::Fdx,
+                Format::Osf,
+                Format::FadeIn,
+                Format::ScreenplayJson,
+                Format::Json,
+            ] {
                 assert!(graph.find_path(Format::Fountain, unsupported).is_none());
             }
             let mut spec = minimal_spec(&source.to_string());
-            assert!(apply_execution_policy(&graph, &tools, &spec).all_edges().is_empty());
+            assert!(apply_execution_policy(&graph, &tools, &spec)
+                .all_edges()
+                .is_empty());
             spec.execution.screenplay = Some(policy);
-            assert_eq!(apply_execution_policy(&graph, &tools, &spec).all_edges().len(), 1);
-            spec.execution.tools.deny.push(SCREENPLAY_PROVIDER.to_owned());
-            assert!(apply_execution_policy(&graph, &tools, &spec).all_edges().is_empty());
+            assert_eq!(
+                apply_execution_policy(&graph, &tools, &spec)
+                    .all_edges()
+                    .len(),
+                1
+            );
+            spec.execution
+                .tools
+                .deny
+                .push(SCREENPLAY_PROVIDER.to_owned());
+            assert!(apply_execution_policy(&graph, &tools, &spec)
+                .all_edges()
+                .is_empty());
         }
     }
 
     #[test]
     fn screenplay_missing_or_incompatible_configured_provider_prunes_only_its_routes() {
         for (status, line, expected_status) in [
-            (crate::process::ToolProbeStatus::Missing, None, ToolAvailabilityStatus::MissingExecutable),
-            (crate::process::ToolProbeStatus::Available, Some("scripttool 0.0.9"), ToolAvailabilityStatus::UnsupportedVersion),
-            (crate::process::ToolProbeStatus::Available, Some("unexpected 0.0.10"), ToolAvailabilityStatus::UnsupportedVersion),
+            (
+                crate::process::ToolProbeStatus::Missing,
+                None,
+                ToolAvailabilityStatus::MissingExecutable,
+            ),
+            (
+                crate::process::ToolProbeStatus::Available,
+                Some("scripttool 0.0.9"),
+                ToolAvailabilityStatus::UnsupportedVersion,
+            ),
+            (
+                crate::process::ToolProbeStatus::Available,
+                Some("unexpected 0.0.10"),
+                ToolAvailabilityStatus::UnsupportedVersion,
+            ),
         ] {
             let policy = screenplay_policy();
             let mut graph = TransformGraph::new();
             let mut tools = ToolRegistry::builtins();
             register_screenplay_edges(&mut graph, &mut tools, Format::Fdx, &policy).unwrap();
-            graph.add_transform(TransformEdge::new(Format::Srt, Format::TimedTranscriptJson, 0.1, 1.0)
-                .with_provider(TIMED_TEXT_PROVIDER, "subtitle.convert.srt.timed_transcript_json"));
+            graph.add_transform(
+                TransformEdge::new(Format::Srt, Format::TimedTranscriptJson, 0.1, 1.0)
+                    .with_provider(
+                        TIMED_TEXT_PROVIDER,
+                        "subtitle.convert.srt.timed_transcript_json",
+                    ),
+            );
             let probe = ScreenplayProbe {
                 expected_executable: policy.executable.to_str().unwrap().to_owned(),
-                status, line: line.map(str::to_owned),
+                status,
+                line: line.map(str::to_owned),
             };
-            let mut inventory = tools.assess_ids_with(graph.provider_ids(), &probe,
-                &ToolRuntimeContext::for_platform("linux", "x86_64"));
+            let mut inventory = tools.assess_ids_with(
+                graph.provider_ids(),
+                &probe,
+                &ToolRuntimeContext::for_platform("linux", "x86_64"),
+            );
             apply_screenplay_version_requirement(&mut inventory, Some(&policy));
             let blocked = inventory.get(SCREENPLAY_PROVIDER).unwrap();
             assert_eq!(blocked.status, expected_status);
-            assert!(blocked.diagnostic.as_deref().unwrap().contains("execution.screenplay.executable"));
+            assert!(blocked
+                .diagnostic
+                .as_deref()
+                .unwrap()
+                .contains("execution.screenplay.executable"));
             let available = graph.filtered_by_available_providers(&inventory.available_ids());
             assert!(available.find_path(Format::Fdx, Format::Fountain).is_none());
-            assert!(available.find_path(Format::Srt, Format::TimedTranscriptJson).is_some());
+            assert!(available
+                .find_path(Format::Srt, Format::TimedTranscriptJson)
+                .is_some());
         }
     }
 
@@ -4974,12 +5985,17 @@ mod tests {
             status: crate::process::ToolProbeStatus::Available,
             line: Some("scripttool 0.0.10".to_owned()),
         };
-        let mut inventory = tools.assess_ids_with(graph.provider_ids(), &probe,
-            &ToolRuntimeContext::for_platform("linux", "x86_64"));
+        let mut inventory = tools.assess_ids_with(
+            graph.provider_ids(),
+            &probe,
+            &ToolRuntimeContext::for_platform("linux", "x86_64"),
+        );
         apply_screenplay_version_requirement(&mut inventory, Some(&policy));
         assert!(inventory.get(SCREENPLAY_PROVIDER).unwrap().is_available());
-        assert!(graph.filtered_by_available_providers(&inventory.available_ids())
-            .find_path(Format::Osf, Format::Fountain).is_some());
+        assert!(graph
+            .filtered_by_available_providers(&inventory.available_ids())
+            .find_path(Format::Osf, Format::Fountain)
+            .is_some());
         // No file is opened to establish this observation; the deliberately
         // synthetic executable hash remains a declaration until execution.
         assert_eq!(policy.executable_sha256, "a".repeat(64));
@@ -4991,7 +6007,12 @@ mod tests {
             assert!(validate_screenplay_policy(source, false, &screenplay_policy()).is_ok());
             assert!(validate_screenplay_policy(source, true, &screenplay_policy()).is_err());
         }
-        for source in [Format::Fountain, Format::ScreenplayJson, Format::Json, Format::Markdown] {
+        for source in [
+            Format::Fountain,
+            Format::ScreenplayJson,
+            Format::Json,
+            Format::Markdown,
+        ] {
             assert!(validate_screenplay_policy(source, false, &screenplay_policy()).is_err());
         }
     }
@@ -5000,31 +6021,57 @@ mod tests {
     fn screenplay_policy_rejects_hygiene_inherited_from_selected_profiles() {
         let mut spec = minimal_spec("fdx");
         spec.execution.screenplay = Some(screenplay_policy());
-        spec.hygiene.insert("hygiene.screenplay".to_owned(), HygienePolicy::default());
-        spec.profiles.insert("screenplay.parent".to_owned(), DerivativeProfile {
-            hygiene_policy: Some("hygiene.screenplay".to_owned()),
-            ..DerivativeProfile::default()
-        });
-        spec.profiles.insert("screenplay.child".to_owned(), DerivativeProfile {
-            extends: vec!["screenplay.parent".to_owned()],
-            ..DerivativeProfile::default()
-        });
+        spec.hygiene
+            .insert("hygiene.screenplay".to_owned(), HygienePolicy::default());
+        spec.profiles.insert(
+            "screenplay.parent".to_owned(),
+            DerivativeProfile {
+                hygiene_policy: Some("hygiene.screenplay".to_owned()),
+                ..DerivativeProfile::default()
+            },
+        );
+        spec.profiles.insert(
+            "screenplay.child".to_owned(),
+            DerivativeProfile {
+                extends: vec!["screenplay.parent".to_owned()],
+                ..DerivativeProfile::default()
+            },
+        );
         spec.targets.profiles.push("screenplay.child".to_owned());
         compose_selected_profiles(&mut spec).unwrap();
         assert!(spec.execution.hygiene_policy.is_none());
-        assert!(validate_screenplay_hygiene(&spec).unwrap_err().to_string().contains("screenplay.policy.hygiene"));
+        assert!(validate_screenplay_hygiene(&spec)
+            .unwrap_err()
+            .to_string()
+            .contains("screenplay.policy.hygiene"));
     }
 
     #[test]
     fn screenplay_wrapper_conflicts_require_explicit_dialects_and_exact_container_pairs() {
-        for (source, wrapper) in [(Format::Fdx, "xml"), (Format::Osf, "xml"), (Format::FadeIn, "zip")] {
+        for (source, wrapper) in [
+            (Format::Fdx, "xml"),
+            (Format::Osf, "xml"),
+            (Format::FadeIn, "zip"),
+        ] {
             let declared = source.to_string();
             let pair = vec![declared.clone(), wrapper.to_owned()];
             assert!(screenplay_wrapper_conflict(source, Some(&declared), &pair));
             assert!(!screenplay_wrapper_conflict(source, None, &pair));
-            assert!(!screenplay_wrapper_conflict(source, Some("markdown"), &pair));
-            assert!(!screenplay_wrapper_conflict(source, Some(&declared), &[declared.clone(), "html".to_owned()]));
-            assert!(!screenplay_wrapper_conflict(source, Some(&declared), &[declared.clone(), wrapper.to_owned(), "pdf".to_owned()]));
+            assert!(!screenplay_wrapper_conflict(
+                source,
+                Some("markdown"),
+                &pair
+            ));
+            assert!(!screenplay_wrapper_conflict(
+                source,
+                Some(&declared),
+                &[declared.clone(), "html".to_owned()]
+            ));
+            assert!(!screenplay_wrapper_conflict(
+                source,
+                Some(&declared),
+                &[declared.clone(), wrapper.to_owned(), "pdf".to_owned()]
+            ));
         }
     }
 }

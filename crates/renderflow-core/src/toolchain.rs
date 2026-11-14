@@ -1298,10 +1298,21 @@ mod tests {
     fn subtitle_providers_are_optional_and_experimental() {
         let registry = ToolRegistry::builtins();
         let catalog = crate::adapters::catalog::AdapterCatalog::builtins(&registry).unwrap();
-        assert_eq!(canonical_tool_id_for_hint("ffprobe").as_str(), "tool.ffprobe");
+        assert_eq!(
+            canonical_tool_id_for_hint("ffprobe").as_str(),
+            "tool.ffprobe"
+        );
         for (capability, provider_id, tool_id) in [
-            ("subtitle.streams.inspect", "adapter.subtitles.ffprobe", "tool.ffprobe"),
-            ("subtitle.extract.plain", "adapter.subtitles.ffmpeg", "tool.ffmpeg"),
+            (
+                "subtitle.streams.inspect",
+                "adapter.subtitles.ffprobe",
+                "tool.ffprobe",
+            ),
+            (
+                "subtitle.extract.plain",
+                "adapter.subtitles.ffmpeg",
+                "tool.ffmpeg",
+            ),
         ] {
             let providers = catalog.providers_for(capability);
             assert_eq!(providers.len(), 1);
@@ -1311,7 +1322,10 @@ mod tests {
                 providers[0].maturity,
                 crate::adapters::catalog::AdapterMaturity::Experimental
             );
-            assert_eq!(registry.get(tool_id).unwrap().support_tier, ToolSupportTier::Optional);
+            assert_eq!(
+                registry.get(tool_id).unwrap().support_tier,
+                ToolSupportTier::Optional
+            );
         }
     }
 
@@ -1554,9 +1568,15 @@ mod tests {
         let second = TransformEdge::new(Format::Markdown, Format::Pdf, 1.0, 1.0)
             .with_provider("tool.a", "render.pdf")
             .with_variant("variant.screen");
-        let union = registry.fingerprint_for_edges(&inventory, &[&first, &second], &context).unwrap();
-        let reordered = registry.fingerprint_for_edges(&inventory, &[&second, &first, &first], &context).unwrap();
-        let incomplete = registry.fingerprint_for_edges(&inventory, &[&first], &context).unwrap();
+        let union = registry
+            .fingerprint_for_edges(&inventory, &[&first, &second], &context)
+            .unwrap();
+        let reordered = registry
+            .fingerprint_for_edges(&inventory, &[&second, &first, &first], &context)
+            .unwrap();
+        let incomplete = registry
+            .fingerprint_for_edges(&inventory, &[&first], &context)
+            .unwrap();
         assert_eq!(union.fingerprint, reordered.fingerprint);
         assert_ne!(union.fingerprint, incomplete.fingerprint);
         assert_eq!(union.selected_tools.len(), 2);

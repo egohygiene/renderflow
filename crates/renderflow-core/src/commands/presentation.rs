@@ -12,29 +12,48 @@ use crate::process::ProcessCancellationToken;
 
 pub fn fingerprint(installation_root: &str) -> Result<()> {
     let fingerprint = crate::screenplay::afterwriting::package_fingerprint(
-        Path::new(installation_root), ProcessCancellationToken::new())?;
+        Path::new(installation_root),
+        ProcessCancellationToken::new(),
+    )?;
     emit(&serde_json::to_value(fingerprint)?)
 }
 
 pub fn inspect(input: &str) -> Result<()> {
     let bytes = presentation::read_file(Path::new(input), presentation::MAX_INPUT_BYTES)?;
     let model = presentation::parse(&bytes)?;
-    emit(&json!({"schema_version":"renderflow.presentation-inspection/v1",
+    emit(
+        &json!({"schema_version":"renderflow.presentation-inspection/v1",
         "input_sha256":presentation::sha256(&bytes),"presentation":model,
-        "review_is_declared":true,"provider_executed":false,"runtime_qualified":false}))
+        "review_is_declared":true,"provider_executed":false,"runtime_qualified":false}),
+    )
 }
 
 pub fn run(arguments: PresentationArguments, execute: bool) -> Result<()> {
-    let provider = arguments.provider.map(|path| {
-        presentation::slidev::parse_provider(&presentation::read_file(Path::new(&path), 64 * 1024)?)
-    }).transpose()?;
+    let provider = arguments
+        .provider
+        .map(|path| {
+            presentation::slidev::parse_provider(&presentation::read_file(
+                Path::new(&path),
+                64 * 1024,
+            )?)
+        })
+        .transpose()?;
     let request = PresentationRequest {
-        input: arguments.input.into(), output_dir: arguments.output_dir.into(), provider,
-        targets: arguments.target.iter().map(|name| match name.as_str() {
-            "source" => Ok(PresentationTarget::Source), "web" => Ok(PresentationTarget::Web),
-            "pdf" => Ok(PresentationTarget::Pdf), _ => anyhow::bail!("presentation.target: unsupported target {name}"),
-        }).collect::<Result<Vec<_>>>()?,
-        include_speaker_notes: arguments.include_speaker_notes, allow_unqualified: arguments.allow_unqualified,
+        input: arguments.input.into(),
+        output_dir: arguments.output_dir.into(),
+        provider,
+        targets: arguments
+            .target
+            .iter()
+            .map(|name| match name.as_str() {
+                "source" => Ok(PresentationTarget::Source),
+                "web" => Ok(PresentationTarget::Web),
+                "pdf" => Ok(PresentationTarget::Pdf),
+                _ => anyhow::bail!("presentation.target: unsupported target {name}"),
+            })
+            .collect::<Result<Vec<_>>>()?,
+        include_speaker_notes: arguments.include_speaker_notes,
+        allow_unqualified: arguments.allow_unqualified,
     };
     if execute {
         let cancellation = ProcessCancellationToken::new();

@@ -206,9 +206,9 @@ fn failed_step(
     let subtitle_failure = error.chain().find_map(|cause| {
         cause.downcast_ref::<crate::timed_text::provider::SubtitleProviderError>()
     });
-    let speech_failure = error.chain().find_map(|cause| {
-        cause.downcast_ref::<crate::speech::SpeechError>()
-    });
+    let speech_failure = error
+        .chain()
+        .find_map(|cause| cause.downcast_ref::<crate::speech::SpeechError>());
     let recovery_extraction_failure = error.chain().find_map(|cause| {
         cause.downcast_ref::<crate::screenplay::recovery::provider::ExtractionError>()
     });
@@ -221,13 +221,18 @@ fn failed_step(
     let cancelled = provider_failure.is_some_and(|failure| failure.cancelled)
         || fixed_epub_failure.is_some_and(|failure| failure.cancelled)
         || subtitle_failure.is_some_and(|failure| {
-            matches!(failure, crate::timed_text::provider::SubtitleProviderError::Cancelled)
+            matches!(
+                failure,
+                crate::timed_text::provider::SubtitleProviderError::Cancelled
+            )
         })
-        || speech_failure.is_some_and(|failure| {
-            matches!(failure, crate::speech::SpeechError::Cancelled)
-        })
+        || speech_failure
+            .is_some_and(|failure| matches!(failure, crate::speech::SpeechError::Cancelled))
         || recovery_extraction_failure.is_some_and(|failure| {
-            matches!(failure, crate::screenplay::recovery::provider::ExtractionError::Cancelled)
+            matches!(
+                failure,
+                crate::screenplay::recovery::provider::ExtractionError::Cancelled
+            )
         });
     StepEvidence {
         step_id: step_id.clone(),
@@ -513,7 +518,10 @@ impl DagExecutor {
         }
     }
 
-    fn aggregation_transform(&self, edge: &TransformEdge) -> Option<&Arc<dyn AggregationTransform>> {
+    fn aggregation_transform(
+        &self,
+        edge: &TransformEdge,
+    ) -> Option<&Arc<dyn AggregationTransform>> {
         if edge.input_kind.is_single() {
             return None;
         }
@@ -546,7 +554,10 @@ impl DagExecutor {
         if self.single_transforms.contains_key(&(from, to))
             || self.collection_transforms.contains_key(&(from, to))
             || self.aggregation_transforms.contains_key(&(from, to))
-            || self.edge_transforms.keys().any(|key| key.from == from && key.to == to)
+            || self
+                .edge_transforms
+                .keys()
+                .any(|key| key.from == from && key.to == to)
         {
             anyhow::bail!(
                 "a transform is already registered for '{}' to '{}'; use replace_plugin_v2 for an explicit replacement",
@@ -568,14 +579,16 @@ impl DagExecutor {
         match transform.descriptor().input_kind {
             PluginInputKind::Single => {
                 let adapter = PluginV2ArtifactAdapter::new(transform, options)?;
-                self.edge_transforms.retain(|key, _| key.from != from || key.to != to);
+                self.edge_transforms
+                    .retain(|key, _| key.from != from || key.to != to);
                 self.collection_transforms.remove(&(from, to));
                 self.aggregation_transforms.remove(&(from, to));
                 self.single_transforms.insert((from, to), Arc::new(adapter));
             }
             PluginInputKind::OrderedCollection => {
                 let adapter = PluginV2CollectionAdapter::new(transform, options)?;
-                self.edge_transforms.retain(|key, _| key.from != from || key.to != to);
+                self.edge_transforms
+                    .retain(|key, _| key.from != from || key.to != to);
                 self.single_transforms.remove(&(from, to));
                 self.aggregation_transforms.remove(&(from, to));
                 self.collection_transforms
@@ -1151,7 +1164,8 @@ impl DagExecutor {
     fn edge_checkpointable(&self, edge: &TransformEdge) -> bool {
         self.single_transform(edge)
             .is_some_and(|transform| transform.cacheable())
-            || self.collection_transform(edge)
+            || self
+                .collection_transform(edge)
                 .is_some_and(|transform| transform.cacheable())
     }
 
@@ -1162,15 +1176,13 @@ impl DagExecutor {
         store: &ArtifactStore,
         cache: Option<&Mutex<ArtifactCache>>,
     ) -> Result<SingleEdgeOutcome> {
-        let transform = self
-            .single_transform(edge)
-            .ok_or_else(|| {
-                anyhow::anyhow!(
-                    "No artifact transform registered for {:?} → {:?}",
-                    edge.from,
-                    edge.to
-                )
-            })?;
+        let transform = self.single_transform(edge).ok_or_else(|| {
+            anyhow::anyhow!(
+                "No artifact transform registered for {:?} → {:?}",
+                edge.from,
+                edge.to
+            )
+        })?;
         let cache_identity = self.configuration_identity(edge, transform.cache_identity());
         let cache_key = compute_artifact_node_hash(input, edge.from, edge.to, &cache_identity);
 
@@ -1207,14 +1219,16 @@ impl DagExecutor {
             transform = %transform.name(),
             "Executing artifact transform"
         );
-        let output = transform.apply_with_cancellation(input, edge.to, store, self.cancellation.clone()).with_context(|| {
-            format!(
-                "Artifact transform {:?} → {:?} ({}) failed",
-                edge.from,
-                edge.to,
-                transform.name()
-            )
-        })?;
+        let output = transform
+            .apply_with_cancellation(input, edge.to, store, self.cancellation.clone())
+            .with_context(|| {
+                format!(
+                    "Artifact transform {:?} → {:?} ({}) failed",
+                    edge.from,
+                    edge.to,
+                    transform.name()
+                )
+            })?;
         self.validate_output_format(edge, &output)?;
 
         if transform.cacheable() {
@@ -1270,15 +1284,13 @@ impl DagExecutor {
             ));
         }
 
-        let transform = self
-            .aggregation_transform(edge)
-            .ok_or_else(|| {
-                anyhow::anyhow!(
-                    "No collection transform registered for {:?} → {:?}",
-                    edge.from,
-                    edge.to
-                )
-            })?;
+        let transform = self.aggregation_transform(edge).ok_or_else(|| {
+            anyhow::anyhow!(
+                "No collection transform registered for {:?} → {:?}",
+                edge.from,
+                edge.to
+            )
+        })?;
 
         let input_paths: Vec<PathBuf> = inputs
             .iter()
@@ -1386,13 +1398,31 @@ mod tests {
     #[test]
     fn recovery_cancellation_and_refusals_keep_typed_execution_evidence() {
         use crate::screenplay::recovery::provider::ExtractionError;
-        let edge = TransformEdge::new(Format::Pdf, Format::ScreenplayJson, 1.0, 0.0)
-            .with_provider("tool.renderflow-screenplay-recovery", "screenplay.recover.structure");
+        let edge = TransformEdge::new(Format::Pdf, Format::ScreenplayJson, 1.0, 0.0).with_provider(
+            "tool.renderflow-screenplay-recovery",
+            "screenplay.recover.structure",
+        );
         for (failure, code, state) in [
-            (ExtractionError::Cancelled, "screenplay_recovery.cancelled", StepState::Cancelled),
-            (ExtractionError::EncryptedPdf, "screenplay_recovery.encrypted_pdf", StepState::Failed),
-            (ExtractionError::MalformedPdf("synthetic malformed input".to_owned()), "screenplay_recovery.malformed_pdf", StepState::Failed),
-            (ExtractionError::ProviderUnavailable("synthetic missing OCR".to_owned()), "screenplay_recovery.provider_unavailable", StepState::Failed),
+            (
+                ExtractionError::Cancelled,
+                "screenplay_recovery.cancelled",
+                StepState::Cancelled,
+            ),
+            (
+                ExtractionError::EncryptedPdf,
+                "screenplay_recovery.encrypted_pdf",
+                StepState::Failed,
+            ),
+            (
+                ExtractionError::MalformedPdf("synthetic malformed input".to_owned()),
+                "screenplay_recovery.malformed_pdf",
+                StepState::Failed,
+            ),
+            (
+                ExtractionError::ProviderUnavailable("synthetic missing OCR".to_owned()),
+                "screenplay_recovery.provider_unavailable",
+                StepState::Failed,
+            ),
         ] {
             let error = anyhow::Error::new(failure).context("Recovery transform failed");
             let step = failed_step(&edge, None, &error, 0, 1);
@@ -1406,13 +1436,23 @@ mod tests {
             }
         }
         let error = anyhow::Error::new(crate::screenplay::recovery::model::RecoveryError {
-            code: "screenplay.recovery.bounds", message: "synthetic line limit".to_owned(),
-        }).context("Recovery model failed");
-        assert_eq!(failed_step(&edge, None, &error, 0, 1).diagnostics[0].code, "screenplay.recovery.bounds");
+            code: "screenplay.recovery.bounds",
+            message: "synthetic line limit".to_owned(),
+        })
+        .context("Recovery model failed");
+        assert_eq!(
+            failed_step(&edge, None, &error, 0, 1).diagnostics[0].code,
+            "screenplay.recovery.bounds"
+        );
         let error = anyhow::Error::new(crate::screenplay::recovery::export::RecoveryExportError {
-            code: "screenplay_recovery.export.unsupported", message: "synthetic native refusal".to_owned(),
-        }).context("Recovery export failed");
-        assert_eq!(failed_step(&edge, None, &error, 0, 1).diagnostics[0].code, "screenplay_recovery.export.unsupported");
+            code: "screenplay_recovery.export.unsupported",
+            message: "synthetic native refusal".to_owned(),
+        })
+        .context("Recovery export failed");
+        assert_eq!(
+            failed_step(&edge, None, &error, 0, 1).diagnostics[0].code,
+            "screenplay_recovery.export.unsupported"
+        );
     }
 
     #[test]
@@ -1420,10 +1460,26 @@ mod tests {
         let edge = TransformEdge::new(Format::Wav, Format::TimedTranscriptJson, 1.0, 0.5)
             .with_provider("adapter.speech.whisper_cpp", "speech.transcribe");
         for (failure, code, state) in [
-            (crate::speech::SpeechError::Cancelled, "speech.cancelled", StepState::Cancelled),
-            (crate::speech::SpeechError::Timeout, "speech.timeout", StepState::Failed),
-            (crate::speech::SpeechError::SourceChanged("synthetic mismatch".to_string()), "speech.source_changed", StepState::Failed),
-            (crate::speech::SpeechError::ProviderUnavailable("synthetic absence".to_string()), "speech.provider_unavailable", StepState::Failed),
+            (
+                crate::speech::SpeechError::Cancelled,
+                "speech.cancelled",
+                StepState::Cancelled,
+            ),
+            (
+                crate::speech::SpeechError::Timeout,
+                "speech.timeout",
+                StepState::Failed,
+            ),
+            (
+                crate::speech::SpeechError::SourceChanged("synthetic mismatch".to_string()),
+                "speech.source_changed",
+                StepState::Failed,
+            ),
+            (
+                crate::speech::SpeechError::ProviderUnavailable("synthetic absence".to_string()),
+                "speech.provider_unavailable",
+                StepState::Failed,
+            ),
         ] {
             let error = anyhow::Error::new(failure).context("Speech transform failed");
             let step = failed_step(&edge, None, &error, 0, 1);
@@ -1441,8 +1497,9 @@ mod tests {
     fn subtitle_provider_cancellation_retains_typed_step_evidence() {
         let edge = TransformEdge::new(Format::Mkv, Format::TimedTranscriptJson, 1.0, 1.0)
             .with_provider("adapter.subtitles.ffmpeg", "subtitle.extract.plain");
-        let error = anyhow::Error::new(crate::timed_text::provider::SubtitleProviderError::Cancelled)
-            .context("Subtitle extraction transform failed");
+        let error =
+            anyhow::Error::new(crate::timed_text::provider::SubtitleProviderError::Cancelled)
+                .context("Subtitle extraction transform failed");
         let step = failed_step(&edge, None, &error, 0, 1);
         assert_eq!(step.state, StepState::Cancelled);
         assert_eq!(step.validation, ValidationState::Skipped);
@@ -1456,16 +1513,30 @@ mod tests {
         let edge = TransformEdge::new(Format::Mkv, Format::TimedTranscriptJson, 1.0, 1.0)
             .with_provider("adapter.subtitles.ffmpeg", "subtitle.extract.plain");
         for (failure, code) in [
-            (crate::timed_text::provider::SubtitleProviderError::SourceChanged, "subtitle.source_changed"),
-            (crate::timed_text::provider::SubtitleProviderError::StreamNotFound(7), "subtitle.stream_not_found"),
-            (crate::timed_text::provider::SubtitleProviderError::MissingProvider("ffmpeg".to_string()), "subtitle.missing_provider"),
+            (
+                crate::timed_text::provider::SubtitleProviderError::SourceChanged,
+                "subtitle.source_changed",
+            ),
+            (
+                crate::timed_text::provider::SubtitleProviderError::StreamNotFound(7),
+                "subtitle.stream_not_found",
+            ),
+            (
+                crate::timed_text::provider::SubtitleProviderError::MissingProvider(
+                    "ffmpeg".to_string(),
+                ),
+                "subtitle.missing_provider",
+            ),
         ] {
             let error = anyhow::Error::new(failure).context("Subtitle extraction transform failed");
             let step = failed_step(&edge, None, &error, 0, 1);
             assert_eq!(step.state, StepState::Failed);
             assert_eq!(step.validation, ValidationState::Unavailable);
             assert!(step.output_artifacts.is_empty());
-            assert_eq!(step.diagnostics[0].severity, DiagnosticSeverity::FatalFailure);
+            assert_eq!(
+                step.diagnostics[0].severity,
+                DiagnosticSeverity::FatalFailure
+            );
             assert_eq!(step.diagnostics[0].code, code);
         }
     }
@@ -1613,10 +1684,12 @@ mod tests {
     fn parallel_edge_registration_dispatches_selected_identity_and_separates_cache() {
         let directory = tempfile::tempdir().unwrap();
         let store = ArtifactStore::new(directory.path().join("store")).unwrap();
-        let source = store.put_bytes(
-            b"hello",
-            ArtifactDescriptor::for_format(Format::Markdown, ArtifactStorageClass::Source),
-        ).unwrap();
+        let source = store
+            .put_bytes(
+                b"hello",
+                ArtifactDescriptor::for_format(Format::Markdown, ArtifactStorageClass::Source),
+            )
+            .unwrap();
         let first = TransformEdge::new(Format::Markdown, Format::Html, 1.0, 1.0)
             .with_provider("tool.first", "document.render")
             .with_evidence("transform_id", "render")
@@ -1629,11 +1702,18 @@ mod tests {
         executor.register_single_for_edge(&first, Arc::new(AppendTransform(" first")));
         executor.register_single_for_edge(&second, Arc::new(AppendTransform(" second")));
 
-        for (edge, expected) in [(&first, "hello first"), (&second, "hello second"), (&first, "hello first")] {
+        for (edge, expected) in [
+            (&first, "hello first"),
+            (&second, "hello second"),
+            (&first, "hello first"),
+        ] {
             let mut graph = TransformGraph::new();
             graph.add_transform(edge.clone());
-            let dag = graph.build_multi_target_dag(Format::Markdown, &[Format::Html]).unwrap();
-            let outputs = executor.clone()
+            let dag = graph
+                .build_multi_target_dag(Format::Markdown, &[Format::Html])
+                .unwrap();
+            let outputs = executor
+                .clone()
                 .execute_artifact(&dag, Format::Markdown, source.clone(), &store)
                 .unwrap();
             assert_eq!(store.read_text(&outputs[&Format::Html]).unwrap(), expected);
@@ -1647,12 +1727,20 @@ mod tests {
         let selected = TransformEdge::new(Format::Markdown, Format::Html, 1.0, 1.0)
             .with_evidence("transform_id", "missing");
         let mut executor = DagExecutor::new();
-        executor.register_single(Format::Markdown, Format::Html, Arc::new(AppendTransform(" fallback")));
+        executor.register_single(
+            Format::Markdown,
+            Format::Html,
+            Arc::new(AppendTransform(" fallback")),
+        );
         executor.register_single_for_edge(&registered, Arc::new(AppendTransform(" registered")));
         let mut graph = TransformGraph::new();
         graph.add_transform(selected);
-        let dag = graph.build_multi_target_dag(Format::Markdown, &[Format::Html]).unwrap();
-        assert!(executor.execute(&dag, Format::Markdown, "hello".to_string()).is_err());
+        let dag = graph
+            .build_multi_target_dag(Format::Markdown, &[Format::Html])
+            .unwrap();
+        assert!(executor
+            .execute(&dag, Format::Markdown, "hello".to_string())
+            .is_err());
     }
 
     #[test]
@@ -1672,11 +1760,15 @@ transforms:
     cost: 1.0
     quality: 1.0
 "#;
-        let (graph, executor) = crate::transforms::yaml_loader::build_graph_and_executor_from_str(yaml).unwrap();
+        let (graph, executor) =
+            crate::transforms::yaml_loader::build_graph_and_executor_from_str(yaml).unwrap();
         let edges = graph.all_edges();
         assert_eq!(edges.len(), 2);
         for edge in edges {
-            assert_eq!(executor.single_transform(edge).unwrap().name(), edge.evidence["transform_id"]);
+            assert_eq!(
+                executor.single_transform(edge).unwrap().name(),
+                edge.evidence["transform_id"]
+            );
         }
     }
 
@@ -1685,8 +1777,13 @@ transforms:
         let mut dag = MultiTargetDag::new();
         dag.merge_edge(TransformEdge::new(Format::Markdown, Format::Html, 1.0, 1.0));
         dag.merge_edge(TransformEdge::new(Format::Html, Format::Markdown, 1.0, 1.0));
-        let error = DagExecutor::new().execute(&dag, Format::Markdown, "hello".to_string()).unwrap_err();
-        assert!(matches!(error.downcast_ref::<crate::graph::DagValidationError>(), Some(crate::graph::DagValidationError::Cycle { .. })));
+        let error = DagExecutor::new()
+            .execute(&dag, Format::Markdown, "hello".to_string())
+            .unwrap_err();
+        assert!(matches!(
+            error.downcast_ref::<crate::graph::DagValidationError>(),
+            Some(crate::graph::DagValidationError::Cycle { .. })
+        ));
     }
 
     #[test]

@@ -61,23 +61,31 @@ pub(super) fn require_new_bundle(output: &Path) -> Result<()> {
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
         Err(error) => return Err(error).context("cannot inspect screenplay output directory"),
     }
-    let parent = output.parent().filter(|path| !path.as_os_str().is_empty()).unwrap_or(Path::new("."));
+    let parent = output
+        .parent()
+        .filter(|path| !path.as_os_str().is_empty())
+        .unwrap_or(Path::new("."));
     if !parent.is_dir() {
         bail!("screenplay output parent directory must already exist");
     }
     Ok(())
 }
 
-fn conversion_bundle(output: Vec<u8>, evidence: Vec<u8>) -> Result<(Vec<(String, Vec<u8>)>, Vec<u8>)> {
+fn conversion_bundle(output: Vec<u8>, evidence: Vec<u8>) -> Result<super::BundlePayload> {
     let mut files = vec![
         ("screenplay.fountain".to_owned(), output),
         ("provider-evidence.json".to_owned(), evidence),
     ];
-    let members = files.iter().map(|(name, bytes)| serde_json::json!({
-        "path": name,
-        "sha256": format!("{:x}", Sha256::digest(bytes)),
-        "size_bytes": bytes.len(),
-    })).collect::<Vec<_>>();
+    let members = files
+        .iter()
+        .map(|(name, bytes)| {
+            serde_json::json!({
+                "path": name,
+                "sha256": format!("{:x}", Sha256::digest(bytes)),
+                "size_bytes": bytes.len(),
+            })
+        })
+        .collect::<Vec<_>>();
     let mut receipt = serde_json::to_vec_pretty(&serde_json::json!({
         "schema_version": "renderflow.screenplay-bundle/v1",
         "status": "completed",
@@ -92,16 +100,28 @@ fn conversion_bundle(output: Vec<u8>, evidence: Vec<u8>) -> Result<(Vec<(String,
 
 /// Publish a new directory and write its completion receipt last. On I/O or
 /// cancellation failure a partial directory is retained without a receipt.
-pub(super) fn publish_conversion_bundle(output: &Path, files: &[(String, Vec<u8>)], cancellation: &ProcessCancellationToken) -> Result<()> {
-    if cancellation.is_cancelled() { bail!("screenplay publication cancelled"); }
+pub(super) fn publish_conversion_bundle(
+    output: &Path,
+    files: &[(String, Vec<u8>)],
+    cancellation: &ProcessCancellationToken,
+) -> Result<()> {
+    if cancellation.is_cancelled() {
+        bail!("screenplay publication cancelled");
+    }
     std::fs::create_dir(output).context("cannot create new screenplay output directory")?;
     for (name, bytes) in files {
-        if cancellation.is_cancelled() { bail!("screenplay publication cancelled"); }
+        if cancellation.is_cancelled() {
+            bail!("screenplay publication cancelled");
+        }
         let mut temporary = tempfile::NamedTempFile::new_in(output)?;
         temporary.write_all(bytes)?;
         temporary.as_file().sync_all()?;
-        if cancellation.is_cancelled() { bail!("screenplay publication cancelled"); }
-        temporary.persist_noclobber(output.join(name)).map_err(|error| error.error)?;
+        if cancellation.is_cancelled() {
+            bail!("screenplay publication cancelled");
+        }
+        temporary
+            .persist_noclobber(output.join(name))
+            .map_err(|error| error.error)?;
     }
     Ok(())
 }
@@ -125,8 +145,11 @@ fn require_report_format(format: &str) -> Result<()> {
 }
 
 fn require_canonical_extension(input: &Path) -> Result<()> {
-    let extension = input.extension().and_then(|value| value.to_str())
-        .unwrap_or_default().to_ascii_lowercase();
+    let extension = input
+        .extension()
+        .and_then(|value| value.to_str())
+        .unwrap_or_default()
+        .to_ascii_lowercase();
     match extension.as_str() {
         "json" => Ok(()),
         "fdx" | "fadein" | "fade_in" | "osf" | "fountain" => {
@@ -161,7 +184,9 @@ fn read_canonical_input(input: &Path) -> Result<Vec<u8>> {
 
 fn read_bounded(reader: impl Read) -> Result<Vec<u8>> {
     let mut bytes = Vec::new();
-    reader.take(MAX_INPUT_BYTES as u64 + 1).read_to_end(&mut bytes)?;
+    reader
+        .take(MAX_INPUT_BYTES as u64 + 1)
+        .read_to_end(&mut bytes)?;
     if bytes.len() > MAX_INPUT_BYTES {
         bail!("screenplay input exceeds the {MAX_INPUT_BYTES}-byte limit");
     }
@@ -202,19 +227,29 @@ fn render_report(inspection: &ScreenplayInspection, format: &str) -> Result<Stri
     output.push_str("Import assessments (native sources not read):\n");
     for assessment in &inspection.import_assessments {
         let preservation = preservation_label(assessment.preservation);
-        let reader = if assessment.adapter_available { "available" } else { "unavailable" };
+        let reader = if assessment.adapter_available {
+            "available"
+        } else {
+            "unavailable"
+        };
         output.push_str(&format!(
             "  {}: {preservation}; reader {reader}; review required: {}\n",
-            assessment.source_format.as_str(), serde_json::to_string(&assessment.review_required)?,
+            assessment.source_format.as_str(),
+            serde_json::to_string(&assessment.review_required)?,
         ));
     }
     output.push_str("Export assessments (no exports performed):\n");
     for assessment in &inspection.export_assessments {
         let preservation = preservation_label(assessment.preservation);
-        let writer = if assessment.adapter_available { "available" } else { "unavailable" };
+        let writer = if assessment.adapter_available {
+            "available"
+        } else {
+            "unavailable"
+        };
         output.push_str(&format!(
             "  {}: {preservation}; writer {writer}; review required: {}\n",
-            assessment.target.as_str(), serde_json::to_string(&assessment.review_required)?,
+            assessment.target.as_str(),
+            serde_json::to_string(&assessment.review_required)?,
         ));
     }
     output.push_str(
@@ -239,15 +274,27 @@ mod tests {
     #[test]
     fn conversion_bundle_receipt_binds_exact_bytes_and_is_last() {
         let (files, receipt) = conversion_bundle(b"Scene.\n".to_vec(), b"{}\n".to_vec()).unwrap();
-        assert_eq!(files.iter().map(|(name, _)| name.as_str()).collect::<Vec<_>>(),
-            vec!["screenplay.fountain", "provider-evidence.json", "bundle.json"]);
+        assert_eq!(
+            files
+                .iter()
+                .map(|(name, _)| name.as_str())
+                .collect::<Vec<_>>(),
+            vec![
+                "screenplay.fountain",
+                "provider-evidence.json",
+                "bundle.json"
+            ]
+        );
         assert_eq!(files[2].1, receipt);
         let value: serde_json::Value = serde_json::from_slice(&receipt).unwrap();
         assert_eq!(value["runtime_qualified"], false);
         for (index, (name, bytes)) in files[..2].iter().enumerate() {
             assert_eq!(value["files"][index]["path"], *name);
             assert_eq!(value["files"][index]["size_bytes"], bytes.len());
-            assert_eq!(value["files"][index]["sha256"], format!("{:x}", Sha256::digest(bytes)));
+            assert_eq!(
+                value["files"][index]["sha256"],
+                format!("{:x}", Sha256::digest(bytes))
+            );
         }
     }
 
@@ -279,11 +326,18 @@ mod tests {
         let output = directory.path().join("bundle");
         // A duplicate member deterministically exercises persist_noclobber
         // failure after a member was published but before the receipt.
-        let files = vec![("screenplay.fountain".to_owned(), b"first".to_vec()),
+        let files = vec![
+            ("screenplay.fountain".to_owned(), b"first".to_vec()),
             ("screenplay.fountain".to_owned(), b"second".to_vec()),
-            ("bundle.json".to_owned(), b"{}".to_vec())];
-        assert!(publish_conversion_bundle(&output, &files, &ProcessCancellationToken::new()).is_err());
-        assert_eq!(std::fs::read(output.join("screenplay.fountain")).unwrap(), b"first");
+            ("bundle.json".to_owned(), b"{}".to_vec()),
+        ];
+        assert!(
+            publish_conversion_bundle(&output, &files, &ProcessCancellationToken::new()).is_err()
+        );
+        assert_eq!(
+            std::fs::read(output.join("screenplay.fountain")).unwrap(),
+            b"first"
+        );
         assert!(!output.join("bundle.json").exists());
     }
 
@@ -311,15 +365,20 @@ mod tests {
                 "detail": "Declared by an earlier adapter.\nStill unreviewed.",
             }],
             "extensions": {"example:unhandled": {"revision": "α"}},
-        })).unwrap()
+        }))
+        .unwrap()
     }
 
     #[test]
     fn json_report_separates_observed_bytes_from_declared_source_and_preservation() {
         let bytes = canonical_bytes();
         let inspection = screenplay::inspect_json(&bytes).unwrap();
-        let report: serde_json::Value = serde_json::from_str(&render_report(&inspection, "json").unwrap()).unwrap();
-        assert_eq!(report["schema_version"], "renderflow.screenplay-inspection/v1");
+        let report: serde_json::Value =
+            serde_json::from_str(&render_report(&inspection, "json").unwrap()).unwrap();
+        assert_eq!(
+            report["schema_version"],
+            "renderflow.screenplay-inspection/v1"
+        );
         assert_eq!(report["input_bytes"], bytes.len());
         assert_ne!(report["input_sha256"], report["source"]["sha256"]);
         assert_eq!(report["source_identity_verified"], false);
@@ -327,17 +386,28 @@ mod tests {
         assert_eq!(report["extension_entries"], 1);
         assert_eq!(report["prior_losses"][0]["kind"], "text_styling");
         let imports = report["import_assessments"].as_array().unwrap();
-        let canonical = imports.iter()
-            .find(|assessment| assessment["source_format"] == "screenplay_json").unwrap();
+        let canonical = imports
+            .iter()
+            .find(|assessment| assessment["source_format"] == "screenplay_json")
+            .unwrap();
         assert_eq!(canonical["adapter_available"], true);
         assert_eq!(canonical["preservation"], "canonical_model");
-        let native_import = imports.iter()
-            .find(|assessment| assessment["source_format"] == "fountain").unwrap();
+        let native_import = imports
+            .iter()
+            .find(|assessment| assessment["source_format"] == "fountain")
+            .unwrap();
         assert_eq!(native_import["adapter_available"], false);
         assert_eq!(native_import["preservation"], "unassessed");
-        assert!(!native_import["review_required"].as_array().unwrap().is_empty());
-        let fountain = report["export_assessments"].as_array().unwrap().iter()
-            .find(|assessment| assessment["target"] == "fountain").unwrap();
+        assert!(!native_import["review_required"]
+            .as_array()
+            .unwrap()
+            .is_empty());
+        let fountain = report["export_assessments"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|assessment| assessment["target"] == "fountain")
+            .unwrap();
         assert_eq!(fountain["adapter_available"], false);
         assert_eq!(fountain["preservation"], "unassessed");
     }
@@ -361,7 +431,9 @@ mod tests {
 
     #[test]
     fn unsupported_report_format_is_refused_before_input_is_opened() {
-        let error = run_inspect("missing.screenplay.json", "yaml").unwrap_err().to_string();
+        let error = run_inspect("missing.screenplay.json", "yaml")
+            .unwrap_err()
+            .to_string();
         assert!(error.contains("unsupported screenplay report format"));
     }
 
@@ -369,7 +441,8 @@ mod tests {
     fn recognizes_native_extensions_without_reading_or_parsing_them() {
         for extension in ["fdx", "FDX", "fadein", "fade_in", "osf", "fountain"] {
             let error = read_canonical_input(Path::new(&format!("missing.{extension}")))
-                .unwrap_err().to_string();
+                .unwrap_err()
+                .to_string();
             assert!(error.contains("screenplay inspect accepts only renderflow.screenplay/v1 JSON"));
         }
     }

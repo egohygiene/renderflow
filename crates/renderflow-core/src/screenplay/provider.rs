@@ -16,9 +16,8 @@ use sha2::{Digest, Sha256};
 use thiserror::Error;
 
 use crate::process::{
-    ProcessCancellationToken, ProcessEnvironment, ProcessExecutor,
-    ProcessExpectedOutput, ProcessNetworkPolicy, ProcessOutputMode,
-    ProcessRequest, ProcessTermination,
+    ProcessCancellationToken, ProcessEnvironment, ProcessExecutor, ProcessExpectedOutput,
+    ProcessNetworkPolicy, ProcessOutputMode, ProcessRequest, ProcessTermination,
 };
 
 use super::native::{equivalent_semantics, parse_native, NativeScreenplayFormat};
@@ -144,11 +143,17 @@ pub enum ScripttoolError {
 
 pub fn supported_route(source: NativeScreenplayFormat, target: NativeScreenplayFormat) -> bool {
     target == NativeScreenplayFormat::Fountain
-        && matches!(source, NativeScreenplayFormat::Fdx | NativeScreenplayFormat::Osf | NativeScreenplayFormat::FadeIn)
+        && matches!(
+            source,
+            NativeScreenplayFormat::Fdx
+                | NativeScreenplayFormat::Osf
+                | NativeScreenplayFormat::FadeIn
+        )
 }
 
 pub fn conversion_command(
-    source: NativeScreenplayFormat, target: NativeScreenplayFormat,
+    source: NativeScreenplayFormat,
+    target: NativeScreenplayFormat,
 ) -> Result<&'static str, ScripttoolError> {
     if !supported_route(source, target) {
         return Err(ScripttoolError::UnsupportedRoute(
@@ -159,7 +164,9 @@ pub fn conversion_command(
         NativeScreenplayFormat::Fdx => Ok("fdx2fountain"),
         NativeScreenplayFormat::Osf => Ok("osf2fountain"),
         NativeScreenplayFormat::FadeIn => Ok("fadein2fountain"),
-        NativeScreenplayFormat::Fountain | NativeScreenplayFormat::Trelby => unreachable!("supported_route rejects Fountain and Trelby input"),
+        NativeScreenplayFormat::Fountain | NativeScreenplayFormat::Trelby => {
+            unreachable!("supported_route rejects Fountain and Trelby input")
+        }
     }
 }
 
@@ -167,7 +174,9 @@ pub fn conversion_command(
 /// This proves neither source revision nor build provenance.
 pub fn supported_version_line(line: &str, expected: &str, executable: &Path) -> bool {
     expected == SCRIPTTOOL_VERSION
-        && executable.file_name().and_then(|name| name.to_str())
+        && executable
+            .file_name()
+            .and_then(|name| name.to_str())
             .map(|name| line == format!("{name} {expected}"))
             .unwrap_or(false)
         && !line.chars().any(char::is_control)
@@ -177,7 +186,8 @@ pub fn supported_version_line(line: &str, expected: &str, executable: &Path) -> 
 /// cancellation and limits; production uses the shared bounded executor below.
 pub trait ScripttoolRunner {
     fn run(
-        &self, invocation: &ScripttoolInvocation,
+        &self,
+        invocation: &ScripttoolInvocation,
         cancellation: &ProcessCancellationToken,
     ) -> Result<ScripttoolProcessOutput, ScripttoolError>;
 }
@@ -204,7 +214,8 @@ pub struct BoundedScripttoolRunner;
 
 impl ScripttoolRunner for BoundedScripttoolRunner {
     fn run(
-        &self, invocation: &ScripttoolInvocation,
+        &self,
+        invocation: &ScripttoolInvocation,
         cancellation: &ProcessCancellationToken,
     ) -> Result<ScripttoolProcessOutput, ScripttoolError> {
         let mut request = ProcessRequest::direct(path_text(&invocation.executable)?)
@@ -217,10 +228,15 @@ impl ScripttoolRunner for BoundedScripttoolRunner {
             .environment(ProcessEnvironment::clear().set("LC_ALL", "C"))
             .network_policy(ProcessNetworkPolicy::Deny);
         if let Some(output) = &invocation.expected_output {
-            request = request.expect_output(ProcessExpectedOutput::file(output)
-                .require_non_empty().require_change().max_bytes(MAX_SCREENPLAY_BYTES));
+            request = request.expect_output(
+                ProcessExpectedOutput::file(output)
+                    .require_non_empty()
+                    .require_change()
+                    .max_bytes(MAX_SCREENPLAY_BYTES),
+            );
         }
-        let result = ProcessExecutor::new().execute(request)
+        let result = ProcessExecutor::new()
+            .execute(request)
             .map_err(|error| ScripttoolError::ProviderFailed(error.to_string()))?;
         Ok(ScripttoolProcessOutput {
             termination: result.termination(),
@@ -233,14 +249,16 @@ impl ScripttoolRunner for BoundedScripttoolRunner {
 }
 
 pub fn convert(
-    request: &ScripttoolRequest, cancellation: ProcessCancellationToken,
+    request: &ScripttoolRequest,
+    cancellation: ProcessCancellationToken,
 ) -> Result<ScripttoolRun, ScripttoolError> {
     convert_with_runner(request, &BoundedScripttoolRunner, cancellation)
 }
 
 /// Injected runners support contract tests; they confer no native qualification.
 pub fn convert_with_runner(
-    request: &ScripttoolRequest, runner: &dyn ScripttoolRunner,
+    request: &ScripttoolRequest,
+    runner: &dyn ScripttoolRunner,
     cancellation: ProcessCancellationToken,
 ) -> Result<ScripttoolRun, ScripttoolError> {
     ensure_not_cancelled(&cancellation)?;
@@ -250,53 +268,101 @@ pub fn convert_with_runner(
         expected_digest(expected, "expected_source_sha256")?;
     }
     let source = FileSnapshot::read(&request.input, MAX_SCREENPLAY_BYTES, &cancellation)?;
-    if request.expected_source_sha256.as_ref().is_some_and(|expected| expected != &source.sha256) {
-        return Err(ScripttoolError::InvalidRequest("source SHA-256 does not match the selected artifact".to_owned()));
+    if request
+        .expected_source_sha256
+        .as_ref()
+        .is_some_and(|expected| expected != &source.sha256)
+    {
+        return Err(ScripttoolError::InvalidRequest(
+            "source SHA-256 does not match the selected artifact".to_owned(),
+        ));
     }
     let source_bytes = read_bounded(&source.path, MAX_SCREENPLAY_BYTES, &cancellation)?;
     if sha256(&source_bytes) != source.sha256 {
-        return Err(ScripttoolError::SourceChanged("source changed before native inspection".to_owned()));
+        return Err(ScripttoolError::SourceChanged(
+            "source changed before native inspection".to_owned(),
+        ));
     }
     let input_screenplay = parse_native(&source_bytes, request.source_format)
         .map_err(|error| ScripttoolError::InvalidInput(error.to_string()))?;
-    let provider = FileSnapshot::read(&request.config.executable, MAX_PROVIDER_BYTES, &cancellation)?;
+    let provider = FileSnapshot::read(
+        &request.config.executable,
+        MAX_PROVIDER_BYTES,
+        &cancellation,
+    )?;
     if provider.sha256 != request.config.executable_sha256 {
-        return Err(ScripttoolError::ProviderUnavailable("executable SHA-256 does not match its explicit pin".to_owned()));
+        return Err(ScripttoolError::ProviderUnavailable(
+            "executable SHA-256 does not match its explicit pin".to_owned(),
+        ));
     }
-    let temporary = tempfile::Builder::new().prefix("renderflow-scripttool-").tempdir()?;
+    let temporary = tempfile::Builder::new()
+        .prefix("renderflow-scripttool-")
+        .tempdir()?;
     let working_directory = fs::canonicalize(temporary.path())?;
     let source_name = format!("source.{}", request.source_format.extension());
     let staged_path = working_directory.join(&source_name);
     fs::write(&staged_path, &source_bytes)?;
     let staged = FileSnapshot::read(&staged_path, MAX_SCREENPLAY_BYTES, &cancellation)?;
     if staged.sha256 != source.sha256 {
-        return Err(ScripttoolError::SourceChanged("staged input does not match source snapshot".to_owned()));
+        return Err(ScripttoolError::SourceChanged(
+            "staged input does not match source snapshot".to_owned(),
+        ));
     }
     let output_path = working_directory.join("output.fountain");
-    let version = run_checked(runner, &ScripttoolInvocation {
-        executable: provider.path.clone(), arguments: vec!["-version".to_owned()],
-        working_directory: working_directory.clone(), timeout: VERSION_TIMEOUT,
-        expected_output: None,
-    }, &cancellation)?;
-    let version_line = parse_version(&version.stdout, &request.config.expected_version, &provider.path)?;
-    for snapshot in [&source, &provider, &staged] { snapshot.recheck(&cancellation)?; }
+    let version = run_checked(
+        runner,
+        &ScripttoolInvocation {
+            executable: provider.path.clone(),
+            arguments: vec!["-version".to_owned()],
+            working_directory: working_directory.clone(),
+            timeout: VERSION_TIMEOUT,
+            expected_output: None,
+        },
+        &cancellation,
+    )?;
+    let version_line = parse_version(
+        &version.stdout,
+        &request.config.expected_version,
+        &provider.path,
+    )?;
+    for snapshot in [&source, &provider, &staged] {
+        snapshot.recheck(&cancellation)?;
+    }
     match fs::symlink_metadata(&output_path) {
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-        _ => return Err(ScripttoolError::InvalidOutput("output path must not exist before conversion".to_owned())),
+        _ => {
+            return Err(ScripttoolError::InvalidOutput(
+                "output path must not exist before conversion".to_owned(),
+            ))
+        }
     }
-    let arguments = vec![command.to_owned(), "-i".to_owned(), source_name,
-        "-o".to_owned(), "output.fountain".to_owned()];
-    run_checked(runner, &ScripttoolInvocation {
-        executable: provider.path.clone(), arguments: arguments.clone(),
-        working_directory, timeout: Duration::from_secs(request.config.timeout_seconds),
-        expected_output: Some(output_path.clone()),
-    }, &cancellation)?;
-    for snapshot in [&source, &provider, &staged] { snapshot.recheck(&cancellation)?; }
+    let arguments = vec![
+        command.to_owned(),
+        "-i".to_owned(),
+        source_name,
+        "-o".to_owned(),
+        "output.fountain".to_owned(),
+    ];
+    run_checked(
+        runner,
+        &ScripttoolInvocation {
+            executable: provider.path.clone(),
+            arguments: arguments.clone(),
+            working_directory,
+            timeout: Duration::from_secs(request.config.timeout_seconds),
+            expected_output: Some(output_path.clone()),
+        },
+        &cancellation,
+    )?;
+    for snapshot in [&source, &provider, &staged] {
+        snapshot.recheck(&cancellation)?;
+    }
     let output = read_bounded(&output_path, MAX_SCREENPLAY_BYTES, &cancellation)?;
     let screenplay = parse_native(&output, request.target_format)
         .map_err(|error| ScripttoolError::InvalidOutput(error.to_string()))?;
-    equivalent_semantics(&input_screenplay, &screenplay)
-        .map_err(|error| ScripttoolError::InvalidOutput(format!("semantic projection mismatch: {error}")))?;
+    equivalent_semantics(&input_screenplay, &screenplay).map_err(|error| {
+        ScripttoolError::InvalidOutput(format!("semantic projection mismatch: {error}"))
+    })?;
     let losses = vec![
         loss(request.source_format, ScreenplayLossKind::StableIds,
             "Native source IDs are not preserved; parsed element IDs describe this observed document only."),
@@ -309,30 +375,50 @@ pub fn convert_with_runner(
     ];
     let evidence = ScripttoolEvidence {
         schema_version: SCRIPTTOOL_EVIDENCE_SCHEMA.to_owned(),
-        provider_id: SCRIPTTOOL_PROVIDER_ID.to_owned(), provider_version: version_line,
-        provider_sha256: provider.sha256, adapter_reference_commit: SCRIPTTOOL_SOURCE_REF.to_owned(),
+        provider_id: SCRIPTTOOL_PROVIDER_ID.to_owned(),
+        provider_version: version_line,
+        provider_sha256: provider.sha256,
+        adapter_reference_commit: SCRIPTTOOL_SOURCE_REF.to_owned(),
         executable_source_attested: false,
-        source_sha256: source.sha256, output_sha256: sha256(&output),
-        source_format: request.source_format, target_format: request.target_format,
-        argv_sha256: sha256(&serde_json::to_vec(&arguments)?), argv: arguments,
-        source_element_count: input_screenplay.elements.len(), output_element_count: screenplay.elements.len(),
-        input_structure_validated: true, output_structure_validated: true,
-        semantic_projection_matched: true, qualification: "authored_unqualified".to_owned(),
-        fidelity: "semantic_subset".to_owned(), losses,
+        source_sha256: source.sha256,
+        output_sha256: sha256(&output),
+        source_format: request.source_format,
+        target_format: request.target_format,
+        argv_sha256: sha256(&serde_json::to_vec(&arguments)?),
+        argv: arguments,
+        source_element_count: input_screenplay.elements.len(),
+        output_element_count: screenplay.elements.len(),
+        input_structure_validated: true,
+        output_structure_validated: true,
+        semantic_projection_matched: true,
+        qualification: "authored_unqualified".to_owned(),
+        fidelity: "semantic_subset".to_owned(),
+        losses,
     };
     ensure_not_cancelled(&cancellation)?;
-    Ok(ScripttoolRun { output, screenplay, evidence })
+    Ok(ScripttoolRun {
+        output,
+        screenplay,
+        evidence,
+    })
 }
 
-fn loss(format: NativeScreenplayFormat, kind: ScreenplayLossKind, detail: &str) -> ScreenplayLossEvidence {
+fn loss(
+    format: NativeScreenplayFormat,
+    kind: ScreenplayLossKind,
+    detail: &str,
+) -> ScreenplayLossEvidence {
     ScreenplayLossEvidence {
-        direction: ScreenplayLossDirection::Import, format: format.as_str().to_owned(),
-        kind, detail: detail.to_owned(),
+        direction: ScreenplayLossDirection::Import,
+        format: format.as_str().to_owned(),
+        kind,
+        detail: detail.to_owned(),
     }
 }
 
 fn run_checked(
-    runner: &dyn ScripttoolRunner, invocation: &ScripttoolInvocation,
+    runner: &dyn ScripttoolRunner,
+    invocation: &ScripttoolInvocation,
     cancellation: &ProcessCancellationToken,
 ) -> Result<ScripttoolProcessOutput, ScripttoolError> {
     ensure_not_cancelled(cancellation)?;
@@ -343,21 +429,32 @@ fn run_checked(
         ProcessTermination::TimedOut => return Err(ScripttoolError::TimedOut),
         _ => {}
     }
-    if result.capture_truncated || result.stdout.len() > MAX_CAPTURE_BYTES || result.stderr.len() > MAX_CAPTURE_BYTES {
-        return Err(ScripttoolError::ProviderFailed("stdout or stderr exceeded its bounded capture limit".to_owned()));
+    if result.capture_truncated
+        || result.stdout.len() > MAX_CAPTURE_BYTES
+        || result.stderr.len() > MAX_CAPTURE_BYTES
+    {
+        return Err(ScripttoolError::ProviderFailed(
+            "stdout or stderr exceeded its bounded capture limit".to_owned(),
+        ));
     }
     if !result.termination.is_success() || !result.output_failures.is_empty() {
         return Err(ScripttoolError::ProviderFailed(format!(
             "process terminated as {:?}; expected output failures: {}",
-            result.termination, result.output_failures.len(),
+            result.termination,
+            result.output_failures.len(),
         )));
     }
     Ok(result)
 }
 
-fn parse_version(bytes: &[u8], expected: &str, executable: &Path) -> Result<String, ScripttoolError> {
-    let text = std::str::from_utf8(bytes)
-        .map_err(|_| ScripttoolError::ProviderUnavailable("version stdout must be UTF-8".to_owned()))?;
+fn parse_version(
+    bytes: &[u8],
+    expected: &str,
+    executable: &Path,
+) -> Result<String, ScripttoolError> {
+    let text = std::str::from_utf8(bytes).map_err(|_| {
+        ScripttoolError::ProviderUnavailable("version stdout must be UTF-8".to_owned())
+    })?;
     let line = text.strip_suffix("\n").unwrap_or(text);
     let line = line.strip_suffix("\r").unwrap_or(line);
     if line.len() > 4096 || !supported_version_line(line, expected, executable) {
@@ -369,39 +466,67 @@ fn parse_version(bytes: &[u8], expected: &str, executable: &Path) -> Result<Stri
 }
 
 fn path_text(path: &Path) -> Result<&str, ScripttoolError> {
-    let text = path.to_str().ok_or_else(|| ScripttoolError::InvalidRequest("native paths must be UTF-8".to_owned()))?;
+    let text = path
+        .to_str()
+        .ok_or_else(|| ScripttoolError::InvalidRequest("native paths must be UTF-8".to_owned()))?;
     if !path.is_absolute() || text.chars().any(char::is_control) {
-        return Err(ScripttoolError::InvalidRequest("native executable paths must be absolute and contain no controls".to_owned()));
+        return Err(ScripttoolError::InvalidRequest(
+            "native executable paths must be absolute and contain no controls".to_owned(),
+        ));
     }
     Ok(text)
 }
 
 fn expected_digest(value: &str, name: &str) -> Result<(), ScripttoolError> {
-    if value.len() != 64 || !value.bytes().all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte)) {
-        return Err(ScripttoolError::InvalidRequest(format!("{name} must be a lowercase SHA-256 digest")));
+    if value.len() != 64
+        || !value
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+    {
+        return Err(ScripttoolError::InvalidRequest(format!(
+            "{name} must be a lowercase SHA-256 digest"
+        )));
     }
     Ok(())
 }
 
 #[derive(Debug)]
-struct FileSnapshot { path: PathBuf, maximum: u64, metadata: Metadata, sha256: String }
+struct FileSnapshot {
+    path: PathBuf,
+    maximum: u64,
+    metadata: Metadata,
+    sha256: String,
+}
 
 impl FileSnapshot {
-    fn read(path: &Path, maximum: u64, cancellation: &ProcessCancellationToken) -> Result<Self, ScripttoolError> {
+    fn read(
+        path: &Path,
+        maximum: u64,
+        cancellation: &ProcessCancellationToken,
+    ) -> Result<Self, ScripttoolError> {
         let initial = regular_metadata(path)?;
         let path = fs::canonicalize(path)?;
         path_text(&path)?;
         let (metadata, sha256) = hash_file(&path, maximum, cancellation)?;
         if !same_metadata(&initial, &metadata) {
-            return Err(ScripttoolError::SourceChanged("file changed during path resolution".to_owned()));
+            return Err(ScripttoolError::SourceChanged(
+                "file changed during path resolution".to_owned(),
+            ));
         }
-        Ok(Self { path, maximum, metadata, sha256 })
+        Ok(Self {
+            path,
+            maximum,
+            metadata,
+            sha256,
+        })
     }
 
     fn recheck(&self, cancellation: &ProcessCancellationToken) -> Result<(), ScripttoolError> {
         let (metadata, digest) = hash_file(&self.path, self.maximum, cancellation)?;
         if digest != self.sha256 || !same_metadata(&self.metadata, &metadata) {
-            return Err(ScripttoolError::SourceChanged("source, executable, or staged input changed".to_owned()));
+            return Err(ScripttoolError::SourceChanged(
+                "source, executable, or staged input changed".to_owned(),
+            ));
         }
         Ok(())
     }
@@ -410,32 +535,53 @@ impl FileSnapshot {
 fn regular_metadata(path: &Path) -> Result<Metadata, ScripttoolError> {
     let metadata = fs::symlink_metadata(path)?;
     if !metadata.is_file() || metadata.file_type().is_symlink() {
-        return Err(ScripttoolError::InvalidRequest("file must be regular with a non-symlink final path component".to_owned()));
+        return Err(ScripttoolError::InvalidRequest(
+            "file must be regular with a non-symlink final path component".to_owned(),
+        ));
     }
     Ok(metadata)
 }
 
 fn same_metadata(left: &Metadata, right: &Metadata) -> bool {
-    if !left.is_file() || !right.is_file() || left.len() != right.len() || left.modified().ok() != right.modified().ok() { return false; }
+    if !left.is_file()
+        || !right.is_file()
+        || left.len() != right.len()
+        || left.modified().ok() != right.modified().ok()
+    {
+        return false;
+    }
     #[cfg(unix)]
     {
         use std::os::unix::fs::MetadataExt;
-        if left.dev() != right.dev() || left.ino() != right.ino() || left.ctime() != right.ctime() || left.ctime_nsec() != right.ctime_nsec() { return false; }
+        if left.dev() != right.dev()
+            || left.ino() != right.ino()
+            || left.ctime() != right.ctime()
+            || left.ctime_nsec() != right.ctime_nsec()
+        {
+            return false;
+        }
     }
     true
 }
 
 fn read_file(
-    path: &Path, maximum: u64, retain_bytes: bool, cancellation: &ProcessCancellationToken,
+    path: &Path,
+    maximum: u64,
+    retain_bytes: bool,
+    cancellation: &ProcessCancellationToken,
 ) -> Result<(Metadata, String, Vec<u8>), ScripttoolError> {
     ensure_not_cancelled(cancellation)?;
     let before = regular_metadata(path)?;
     if before.len() == 0 || before.len() > maximum {
-        return Err(ScripttoolError::InvalidRequest(format!("file must contain between 1 and {maximum} bytes")));
+        return Err(ScripttoolError::InvalidRequest(format!(
+            "file must contain between 1 and {maximum} bytes"
+        )));
     }
     let mut file = File::open(path)?;
     if !same_metadata(&before, &file.metadata()?) {
-        return Err(ScripttoolError::SourceChanged("file changed while opening".to_owned()));
+        return Err(ScripttoolError::SourceChanged(
+            "file changed while opening".to_owned(),
+        ));
     }
     let mut digest = Sha256::new();
     let mut retained = Vec::new();
@@ -444,37 +590,68 @@ fn read_file(
     let started = Instant::now();
     loop {
         ensure_not_cancelled(cancellation)?;
-        if started.elapsed() >= FILE_TIMEOUT { return Err(ScripttoolError::TimedOut); }
+        if started.elapsed() >= FILE_TIMEOUT {
+            return Err(ScripttoolError::TimedOut);
+        }
         let count = file.read(&mut buffer)?;
-        if count == 0 { break; }
+        if count == 0 {
+            break;
+        }
         total += count as u64;
-        if total > maximum { return Err(ScripttoolError::SourceChanged("file grew beyond its byte limit".to_owned())); }
+        if total > maximum {
+            return Err(ScripttoolError::SourceChanged(
+                "file grew beyond its byte limit".to_owned(),
+            ));
+        }
         digest.update(&buffer[..count]);
-        if retain_bytes { retained.extend_from_slice(&buffer[..count]); }
+        if retain_bytes {
+            retained.extend_from_slice(&buffer[..count]);
+        }
     }
     ensure_not_cancelled(cancellation)?;
-    if started.elapsed() >= FILE_TIMEOUT { return Err(ScripttoolError::TimedOut); }
+    if started.elapsed() >= FILE_TIMEOUT {
+        return Err(ScripttoolError::TimedOut);
+    }
     let after = file.metadata()?;
-    if total != before.len() || !same_metadata(&before, &after) || !same_metadata(&after, &regular_metadata(path)?) {
-        return Err(ScripttoolError::SourceChanged("file changed while reading".to_owned()));
+    if total != before.len()
+        || !same_metadata(&before, &after)
+        || !same_metadata(&after, &regular_metadata(path)?)
+    {
+        return Err(ScripttoolError::SourceChanged(
+            "file changed while reading".to_owned(),
+        ));
     }
     Ok((before, format!("{:x}", digest.finalize()), retained))
 }
 
-fn hash_file(path: &Path, maximum: u64, cancellation: &ProcessCancellationToken) -> Result<(Metadata, String), ScripttoolError> {
+fn hash_file(
+    path: &Path,
+    maximum: u64,
+    cancellation: &ProcessCancellationToken,
+) -> Result<(Metadata, String), ScripttoolError> {
     let (metadata, hash, _) = read_file(path, maximum, false, cancellation)?;
     Ok((metadata, hash))
 }
 
-fn read_bounded(path: &Path, maximum: u64, cancellation: &ProcessCancellationToken) -> Result<Vec<u8>, ScripttoolError> {
+fn read_bounded(
+    path: &Path,
+    maximum: u64,
+    cancellation: &ProcessCancellationToken,
+) -> Result<Vec<u8>, ScripttoolError> {
     Ok(read_file(path, maximum, true, cancellation)?.2)
 }
 
 fn ensure_not_cancelled(cancellation: &ProcessCancellationToken) -> Result<(), ScripttoolError> {
-    if cancellation.is_cancelled() { Err(ScripttoolError::Cancelled) } else { Ok(()) }
+    if cancellation.is_cancelled() {
+        Err(ScripttoolError::Cancelled)
+    } else {
+        Ok(())
+    }
 }
 
-fn sha256(bytes: &[u8]) -> String { format!("{:x}", Sha256::digest(bytes)) }
+fn sha256(bytes: &[u8]) -> String {
+    format!("{:x}", Sha256::digest(bytes))
+}
 
 #[cfg(test)]
 #[path = "provider_tests.rs"]

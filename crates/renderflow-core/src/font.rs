@@ -1070,7 +1070,11 @@ mod tests {
         let before = snapshot.resolve(FontTarget::Html).unwrap();
         assert_eq!(
             before.fingerprint().unwrap(),
-            loaded.resolve(FontTarget::Html).unwrap().fingerprint().unwrap()
+            loaded
+                .resolve(FontTarget::Html)
+                .unwrap()
+                .fingerprint()
+                .unwrap()
         );
 
         // A newly available primary and changed/deleted retained files must not
@@ -1137,9 +1141,11 @@ mod tests {
             ]),
             BTreeSet::new(),
         );
-        assert!(without_license.validate().diagnostics.iter().any(|item| {
-            item.code == "font.license.missing"
-        }));
+        assert!(without_license
+            .validate()
+            .diagnostics
+            .iter()
+            .any(|item| { item.code == "font.license.missing" }));
         assert!(without_license.resolve(FontTarget::Html).is_err());
         assert!(loaded.resolve(FontTarget::Html).is_ok());
     }

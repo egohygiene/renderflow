@@ -17,7 +17,10 @@ use crate::process::ProcessCancellationToken;
 
 use super::policy::SpeechPolicy;
 use super::provider::{ensure_not_cancelled, expected_digest, read_bounded, sha256};
-use super::recovery::{bind_saved_result, configuration_digest, inspect_saved_store, parse_exact, receipt_bytes, require_directory, stable_store_root, SavedSpeechResult, MAX_RECEIPT_BYTES};
+use super::recovery::{
+    bind_saved_result, configuration_digest, inspect_saved_store, parse_exact, receipt_bytes,
+    require_directory, stable_store_root, SavedSpeechResult, MAX_RECEIPT_BYTES,
+};
 
 pub const SAVED_RESULTS_INDEX_SCHEMA: &str = "renderflow.speech-saved-results-index/v1";
 pub const SAVED_RESULTS_INDEX_PROFILE: &str = "historical-speech-discovery/v1";
@@ -38,25 +41,39 @@ struct SavedResultIndex {
 /// Deterministic path only: no files or directories are inspected or created.
 /// Selection controls are excluded from the existing recognition identity.
 pub fn index_path(root: &Path, policy: &SpeechPolicy, source_format: Format) -> Result<PathBuf> {
-    Ok(root.join("speech-results").join("v1").join(format!("{}.json", lookup_digest(policy, source_format)?)))
+    Ok(root
+        .join("speech-results")
+        .join("v1")
+        .join(format!("{}.json", lookup_digest(policy, source_format)?)))
 }
 
 /// Read-only historical assessment; never constructs an ArtifactStore.
 /// Only absence of the index (including absent parent directories) is a miss.
 /// Any present invalid pointer or missing/corrupt evidence fails closed.
 pub fn lookup_saved_result(
-    root: &Path, policy: &SpeechPolicy, source_format: Format,
-    source: Option<&Artifact>, cancellation: &ProcessCancellationToken,
+    root: &Path,
+    policy: &SpeechPolicy,
+    source_format: Format,
+    source: Option<&Artifact>,
+    cancellation: &ProcessCancellationToken,
 ) -> Result<Option<SavedSpeechResult>> {
     ensure_not_cancelled(cancellation)?;
     policy.validate_source(source_format, false)?;
-    if !policy.saved_results.is_enabled() { return Ok(None); }
-    if !existing_directory(root)? { return Ok(None); }
+    if !policy.saved_results.is_enabled() {
+        return Ok(None);
+    }
+    if !existing_directory(root)? {
+        return Ok(None);
+    }
     let root = stable_store_root(root)?;
     let directory = root.join("speech-results");
-    if !existing_directory(&directory)? { return Ok(None); }
+    if !existing_directory(&directory)? {
+        return Ok(None);
+    }
     let directory = directory.join("v1");
-    if !existing_directory(&directory)? { return Ok(None); }
+    if !existing_directory(&directory)? {
+        return Ok(None);
+    }
     let path = index_path(&root, policy, source_format)?;
     match std::fs::symlink_metadata(&path) {
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
@@ -64,7 +81,7 @@ pub fn lookup_saved_result(
         Ok(metadata) if !metadata.is_file() || metadata.file_type().is_symlink() => {
             bail!("speech saved-result index must be a non-symlink regular file");
         }
-        Ok(_) => {},
+        Ok(_) => {}
     }
     let bytes = read_bounded(&path, MAX_INDEX_BYTES, cancellation)?;
     let index: SavedResultIndex = parse_exact(&bytes, "speech saved-result index")?;
@@ -93,16 +110,27 @@ pub fn lookup_saved_result(
 /// Interruption after atomic index promotion may leave the already committed,
 /// verified result available even when the final recheck reports an error.
 pub fn remember_saved_result(
-    store: &ArtifactStore, policy: &SpeechPolicy, input: &Artifact,
-    canonical: &Artifact, cancellation: &ProcessCancellationToken,
+    store: &ArtifactStore,
+    policy: &SpeechPolicy,
+    input: &Artifact,
+    canonical: &Artifact,
+    cancellation: &ProcessCancellationToken,
 ) -> Result<SavedSpeechResult> {
     ensure_not_cancelled(cancellation)?;
     let source_format: Format = input.format().as_str().parse()?;
     policy.validate_source(source_format, false)?;
-    if !policy.saved_results.is_enabled() { bail!("speech saved-result discovery is disabled"); }
+    if !policy.saved_results.is_enabled() {
+        bail!("speech saved-result discovery is disabled");
+    }
     let bytes = receipt_bytes(input, policy, canonical, store, cancellation)?;
     // Validate an existing first result before any index or receipt mutation.
-    if let Some(saved) = lookup_saved_result(store.root(), policy, source_format, Some(input), cancellation)? {
+    if let Some(saved) = lookup_saved_result(
+        store.root(),
+        policy,
+        source_format,
+        Some(input),
+        cancellation,
+    )? {
         return Ok(saved);
     }
     let root = stable_store_root(store.root())?;
@@ -114,7 +142,12 @@ pub fn remember_saved_result(
     create_directory(&prefix)?;
     let receipt_path = prefix.join(&pin);
     publish_once(&receipt_path, &bytes, cancellation)?;
-    if sha256(&read_bounded(&receipt_path, MAX_RECEIPT_BYTES, cancellation)?) != pin {
+    if sha256(&read_bounded(
+        &receipt_path,
+        MAX_RECEIPT_BYTES,
+        cancellation,
+    )?) != pin
+    {
         bail!("speech saved-result CAS receipt differs from its digest");
     }
     // Re-read from its future lookup origin; no index becomes visible until the
@@ -126,11 +159,14 @@ pub fn remember_saved_result(
         profile: SAVED_RESULTS_INDEX_PROFILE.to_owned(),
         lookup_sha256: lookup_digest(policy, source_format)?,
         configuration_sha256: configuration_digest(policy)?,
-        source_format: source_format.to_string(), source_sha256: policy.source_sha256.clone(),
+        source_format: source_format.to_string(),
+        source_sha256: policy.source_sha256.clone(),
         receipt_sha256: pin,
     };
     let bytes = serde_json::to_vec(&index)?;
-    if bytes.len() as u64 > MAX_INDEX_BYTES { bail!("speech saved-result index exceeds its byte limit"); }
+    if bytes.len() as u64 > MAX_INDEX_BYTES {
+        bail!("speech saved-result index exceeds its byte limit");
+    }
     let directory = root.join("speech-results");
     create_directory(&directory)?;
     let version = directory.join("v1");
@@ -149,10 +185,18 @@ pub fn remember_saved_result(
 
 fn lookup_digest(policy: &SpeechPolicy, source_format: Format) -> Result<String> {
     policy.validate_source(source_format, false)?;
-    Ok(sha256(&serde_json::to_vec(&(SAVED_RESULTS_INDEX_PROFILE, source_format.to_string(), configuration_digest(policy)?))?))
+    Ok(sha256(&serde_json::to_vec(&(
+        SAVED_RESULTS_INDEX_PROFILE,
+        source_format.to_string(),
+        configuration_digest(policy)?,
+    ))?))
 }
 
-fn validate_index(index: &SavedResultIndex, policy: &SpeechPolicy, source_format: Format) -> Result<()> {
+fn validate_index(
+    index: &SavedResultIndex,
+    policy: &SpeechPolicy,
+    source_format: Format,
+) -> Result<()> {
     expected_digest(&index.receipt_sha256, "speech saved-result receipt digest")?;
     if index.schema_version != SAVED_RESULTS_INDEX_SCHEMA
         || index.profile != SAVED_RESULTS_INDEX_PROFILE
@@ -160,7 +204,9 @@ fn validate_index(index: &SavedResultIndex, policy: &SpeechPolicy, source_format
         || index.configuration_sha256 != configuration_digest(policy)?
         || index.source_format != source_format.to_string()
         || index.source_sha256 != policy.source_sha256
-    { bail!("speech saved-result index differs from its source and recognition intent"); }
+    {
+        bail!("speech saved-result index differs from its source and recognition intent");
+    }
     Ok(())
 }
 
@@ -177,8 +223,8 @@ fn existing_directory(path: &Path) -> Result<bool> {
 
 fn create_directory(path: &Path) -> Result<()> {
     match std::fs::create_dir(path) {
-        Ok(()) => {},
-        Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {},
+        Ok(()) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
         Err(error) => return Err(error).context("failed to create speech saved-result directory"),
     }
     require_directory(path)
@@ -186,27 +232,41 @@ fn create_directory(path: &Path) -> Result<()> {
 
 fn publish_once(path: &Path, bytes: &[u8], cancellation: &ProcessCancellationToken) -> Result<()> {
     ensure_not_cancelled(cancellation)?;
-    let directory = path.parent().context("speech saved-result destination has no parent")?;
+    let directory = path
+        .parent()
+        .context("speech saved-result destination has no parent")?;
     require_directory(directory)?;
     // Avoid even temporary writes when a first writer already published. The
     // caller must fully validate that winner after this function returns.
     match std::fs::symlink_metadata(path) {
         Ok(metadata) if metadata.is_file() && !metadata.file_type().is_symlink() => return Ok(()),
         Ok(_) => bail!("speech saved-result destination must be a non-symlink regular file"),
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {},
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
         Err(error) => return Err(error).context("speech saved-result destination is unavailable"),
     }
     let mut temporary = tempfile::NamedTempFile::new_in(directory)
         .context("failed to create speech saved-result temporary file")?;
-    temporary.write_all(bytes).context("failed to write speech saved-result temporary file")?;
-    temporary.flush().context("failed to flush speech saved-result temporary file")?;
-    temporary.as_file().sync_all().context("failed to sync speech saved-result temporary file")?;
+    temporary
+        .write_all(bytes)
+        .context("failed to write speech saved-result temporary file")?;
+    temporary
+        .flush()
+        .context("failed to flush speech saved-result temporary file")?;
+    temporary
+        .as_file()
+        .sync_all()
+        .context("failed to sync speech saved-result temporary file")?;
     ensure_not_cancelled(cancellation)?;
     require_directory(directory)?;
     match temporary.persist_noclobber(path) {
-        Ok(file) => file.sync_all().context("failed to sync speech saved-result file")?,
-        Err(error) if error.error.kind() == std::io::ErrorKind::AlreadyExists => {},
-        Err(error) => return Err(error.error).context("failed to publish speech saved-result without overwriting"),
+        Ok(file) => file
+            .sync_all()
+            .context("failed to sync speech saved-result file")?,
+        Err(error) if error.error.kind() == std::io::ErrorKind::AlreadyExists => {}
+        Err(error) => {
+            return Err(error.error)
+                .context("failed to publish speech saved-result without overwriting")
+        }
     }
     Ok(())
 }

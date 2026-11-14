@@ -159,7 +159,13 @@ impl OpenAiProvider {
         &self,
         request: &AiRequest,
     ) -> Result<(String, Option<u32>, Option<u32>, Option<String>)> {
-        anyhow::ensure!(!request.cancellation.as_ref().is_some_and(|token|token.is_cancelled()),"ai.transport.cancelled");
+        anyhow::ensure!(
+            !request
+                .cancellation
+                .as_ref()
+                .is_some_and(|token| token.is_cancelled()),
+            "ai.transport.cancelled"
+        );
         let url = format!(
             "{}/v1/chat/completions",
             self.endpoint.trim_end_matches('/')
@@ -203,20 +209,28 @@ impl OpenAiProvider {
             );
         }
 
-        let agent=super::response::agent(request,&self.endpoint);
+        let agent = super::response::agent(request, &self.endpoint);
         let mut req = agent.post(&url).set("Content-Type", "application/json");
         if let Some(key) = self.resolve_api_key()? {
             req = req.set("Authorization", &format!("Bearer {}", key));
         }
 
-        let response=req.send_json(body).map_err(|_|anyhow::anyhow!("ai.transport.openai_request_failed"))?;
-        let body_str=super::response::read(response,request)?;
-        let json:serde_json::Value=serde_json::from_str(&body_str)
-            .map_err(|_|anyhow::anyhow!("ai.transport.invalid_json"))?;
-        let content=json["choices"][0]["message"]["content"].as_str().context("ai.transport.missing_content")?.to_string();
-        let (input_tokens,output_tokens)=Self::extract_tokens(&json);
-        let reported=json.get("model").and_then(|value|value.as_str()).map(str::to_string);
-        Ok((content,input_tokens,output_tokens,reported))
+        let response = req
+            .send_json(body)
+            .map_err(|_| anyhow::anyhow!("ai.transport.openai_request_failed"))?;
+        let body_str = super::response::read(response, request)?;
+        let json: serde_json::Value = serde_json::from_str(&body_str)
+            .map_err(|_| anyhow::anyhow!("ai.transport.invalid_json"))?;
+        let content = json["choices"][0]["message"]["content"]
+            .as_str()
+            .context("ai.transport.missing_content")?
+            .to_string();
+        let (input_tokens, output_tokens) = Self::extract_tokens(&json);
+        let reported = json
+            .get("model")
+            .and_then(|value| value.as_str())
+            .map(str::to_string);
+        Ok((content, input_tokens, output_tokens, reported))
     }
 }
 

@@ -60,8 +60,14 @@ impl OllamaProvider {
         self
     }
 
-    fn call_api(&self, request: &AiRequest) -> Result<(String,Option<String>)> {
-        anyhow::ensure!(!request.cancellation.as_ref().is_some_and(|token|token.is_cancelled()),"ai.transport.cancelled");
+    fn call_api(&self, request: &AiRequest) -> Result<(String, Option<String>)> {
+        anyhow::ensure!(
+            !request
+                .cancellation
+                .as_ref()
+                .is_some_and(|token| token.is_cancelled()),
+            "ai.transport.cancelled"
+        );
         let url = format!("{}/api/generate", self.endpoint.trim_end_matches('/'));
         let mut body = json!({
             "model": request.model,
@@ -101,15 +107,24 @@ impl OllamaProvider {
             "Sending request to Ollama"
         );
 
-        let agent=super::response::agent(request,&self.endpoint);
-        let response=agent.post(&url).set("Content-Type", "application/json").send_json(body)
-            .map_err(|_|anyhow::anyhow!("ai.transport.ollama_request_failed"))?;
-        let body_str=super::response::read(response,request)?;
-        let json:serde_json::Value=serde_json::from_str(&body_str)
-            .map_err(|_|anyhow::anyhow!("ai.transport.invalid_json"))?;
-        let content=json["response"].as_str().context("ai.transport.missing_content")?.to_string();
-        let reported=json.get("model").and_then(|value|value.as_str()).map(str::to_string);
-        Ok((content,reported))
+        let agent = super::response::agent(request, &self.endpoint);
+        let response = agent
+            .post(&url)
+            .set("Content-Type", "application/json")
+            .send_json(body)
+            .map_err(|_| anyhow::anyhow!("ai.transport.ollama_request_failed"))?;
+        let body_str = super::response::read(response, request)?;
+        let json: serde_json::Value = serde_json::from_str(&body_str)
+            .map_err(|_| anyhow::anyhow!("ai.transport.invalid_json"))?;
+        let content = json["response"]
+            .as_str()
+            .context("ai.transport.missing_content")?
+            .to_string();
+        let reported = json
+            .get("model")
+            .and_then(|value| value.as_str())
+            .map(str::to_string);
+        Ok((content, reported))
     }
 }
 
@@ -145,7 +160,7 @@ impl AiProvider for OllamaProvider {
 
     fn execute(&self, request: &AiRequest) -> Result<AiResponse> {
         let start = std::time::Instant::now();
-        let (content,reported_model) = self
+        let (content, reported_model) = self
             .call_api(request)
             .with_context(|| format!("Ollama provider failed for model '{}'", request.model))?;
         let duration_ms = start.elapsed().as_millis() as u64;

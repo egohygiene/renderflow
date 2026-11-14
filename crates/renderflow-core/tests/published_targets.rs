@@ -56,11 +56,16 @@ fn second_target(run: &mut RunManifest) {
     let mut record = run.artifact_manifest.artifacts[0].clone();
     record.locator = "bundle:second.txt".into();
     run.artifact_manifest.artifacts.push(record);
-    run.artifact_manifest.outputs.push("unused-synthetic-bundle/second.txt".into());
+    run.artifact_manifest
+        .outputs
+        .push("unused-synthetic-bundle/second.txt".into());
 }
 
 fn target_error(run: &RunManifest) {
-    assert!(matches!(run.published_targets(), Err(PublishedTargetsError::InconsistentTarget { .. })));
+    assert!(matches!(
+        run.published_targets(),
+        Err(PublishedTargetsError::InconsistentTarget { .. })
+    ));
 }
 
 #[test]
@@ -73,29 +78,57 @@ fn borrowed_publications_preserve_same_content_destinations_and_native_metadata(
     run.artifact_manifest.artifacts.push(retained);
     let outputs = run.published_targets().unwrap();
     assert_eq!(outputs.len(), 2);
-    assert_eq!(outputs[0].artifact.artifact_id, outputs[1].artifact.artifact_id);
+    assert_eq!(
+        outputs[0].artifact.artifact_id,
+        outputs[1].artifact.artifact_id
+    );
     assert_ne!(outputs[0].artifact.locator, outputs[1].artifact.locator);
     assert_ne!(outputs[0].branch.target_id, outputs[1].branch.target_id);
-    assert!(std::ptr::eq(outputs[0].artifact, &run.artifact_manifest.artifacts[0]));
-    assert_eq!(outputs[0].artifact.metadata["renderflow.subtitle"]["export_losses"], json!(["timing"]));
-    assert_eq!(outputs[0].artifact.metadata["renderflow.subtitle"]["review_required"], true);
-    assert_eq!(run.flow_artifacts_v1().len(), 3, "legacy projection still covers all inventory");
+    assert!(std::ptr::eq(
+        outputs[0].artifact,
+        &run.artifact_manifest.artifacts[0]
+    ));
+    assert_eq!(
+        outputs[0].artifact.metadata["renderflow.subtitle"]["export_losses"],
+        json!(["timing"])
+    );
+    assert_eq!(
+        outputs[0].artifact.metadata["renderflow.subtitle"]["review_required"],
+        true
+    );
+    assert_eq!(
+        run.flow_artifacts_v1().len(),
+        3,
+        "legacy projection still covers all inventory"
+    );
 }
 
 #[test]
 fn missing_legacy_evidence_and_unknown_contracts_are_errors_not_empty_success() {
     let mut run = manifest();
     run.artifact_forest = None;
-    assert_eq!(run.published_targets().unwrap_err(), PublishedTargetsError::MissingForest);
+    assert_eq!(
+        run.published_targets().unwrap_err(),
+        PublishedTargetsError::MissingForest
+    );
     run = manifest();
     run.artifact_forest.as_mut().unwrap().execution = None;
-    assert_eq!(run.published_targets().unwrap_err(), PublishedTargetsError::MissingExecution);
+    assert_eq!(
+        run.published_targets().unwrap_err(),
+        PublishedTargetsError::MissingExecution
+    );
     run = manifest();
     run.artifact_manifest.schema_version = "unsupported".into();
-    assert!(matches!(run.published_targets(), Err(PublishedTargetsError::UnsupportedSchema { .. })));
+    assert!(matches!(
+        run.published_targets(),
+        Err(PublishedTargetsError::UnsupportedSchema { .. })
+    ));
     run = manifest();
     run.artifact_manifest.run_id = "other-run".into();
-    assert!(matches!(run.published_targets(), Err(PublishedTargetsError::InconsistentManifest { .. })));
+    assert!(matches!(
+        run.published_targets(),
+        Err(PublishedTargetsError::InconsistentManifest { .. })
+    ));
 }
 
 #[test]
@@ -110,7 +143,14 @@ fn dry_run_intent_has_no_publications_and_cannot_reference_a_payload() {
     target.artifact_id = None;
     target.locator = None;
     assert!(run.published_targets().unwrap().is_empty());
-    run.artifact_forest.as_mut().unwrap().execution.as_mut().unwrap().targets[0].artifact_id = Some("invented".into());
+    run.artifact_forest
+        .as_mut()
+        .unwrap()
+        .execution
+        .as_mut()
+        .unwrap()
+        .targets[0]
+        .artifact_id = Some("invented".into());
     target_error(&run);
 }
 
@@ -141,7 +181,14 @@ fn retained_unpublished_candidates_and_excluded_branches_are_not_deliverables() 
     target.artifact_evidence_index = None;
     target.artifact_id = None;
     assert_eq!(run.published_targets().unwrap().len(), 1);
-    run.artifact_forest.as_mut().unwrap().execution.as_mut().unwrap().targets[0].outcome = ForestTargetOutcome::Planned;
+    run.artifact_forest
+        .as_mut()
+        .unwrap()
+        .execution
+        .as_mut()
+        .unwrap()
+        .targets[0]
+        .outcome = ForestTargetOutcome::Planned;
     target_error(&run);
 }
 
@@ -153,22 +200,42 @@ fn branch_membership_order_and_publication_references_must_agree() {
         let forest = run.artifact_forest.as_mut().unwrap();
         let rows = &mut forest.execution.as_mut().unwrap().targets;
         match mutation {
-            0 => { forest.branches[1].target_id = forest.branches[0].target_id.clone(); rows[1].target_id = rows[0].target_id.clone(); }
+            0 => {
+                forest.branches[1].target_id = forest.branches[0].target_id.clone();
+                rows[1].target_id = rows[0].target_id.clone();
+            }
             1 => rows.swap(0, 1),
             2 => rows[0].target_id = "unknown-target".into(),
             3 => rows[0].artifact_evidence_index = None,
             4 => rows[0].artifact_evidence_index = Some(99),
             5 => rows[0].artifact_id = Some("different-record".into()),
             6 => rows[0].locator = Some("bundle:different.txt".into()),
-            7 => { rows[1].artifact_evidence_index = Some(0); rows[1].locator = rows[0].locator.clone(); }
+            7 => {
+                rows[1].artifact_evidence_index = Some(0);
+                rows[1].locator = rows[0].locator.clone();
+            }
             8 => forest.branches[0].state = ForestBranchState::Unavailable,
-            _ => { rows[1].locator = rows[0].locator.clone(); run.artifact_manifest.artifacts[1].locator = run.artifact_manifest.artifacts[0].locator.clone(); }
+            _ => {
+                rows[1].locator = rows[0].locator.clone();
+                run.artifact_manifest.artifacts[1].locator =
+                    run.artifact_manifest.artifacts[0].locator.clone();
+            }
         }
         target_error(&run);
     }
     let mut run = manifest();
-    run.artifact_forest.as_mut().unwrap().execution.as_mut().unwrap().targets.clear();
-    assert!(matches!(run.published_targets(), Err(PublishedTargetsError::InconsistentManifest { .. })));
+    run.artifact_forest
+        .as_mut()
+        .unwrap()
+        .execution
+        .as_mut()
+        .unwrap()
+        .targets
+        .clear();
+    assert!(matches!(
+        run.published_targets(),
+        Err(PublishedTargetsError::InconsistentManifest { .. })
+    ));
 }
 
 #[test]
@@ -180,9 +247,27 @@ fn conflicting_terminal_record_claims_are_refused() {
             0 => record.lifecycle = ArtifactRole::Intermediate,
             1 => record.format = "pdf".into(),
             2 => record.validation = ValidationState::Invalid,
-            3 => { record.locator = "artifact-store:candidate".into(); run.artifact_forest.as_mut().unwrap().execution.as_mut().unwrap().targets[0].locator = Some(record.locator.clone()); }
-            4 => { record.metadata.insert("renderflow.target.identity".into(), json!("another-target")); }
-            _ => { record.metadata.insert("renderflow.target.published".into(), json!(false)); }
+            3 => {
+                record.locator = "artifact-store:candidate".into();
+                run.artifact_forest
+                    .as_mut()
+                    .unwrap()
+                    .execution
+                    .as_mut()
+                    .unwrap()
+                    .targets[0]
+                    .locator = Some(record.locator.clone());
+            }
+            4 => {
+                record
+                    .metadata
+                    .insert("renderflow.target.identity".into(), json!("another-target"));
+            }
+            _ => {
+                record
+                    .metadata
+                    .insert("renderflow.target.published".into(), json!(false));
+            }
         }
         target_error(&run);
     }
@@ -196,14 +281,22 @@ fn source_identity_uses_observed_records_including_zero_edge_hygiene_derivatives
     source.locator = "artifact-store:original".into();
     source.artifact_id = "synthetic-source".into();
     run.artifact_manifest.artifacts.push(source);
-    assert!(!run.published_targets().unwrap()[0].execution.source_identity,
-        "same bytes with a distinct hygiene record remain a derivative after zero-edge planning");
+    assert!(
+        !run.published_targets().unwrap()[0]
+            .execution
+            .source_identity,
+        "same bytes with a distinct hygiene record remain a derivative after zero-edge planning"
+    );
     run.artifact_manifest.artifacts[1].artifact_id = "synthetic-derivative".into();
     target_error(&run);
     let forest = run.artifact_forest.as_mut().unwrap();
     forest.execution.as_mut().unwrap().targets[0].source_identity = true;
     forest.produced_artifacts.clear();
-    assert!(run.published_targets().unwrap()[0].execution.source_identity);
+    assert!(
+        run.published_targets().unwrap()[0]
+            .execution
+            .source_identity
+    );
     run.artifact_manifest.artifacts[1].digest.value = "3".repeat(64);
     target_error(&run);
 }
@@ -218,8 +311,18 @@ fn producing_step_references_are_exact_and_preserve_reuse() {
         "started_at_unix_ms": 0, "completed_at_unix_ms": 1, "duration_ms": 1,
         "state": "reused", "cache": "hit", "validation": "valid_with_warnings", "fidelity": "partial"
     })).unwrap());
-    run.artifact_forest.as_mut().unwrap().execution.as_mut().unwrap().targets[0].producing_step_id = Some("synthetic-step".into());
-    assert!(std::ptr::eq(run.published_targets().unwrap()[0].producing_step.unwrap(), &run.steps[0]));
+    run.artifact_forest
+        .as_mut()
+        .unwrap()
+        .execution
+        .as_mut()
+        .unwrap()
+        .targets[0]
+        .producing_step_id = Some("synthetic-step".into());
+    assert!(std::ptr::eq(
+        run.published_targets().unwrap()[0].producing_step.unwrap(),
+        &run.steps[0]
+    ));
     for mutation in 0..4 {
         let mut invalid = run.clone();
         match mutation {
@@ -234,9 +337,17 @@ fn producing_step_references_are_exact_and_preserve_reuse() {
 
 #[test]
 fn produced_derivative_summary_cannot_omit_duplicate_or_invent_ids() {
-    for ids in [vec![], vec!["invented"], vec!["synthetic-derivative", "synthetic-derivative"]] {
+    for ids in [
+        vec![],
+        vec!["invented"],
+        vec!["synthetic-derivative", "synthetic-derivative"],
+    ] {
         let mut run = manifest();
-        run.artifact_forest.as_mut().unwrap().produced_artifacts = ids.into_iter().map(str::to_owned).collect();
-        assert!(matches!(run.published_targets(), Err(PublishedTargetsError::InconsistentManifest { .. })));
+        run.artifact_forest.as_mut().unwrap().produced_artifacts =
+            ids.into_iter().map(str::to_owned).collect();
+        assert!(matches!(
+            run.published_targets(),
+            Err(PublishedTargetsError::InconsistentManifest { .. })
+        ));
     }
 }
