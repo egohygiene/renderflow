@@ -224,7 +224,21 @@ impl ArtifactStore {
     /// The destination is replaced only after the complete payload has been
     /// copied and synced to a temporary file in the destination directory.
     pub fn materialize(&self, artifact: &Artifact, destination: impl AsRef<Path>) -> Result<()> {
-        let destination = destination.as_ref();
+        self.materialize_selected(artifact, destination.as_ref(), false)
+    }
+
+    /// Explicit no-replace publication for selected manual-lyrics payloads.
+    pub(crate) fn materialize_new(&self, artifact: &Artifact, destination: &Path) -> Result<()> {
+        Self::ensure_new_destination(destination)?;
+        self.materialize_selected(artifact, destination, true)
+    }
+
+    fn materialize_selected(
+        &self,
+        artifact: &Artifact,
+        destination: &Path,
+        new_only: bool,
+    ) -> Result<()> {
         let parent = destination
             .parent()
             .filter(|path| !path.as_os_str().is_empty())
@@ -256,16 +270,97 @@ impl ArtifactStore {
             .as_file()
             .sync_all()
             .context("Failed to sync final artifact")?;
+        if new_only {
+            Self::persist_new(temporary, destination)?;
+        } else {
+            temporary
+                .persist(destination)
+                .map_err(|error| error.error)
+                .with_context(|| {
+                    format!(
+                        "Failed to atomically materialize artifact '{}' at '{}'",
+                        artifact.id(),
+                        destination.display()
+                    )
+                })?;
+        }
+        Ok(())
+    }
+
+    /// Normalize lexical parents without following existing filesystem links.
+    pub(crate) fn absolute_output_path(path: &Path) -> Result<PathBuf> {
+        let absolute = if path.is_absolute() {
+            path.to_path_buf()
+        } else {
+            std::env::current_dir()?.join(path)
+        };
+        let mut normalized = PathBuf::new();
+        for component in absolute.components() {
+            match component {
+                Component::CurDir => {}
+                Component::ParentDir => {
+                    normalized.pop();
+                }
+                _ => normalized.push(component.as_os_str()),
+            }
+        }
+        Ok(normalized)
+    }
+
+    /// Refuse already-present symlink/non-directory ancestors before writes.
+    /// This is a local preflight, not protection against hostile ancestor races.
+    pub(crate) fn ensure_directory_path(path: &Path) -> Result<()> {
+        // Check every supplied component before collapsing lexical parents: a
+        // symlink followed by `..` must not disappear from admission.
+        let absolute = if path.is_absolute() {
+            path.to_path_buf()
+        } else {
+            std::env::current_dir()?.join(path)
+        };
+        let mut prefix = PathBuf::new();
+        for component in absolute.components() {
+            prefix.push(component.as_os_str());
+            match fs::symlink_metadata(&prefix) {
+                Ok(metadata) if metadata.file_type().is_symlink() => anyhow::bail!(
+                    "publication.output.symlink: output paths must not traverse existing symlinks"
+                ),
+                Ok(metadata) if !metadata.is_dir() => anyhow::bail!(
+                    "publication.output.not_directory: output ancestors must be directories"
+                ),
+                Ok(_) => {}
+                Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+                Err(error) => return Err(error).context("publication.output.metadata"),
+            }
+        }
+        Ok(())
+    }
+
+    pub(crate) fn ensure_new_destination(destination: &Path) -> Result<()> {
+        Self::ensure_directory_path(
+            destination
+                .parent()
+                .filter(|parent| !parent.as_os_str().is_empty())
+                .unwrap_or_else(|| Path::new(".")),
+        )?;
+        match fs::symlink_metadata(destination) {
+            Ok(_) => anyhow::bail!(
+                "publication.output.exists: refusing to replace an existing destination"
+            ),
+            Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(()),
+            Err(error) => Err(error).context("publication.output.metadata"),
+        }
+    }
+
+    /// The final leaf is admitted atomically, including a creation after preflight.
+    pub(crate) fn persist_new(
+        temporary: tempfile::NamedTempFile,
+        destination: &Path,
+    ) -> Result<()> {
+        Self::ensure_new_destination(destination)?;
         temporary
-            .persist(destination)
+            .persist_noclobber(destination)
             .map_err(|error| error.error)
-            .with_context(|| {
-                format!(
-                    "Failed to atomically materialize artifact '{}' at '{}'",
-                    artifact.id(),
-                    destination.display()
-                )
-            })?;
+            .context("publication.output.persist_new: atomic no-replace publication failed")?;
         Ok(())
     }
 
@@ -367,5 +462,101 @@ mod tests {
         fs::write(&destination, b"old bytes").unwrap();
         store.materialize(&artifact, &destination).unwrap();
         assert_eq!(fs::read(destination).unwrap(), b"new bytes");
+    }
+    #[test]
+    fn manual_publication_preserves_occupied_leaf_and_default_replace() {
+        let directory = tempfile::tempdir().unwrap();
+        let store = ArtifactStore::new(directory.path().join("store")).unwrap();
+        let artifact = store
+            .put_bytes(
+                b"new bytes",
+                ArtifactDescriptor::for_format(Format::Text, ArtifactStorageClass::Terminal),
+            )
+            .unwrap();
+        let target = directory.path().join("nested/new.txt");
+        store.materialize_new(&artifact, &target).unwrap();
+        assert_eq!(fs::read(&target).unwrap(), b"new bytes");
+        assert_eq!(
+            store
+                .materialize_new(&artifact, &target)
+                .unwrap_err()
+                .to_string(),
+            "publication.output.exists: refusing to replace an existing destination"
+        );
+        assert_eq!(fs::read(&target).unwrap(), b"new bytes");
+        fs::write(&target, b"original sentinel").unwrap();
+        assert_eq!(
+            store
+                .materialize_new(&artifact, &target)
+                .unwrap_err()
+                .to_string(),
+            "publication.output.exists: refusing to replace an existing destination"
+        );
+        assert_eq!(fs::read(&target).unwrap(), b"original sentinel");
+        store.materialize(&artifact, &target).unwrap();
+        assert_eq!(fs::read(&target).unwrap(), b"new bytes");
+    }
+
+    #[test]
+    fn manual_publication_rechecks_leaf_created_after_preflight() {
+        let directory = tempfile::tempdir().unwrap();
+        let destination = directory.path().join("new.txt");
+        ArtifactStore::ensure_new_destination(&destination).unwrap();
+        let mut staged = tempfile::NamedTempFile::new_in(directory.path()).unwrap();
+        staged.write_all(b"staged new bytes").unwrap();
+        fs::write(&destination, b"late original").unwrap();
+        assert_eq!(
+            ArtifactStore::persist_new(staged, &destination)
+                .unwrap_err()
+                .to_string(),
+            "publication.output.exists: refusing to replace an existing destination"
+        );
+        assert_eq!(fs::read(&destination).unwrap(), b"late original");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn manual_publication_refuses_leaf_and_parent_symlinks() {
+        use std::os::unix::fs::symlink;
+        let directory = tempfile::tempdir().unwrap();
+        let store = ArtifactStore::new(directory.path().join("store")).unwrap();
+        let artifact = store
+            .put_bytes(
+                b"new bytes",
+                ArtifactDescriptor::for_format(Format::Text, ArtifactStorageClass::Terminal),
+            )
+            .unwrap();
+        let original = directory.path().join("original.txt");
+        fs::write(&original, b"original source").unwrap();
+        let leaf = directory.path().join("leaf.txt");
+        symlink(&original, &leaf).unwrap();
+        assert_eq!(
+            store
+                .materialize_new(&artifact, &leaf)
+                .unwrap_err()
+                .to_string(),
+            "publication.output.exists: refusing to replace an existing destination"
+        );
+        assert!(leaf.symlink_metadata().unwrap().file_type().is_symlink());
+        assert_eq!(fs::read(&original).unwrap(), b"original source");
+        let external = directory.path().join("external");
+        fs::create_dir(&external).unwrap();
+        let parent = directory.path().join("parent");
+        symlink(&external, &parent).unwrap();
+        assert_eq!(
+            store
+                .materialize_new(&artifact, &parent.join("new.txt"))
+                .unwrap_err()
+                .to_string(),
+            "publication.output.symlink: output paths must not traverse existing symlinks"
+        );
+        assert_eq!(
+            store
+                .materialize_new(&artifact, &parent.join("../escape.txt"))
+                .unwrap_err()
+                .to_string(),
+            "publication.output.symlink: output paths must not traverse existing symlinks"
+        );
+        assert_eq!(fs::read_dir(external).unwrap().count(), 0);
     }
 }

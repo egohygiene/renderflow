@@ -72,7 +72,7 @@ use crate::print_pdf::{PrintInteriorPdfTransform, PRINT_PDF_CAPABILITY, PRINT_PD
 use crate::print_pdf_image::{inspect_print_image, PrintImageColorSpace};
 use crate::print_pdf_inspect::ExpectedPrintPage;
 use crate::process::ProcessCancellationToken;
-use crate::publication::write_release_metadata;
+use crate::publication::{write_release_metadata, write_release_metadata_new};
 use crate::screenplay::afterwriting::{
     self, AfterwritingConfig, AFTERWRITING_PROVIDER_ID, NODE_PROVIDER_ID,
 };
@@ -1117,6 +1117,9 @@ fn resolve_loaded(
 
 pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<CanonicalExecutionResult> {
     let started_at_unix_ms = unix_time_ms();
+    if resolved.spec.execution.lyrics.is_some() && resolved.resume_checkpoints {
+        anyhow::bail!("lyrics.checkpoint.unsupported: manual exports require fresh no-replace destinations and do not reuse shared checkpoints");
+    }
     let predicted = resolved.predicted_output_paths()?;
     if dry_run {
         let run_manifest = build_run_manifest(
@@ -1148,6 +1151,7 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
     }
 
     let output_root = PathBuf::from(&resolved.spec.output.bundle_root);
+    preflight_manual_lyrics_outputs(&resolved, &output_root, &predicted)?;
     fs::create_dir_all(&output_root).with_context(|| {
         format!(
             "failed to create output directory '{}'",
@@ -1172,10 +1176,13 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
         .parent()
         .filter(|path| !path.as_os_str().is_empty())
         .unwrap_or_else(|| Path::new("."));
-    let state_dir = state_parent.join(".renderflow");
-    if let Err(error) = fs::create_dir_all(&state_dir)
-        .with_context(|| format!("failed to create state directory '{}'", state_dir.display()))
-    {
+    let shared_state_dir = state_parent.join(".renderflow");
+    if let Err(error) = fs::create_dir_all(&shared_state_dir).with_context(|| {
+        format!(
+            "failed to create state directory '{}'",
+            shared_state_dir.display()
+        )
+    }) {
         return failed_execution_result(
             &resolved,
             &output_root,
@@ -1186,6 +1193,17 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
             error,
         );
     }
+    // Explicit manual exports never amend an unrelated shared cache/checkpoint.
+    // Keep the directory so artifact-store locators remain available for export.
+    let state_dir = if resolved.spec.execution.lyrics.is_some() {
+        tempfile::Builder::new()
+            .prefix("manual-lyrics-")
+            .tempdir_in(&shared_state_dir)
+            .context("lyrics.output.state: failed to allocate retained manual state")?
+            .keep()
+    } else {
+        shared_state_dir
+    };
     let store = match ArtifactStore::new(state_dir.join("artifacts")) {
         Ok(store) => store,
         Err(error) => {
@@ -1199,6 +1217,19 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
                 error,
             )
         }
+    };
+    let manual_store_selector = if resolved.spec.execution.lyrics.is_some() {
+        let absolute_state = ArtifactStore::absolute_output_path(&state_dir)?;
+        let absolute_parent = ArtifactStore::absolute_output_path(state_parent)?;
+        let retained = absolute_state
+            .strip_prefix(&absolute_parent)
+            .context("lyrics.output.state: retained state must remain under bundle parent")?
+            .join("artifacts");
+        Some(
+            serde_json::json!({"relative_to": "bundle_parent", "path": retained.to_string_lossy().replace('\\', "/")}),
+        )
+    } else {
+        None
     };
     let mut source_artifacts = Vec::new();
     for (index, member) in resolved.source_members.iter().enumerate() {
@@ -1225,6 +1256,11 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
                         "renderflow.collection.geometry",
                         serde_json::to_value(&member.spec.geometry)?,
                     )
+            } else {
+                descriptor
+            };
+            let descriptor = if let Some(selector) = &manual_store_selector {
+                descriptor.with_metadata("renderflow.lyrics.artifact_store", selector.clone())
             } else {
                 descriptor
             };
@@ -1385,6 +1421,7 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
     };
     let multiple_groups = resolved.execution_groups.len() > 1;
     let executor = if multiple_groups
+        || resolved.spec.execution.lyrics.is_some()
         || resolved.spec.execution.speech.is_some()
         || resolved.spec.execution.screenplay.is_some()
         || resolved.spec.execution.screenplay_pdf.is_some()
@@ -2074,7 +2111,12 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
         {
             continue;
         }
-        if let Err(error) = store.materialize(artifact, destination) {
+        let publication = if resolved.spec.execution.lyrics.is_some() {
+            store.materialize_new(artifact, destination)
+        } else {
+            store.materialize(artifact, destination)
+        };
+        if let Err(error) = publication {
             target_failures = true;
             diagnostics.push(ExecutionDiagnostic {
                 severity: DiagnosticSeverity::RecoverableFailure,
@@ -2107,7 +2149,12 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
     if let Some(publication) = &resolved.spec.publication {
         let source_spec_digest = sha256_serialized(&resolved.spec)?;
         let execution_plan_digest = sha256_serialized(&resolved.plan)?;
-        let sidecars = write_release_metadata(
+        let writer = if resolved.spec.execution.lyrics.is_some() {
+            write_release_metadata_new
+        } else {
+            write_release_metadata
+        };
+        let sidecars = writer(
             &output_root,
             publication,
             &artifacts,
@@ -2145,7 +2192,15 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
         report.steps,
         diagnostics,
     )?;
-    let manifest_path = persist_run_manifest(&output_root, &run_manifest)?;
+    if let Some(selector) = &manual_store_selector {
+        for artifact in &mut run_manifest.artifact_manifest.artifacts {
+            artifact.metadata.insert(
+                "renderflow.lyrics.artifact_store".to_owned(),
+                selector.clone(),
+            );
+        }
+    }
+    let manifest_path = persist_selected_run_manifest(&resolved, &output_root, &run_manifest)?;
     if run_manifest.state == RunState::Complete {
         if let Some(policy) = resolved
             .spec
@@ -2195,7 +2250,7 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
             };
             run_manifest.diagnostics.push(diagnostic);
             run_manifest.completed_at_unix_ms = unix_time_ms();
-            persist_run_manifest(&output_root, &run_manifest)?;
+            persist_selected_run_manifest(&resolved, &output_root, &run_manifest)?;
         }
     }
 
@@ -2271,6 +2326,7 @@ fn record_forest_group(
 pub fn cancelled(resolved: ResolvedExecution) -> Result<CanonicalExecutionResult> {
     let started_at_unix_ms = unix_time_ms();
     let output_root = PathBuf::from(&resolved.spec.output.bundle_root);
+    preflight_manual_lyrics_outputs(&resolved, &output_root, &resolved.predicted_output_paths()?)?;
     fs::create_dir_all(&output_root).with_context(|| {
         format!(
             "failed to create output directory '{}' for cancellation evidence",
@@ -2328,7 +2384,7 @@ pub fn cancelled(resolved: ResolvedExecution) -> Result<CanonicalExecutionResult
         cancelled_steps,
         diagnostics,
     )?;
-    let manifest_path = persist_run_manifest(&output_root, &run_manifest)?;
+    let manifest_path = persist_selected_run_manifest(&resolved, &output_root, &run_manifest)?;
     Ok(canonical_result(
         &resolved,
         run_manifest,
@@ -2362,7 +2418,7 @@ fn failed_execution_result(
         steps,
         diagnostics,
     )?;
-    let manifest_path = persist_run_manifest(output_root, &run_manifest)?;
+    let manifest_path = persist_selected_run_manifest(resolved, output_root, &run_manifest)?;
     Ok(canonical_result(
         resolved,
         run_manifest,
@@ -2439,7 +2495,59 @@ fn build_run_manifest(
     })
 }
 
+/// Admission runs before output or state mkdir, including failure/cancellation evidence.
+fn preflight_manual_lyrics_outputs(
+    resolved: &ResolvedExecution,
+    output_root: &Path,
+    predicted: &[PathBuf],
+) -> Result<()> {
+    if resolved.spec.execution.lyrics.is_none() {
+        return Ok(());
+    }
+    (|| -> Result<()> {
+        let root = ArtifactStore::absolute_output_path(output_root)?;
+        let state = root.parent().context("publication.output.parent")?.join(".renderflow");
+        ArtifactStore::ensure_directory_path(output_root)?;
+        ArtifactStore::ensure_directory_path(&state)?;
+        for original in std::iter::once(resolved.config_path.as_path()).chain(resolved.source_members.iter().map(|member| member.path.as_path())) {
+            let original = fs::canonicalize(original).context("publication.output.original")?;
+            if original.starts_with(&root) || original.starts_with(&state) {
+                anyhow::bail!("publication.output.original_alias: source and configuration must remain outside output and state roots");
+            }
+        }
+        let mut reserved = HashSet::new();
+        for path in predicted.iter().cloned().chain(std::iter::once(output_root.join("renderflow-run.json"))) {
+            let absolute = ArtifactStore::absolute_output_path(&path)?;
+            if !absolute.starts_with(&root) || !reserved.insert(absolute) {
+                anyhow::bail!("publication.output.path_alias: selected payload and evidence paths must be distinct inside the bundle");
+            }
+            ArtifactStore::ensure_new_destination(&path)?;
+        }
+        Ok(())
+    })().context("lyrics.output.preflight")
+}
+
 fn persist_run_manifest(output_root: &Path, manifest: &RunManifest) -> Result<PathBuf> {
+    persist_run_manifest_selected(output_root, manifest, false)
+}
+
+fn persist_selected_run_manifest(
+    resolved: &ResolvedExecution,
+    output_root: &Path,
+    manifest: &RunManifest,
+) -> Result<PathBuf> {
+    if resolved.spec.execution.lyrics.is_some() {
+        persist_run_manifest_selected(output_root, manifest, true)
+    } else {
+        persist_run_manifest(output_root, manifest)
+    }
+}
+
+fn persist_run_manifest_selected(
+    output_root: &Path,
+    manifest: &RunManifest,
+    new_only: bool,
+) -> Result<PathBuf> {
     let destination = output_root.join("renderflow-run.json");
     let mut temporary = tempfile::NamedTempFile::new_in(output_root).with_context(|| {
         format!(
@@ -2455,15 +2563,19 @@ fn persist_run_manifest(output_root: &Path, manifest: &RunManifest) -> Result<Pa
         .as_file()
         .sync_all()
         .context("failed to sync run manifest")?;
-    temporary
-        .persist(&destination)
-        .map_err(|error| error.error)
-        .with_context(|| {
-            format!(
-                "failed to atomically persist run manifest '{}'",
-                destination.display()
-            )
-        })?;
+    if new_only {
+        ArtifactStore::persist_new(temporary, &destination)?;
+    } else {
+        temporary
+            .persist(&destination)
+            .map_err(|error| error.error)
+            .with_context(|| {
+                format!(
+                    "failed to atomically persist run manifest '{}'",
+                    destination.display()
+                )
+            })?;
+    }
     Ok(destination)
 }
 

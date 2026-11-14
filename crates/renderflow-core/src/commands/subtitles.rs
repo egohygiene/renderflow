@@ -24,10 +24,16 @@ pub fn run_convert(
     output: &str,
     output_format: &str,
 ) -> Result<()> {
-    let bytes = capture_input(Path::new(input), || {})?;
+    let bytes = read_selected_timed_text(Path::new(input))?;
     let transcript = timed_text::parse(&bytes, parse_format(input_format)?)?;
     let input_sha256 = format!("{:x}", Sha256::digest(&bytes));
     write_transcript(&transcript, &input_sha256, output, output_format)
+}
+
+/// Shared command admission for one selected local timed-text file. The
+/// deterministic pre-open race hook remains private to this owning module.
+pub(super) fn read_selected_timed_text(path: &Path) -> Result<Vec<u8>> {
+    capture_input(path, || {})
 }
 
 fn same_source(left: &Metadata, right: &Metadata) -> bool {

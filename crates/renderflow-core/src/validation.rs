@@ -113,6 +113,7 @@ impl ValidationRegistry {
         registry.register(Arc::new(NonEmptyValidator));
         registry.register(Arc::new(Utf8Validator));
         registry.register(Arc::new(TimedTextValidator));
+        registry.register(Arc::new(ManualLyricsValidator));
         registry.register(Arc::new(ScreenplayValidator));
         registry.register(Arc::new(FountainSubsetValidator));
         registry.register(Arc::new(JsonValidator));
@@ -240,6 +241,7 @@ impl ValidationRegistry {
             Format::Srt | Format::WebVtt | Format::TimedTranscriptJson => {
                 Some("validator.core.timed_text")
             }
+            Format::LyricsJson | Format::Lrc | Format::Ttml => Some("validator.core.manual_lyrics"),
             Format::Json => Some("validator.core.json"),
             Format::ScreenplayJson => Some("validator.core.screenplay"),
             Format::Fountain => Some("validator.core.fountain_subset"),
@@ -460,6 +462,49 @@ impl ArtifactValidator for TimedTextValidator {
 }
 
 struct JsonValidator;
+
+/// Native export structure only; the planner separately and mandatorily
+/// rebinds exact source/policy/lineage and rerenders published lyrics bytes.
+struct ManualLyricsValidator;
+
+impl ArtifactValidator for ManualLyricsValidator {
+    fn descriptor(&self) -> ValidatorDescriptor {
+        descriptor(
+            "validator.core.manual_lyrics",
+            &[Format::LyricsJson, Format::Lrc, Format::Ttml],
+            ValidatorSupportTier::Experimental,
+        )
+    }
+
+    fn validate(&self, artifact: &Artifact, store: &ArtifactStore) -> Result<ValidationCheck> {
+        let format = artifact.format().as_str().parse::<Format>()?;
+        let too_large = || {
+            ValidationCheck::invalid(
+                "validation.lyrics_export_too_large",
+                "Native lyrics export exceeds the 32 MiB structural limit",
+            )
+        };
+        if artifact.size_bytes() > crate::lyrics::MAX_DOCUMENT_BYTES as u64 {
+            return Ok(too_large());
+        }
+        let file = store.open(artifact)?;
+        if file.metadata()?.len() > crate::lyrics::MAX_DOCUMENT_BYTES as u64 {
+            return Ok(too_large());
+        }
+        let mut bytes = Vec::new();
+        file.take(crate::lyrics::MAX_DOCUMENT_BYTES as u64 + 1)
+            .read_to_end(&mut bytes)?;
+        if bytes.len() > crate::lyrics::MAX_DOCUMENT_BYTES {
+            return Ok(too_large());
+        }
+        Ok(match crate::lyrics::validation::validate(&bytes, format) {
+            Ok(_) => ValidationCheck::valid(),
+            Err(error) => {
+                ValidationCheck::invalid("validation.invalid_lyrics_export", error.to_string())
+            }
+        })
+    }
+}
 
 /// Structural validation of canonical screenplay JSON. The separate Fountain
 /// validator covers only the explicit import subset; generic UTF-8 or ZIP
@@ -1148,6 +1193,83 @@ mod tests {
         assert_eq!(
             check.diagnostics[0].code,
             "validation.fountain_subset_too_large"
+        );
+    }
+
+    #[test]
+    fn manual_lyrics_validator_dispatch_checks_native_structure_and_cross_format() {
+        let source = b"7\n00:00:00,125 --> 00:00:01,250\nMoon\n";
+        let policy = crate::lyrics::LyricsPolicy {
+            source_sha256: crate::lyrics::sha256(source),
+            review_state: crate::lyrics::ReviewState::Unreviewed,
+            language: None,
+            revision: None,
+            sections: Default::default(),
+        };
+        let document = crate::lyrics::normalize(source, Format::Srt, &policy).unwrap();
+        for format in [Format::LyricsJson, Format::Lrc, Format::Ttml] {
+            let bytes = crate::lyrics::render(&document, format).unwrap();
+            let outcome = timed_text_outcome(format, &bytes);
+            assert_eq!(outcome.state, ValidationState::Valid);
+            assert!(outcome
+                .validators
+                .iter()
+                .any(|v| v.validator_id == "validator.core.manual_lyrics"));
+            assert!(!outcome
+                .validators
+                .iter()
+                .any(|v| v.validator_id == "validator.core.declared_signature"));
+            let malformed = timed_text_outcome(format, b"ordinary UTF-8 text");
+            assert_eq!(malformed.state, ValidationState::Invalid);
+            let expected = match format {
+                Format::LyricsJson => "lyrics.document.json",
+                Format::Lrc => "lyrics.lrc.terminal_newline",
+                Format::Ttml => "lyrics.ttml.xml",
+                _ => unreachable!(),
+            };
+            let native = malformed
+                .validators
+                .iter()
+                .find(|v| v.validator_id == "validator.core.manual_lyrics")
+                .unwrap();
+            assert_eq!(native.state, ValidationState::Invalid);
+            assert_eq!(
+                native.diagnostics[0].code,
+                "validation.invalid_lyrics_export"
+            );
+            assert_eq!(native.diagnostics[0].message, expected);
+            for other in [Format::LyricsJson, Format::Lrc, Format::Ttml] {
+                if other != format {
+                    assert_eq!(
+                        timed_text_outcome(other, &bytes).state,
+                        ValidationState::Invalid
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn manual_lyrics_validator_bounds_actual_payload_before_allocation() {
+        let directory = tempfile::tempdir().unwrap();
+        let store = ArtifactStore::new(directory.path()).unwrap();
+        let artifact = store
+            .put_bytes(
+                b"small",
+                ArtifactDescriptor::for_format(Format::Ttml, ArtifactStorageClass::Terminal),
+            )
+            .unwrap();
+        std::fs::OpenOptions::new()
+            .write(true)
+            .open(store.payload_path(&artifact).unwrap())
+            .unwrap()
+            .set_len(crate::lyrics::MAX_DOCUMENT_BYTES as u64 + 1)
+            .unwrap();
+        let check = ManualLyricsValidator.validate(&artifact, &store).unwrap();
+        assert_eq!(check.state, ValidationState::Invalid);
+        assert_eq!(
+            check.diagnostics[0].code,
+            "validation.lyrics_export_too_large"
         );
     }
 

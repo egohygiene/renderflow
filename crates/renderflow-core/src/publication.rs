@@ -10,6 +10,7 @@ pub mod summary;
 
 use std::collections::BTreeMap;
 use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
@@ -390,7 +391,53 @@ pub fn write_release_metadata(
     execution_plan_digest: &DigestEvidence,
     toolchain: Option<&ToolchainSnapshot>,
 ) -> Result<Vec<String>> {
+    write_release_metadata_selected(
+        output_root,
+        contract,
+        artifacts,
+        output_paths,
+        source_spec_digest,
+        execution_plan_digest,
+        toolchain,
+        false,
+    )
+}
+
+pub(crate) fn write_release_metadata_new(
+    output_root: &Path,
+    contract: &PublicationContract,
+    artifacts: &[ArtifactEvidence],
+    output_paths: &[String],
+    source_spec_digest: &DigestEvidence,
+    execution_plan_digest: &DigestEvidence,
+    toolchain: Option<&ToolchainSnapshot>,
+) -> Result<Vec<String>> {
+    write_release_metadata_selected(
+        output_root,
+        contract,
+        artifacts,
+        output_paths,
+        source_spec_digest,
+        execution_plan_digest,
+        toolchain,
+        true,
+    )
+}
+
+fn write_release_metadata_selected(
+    output_root: &Path,
+    contract: &PublicationContract,
+    artifacts: &[ArtifactEvidence],
+    output_paths: &[String],
+    source_spec_digest: &DigestEvidence,
+    execution_plan_digest: &DigestEvidence,
+    toolchain: Option<&ToolchainSnapshot>,
+    new_only: bool,
+) -> Result<Vec<String>> {
     let metadata_root = output_root.join("metadata");
+    if new_only {
+        crate::artifact::ArtifactStore::ensure_directory_path(&metadata_root)?;
+    }
     fs::create_dir_all(&metadata_root).with_context(|| {
         format!(
             "failed to create publication metadata directory '{}'",
@@ -401,7 +448,7 @@ pub fn write_release_metadata(
     let manifest_path = metadata_root.join("manifest.json");
     let provenance_path = metadata_root.join("provenance.json");
     let preflight_path = metadata_root.join("preflight.json");
-    write_json(&publication_path, contract)?;
+    write_json(&publication_path, contract, new_only)?;
     write_json(
         &manifest_path,
         &PublicationBundleManifest {
@@ -409,6 +456,7 @@ pub fn write_release_metadata(
             publication: contract,
             artifacts,
         },
+        new_only,
     )?;
     write_json(
         &provenance_path,
@@ -418,6 +466,7 @@ pub fn write_release_metadata(
             execution_plan_digest,
             toolchain,
         },
+        new_only,
     )?;
     let roles = contract
         .output_roles
@@ -458,6 +507,7 @@ pub fn write_release_metadata(
             schema: PUBLICATION_BUNDLE_V1,
             roles,
         },
+        new_only,
     )?;
 
     let mut checksum_inputs = output_paths.iter().map(PathBuf::from).collect::<Vec<_>>();
@@ -478,12 +528,14 @@ pub fn write_release_metadata(
         let locator = path.strip_prefix(output_root).unwrap_or(path);
         checksum_text.push_str(&format!("{digest}  {}\n", locator.display()));
     }
-    fs::write(&checksum_path, checksum_text).with_context(|| {
-        format!(
-            "failed to write publication checksums '{}'",
-            checksum_path.display()
-        )
-    })?;
+    write_selected_bytes(&checksum_path, checksum_text.as_bytes(), new_only).with_context(
+        || {
+            format!(
+                "failed to write publication checksums '{}'",
+                checksum_path.display()
+            )
+        },
+    )?;
 
     Ok([
         publication_path,
@@ -497,9 +549,22 @@ pub fn write_release_metadata(
     .collect())
 }
 
-fn write_json(path: &Path, value: &impl Serialize) -> Result<()> {
+fn write_json(path: &Path, value: &impl Serialize, new_only: bool) -> Result<()> {
     let mut bytes = serde_json::to_vec_pretty(value)?;
     bytes.push(b'\n');
-    fs::write(path, bytes)
+    write_selected_bytes(path, &bytes, new_only)
         .with_context(|| format!("failed to write publication metadata '{}'", path.display()))
+}
+
+fn write_selected_bytes(path: &Path, bytes: &[u8], new_only: bool) -> Result<()> {
+    if !new_only {
+        return fs::write(path, bytes).map_err(Into::into);
+    }
+    crate::artifact::ArtifactStore::ensure_new_destination(path)?;
+    let mut temporary =
+        tempfile::NamedTempFile::new_in(path.parent().context("publication.output.parent")?)?;
+    temporary.write_all(bytes)?;
+    temporary.flush()?;
+    temporary.as_file().sync_all()?;
+    crate::artifact::ArtifactStore::persist_new(temporary, path)
 }
