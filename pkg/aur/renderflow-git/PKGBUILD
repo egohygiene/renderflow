@@ -22,7 +22,7 @@ pkgver() {
 build() {
 	cd "$pkgname"
 	export CARGO_TARGET_DIR="$srcdir/target"
-	cargo build --release --locked
+	cargo build --release --locked --package renderflow-cli --bin renderflow
 }
 
 package() {

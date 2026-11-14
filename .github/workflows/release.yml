@@ -87,13 +87,16 @@ jobs:
           fi
           python3 - <<'PY'
           import os
+          from pathlib import Path
           import tomllib
 
           with open("Cargo.toml", "rb") as source:
-              version = tomllib.load(source)["workspace"]["package"]["version"]
+              workspace = tomllib.load(source)["workspace"]
+              version = workspace["package"]["version"]
           with open("Cargo.lock", "rb") as source:
               packages = tomllib.load(source)["package"]
-          expected = {"renderflow", "renderflow-cli", "renderflow-plugin-sdk"}
+          expected = {tomllib.loads((Path(member) / "Cargo.toml").read_text())["package"]["name"]
+                      for member in workspace["members"]}
           local = {p["name"]: p["version"] for p in packages if p["name"] in expected}
           assert os.environ["RELEASE_TAG"] == f"v{version}"
           assert local == dict.fromkeys(expected, version), local

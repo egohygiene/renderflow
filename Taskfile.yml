@@ -4,6 +4,11 @@
 version: "3"
 
 tasks:
+  package:check:
+    desc: Inspect workspace packaging declarations without building or installing
+    cmds:
+      - python3 -B scripts/check-packaging.py check
+
   ci:lock:
     desc: Resolve owning dependency metadata without permitting lockfile changes
     cmds:
@@ -78,10 +83,10 @@ tasks:
 
         4. Web workspace dependencies  (pnpm install --frozen-lockfile)
 
-        5. renderflow CLI  (cargo build --release)
+        5. renderflow CLI  (cargo build --locked --release --package renderflow-cli --bin renderflow)
 
       After setup completes:
-        Use the CLI:     ./target/release/renderflow  (or cargo run -- build)
+        Use the CLI:     ./target/release/renderflow  (or cargo run --locked --package renderflow-cli --bin renderflow -- build)
         Start the web:   task web:dev
     cmds:
       - cmd: |
@@ -156,11 +161,11 @@ tasks:
 
           # ── Build renderflow CLI ───────────────────────────────────────
           _info "Building renderflow CLI (release mode)..."
-          cargo build --release
+          cargo build --locked --release --package renderflow-cli --bin renderflow
 
           printf "\n${_green}✅  Setup complete!${_reset}\n\n"
           printf "  Use the CLI:     ./target/release/renderflow\n"
-          printf "               or  cargo run -- build\n"
+          printf "               or  cargo run --locked --package renderflow-cli --bin renderflow -- build\n"
           printf "  Start the web:   task web:dev\n\n"
         platforms: [linux, darwin]
 
@@ -203,28 +208,28 @@ tasks:
 
           # ── Build renderflow CLI ───────────────────────────────────────
           _info "Building renderflow CLI (release mode)..."
-          cargo build --release
+          cargo build --locked --release --package renderflow-cli --bin renderflow
 
           Write-Host ""
           Write-Host "Setup complete!" -ForegroundColor Green
           Write-Host ""
           Write-Host "  Use the CLI:     .\target\release\renderflow.exe"
-          Write-Host "               or  cargo run -- build"
+          Write-Host "               or  cargo run --locked --package renderflow-cli --bin renderflow -- build"
           Write-Host "  Start the web:   task web:dev"
           Write-Host ""
         platforms: [windows]
 
-  # Build the project in debug mode
+  # Build all workspace packages in debug mode
   build:
-    desc: Build the project
+    desc: Build the workspace
     cmds:
-      - cargo build
+      - cargo build --locked --workspace
 
   # Run the project with the default `build` subcommand
   run:
     desc: Run the project
     cmds:
-      - cargo run -- build
+      - cargo run --locked --package renderflow-cli --bin renderflow -- build
 
   # Run the test suite
   test:
@@ -236,7 +241,7 @@ tasks:
   release:
     desc: Build the project in release mode
     cmds:
-      - cargo build --release
+      - cargo build --locked --release --package renderflow-cli --bin renderflow
 
   # Remove build artifacts
   clean:
@@ -310,16 +315,16 @@ tasks:
   package-deb:
     desc: Build a .deb package (requires cargo-deb)
     cmds:
-      - cargo build --release
-      - cargo deb --no-build
+      - cargo build --locked --release --package renderflow-cli --bin renderflow
+      - cargo deb --package renderflow-cli --no-build
 
   # Build an RPM package (.rpm) for the current host architecture
   # Requires: cargo-generate-rpm (cargo install cargo-generate-rpm)
   package-rpm:
     desc: Build a .rpm package (requires cargo-generate-rpm)
     cmds:
-      - cargo build --release
-      - cargo generate-rpm
+      - cargo build --locked --release --package renderflow-cli --bin renderflow
+      - cargo generate-rpm --package renderflow-cli
 
   # Validate the Arch Linux PKGBUILD using namcap
   # Requires: namcap (pacman -S namcap on Arch Linux)

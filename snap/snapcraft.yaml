@@ -2,7 +2,7 @@ name: renderflow
 base: core22
 # Unpublished development template; no Snap Store channel has been verified
 # for the v0.3.0-rc.1 integration candidate.
-version: git
+adopt-info: renderflow
 title: Renderflow
 summary: Unpublished development template for Renderflow
 description: |
@@ -28,5 +28,15 @@ parts:
   renderflow:
     plugin: rust
     source: .
-    rust-channel: "1.94"
+    rust-channel: "1.94.0"
     rust-path: ["crates/renderflow-cli"]
+    build-packages: [python3]
+    # The workspace root is virtual; select the actual binary package explicitly.
+    override-build: |
+      set -eu
+      cargo build --locked --release --package renderflow-cli --bin renderflow \
+        --manifest-path crates/renderflow-cli/Cargo.toml --target-dir "$CRAFT_PART_BUILD/target"
+      cargo metadata --locked --no-deps --format-version 1 > "$CRAFT_PART_BUILD/snap-cargo-metadata.json"
+      candidate_version="$(python3 -c 'import json, sys; data=json.load(sys.stdin); packages=[p for p in data["packages"] if p["name"] == "renderflow-cli"]; assert len(packages) == 1; print(packages[0]["version"])' < "$CRAFT_PART_BUILD/snap-cargo-metadata.json")"
+      craftctl set version="$candidate_version"
+      install -D -m 0755 "$CRAFT_PART_BUILD/target/release/renderflow" "$CRAFT_PART_INSTALL/bin/renderflow"
