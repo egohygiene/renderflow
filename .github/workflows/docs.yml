@@ -62,6 +62,9 @@ concurrency:
 
 jobs:
   validate:
+    timeout-minutes: 30
+    if: >-
+      (github.event_name == 'workflow_dispatch' || vars.FLOW_SUITE_HOSTED_CI == 'enabled') && (github.event_name != 'schedule' || vars.FLOW_SUITE_SCHEDULED_CI == 'enabled')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -112,7 +115,9 @@ jobs:
           git branch -D __docs_preview__
 
   build:
-    if: github.event_name != 'pull_request'
+    timeout-minutes: 30
+    if: >-
+      (github.event_name == 'workflow_dispatch' || vars.FLOW_SUITE_HOSTED_CI == 'enabled') && (github.event_name != 'schedule' || vars.FLOW_SUITE_SCHEDULED_CI == 'enabled') && (github.event_name != 'pull_request')
     needs: validate
     runs-on: ubuntu-latest
     steps:
@@ -184,6 +189,9 @@ jobs:
           path: /tmp/renderflow-pages
 
   deploy:
+    timeout-minutes: 30
+    if: >-
+      (github.event_name == 'workflow_dispatch' || vars.FLOW_SUITE_HOSTED_CI == 'enabled') && (github.event_name != 'schedule' || vars.FLOW_SUITE_SCHEDULED_CI == 'enabled')
     needs: build
     runs-on: ubuntu-latest
     environment:

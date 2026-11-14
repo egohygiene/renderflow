@@ -1,0 +1,194 @@
+{
+  "repository": "egohygiene/renderflow",
+  "schema": "flow.release-workload-evidence/v1",
+  "source_sha256": {
+    ".github/workflows/ci.yml": "45b1345ffbbef086654b3833d633e067a2b8b6d66d235aef82d2b64cd12b4397",
+    ".github/workflows/conformance.yml": "56b900f651fa5753abe01d23fd06ae1239e5cadb19b9b73170ac4df4ed84ef32",
+    ".github/workflows/docs.yml": "982b138d49d3be50f80082bfaf9f41931aed927e1cccaf9ca88a165ebe06e153"
+  },
+  "workflows": {
+    "ci": {
+      "event": "push",
+      "jobs": [
+        {
+          "identity": "build-and-test",
+          "job_id": "build-and-test",
+          "names": [
+            "build-and-test"
+          ],
+          "steps": [
+            "Check workspace packaging declarations",
+            "Check locked dependency metadata",
+            "Check canonical formatting",
+            "Lint (clippy)",
+            "Build",
+            "Test"
+          ]
+        },
+        {
+          "identity": "web",
+          "job_id": "web",
+          "names": [
+            "Web checks"
+          ],
+          "steps": [
+            "Check web formatting",
+            "Lint web sources",
+            "Typecheck web sources",
+            "Test web app",
+            "Build web app"
+          ]
+        },
+        {
+          "identity": "validate-examples",
+          "job_id": "validate-examples",
+          "names": [
+            "Validate bundled examples"
+          ],
+          "steps": [
+            "Build renderflow",
+            "Validate hello-world example (dry-run)",
+            "Validate transforms example (dry-run)",
+            "Run library embedding example",
+            "Run plugin registration example"
+          ]
+        },
+        {
+          "identity": "validate-pkgbuild",
+          "job_id": "validate-pkgbuild",
+          "names": [
+            "Validate PKGBUILD git (Arch Linux)"
+          ],
+          "steps": [
+            "Validate PKGBUILD with namcap"
+          ]
+        },
+        {
+          "identity": "validate-pkgbuild-stable",
+          "job_id": "validate-pkgbuild-stable",
+          "names": [
+            "Validate PKGBUILD stable (Arch Linux)"
+          ],
+          "steps": [
+            "Validate PKGBUILD with namcap"
+          ]
+        },
+        {
+          "identity": "installer-smoke-test",
+          "job_id": "installer-smoke-test",
+          "names": [
+            "Installer smoke test"
+          ],
+          "steps": [
+            "Build release binary",
+            "Prepare local release assets with checksum",
+            "Install from portable installer script"
+          ]
+        },
+        {
+          "identity": "validate-snap",
+          "job_id": "validate-snap",
+          "names": [
+            "Validate Snap package"
+          ],
+          "steps": [
+            "Build Snap",
+            "Install and smoke test Snap"
+          ]
+        }
+      ],
+      "path": ".github/workflows/ci.yml"
+    },
+    "docs": {
+      "event": "push",
+      "jobs": [
+        {
+          "identity": "validate",
+          "job_id": "validate",
+          "names": [
+            "validate"
+          ],
+          "steps": [
+            "Regenerate generated docs and schemas",
+            "Verify generated docs and schemas are committed",
+            "Build docs",
+            "Smoke test versioned docs build"
+          ]
+        },
+        {
+          "identity": "build",
+          "job_id": "build",
+          "names": [
+            "build"
+          ],
+          "steps": [
+            "Regenerate generated docs and schemas",
+            "Configure Pages",
+            "Determine docs version",
+            "Build versioned site",
+            "Upload Pages artifact"
+          ]
+        },
+        {
+          "identity": "deploy",
+          "job_id": "deploy",
+          "names": [
+            "deploy"
+          ],
+          "steps": [
+            "Deploy to GitHub Pages"
+          ]
+        }
+      ],
+      "path": ".github/workflows/docs.yml"
+    },
+    "manual_conformance": {
+      "event": "workflow_dispatch",
+      "jobs": [
+        {
+          "identity": "fast",
+          "job_id": "fast",
+          "names": [
+            "Fast hermetic corpus"
+          ],
+          "steps": [
+            "Run focused conformance harness"
+          ]
+        },
+        {
+          "identity": "maximal",
+          "job_id": "maximal",
+          "names": [
+            "Maximal tool-backed corpus"
+          ],
+          "steps": [
+            "Run maximal conformance harness"
+          ]
+        }
+      ],
+      "path": ".github/workflows/conformance.yml"
+    },
+    "scheduled_conformance": {
+      "allowed_skipped": [
+        "Fast hermetic corpus"
+      ],
+      "allowed_skipped_job_ids": [
+        "fast"
+      ],
+      "event": "schedule",
+      "jobs": [
+        {
+          "identity": "maximal",
+          "job_id": "maximal",
+          "names": [
+            "Maximal tool-backed corpus"
+          ],
+          "steps": [
+            "Run maximal conformance harness"
+          ]
+        }
+      ],
+      "path": ".github/workflows/conformance.yml"
+    }
+  }
+}
