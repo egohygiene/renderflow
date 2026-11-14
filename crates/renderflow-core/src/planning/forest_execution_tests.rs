@@ -205,20 +205,20 @@ fn equal_bytes_keep_distinct_target_producers_and_count_each_publication() {
     assert_eq!(targets.len(), 2);
     assert_eq!(artifacts.len(), 1);
     let mut resolved = resolved(vec![print.clone(), web.clone()]);
-    let evidence = artifact_evidence(
-        &resolved,
-        &[],
-        &first_report,
-        &targets,
-        &steps,
-        &artifacts,
-        &HashMap::new(),
-        &[],
-        &HashMap::new(),
-        &HashMap::new(),
-        &[],
-        &HashMap::new(),
-    );
+    let evidence = artifact_evidence(ArtifactEvidenceInputs {
+        resolved: &resolved,
+        sources: &[],
+        report: &first_report,
+        target_artifacts: &targets,
+        target_steps: &steps,
+        all_artifacts: &artifacts,
+        output_locators: &HashMap::new(),
+        diagnostics: &[],
+        validation_outcomes: &HashMap::new(),
+        hygiene_evidence: &HashMap::new(),
+        retained_speech: &[],
+        retained_locators: &HashMap::new(),
+    });
     assert_eq!(evidence.len(), 2);
     for (target, provider, metadata) in [
         (&print, "fixture.print", &print_metadata),
@@ -323,20 +323,20 @@ fn same_id_hygiene_candidates_keep_metadata_decisions_scoped_to_each_target() {
     safe_report.steps.extend(blocked_report.steps);
     let resolved = resolved(vec![safe_target.clone(), blocked_target.clone()]);
     let outputs = HashMap::from([(safe_target.identity(), "bundle:safe.pdf".to_owned())]);
-    let manifest_records = artifact_evidence(
-        &resolved,
-        &[],
-        &safe_report,
-        &targets,
-        &steps,
-        &artifacts,
-        &outputs,
-        &[],
-        &HashMap::new(),
-        &evidence,
-        &[],
-        &HashMap::new(),
-    );
+    let manifest_records = artifact_evidence(ArtifactEvidenceInputs {
+        resolved: &resolved,
+        sources: &[],
+        report: &safe_report,
+        target_artifacts: &targets,
+        target_steps: &steps,
+        all_artifacts: &artifacts,
+        output_locators: &outputs,
+        diagnostics: &[],
+        validation_outcomes: &HashMap::new(),
+        hygiene_evidence: &evidence,
+        retained_speech: &[],
+        retained_locators: &HashMap::new(),
+    });
     assert_eq!(manifest_records.len(), 2);
     for (target, outcome) in [
         (&safe_target, &safe_outcome),

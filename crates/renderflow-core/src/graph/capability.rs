@@ -1803,9 +1803,8 @@ mod tests {
 
     #[test]
     fn trelby_descriptor_recognizes_only_the_native_version_envelope() {
-        let descriptor = FormatCapabilityRegistry::global()
-            .get(Format::Trelby)
-            .unwrap();
+        let registry = FormatCapabilityRegistry::global();
+        let descriptor = registry.get(Format::Trelby).unwrap();
         assert_eq!(descriptor.extensions, &["trelby"]);
         assert_eq!(descriptor.capabilities, vec![ArtifactCapability::Detect]);
         assert!(descriptor.is_in_family(FormatFamily::Document));
