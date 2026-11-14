@@ -19,11 +19,14 @@ No external conversion runs for that rejected selection.
 
 Omitting the profile retains existing format defaults. Valid identifiers,
 case/hyphen aliases and resulting FFmpeg argument vectors remain unchanged.
-The existing public `FfmpegAudioArgs::build() -> Vec<String>` retains its
-historical permissive behavior for SDK compatibility; the new
+The existing `FfmpegAudioArgs::build() -> Vec<String>` retains its historical
+permissive behavior and method signature; the new
 `try_build() -> Result<Vec<String>>` is the checked configuration path. No
 profile-family compatibility redesign, codec preset change, loudness DSP or
 new provider is introduced.
+
+These methods are public inside the private root audio module; this change
+does not add a root-exported external SDK type.
 
 Five new focused cases cover rejected explicit typo/empty selections, valid/absent
 argument equality, strategy rejection before a

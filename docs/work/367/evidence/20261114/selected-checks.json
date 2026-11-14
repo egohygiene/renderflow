@@ -1,0 +1,354 @@
+{
+  "schema_version": "renderflow.selected-source-and-cli-checks/v1",
+  "observed_date": "2026-11-14",
+  "host": "Debian 13 Linux, glibc 2.41",
+  "source_revision": "c8f2b6896ec82c12e75ad6b8bcf7e4b319602db2",
+  "source_tree": "e3a7b4ab29930dd55154a2b9a71e0f445454a08d",
+  "rust_toolchain": "1.94.0",
+  "cargo_build_jobs": 2,
+  "commands": {
+    "release_build": "cargo +1.94.0 build --locked --release --package renderflow-cli --bin renderflow --target x86_64-unknown-linux-gnu",
+    "selected_tests": "cargo +1.94.0 test --locked --offline --jobs 2 --package renderflow --test subtitle_input_admission --test timed_text"
+  },
+  "selected_tests": {
+    "source_revision": "c8f2b6896ec82c12e75ad6b8bcf7e4b319602db2",
+    "source_tree": "e3a7b4ab29930dd55154a2b9a71e0f445454a08d",
+    "tests_passed": 10,
+    "targets": [
+      "subtitle_input_admission",
+      "timed_text"
+    ],
+    "executables": [
+      {
+        "name": "subtitle_input_admission-271b9388b541ee53",
+        "sha256": "856230b94595b5a861b211c066b25c2fdd82817ac51c3a21fb2c7baf756d7ca6",
+        "bytes": 205385744
+      },
+      {
+        "name": "timed_text-60ec4206037e25b7",
+        "sha256": "1aa0d5502b667e00e4b39eb2a776390e278a3aa414a3c3989a4b4b23d3d66df7",
+        "bytes": 283005440
+      }
+    ],
+    "unrelated_lib_cfgtest_compile_errors_retained": 3
+  },
+  "cli_probes": {
+    "schema_version": "renderflow.selected-cli-regressions/v1",
+    "source_revision": "c8f2b6896ec82c12e75ad6b8bcf7e4b319602db2",
+    "source_tree": "e3a7b4ab29930dd55154a2b9a71e0f445454a08d",
+    "binary_sha256": "e6a182eb2d1381301312f6f37a725620a988dc761cb972a0a9b19c5d7d6cbe82",
+    "manual_subtitle_output_hashes": {
+      "manual \u6b4c\u8a5e.srt": "84cb14e96478aa6e44bb8ab85fa452e4a01068c41242a00171159919bbd97ad4",
+      "canonical.json": "8bd93323cebca8a60b19e5c542e55259a2deef94c931c6d2eda9b07801e6f123",
+      "captions.vtt": "b8e3fa54d29b9a0acd2644554b7dc1b11e43f809685c5beed70ad64740e40114",
+      "lyrics.txt": "986037ee66e77245304d8df5a9d0d6c8f8434489f1f5164c50d6d2b0bef2d1ab"
+    },
+    "text_export_losses": [
+      "source_provenance",
+      "overlap_policy",
+      "timing",
+      "cue_ids"
+    ],
+    "audio_input_sha256": "8f75ada9ef2cb10fac83bcf2749e9ede01f2464e968025a1a961ba7c99260e85",
+    "events": [
+      {
+        "name": "srt-json",
+        "argv": [
+          "subtitles",
+          "convert",
+          "--input",
+          "{fixture_root}/manual \u6b4c\u8a5e.srt",
+          "--input-format",
+          "srt",
+          "--output",
+          "{fixture_root}/canonical.json",
+          "--output-format",
+          "json"
+        ],
+        "exit_code": 0,
+        "stdout_sha256": "a23b422c86afd194950cf2e89a176b2ef4a39c4b9073bd55a4feb6518fb6bfd6",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "name": "json-vtt",
+        "argv": [
+          "subtitles",
+          "convert",
+          "--input",
+          "{fixture_root}/canonical.json",
+          "--input-format",
+          "json",
+          "--output",
+          "{fixture_root}/captions.vtt",
+          "--output-format",
+          "vtt"
+        ],
+        "exit_code": 0,
+        "stdout_sha256": "79cdfcc7dd2e0ca7b000024e45a087689c5b5c70e529f01812c66f24fe5345d0",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "name": "json-text",
+        "argv": [
+          "subtitles",
+          "convert",
+          "--input",
+          "{fixture_root}/canonical.json",
+          "--input-format",
+          "json",
+          "--output",
+          "{fixture_root}/lyrics.txt",
+          "--output-format",
+          "text"
+        ],
+        "exit_code": 0,
+        "stdout_sha256": "7ef13ba775b0c4df85352c4e4a49437ccd41bd1ac6c4990191d86aba832d6e9e",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "name": "destination-refused",
+        "argv": [
+          "subtitles",
+          "convert",
+          "--input",
+          "{fixture_root}/manual \u6b4c\u8a5e.srt",
+          "--input-format",
+          "srt",
+          "--output",
+          "{fixture_root}/canonical.json",
+          "--output-format",
+          "json"
+        ],
+        "exit_code": 1,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "31b3a22f4d3d0ee3ca64fe2886ced506007b98fb1aeb0f45acd353219255cf1f"
+      },
+      {
+        "name": "source-output-refused",
+        "argv": [
+          "subtitles",
+          "convert",
+          "--input",
+          "{fixture_root}/manual \u6b4c\u8a5e.srt",
+          "--input-format",
+          "srt",
+          "--output",
+          "{fixture_root}/manual \u6b4c\u8a5e.srt",
+          "--output-format",
+          "vtt"
+        ],
+        "exit_code": 1,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "31b3a22f4d3d0ee3ca64fe2886ced506007b98fb1aeb0f45acd353219255cf1f"
+      },
+      {
+        "name": "symlink-refused",
+        "argv": [
+          "subtitles",
+          "convert",
+          "--input",
+          "{fixture_root}/linked.srt",
+          "--input-format",
+          "srt",
+          "--output",
+          "{fixture_root}/symlink.vtt",
+          "--output-format",
+          "vtt"
+        ],
+        "exit_code": 1,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "62d854d4c16c2ac9b67c53b57ebfd9fd5d94ec774b0ffbea9331a3a472e01b7b"
+      },
+      {
+        "name": "fifo-refused",
+        "argv": [
+          "subtitles",
+          "convert",
+          "--input",
+          "{fixture_root}/pipe.srt",
+          "--input-format",
+          "srt",
+          "--output",
+          "{fixture_root}/fifo.vtt",
+          "--output-format",
+          "vtt"
+        ],
+        "exit_code": 1,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "62d854d4c16c2ac9b67c53b57ebfd9fd5d94ec774b0ffbea9331a3a472e01b7b"
+      },
+      {
+        "name": "oversized-refused",
+        "argv": [
+          "subtitles",
+          "convert",
+          "--input",
+          "{fixture_root}/oversized.srt",
+          "--input-format",
+          "srt",
+          "--output",
+          "{fixture_root}/oversized.vtt",
+          "--output-format",
+          "vtt"
+        ],
+        "exit_code": 1,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "69c326150763ee8da9a75de497f103b24c262d806545485686acda717c4d6185"
+      },
+      {
+        "name": "typo-audio-dry-run",
+        "argv": [
+          "build",
+          "--config",
+          "{fixture_root}/typo.yaml",
+          "--dry-run"
+        ],
+        "exit_code": 1,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "183e203124a421c93747b9a2d1e884f7805a2680f374e7b91a9aea86e30e55b3"
+      },
+      {
+        "name": "typo-audio-real-selection",
+        "argv": [
+          "build",
+          "--config",
+          "{fixture_root}/typo.yaml"
+        ],
+        "exit_code": 1,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "a40273126814142c650bbce67614582bb72a5f5b8a9365cea9383e01f43236a3"
+      },
+      {
+        "name": "empty-audio-dry-run",
+        "argv": [
+          "build",
+          "--config",
+          "{fixture_root}/empty.yaml",
+          "--dry-run"
+        ],
+        "exit_code": 1,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "f7966d3555ad7f23327ebd72e2d7b52e2f6f06a35c5e7ddfedcc21ac0023a9d9"
+      },
+      {
+        "name": "empty-audio-real-selection",
+        "argv": [
+          "build",
+          "--config",
+          "{fixture_root}/empty.yaml"
+        ],
+        "exit_code": 1,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "a40273126814142c650bbce67614582bb72a5f5b8a9365cea9383e01f43236a3"
+      },
+      {
+        "name": "whitespace-audio-dry-run",
+        "argv": [
+          "build",
+          "--config",
+          "{fixture_root}/whitespace.yaml",
+          "--dry-run"
+        ],
+        "exit_code": 1,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "0c5bdc8a776dcc09cd974b1ceebba24123945649cf376ed6e46ba1170ffcad9e"
+      },
+      {
+        "name": "whitespace-audio-real-selection",
+        "argv": [
+          "build",
+          "--config",
+          "{fixture_root}/whitespace.yaml"
+        ],
+        "exit_code": 1,
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "a40273126814142c650bbce67614582bb72a5f5b8a9365cea9383e01f43236a3"
+      },
+      {
+        "name": "valid-audio-dry-run",
+        "argv": [
+          "build",
+          "--config",
+          "{fixture_root}/valid.yaml",
+          "--dry-run"
+        ],
+        "exit_code": 0,
+        "stdout_sha256": "39bae7ad5f5820e028ea3d76f70a4e4283ef25ae95e10ea5d8969e5d6ea6059a",
+        "stderr_sha256": "746b1e2a8828602f4cca33e4287dd9491a33ee022a701231a4f5fda19a32384e"
+      },
+      {
+        "name": "alias-audio-dry-run",
+        "argv": [
+          "build",
+          "--config",
+          "{fixture_root}/alias.yaml",
+          "--dry-run"
+        ],
+        "exit_code": 0,
+        "stdout_sha256": "e437ae0452500aa68485815db5a0e11bcb6e17c399c63738d08310ce07e0787c",
+        "stderr_sha256": "738450bb2a795103d2219bce47c1b26322bdb79fe8f769b2a9822c8df21de354"
+      },
+      {
+        "name": "absent-audio-dry-run",
+        "argv": [
+          "build",
+          "--config",
+          "{fixture_root}/absent.yaml",
+          "--dry-run"
+        ],
+        "exit_code": 0,
+        "stdout_sha256": "0b233b0d43515fa3c8aa2d85b53b1abbe564f6959c3275ac10542417cf5cc007",
+        "stderr_sha256": "fd3030a913ba80c2cdbac8330a0926fb827bf06a181293bf1ba85d638aff8627"
+      }
+    ],
+    "provider_conversion_performed": false,
+    "publication_performed": false,
+    "runtime_qualification_granted": false
+  },
+  "host_ffmpeg_version": "7.1.5-0+deb13u1",
+  "registry_ffmpeg_minimum": "4.0.0",
+  "unrun": [
+    "broad library tests (compilation blocked)",
+    "strict Clippy",
+    "audio source unit cases (library compilation blocked)",
+    "real codec conversion",
+    "native Windows/macOS matrix"
+  ],
+  "library_compile_errors": [
+    {
+      "code": "E0061",
+      "path": "crates/renderflow-core/src/planning/forest_execution_tests.rs",
+      "line": 208
+    },
+    {
+      "code": "E0061",
+      "path": "crates/renderflow-core/src/planning/forest_execution_tests.rs",
+      "line": 326
+    },
+    {
+      "code": "E0716",
+      "path": "crates/renderflow-core/src/graph/capability.rs",
+      "line": 1806
+    }
+  ],
+  "retained_log_hashes": {
+    "build-cli-final.log": "672c4b35da17f42dddee04c0b08b1df9493093ec189a40960f48b9416edb83a3",
+    "subtitle-tests.log": "d695b739f16a37216014dfcd55ae4f5424d37d46ba536aefad146ff079412e05",
+    "subtitle-integration-tests.log": "03f4a82759a32a59818abcc4923abc37e71fc29fa72aeb21d53576c47abc80eb"
+  },
+  "runtime_qualification_granted": false,
+  "publication_performed": false,
+  "private_original_cli_receipt_sha256": "09b03a89c15c40a114891a462176c82132273b4da18446d16a6a1120f0644652",
+  "private_original_combined_receipt_sha256": "4905e0eeb44dd828be7a6bfc12aba1eaa32861f231bb0ad8e0d6bb1bd05bc871",
+  "portable_path_placeholders": {
+    "{fixture_root}": "private generated subtitle/config probe directory",
+    "{generated_audio_inputs}": "private generated PCM24 inputs",
+    "{task_work}": "private retained run directory"
+  },
+  "negative_observer_checks": {
+    "command": "python3 -B scripts/test_sonic_evidence_pilot.py",
+    "tests_passed": 4,
+    "exit_code": 0,
+    "log_sha256": "e6ec182765cd965f2837d8eeaef5a64af48a104f245cd1a0b7281559194c57c1"
+  }
+}

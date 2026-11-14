@@ -1,0 +1,130 @@
+{
+  "analysis_template_sha256": "f7af5207c94ec57df252802fbbb4d1df8cd4323bb94587ad2facd4ca9beaaf72",
+  "analyzer_values": "supplied_synthetic_assertions_only",
+  "binary_sha256": "e6a182eb2d1381301312f6f37a725620a988dc761cb972a0a9b19c5d7d6cbe82",
+  "candidate_inventory": {
+    "audio-description.json": "235bcabcd82cb8b6bfcb46ad6835122b8105e6cf3185a97bd856586ade11e080",
+    "audio-description.md": "b2c8d074b0935bab5fbb05e0e6ee6a72bca417b6a8a5b38ebb4e957dcdbdc6b1",
+    "lineage.json": "70d7e1e95029d0374e5d1db3c322e18f7188fefb2055c0f84a369cbc09343143",
+    "objects/sha256/23/235bcabcd82cb8b6bfcb46ad6835122b8105e6cf3185a97bd856586ade11e080": "235bcabcd82cb8b6bfcb46ad6835122b8105e6cf3185a97bd856586ade11e080",
+    "objects/sha256/3b/3b62de0b58ae9753c6b11c58f16ebe6a97e8d78b99ddbae0a3a9cdfdcaf71d0b": "3b62de0b58ae9753c6b11c58f16ebe6a97e8d78b99ddbae0a3a9cdfdcaf71d0b",
+    "objects/sha256/7f/7f791d50f75a44bd86b4d686c6a1bd26edd2879432ac241c7189e51a81b4021e": "7f791d50f75a44bd86b4d686c6a1bd26edd2879432ac241c7189e51a81b4021e",
+    "prompt-guidance.json": "3b62de0b58ae9753c6b11c58f16ebe6a97e8d78b99ddbae0a3a9cdfdcaf71d0b",
+    "sonic-dna.json": "7f791d50f75a44bd86b4d686c6a1bd26edd2879432ac241c7189e51a81b4021e",
+    "sonic-run.json": "fbe31b89e580af170eeb7cc4d519bac05526fe8d73a3d313119be1150bfa2534"
+  },
+  "events": [
+    {
+      "command": [
+        "dna",
+        "sonic",
+        "plan"
+      ],
+      "elapsed_ms": 6,
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "dna",
+        "sonic",
+        "build"
+      ],
+      "elapsed_ms": 20,
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "dna",
+        "sonic",
+        "status"
+      ],
+      "elapsed_ms": 4,
+      "exit_code": 0
+    },
+    {
+      "command": [
+        "dna",
+        "sonic",
+        "build"
+      ],
+      "elapsed_ms": 2,
+      "exit_code": 1,
+      "expected_error": "sonic.output.exists"
+    },
+    {
+      "command": [
+        "dna",
+        "sonic",
+        "status"
+      ],
+      "elapsed_ms": 3,
+      "exit_code": 1,
+      "expected_error": "sonic.readback.file.changed"
+    },
+    {
+      "command": [
+        "dna",
+        "sonic",
+        "status"
+      ],
+      "elapsed_ms": 2,
+      "exit_code": 1,
+      "expected_error": "sonic.readback.run.contract"
+    },
+    {
+      "command": [
+        "dna",
+        "sonic",
+        "status"
+      ],
+      "elapsed_ms": 3,
+      "exit_code": 0
+    }
+  ],
+  "executed_at_utc": "2026-11-14T06:16:30.842951+00:00",
+  "existing_output_preserved": true,
+  "external_provider_or_model_invoked": false,
+  "forged_authority_refused": true,
+  "human_approval_granted": false,
+  "manual_cue_source_frame_range": {
+    "end": 55125,
+    "start": 5513
+  },
+  "musical_confidence_preserved": true,
+  "pilot_script_sha256": "454f8a89db46c669ada049735bcaef0dd6c5300326e8e7d2a601dddacaa62eb0",
+  "private_companion_words_retained_in_inputs_only": true,
+  "publication_performed": false,
+  "receipt_sha256": "fbe31b89e580af170eeb7cc4d519bac05526fe8d73a3d313119be1150bfa2534",
+  "recipe_template_sha256": "c0ff312d2136ab2cf4f01a4c68729b89bbcade7d1d552dded8b20e1a5bf09a1d",
+  "retained_status": {
+    "bundle_state": "complete",
+    "file_count": 8,
+    "intent_sha256": "3ec818d57cd22d0e2d2b1e18104210a808996975acab2f5e13f24246da6d5d28",
+    "provider_state": "not_reobserved; retained declarations only",
+    "publication_approval": "not_granted",
+    "receipt_sha256": "fbe31b89e580af170eeb7cc4d519bac05526fe8d73a3d313119be1150bfa2534",
+    "review_state": "candidate",
+    "runtime_qualified": false,
+    "schema_version": "renderflow.sonic-readback/v1",
+    "source_state": "current"
+  },
+  "schema_version": "renderflow.sonic-local-pilot/v1",
+  "source_inventory": {
+    "analysis.json": "b61b12bd1e268b06330ea75e537aa26a300abc173a3afd6394fa8e3fb4012a56",
+    "fixture-evidence.txt": "cf40ff4b993a1f481f1df36be7c27f1c9f4e515f3ac61e5f5448027d3189e592",
+    "manual lyrics.srt": "9c9ff4378e80f638df596bb792ab04c1c733d0af4b6ba16cc980a17d28a01f33",
+    "sonic.json": "ab47925efc4e5f1328fc4f0b5cd9900beffd59915bff88b7554dd43c7a0887dd",
+    "source.wav": "8f75ada9ef2cb10fac83bcf2749e9ede01f2464e968025a1a961ba7c99260e85"
+  },
+  "stale_request_reported": true,
+  "tampered_output_refused": true,
+  "technical": {
+    "bits_per_sample": 24,
+    "channels": 2,
+    "duration_ms": 1250,
+    "frame_count": 55125,
+    "sample_conversion": "none",
+    "sample_encoding": "pcm_s24le",
+    "sample_rate_hz": 44100
+  }
+}
