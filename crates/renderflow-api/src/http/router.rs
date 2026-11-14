@@ -205,8 +205,9 @@ impl Router {
             },
             ("GET","/v1/formats")=> {
                 use renderflow::composition::CompositionOutput::*;
-                return self.json(200,json!({"profile":renderflow::composition::COMPOSITION_PROFILE,"outputs":[Svg,Html,TranscriptJson,TranscriptText,Png,Pdf,Ora,Psd,Idml].iter()
-                    .map(|format|json!({"id":format.name(),"media_type":format.media_type(),"implemented":format.supported()})).collect::<Vec<_>>(),
+                let outputs = [Svg,Html,TranscriptJson,TranscriptText,Png,Pdf,Ora,Psd,Idml].iter()
+                    .map(|format|json!({"id":format.name(),"media_type":format.media_type(),"implemented":format.supported()})).collect::<Vec<_>>();
+                return self.json(200,json!({"profile":renderflow::composition::COMPOSITION_PROFILE,"outputs":outputs,
                     "profiles":crate::profiles::inventory()}),id);
             },
             ("GET","/v1/transforms")=>return self.json(200,json!({"scope":"finite registered service profiles; actual branch selection remains in the SDK",

@@ -161,7 +161,7 @@ fn immutable_capture_execution_and_binary_delivery_use_native_publications() {
     assert!(events
         .events
         .iter()
-        .all(|event| event.event.schema_version == renderflow::sdk::PROGRESS_EVENT_V1));
+        .all(|event| event.event.schema_version == "renderflow.progress/v1"));
 }
 
 #[test]
@@ -364,7 +364,7 @@ fn a_dropped_native_event_at_the_tail_reports_a_replay_gap() {
         id: job.job_id.clone(),
     };
     reporter.on_event(&ProgressEvent {
-        schema_version: renderflow::sdk::PROGRESS_EVENT_V1.into(),
+        schema_version: "renderflow.progress/v1".into(),
         stage: renderflow::ProgressStage::Executing,
         message: "x".repeat(service.limits().progress_bytes + 1),
         run_id: None,

@@ -1,0 +1,701 @@
+{
+  "schema_version": "renderflow.workspace-target-observation/v1",
+  "observed_at_utc": "2026-11-14T19:37:50.927191+00:00",
+  "base_revision": "16e1448c044ebd0a3453991bba9da3b1e32f4a4b",
+  "clean_workspace_check_source": {
+    "revision": "a58485cd89b5f9af5e61d5eaf7f307f5a8ccc188",
+    "tree": "3ae77c3c736309f882ca20a090f460bab0260a05",
+    "dirty_before": false,
+    "dirty_after": false
+  },
+  "checked_source_input_sha256": {
+    "crates/renderflow-api/src/http/router.rs": "89d77ca32fc865b7d735d2820352972730066d628c56c99ec7ff876f9c5eb534",
+    "crates/renderflow-api/src/http/tests.rs": "cdf1719dcecff6997fea45105dc1b5ec123260b948f5e627505e3fbb3c559cd1",
+    "crates/renderflow-api/src/service_tests.rs": "cca7d07f04226e5bbeb32114221a665426396d6c1481acb2a824207826b1384c",
+    "crates/renderflow-core/tests/editorial_profile.rs": "b756ee612d806d9109dbf4d37084bac273785070da72fcb30d7e5f324812e4d0",
+    "crates/renderflow-core/tests/sonic_evidence.rs": "2f7890a80233f4152ac9a2c4ea797419e13d51c85241e62cba487841f47e5fdd",
+    "Cargo.toml": "5b74bde9af11d17b7e4f6d742b055483158874e07d2e1759ca671e0d0b16808a",
+    "Cargo.lock": "409dbf8fa45ea228bce21c7f961784fcd95d8704e82417bf08d27e73f967bc94",
+    "crates/renderflow-core/Cargo.toml": "3070dd2c0643f630290414d3a86fa5181c2c3cf528c21e1333d8f6058be12e7b",
+    "crates/renderflow-cli/Cargo.toml": "073f1c0cc0ab404150fb6c12e73d6ded51048b9aa456262ce2910e5350caabb3",
+    "crates/renderflow-api/Cargo.toml": "fdd8b2ab6ee3f19f879b12198b142d4a7da994e1a2874d78c09f813052ae8897",
+    "crates/renderflow-plugin-sdk/Cargo.toml": "b23e2200feb9cc3f49c614ed90e46a9f85a50e4ef5c064a9c1e751cdfb38308a",
+    "config/local-ci.json": "e24884af6df0f9ee0591378baed23fc60f336f290158d1c78bc18d1ec286142c",
+    "Taskfile.yml": "bb213112f838c53a510d5f4c3593624ac0c42c8fa666e68a840cdf2aadeae2b1"
+  },
+  "cargo_manifests_and_lock_unchanged_from_base": true,
+  "tools": {
+    "rustc": "rustc 1.94.0 (4a4ef493e 2026-03-02)\nbinary: rustc\ncommit-hash: 4a4ef493e3a1488c6e321570238084b38948f6db\ncommit-date: 2026-03-02\nhost: x86_64-unknown-linux-gnu\nrelease: 1.94.0\nLLVM version: 21.1.8",
+    "cargo": "cargo 1.94.0 (85eff7c80 2026-01-15)",
+    "rustfmt": "rustfmt 1.8.0-stable (4a4ef493e3 2026-03-02)"
+  },
+  "host": {
+    "system": "Linux",
+    "machine": "x86_64",
+    "libc": [
+      "glibc",
+      "2.41"
+    ]
+  },
+  "environment": {
+    "CARGO_BUILD_JOBS": "2",
+    "CARGO_PROFILE_DEV_DEBUG": "0",
+    "CARGO_PROFILE_TEST_DEBUG": "0",
+    "CARGO_INCREMENTAL": "0",
+    "CARGO_TARGET_DIR": "task-private reused cache; local path omitted"
+  },
+  "initial_and_incremental_failures": [
+    {
+      "stage": "unchanged main",
+      "exit_code": 101,
+      "log": {
+        "name": "baseline-all-targets.log",
+        "bytes": 8655,
+        "sha256": "1d16a93c611057fd527ba5883547111453f4e5d545653f32496a41bdc94a4b37"
+      },
+      "diagnostics": [
+        {
+          "code": "macro parse",
+          "source": "crates/renderflow-api/src/http/router.rs",
+          "line": 208,
+          "message": "no rules expected `.` after JSON-array syntax in json!"
+        }
+      ]
+    },
+    {
+      "stage": "after API JSON expression fix",
+      "exit_code": 101,
+      "log": {
+        "name": "after-router-syntax.log",
+        "bytes": 2176,
+        "sha256": "44a5820b1f7d1c09c36c036acbb2b73255dcf64a5268c97a7bdcab7d049eb05b"
+      },
+      "diagnostics": [
+        {
+          "code": "E0603",
+          "source": "crates/renderflow-api/src/service_tests.rs",
+          "lines": [
+            164,
+            367
+          ],
+          "message": "private renderflow::sdk module used by external service tests"
+        }
+      ]
+    },
+    {
+      "stage": "after service contract references fixed",
+      "exit_code": 101,
+      "log": {
+        "name": "after-public-contract-tests.log",
+        "bytes": 1444,
+        "sha256": "03de2412c54865219c3088cd594780dcb67909a9330089eb3c2e3f19e0835a4b"
+      },
+      "diagnostics": [
+        {
+          "code": "E0603",
+          "source": "crates/renderflow-core/tests/editorial_profile.rs",
+          "line": 12,
+          "message": "private renderflow::config::OutputType import"
+        }
+      ]
+    },
+    {
+      "stage": "after public editorial boundary fix",
+      "exit_code": 101,
+      "log": {
+        "name": "after-editorial-boundary.log",
+        "bytes": 2988,
+        "sha256": "f93bdca75923fbc1117ec9cc1b867cb35520a25efb7e5ba28fca9094f5ae1dcd"
+      },
+      "diagnostics": [
+        {
+          "code": "E0277",
+          "source": "crates/renderflow-core/tests/sonic_evidence.rs",
+          "line": 340,
+          "message": "FixtureProvider does not satisfy existing AiProvider: Debug bound"
+        }
+      ]
+    },
+    {
+      "stage": "fixture Debug derive propagation",
+      "exit_code": 101,
+      "log": {
+        "name": "after-sonic-fixture-debug.log",
+        "bytes": 2760,
+        "sha256": "0e3ab51b72cb9c5644bff8905b55b71f91128615318ef87e40101af691f52a12"
+      },
+      "diagnostics": [
+        {
+          "code": "E0277",
+          "source": "crates/renderflow-core/tests/sonic_evidence.rs",
+          "line": 339,
+          "message": "nested ResponseKind must also derive Debug"
+        }
+      ]
+    }
+  ],
+  "workspace_check": {
+    "command": [
+      "cargo",
+      "+1.94.0",
+      "check",
+      "--workspace",
+      "--all-targets",
+      "--locked",
+      "--offline",
+      "--jobs",
+      "2"
+    ],
+    "exit_code": 0,
+    "log": {
+      "name": "final-all-targets.log",
+      "bytes": 1954,
+      "sha256": "4941202123d4bd3b09c8f2df5106bf5354ad5e24369e53ebed62fa44b0784f2d"
+    },
+    "all_features": false,
+    "executes_tests_or_benchmarks": false,
+    "links_release_binary": false
+  },
+  "workspace_target_inventory": [
+    {
+      "name": "renderflow",
+      "manifest": "crates/renderflow-core/Cargo.toml",
+      "targets": [
+        {
+          "name": "renderflow",
+          "kind": [
+            "lib"
+          ],
+          "source": "crates/renderflow-core/src/lib.rs"
+        },
+        {
+          "name": "embedded-basic",
+          "kind": [
+            "example"
+          ],
+          "source": "crates/renderflow-core/examples/embedded-basic.rs"
+        },
+        {
+          "name": "embedded-multi-target",
+          "kind": [
+            "example"
+          ],
+          "source": "crates/renderflow-core/examples/embedded-multi-target.rs"
+        },
+        {
+          "name": "library_basic",
+          "kind": [
+            "example"
+          ],
+          "source": "crates/renderflow-core/examples/library_basic.rs"
+        },
+        {
+          "name": "plugin_registration",
+          "kind": [
+            "example"
+          ],
+          "source": "crates/renderflow-core/examples/plugin_registration.rs"
+        },
+        {
+          "name": "briefing_profile",
+          "kind": [
+            "test"
+          ],
+          "source": "crates/renderflow-core/tests/briefing_profile.rs"
+        },
+        {
+          "name": "canonical_planner",
+          "kind": [
+            "test"
+          ],
+          "source": "crates/renderflow-core/tests/canonical_planner.rs"
+        },
+        {
+          "name": "command_plugins",
+          "kind": [
+            "test"
+          ],
+          "source": "crates/renderflow-core/tests/command_plugins.rs"
+        },
+        {
+          "name": "composition_build",
+          "kind": [
+            "test"
+          ],
+          "source": "crates/renderflow-core/tests/composition_build.rs"
+        },
+        {
+          "name": "creative_planner",
+          "kind": [
+            "test"
+          ],
+          "source": "crates/renderflow-core/tests/creative_planner.rs"
+        },
+        {
+          "name": "editorial_profile",
+          "kind": [
+            "test"
+          ],
+          "source": "crates/renderflow-core/tests/editorial_profile.rs"
+        },
+        {
+          "name": "fixed_layout_epub",
+          "kind": [
+            "test"
+          ],
+          "source": "crates/renderflow-core/tests/fixed_layout_epub.rs"
+        },
+        {
+          "name": "golden_conformance",
+          "kind": [
+            "test"
+          ],
+          "source": "crates/renderflow-core/tests/golden_conformance.rs"
+        },
+        {
+          "name": "manual_lyrics",
+          "kind": [
+            "test"
+          ],
+          "source": "crates/renderflow-core/tests/manual_lyrics.rs"
+        },
+        {
+          "name": "ordered_collection",
+          "kind": [
+            "test"
+          ],
+          "source": "crates/renderflow-core/tests/ordered_collection.rs"
+        },
+        {
+          "name": "portable_forest",
+          "kind": [
+            "test"
+          ],
+          "source": "crates/renderflow-core/tests/portable_forest.rs"
+        },
+        {
+          "name": "print_pdf_interior",
+          "kind": [
+            "test"
+          ],
+          "source": "crates/renderflow-core/tests/print_pdf_interior.rs"
+        },
+        {
+          "name": "published_targets",
+          "kind": [
+            "test"
+          ],
+          "source": "crates/renderflow-core/tests/published_targets.rs"
+        },
+        {
+          "name": "sonic_evidence",
+          "kind": [
+            "test"
+          ],
+          "source": "crates/renderflow-core/tests/sonic_evidence.rs"
+        },
+        {
+          "name": "speech_graph",
+          "kind": [
+            "test"
+          ],
+          "source": "crates/renderflow-core/tests/speech_graph.rs"
+        },
+        {
+          "name": "speech_sdk",
+          "kind": [
+            "test"
+          ],
+          "source": "crates/renderflow-core/tests/speech_sdk.rs"
+        },
+        {
+          "name": "subtitle_input_admission",
+          "kind": [
+            "test"
+          ],
+          "source": "crates/renderflow-core/tests/subtitle_input_admission.rs"
+        },
+        {
+          "name": "timed_text",
+          "kind": [
+            "test"
+          ],
+          "source": "crates/renderflow-core/tests/timed_text.rs"
+        },
+        {
+          "name": "timed_text_graph",
+          "kind": [
+            "test"
+          ],
+          "source": "crates/renderflow-core/tests/timed_text_graph.rs"
+        },
+        {
+          "name": "timed_text_native",
+          "kind": [
+            "test"
+          ],
+          "source": "crates/renderflow-core/tests/timed_text_native.rs"
+        },
+        {
+          "name": "verified_publications",
+          "kind": [
+            "test"
+          ],
+          "source": "crates/renderflow-core/tests/verified_publications.rs"
+        },
+        {
+          "name": "cache",
+          "kind": [
+            "bench"
+          ],
+          "source": "crates/renderflow-core/benches/cache.rs"
+        },
+        {
+          "name": "dag_execution",
+          "kind": [
+            "bench"
+          ],
+          "source": "crates/renderflow-core/benches/dag_execution.rs"
+        },
+        {
+          "name": "graph_planner",
+          "kind": [
+            "bench"
+          ],
+          "source": "crates/renderflow-core/benches/graph_planner.rs"
+        },
+        {
+          "name": "large_graph",
+          "kind": [
+            "bench"
+          ],
+          "source": "crates/renderflow-core/benches/large_graph.rs"
+        }
+      ]
+    },
+    {
+      "name": "renderflow-api",
+      "manifest": "crates/renderflow-api/Cargo.toml",
+      "targets": [
+        {
+          "name": "renderflow_api",
+          "kind": [
+            "lib"
+          ],
+          "source": "crates/renderflow-api/src/lib.rs"
+        },
+        {
+          "name": "renderflow-api",
+          "kind": [
+            "bin"
+          ],
+          "source": "crates/renderflow-api/src/main.rs"
+        }
+      ]
+    },
+    {
+      "name": "renderflow-cli",
+      "manifest": "crates/renderflow-cli/Cargo.toml",
+      "targets": [
+        {
+          "name": "renderflow",
+          "kind": [
+            "bin"
+          ],
+          "source": "crates/renderflow-cli/src/main.rs"
+        },
+        {
+          "name": "artifact_gallery_cli",
+          "kind": [
+            "test"
+          ],
+          "source": "crates/renderflow-cli/../../tests/artifact_gallery_cli.rs"
+        },
+        {
+          "name": "cli_tests",
+          "kind": [
+            "test"
+          ],
+          "source": "crates/renderflow-cli/../../tests/cli_tests.rs"
+        },
+        {
+          "name": "fixed_layout_epub_cli",
+          "kind": [
+            "test"
+          ],
+          "source": "crates/renderflow-cli/../../tests/fixed_layout_epub_cli.rs"
+        },
+        {
+          "name": "graph_integration_test",
+          "kind": [
+            "test"
+          ],
+          "source": "crates/renderflow-cli/../../tests/graph_integration_test.rs"
+        },
+        {
+          "name": "ordered_collection_cli",
+          "kind": [
+            "test"
+          ],
+          "source": "crates/renderflow-cli/../../tests/ordered_collection_cli.rs"
+        },
+        {
+          "name": "pipeline_integration_test",
+          "kind": [
+            "test"
+          ],
+          "source": "crates/renderflow-cli/../../tests/pipeline_integration_test.rs"
+        }
+      ]
+    },
+    {
+      "name": "renderflow-plugin-sdk",
+      "manifest": "crates/renderflow-plugin-sdk/Cargo.toml",
+      "targets": [
+        {
+          "name": "renderflow_plugin_sdk",
+          "kind": [
+            "lib"
+          ],
+          "source": "crates/renderflow-plugin-sdk/src/lib.rs"
+        },
+        {
+          "name": "binary_transform",
+          "kind": [
+            "example"
+          ],
+          "source": "crates/renderflow-plugin-sdk/examples/binary_transform.rs"
+        },
+        {
+          "name": "collection_transform",
+          "kind": [
+            "example"
+          ],
+          "source": "crates/renderflow-plugin-sdk/examples/collection_transform.rs"
+        },
+        {
+          "name": "external_tool_adapter",
+          "kind": [
+            "example"
+          ],
+          "source": "crates/renderflow-plugin-sdk/examples/external_tool_adapter.rs"
+        },
+        {
+          "name": "text_transform",
+          "kind": [
+            "example"
+          ],
+          "source": "crates/renderflow-plugin-sdk/examples/text_transform.rs"
+        }
+      ]
+    }
+  ],
+  "focused_test_source": {
+    "base_revision": "16e1448c044ebd0a3453991bba9da3b1e32f4a4b",
+    "working_tree_modified_during_authoring": true,
+    "checked_rust_bytes": {
+      "crates/renderflow-api/src/http/router.rs": "89d77ca32fc865b7d735d2820352972730066d628c56c99ec7ff876f9c5eb534",
+      "crates/renderflow-api/src/http/tests.rs": "cdf1719dcecff6997fea45105dc1b5ec123260b948f5e627505e3fbb3c559cd1",
+      "crates/renderflow-api/src/service_tests.rs": "cca7d07f04226e5bbeb32114221a665426396d6c1481acb2a824207826b1384c",
+      "crates/renderflow-core/tests/editorial_profile.rs": "b756ee612d806d9109dbf4d37084bac273785070da72fcb30d7e5f324812e4d0",
+      "crates/renderflow-core/tests/sonic_evidence.rs": "2f7890a80233f4152ac9a2c4ea797419e13d51c85241e62cba487841f47e5fdd"
+    },
+    "source_bytes_equal_clean_check_snapshot": true
+  },
+  "focused_tests": [
+    {
+      "name": "api-formats",
+      "command": [
+        "cargo",
+        "+1.94.0",
+        "test",
+        "--locked",
+        "--offline",
+        "--jobs",
+        "2",
+        "--package",
+        "renderflow-api",
+        "--lib",
+        "http::tests::format_inventory_serializes_every_declared_output_without_starting_jobs",
+        "--",
+        "--exact"
+      ],
+      "exit_code": 0,
+      "seconds": 5.196,
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0,
+      "log": {
+        "name": "api-formats.log",
+        "bytes": 1100,
+        "sha256": "d329fc9d92d82ca8ae8323dde8904808924f03acaae10991834fafca8fd0bde7"
+      }
+    },
+    {
+      "name": "api-progress-contract",
+      "command": [
+        "cargo",
+        "+1.94.0",
+        "test",
+        "--locked",
+        "--offline",
+        "--jobs",
+        "2",
+        "--package",
+        "renderflow-api",
+        "--lib",
+        "service::tests::immutable_capture_execution_and_binary_delivery_use_native_publications",
+        "--",
+        "--exact"
+      ],
+      "exit_code": 0,
+      "seconds": 0.488,
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0,
+      "log": {
+        "name": "api-progress-contract.log",
+        "bytes": 990,
+        "sha256": "59b982715e3ff61d7ebe160b7c36c35d7afdb84c3191eb4d370cecf0e8ec9df0"
+      }
+    },
+    {
+      "name": "api-progress-tail",
+      "command": [
+        "cargo",
+        "+1.94.0",
+        "test",
+        "--locked",
+        "--offline",
+        "--jobs",
+        "2",
+        "--package",
+        "renderflow-api",
+        "--lib",
+        "service::tests::a_dropped_native_event_at_the_tail_reports_a_replay_gap",
+        "--",
+        "--exact"
+      ],
+      "exit_code": 0,
+      "seconds": 0.415,
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0,
+      "log": {
+        "name": "api-progress-tail.log",
+        "bytes": 974,
+        "sha256": "435ab698005e2572a03b07bfe71a962badddeaf2b48fe4fe576b347a6cc12bb1"
+      }
+    },
+    {
+      "name": "editorial-public-boundary",
+      "command": [
+        "cargo",
+        "+1.94.0",
+        "test",
+        "--locked",
+        "--offline",
+        "--jobs",
+        "2",
+        "--package",
+        "renderflow",
+        "--test",
+        "editorial_profile",
+        "editorial_preset_refuses_ambiguous_routes_and_disables_external_asset_reuse",
+        "--",
+        "--exact"
+      ],
+      "exit_code": 0,
+      "seconds": 47.618,
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0,
+      "log": {
+        "name": "editorial-public-boundary.log",
+        "bytes": 1097,
+        "sha256": "10455fdfd768be00432c2a427d9ec33d94cbf66016febdcae7a5693a9e974bb8"
+      }
+    },
+    {
+      "name": "sonic-mock-trait",
+      "command": [
+        "cargo",
+        "+1.94.0",
+        "test",
+        "--locked",
+        "--offline",
+        "--jobs",
+        "2",
+        "--package",
+        "renderflow",
+        "--test",
+        "sonic_evidence",
+        "shared_runtime_mock_creates_cited_review_required_structured_candidate",
+        "--",
+        "--exact"
+      ],
+      "exit_code": 0,
+      "seconds": 1.28,
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0,
+      "log": {
+        "name": "sonic-mock-trait.log",
+        "bytes": 1086,
+        "sha256": "3d6555ac86c0e4d0437022383e63b010ed16d0d6ea16469c64c3b0f471dc154b"
+      }
+    }
+  ],
+  "focused_tests_passed": 5,
+  "initial_observer_correction": {
+    "log": {
+      "name": "api-formats-initial-observer.log",
+      "bytes": 2270,
+      "sha256": "d07008854a255c87aee22d2476deb4bd194ffda546cc3b46d449a5f408de442c"
+    },
+    "classification": "new test authoring error, not a product failure",
+    "cause": "initial assertion read outer response instead of data envelope",
+    "final_assertions": "data profile and all nine exact format rows; zero admitted jobs"
+  },
+  "harness_validation": {
+    "realm_runner_revision": "75c1b2e1475b972a0ce1c8594e8daba2e1cf8686",
+    "realm_operation": "plan",
+    "plan_log": {
+      "name": "local-ci-plan.json",
+      "bytes": 3828,
+      "sha256": "f8d0a18afb30fae3d261b5b27aa9f39dc2a02dd3ba9a083c26fe42f612b499b4"
+    },
+    "manifest_sha256": "e24884af6df0f9ee0591378baed23fc60f336f290158d1c78bc18d1ec286142c",
+    "command_vectors_match": true,
+    "task_yaml_parsed": true,
+    "go_task_client_executed": false,
+    "full_realm_selection_executed": false
+  },
+  "retained_warning_sites": [
+    {
+      "source": "crates/renderflow-core/src/speech/provider.rs",
+      "line": 547,
+      "kind": "dead_code frame_count"
+    },
+    {
+      "source": "crates/renderflow-core/tests/common/publication_fixture.rs",
+      "line": 36,
+      "kind": "dead_code relocate in portable_forest target"
+    },
+    {
+      "source": "crates/renderflow-core/tests/common/golden_comic.rs",
+      "line": 147,
+      "kind": "private_interfaces AggregateEvidence"
+    }
+  ],
+  "previous_44_library_cases_reexecuted": false,
+  "full_runtime_suite_executed": false,
+  "strict_clippy_executed": false,
+  "all_feature_combinations_qualified": false,
+  "external_provider_or_model_executed": false,
+  "native_matrix_qualified": false,
+  "hosted_workflow_dispatched": false,
+  "release_authenticated": false,
+  "publication_performed": false,
+  "evidence_amendment_scope": "Only this portable receipt is added after the clean-source check; checked Rust, Cargo, Task and manifest bytes remain as pinned above."
+}

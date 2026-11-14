@@ -9,12 +9,10 @@ use renderflow::adapters::strategy::StrategyArtifactTransform;
 use renderflow::artifact::{
     ArtifactDescriptor, ArtifactStorageClass, ArtifactStore, ArtifactTransform,
 };
-use renderflow::config::OutputType;
 use renderflow::evidence::RunState;
 use renderflow::graph::Format;
 use renderflow::spec::load_spec_str;
 use renderflow::strategies::editorial::{bundle_fingerprint, EDITORIAL_PRESET};
-use renderflow::strategies::select_strategy;
 use renderflow::{EngineBuilder, ExecutionRequest};
 
 fn example() -> PathBuf {
@@ -88,11 +86,13 @@ fn editorial_preset_refuses_ambiguous_routes_and_disables_external_asset_reuse()
         None
     )
     .is_err());
-    assert!(select_strategy(
-        &OutputType::Html,
-        Some("custom.html"),
-        "unused",
-        Some(EDITORIAL_PRESET)
+    assert!(StrategyArtifactTransform::new(
+        Format::Markdown,
+        Format::Html,
+        Some("custom.html".to_string()),
+        Some(EDITORIAL_PRESET.to_string()),
+        BTreeMap::new(),
+        None
     )
     .is_err());
     assert!(StrategyArtifactTransform::new(

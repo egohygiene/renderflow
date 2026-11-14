@@ -326,13 +326,14 @@ fn protected_reference_hygiene_applies_before_descriptions_and_guidance() {
     );
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 enum ResponseKind {
     Good,
     UnknownCitation,
     Failure,
     DuplicateKey,
 }
+#[derive(Debug)]
 struct FixtureProvider {
     calls: AtomicUsize,
     kind: ResponseKind,
