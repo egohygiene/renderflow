@@ -1,0 +1,325 @@
+{
+  "assets": [
+    {
+      "bytes": 3153321,
+      "name": "THIRD_PARTY_NOTICES.txt",
+      "sha256": "719ee3f8aac26340132d6a864e2dd4496d4e9b6ad0fd68142adadc679191baff"
+    },
+    {
+      "bytes": 90,
+      "name": "THIRD_PARTY_NOTICES.txt.sha256",
+      "sha256": "40a362ab1e8a41c10b55c8522780cf6d6a804f8cacdbd3248552c28f87813db4"
+    },
+    {
+      "bytes": 289255,
+      "name": "renderflow-sbom.spdx.json",
+      "sha256": "029412584a015e6dee60d7f45b983c020555d27a33aa32041532fea71af334c1"
+    },
+    {
+      "bytes": 92,
+      "name": "renderflow-sbom.spdx.json.sha256",
+      "sha256": "8a95e1e10d46b1b4ad3d408f80e5352f5203abb88dd9fb08fd552e240a22d44a"
+    },
+    {
+      "bytes": 19965256,
+      "name": "renderflow-x86_64-unknown-linux-gnu",
+      "sha256": "b0a55e600e7888428b6971b99dc4566eac285cebf7338b99d6ed75415d1a3a56"
+    },
+    {
+      "bytes": 372295,
+      "name": "renderflow-x86_64-unknown-linux-gnu.contract.json",
+      "sha256": "9ff99a410bcf98a82801eeadf3e35fdc40539c36d192ce066365769c98e9aa74"
+    },
+    {
+      "bytes": 102,
+      "name": "renderflow-x86_64-unknown-linux-gnu.sha256",
+      "sha256": "a7bdba3f5b58cdd03153289352799ca18484beca3c76ba69270a2a704bd95ac0"
+    }
+  ],
+  "baseline": {
+    "cargo": "cargo 1.94.0 (85eff7c80 2026-01-15)",
+    "gcc": "gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+    "kernel": "6.18.57",
+    "libc": "glibc 2.39",
+    "os_release": "PRETTY_NAME=\"Ubuntu 24.04.5 LTS\"\nNAME=\"Ubuntu\"\nVERSION_ID=\"24.04\"\nVERSION=\"24.04.5 LTS (Noble Numbat)\"\nVERSION_CODENAME=noble\nID=ubuntu\nID_LIKE=debian\nHOME_URL=\"https://www.ubuntu.com/\"\nSUPPORT_URL=\"https://help.ubuntu.com/\"\nBUG_REPORT_URL=\"https://bugs.launchpad.net/ubuntu/\"\nPRIVACY_POLICY_URL=\"https://www.ubuntu.com/legal/terms-and-policies/privacy-policy\"\nUBUNTU_CODENAME=noble\nLOGO=ubuntu-logo\n",
+    "python": "3.12.3",
+    "rustc": "rustc 1.94.0 (4a4ef493e 2026-03-02)\nbinary: rustc\ncommit-hash: 4a4ef493e3a1488c6e321570238084b38948f6db\ncommit-date: 2026-03-02\nhost: x86_64-unknown-linux-gnu\nrelease: 1.94.0\nLLVM version: 21.1.8"
+  },
+  "commands": [
+    {
+      "container_argv": [
+        "python3",
+        "-B",
+        "-c",
+        "import json,platform,subprocess;from pathlib import Path;r=lambda *a:subprocess.check_output(a,text=True).strip();print(json.dumps(dict(os_release=Path('/etc/os-release').read_text(),libc=r('getconf','GNU_LIBC_VERSION'),rustc=r('/toolchain/bin/rustc','--version','--verbose'),cargo=r('/toolchain/bin/cargo','--version'),gcc=r('gcc','--version').splitlines()[0],python=platform.python_version(),kernel=platform.release())))"
+      ],
+      "phase": "preflight",
+      "timeout_seconds": 120
+    },
+    {
+      "container_argv": [
+        "/toolchain/bin/cargo",
+        "build",
+        "--manifest-path",
+        "/source/Cargo.toml",
+        "--frozen",
+        "--release",
+        "--package",
+        "renderflow-cli",
+        "--bin",
+        "renderflow",
+        "--target",
+        "x86_64-unknown-linux-gnu",
+        "--jobs",
+        "2"
+      ],
+      "phase": "release-build",
+      "timeout_seconds": 2400
+    },
+    {
+      "container_argv": [
+        "readelf",
+        "--version-info",
+        "/assets/renderflow-x86_64-unknown-linux-gnu"
+      ],
+      "phase": "elf-requirements",
+      "timeout_seconds": 120
+    },
+    {
+      "container_argv": [
+        "/toolchain/bin/cargo",
+        "metadata",
+        "--manifest-path",
+        "/source/Cargo.toml",
+        "--frozen",
+        "--format-version",
+        "1"
+      ],
+      "phase": "cargo-metadata",
+      "timeout_seconds": 120
+    },
+    {
+      "container_argv": [
+        "/assets/renderflow-x86_64-unknown-linux-gnu",
+        "release-contract"
+      ],
+      "phase": "compiled-contract",
+      "timeout_seconds": 120
+    },
+    {
+      "container_argv": [
+        "python3",
+        "-B",
+        "/source/scripts/release/release_assets.py",
+        "prepare",
+        "--artifact-dir",
+        "/assets",
+        "--source-dir",
+        "/source",
+        "--version",
+        "0.3.0-rc.1",
+        "--tag",
+        "v0.3.0-rc.1",
+        "--commit",
+        "c8f2b6896ec82c12e75ad6b8bcf7e4b319602db2",
+        "--target",
+        "x86_64-unknown-linux-gnu",
+        "--metadata-file",
+        "/runtime/cargo-metadata.json"
+      ],
+      "phase": "package-prepare",
+      "timeout_seconds": 120
+    },
+    {
+      "container_argv": [
+        "python3",
+        "-B",
+        "-c",
+        "import json,importlib.metadata as m,img2pdf,pikepdf;print(json.dumps(dict(img2pdf=m.version('img2pdf'),pikepdf=m.version('pikepdf'),qpdf=pikepdf.__libqpdf_version__)))"
+      ],
+      "phase": "provider-preflight",
+      "timeout_seconds": 120
+    },
+    {
+      "container_argv": [
+        "python3",
+        "-B",
+        "/verifier/release_assets.py",
+        "local-smoke",
+        "--binary",
+        "/assets/renderflow-x86_64-unknown-linux-gnu",
+        "--version",
+        "0.3.0-rc.1",
+        "--output",
+        "/runtime/local-smoke.json"
+      ],
+      "phase": "local-smoke",
+      "timeout_seconds": 300
+    }
+  ],
+  "container_limits": {
+    "build_jobs": 2,
+    "cpus": 2,
+    "dropped_capabilities": "all",
+    "memory_bytes": 6442450944,
+    "network": "none",
+    "no_new_privileges": true,
+    "processes": 256,
+    "read_only_root": true,
+    "tmpfs_bytes": 1073741824,
+    "tmpfs_options": [
+      "nosuid",
+      "nodev",
+      "exec"
+    ]
+  },
+  "docker_socket_mounted": false,
+  "helper_sha256": "19bc5e795f518b89c19a020c894e18e0b96711ee53f826a5db14590874881d9d",
+  "image": {
+    "id": "sha256:7d95db24dde3481619581f7e0b06b1aaa57d1aab2cf0e1da0521c5309a308212",
+    "preparation": "existing_pinned_image",
+    "reference": "ghcr.io/catthehacker/ubuntu:act-24.04@sha256:19619a010b204f44c5340bff7d39b68551109fe6a56a53f75201ea91e05d4270"
+  },
+  "independent_rebuilds": 0,
+  "kernel_scope": "container_uses_host_kernel; not_a_full_native_Ubuntu_host",
+  "local_full_report_sha256": "716a2d6a2a435bb8eca1141aadef5f0f25abbda10a00f39054595f047848d7d6",
+  "local_smoke": {
+    "binary": {
+      "bytes": 19965256,
+      "sha256": "b0a55e600e7888428b6971b99dc4566eac285cebf7338b99d6ed75415d1a3a56",
+      "target": "x86_64-unknown-linux-gnu"
+    },
+    "checks": {
+      "missing_config_refused": true,
+      "outputs": [
+        {
+          "fixed_layout": "validated",
+          "format": "epub",
+          "independent_inspection": "renderflow_epub_and_provenance",
+          "pages": 2,
+          "provenance": "verified",
+          "sha256": "b4da7dcc5300932fb9ed638a41001bf7cb38146846dd7b0e614f5cf84556e3e5"
+        },
+        {
+          "format": "pdf",
+          "independent_inspection": "pikepdf_and_renderflow",
+          "pages": 2,
+          "provider": "img2pdf 0.6.3",
+          "sha256": "0ed5830ed858876a4bf2a7dc690181a1540a4995e797817bfbb5df952b522416",
+          "source_bytes_preserved": true,
+          "stale_source_refused": true
+        }
+      ],
+      "spec_plan_dry_run": "passed",
+      "version": "0.3.0-rc.1",
+      "version_help_doctor": "passed"
+    },
+    "host": {
+      "libc": [
+        "glibc",
+        "2.39"
+      ],
+      "machine": "x86_64",
+      "system": "Linux"
+    },
+    "native_matrix_qualified": false,
+    "publication_performed": false,
+    "qualification": "local_captured_binary_smoke_only",
+    "release_authenticated": false,
+    "schema_version": "renderflow.local-candidate-smoke/v1",
+    "source_authenticated": false,
+    "supported_host_qualified": false
+  },
+  "logs": [
+    {
+      "bytes": 1519381,
+      "name": "cargo-metadata.log",
+      "sha256": "15cd9586ce59a5b7da82cbb123f3803f3f110e2f643c54c1747332cc6adca7c4"
+    },
+    {
+      "bytes": 372295,
+      "name": "compiled-contract.log",
+      "sha256": "9ff99a410bcf98a82801eeadf3e35fdc40539c36d192ce066365769c98e9aa74"
+    },
+    {
+      "bytes": 5500,
+      "name": "elf-requirements.log",
+      "sha256": "87d4bc74eb847b5a602addefcd86590d374f66c0049ae18360d3e18bd0521ff5"
+    },
+    {
+      "bytes": 290,
+      "name": "local-smoke.log",
+      "sha256": "9ffb327c11760f8ae788d2dd198f00026c77662eb10a0aee5e7ed9e8e3928f86"
+    },
+    {
+      "bytes": 106,
+      "name": "package-prepare.log",
+      "sha256": "17a7460b05b97e9aa96dfe47f1ee84e584f752b7ac427b36dec266d5c4fe3609"
+    },
+    {
+      "bytes": 827,
+      "name": "preflight.log",
+      "sha256": "e753483548fcbd9436ab4da9cd61f11d2701c513b2aa09f12726185150bddbd5"
+    },
+    {
+      "bytes": 61,
+      "name": "provider-preflight.log",
+      "sha256": "fc70188745b49571fc2eb558d8ca0176d31674e0a6c0c4c0e0a1a1e303ae98ae"
+    },
+    {
+      "bytes": 642,
+      "name": "release-build.log",
+      "sha256": "cc50dc85e61c0a03bbdec417b2ef5bda0705e60558f3b36003e170142d289fdf"
+    },
+    {
+      "bytes": 82,
+      "name": "stage-verifier.log",
+      "sha256": "33df97339b2d5b4c0d90a62152e24345d9365cfe2e85ba59f2c476b25427d921"
+    }
+  ],
+  "maximum_glibc_symbol": "2.39",
+  "network": "none",
+  "providers": {
+    "img2pdf": "0.6.3",
+    "pikepdf": "10.18.1",
+    "qpdf": "12.4.2"
+  },
+  "publication_performed": false,
+  "release_authenticated": false,
+  "schema_version": "renderflow.ubuntu-candidate-summary/v1",
+  "scope": "selected_ubuntu_userland_build_and_offline_smoke",
+  "selected_build_invocations": 1,
+  "source": {
+    "cargo_lock_sha256": "409dbf8fa45ea228bce21c7f961784fcd95d8704e82417bf08d27e73f967bc94",
+    "revision": "c8f2b6896ec82c12e75ad6b8bcf7e4b319602db2",
+    "tree": "e3a7b4ab29930dd55154a2b9a71e0f445454a08d"
+  },
+  "supported_matrix_qualified": false,
+  "target": "x86_64-unknown-linux-gnu",
+  "target_cache": {
+    "cache_origin": "caller_supplied_existing_cache",
+    "fresh_target_at_start": false,
+    "prior_cache_origin_authenticated": false
+  },
+  "verifier_modules": [
+    {
+      "bytes": 8013,
+      "name": "cohort_assets.py",
+      "sha256": "5621cf9733bb0acede8a1f859239b2a89779832c60ac05f92c4e2ffa58af93c5"
+    },
+    {
+      "bytes": 17608,
+      "name": "native_cohort.py",
+      "sha256": "cefce98628bb66051c71946fcc9325450f75a2e0665bff54b64b6b646ccfd916"
+    },
+    {
+      "bytes": 39833,
+      "name": "release_assets.py",
+      "sha256": "20cca6e0cb538d837adf726314f55245ff5726ade3840c0befeb1d104a585693"
+    }
+  ],
+  "verifier_staging": {
+    "execution_command": "release_assets.py stage-verifier",
+    "execution_host": "host_python"
+  }
+}
