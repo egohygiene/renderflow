@@ -24,6 +24,47 @@ Container, crates.io, Homebrew, Scoop, Chocolatey, Snap, AUR, `.deb`, and `.rpm`
 channels have no candidate publication claim. Checked-in build and packaging
 recipes do not constitute package-manager availability.
 
+## Local binary smoke before release qualification
+
+`scripts/release/release_assets.py local-smoke` exercises a selected, locally
+built Linux x86_64 GNU binary. It reuses the existing isolated version/help/
+doctor, spec/plan, two-page native EPUB and exact `img2pdf` 0.6.3 PDF fixtures,
+including independent output inspection and failure exits. Run it with the
+Python environment containing the selected PDF provider and `pikepdf`:
+
+```bash
+python3 -B scripts/release/release_assets.py local-smoke \
+  --binary /absolute/private/path/renderflow \
+  --version 0.3.0-rc.1 \
+  --output /absolute/private/path/new-local-smoke.json
+```
+
+The output parent must already exist and be canonical; an existing receipt is
+never overwritten. The executable bytes are captured and copied into private
+temporary installation/fixture roots before execution. The receipt binds their
+SHA-256, observed host/libc, selected version and inspected output hashes. A
+changed selected binary or failed workload produces no success receipt.
+
+This receipt explicitly grants no source authentication, release authentication,
+supported-host qualification, native-matrix qualification or publication. A
+Debian/glibc 2.41 smoke does not satisfy the Ubuntu 24.04/glibc 2.39 baseline.
+Provider installation and a source build remain explicit preparation steps;
+the smoke command downloads no provider, model or release artifact.
+
+For a no-checkout consumer, stage the fixed three-module verifier bundle:
+
+```bash
+python3 -B scripts/release/release_assets.py stage-verifier \
+  --output-directory /absolute/private/path/new-verifier
+python3 -B /absolute/private/path/new-verifier/release_assets.py --help
+```
+
+The release workflow mounts this directory read-only. A single copied
+`release_assets.py` cannot import its native-cohort/asset verification owners.
+The ordinary release/attestation/clean-host gates below remain authoritative.
+
+## Candidate contract surfaces
+
 | Surface | Candidate contract | Boundary |
 | --- | --- | --- |
 | CLI | `renderflow` `0.3.0-rc.1` binary and its exact digest | The release asset's `--version`, `--help`, `doctor`, planning, dry-run, fixture run, and failure exits need downloaded-asset evidence on Ubuntu 24.04 x86_64 GNU |

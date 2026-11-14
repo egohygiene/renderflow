@@ -16,7 +16,7 @@ use sha2::{Digest, Sha256};
 
 use super::files::{self, BundleRoot, FileObservation};
 use super::verification::{PinnedRunReceipt, VerificationError, VerificationLimits};
-use super::{ArtifactRole, PublishedTarget, RunManifest, RunState};
+use super::{ArtifactRole, PublishedTarget, RunState};
 use crate::process::ProcessCancellationToken;
 
 pub const PORTABLE_SCHEMA: &str = "renderflow.portable-forest/v1";

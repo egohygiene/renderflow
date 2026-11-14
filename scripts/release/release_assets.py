@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Create and independently verify the bounded Renderflow release receipt.
 
-Only prepare/manifest reads the source checkout. verify consumes downloaded assets.
-Checksum verification is separate from optional GitHub/Sigstore trust verification.
+Prepare/manifest read source metadata; stage-verifier captures the owner modules.
+Verify consumes downloaded assets; local-smoke checks captured local binary bytes.
+Checksums and local smoke remain separate from GitHub/Sigstore trust verification.
 """
 
 from __future__ import annotations
@@ -14,6 +15,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import platform
 import re
 import shutil
 import struct
@@ -335,7 +337,7 @@ def png(color: tuple[int, int, int]) -> bytes:
     return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", 100, 100, 8, 2, 0, 0, 0)) + chunk(b"IDAT", zlib.compress(pixel_rows, 9)) + chunk(b"IEND", b"")
 
 
-def smoke_pdf(binary: Path, root: Path) -> None:
+def smoke_pdf(binary: Path, root: Path) -> dict:
     """Exercise the advertised exact provider route on copied synthetic files."""
     provider = shutil.which("img2pdf")
     require(provider is not None, "release PDF smoke requires real img2pdf 0.6.3")
@@ -395,14 +397,18 @@ def smoke_pdf(binary: Path, root: Path) -> None:
         require(len(document.pages) == 2, "pikepdf found a different page count")
         for page in document.pages:
             require(len(page.MediaBox) == 4 and len(page.TrimBox) == 4 and len(page.BleedBox) == 4, "PDF page boxes missing")
+    output_sha256 = digest(output)
     # A changed frozen source must be refused before publishing another PDF.
     (pdf_work / "page-001.png").write_bytes(b"source changed after plan")
     (pdf_work / "dist").rename(pdf_work / "completed-dist")
     run_binary(binary, pdf_work, ["build", "--config", "renderflow.yaml"], expect_success=False)
     require(not (pdf_work / "dist" / "source.pages" / "interior.pdf").exists(), "stale PDF source published an artifact")
+    return {"format": "pdf", "sha256": output_sha256, "pages": 2,
+            "provider": "img2pdf 0.6.3", "independent_inspection": "pikepdf_and_renderflow",
+            "source_bytes_preserved": True, "stale_source_refused": True}
 
 
-def smoke(binary: Path, version: str) -> None:
+def smoke(binary: Path, version: str) -> dict:
     with tempfile.TemporaryDirectory(prefix="renderflow-release-smoke-") as temporary:
         root = Path(temporary)
         install = root / "install"
@@ -453,8 +459,64 @@ def smoke(binary: Path, version: str) -> None:
         evidence = json.loads(inspected.stdout)
         require(evidence.get("valid") is True and evidence.get("fixed_layout", {}).get("status") == "validated" and evidence.get("provenance", {}).get("status") == "verified", "native EPUB inspection or provenance failed")
         run_binary(installed, work, ["spec", "validate", "--config", "missing.yaml"], expect_success=False)
-        smoke_pdf(installed, root)
+        pdf = smoke_pdf(installed, root)
         print("Clean installation smoke: version, help, doctor, plan, native EPUB, exact-provider PDF, independent inspections, and failure exits passed")
+        return {"version": version, "version_help_doctor": "passed",
+                "spec_plan_dry_run": "passed", "missing_config_refused": True,
+                "outputs": [{"format": "epub", "sha256": digest(epub), "pages": 2,
+                             "independent_inspection": "renderflow_epub_and_provenance",
+                             "fixed_layout": "validated", "provenance": "verified"}, pdf]}
+
+
+def local_smoke(args: argparse.Namespace) -> None:
+    """Check captured local binary bytes without creating release evidence."""
+    import native_cohort
+    require(bool(VERSION.fullmatch(args.version)), "local candidate version must be SemVer prerelease")
+    binary = Path(args.binary).absolute()
+    output = Path(args.output).absolute()
+    require(output.parent.resolve() == output.parent and output.parent.is_dir(),
+            "local receipt requires a canonical existing parent")
+    require(not os.path.lexists(output), "local receipt already exists; never overwrite evidence")
+    captured = native_cohort.cargo_binary(binary)
+    native_cohort.binary_identity(captured, TARGET)
+    require(native_cohort.host_target() == TARGET, "local smoke profile requires its real Linux x86_64 GNU host")
+    binary_sha256 = hashlib.sha256(captured).hexdigest()
+    # Execute only the captured bytes. A changing caller path cannot substitute
+    # a different executable between observation and smoke installation.
+    with tempfile.TemporaryDirectory(prefix="renderflow-local-candidate-") as temporary:
+        selected = Path(temporary) / "renderflow"
+        native_cohort.put(selected, captured, 0o700)
+        checks = smoke(selected, args.version)
+    require(native_cohort.cargo_binary(binary) == captured, "local candidate changed during smoke")
+    receipt = {
+        "schema_version": "renderflow.local-candidate-smoke/v1",
+        "qualification": "local_captured_binary_smoke_only",
+        "binary": {"sha256": binary_sha256, "bytes": len(captured), "target": TARGET},
+        "host": {"system": platform.system(), "machine": platform.machine(),
+                 "libc": list(platform.libc_ver())},
+        "checks": checks,
+        "source_authenticated": False,
+        "release_authenticated": False,
+        "supported_host_qualified": False,
+        "native_matrix_qualified": False,
+        "publication_performed": False,
+    }
+    data = (json.dumps(receipt, indent=2, sort_keys=True) + "\n").encode()
+    require(len(data) <= 32768, "local receipt exceeds byte budget")
+    native_cohort.put(output, data, 0o600)
+    print(f"Local candidate smoke passed; binary SHA-256 {binary_sha256}; no release or host qualification granted")
+
+
+def stage_verifier(args: argparse.Namespace) -> None:
+    """Stage the closed release-tool module set for a no-checkout consumer."""
+    import native_cohort
+    source = Path(__file__).resolve().parent
+    captured = {name: native_cohort.assets.read(source / name, 262144)
+                for name in ("release_assets.py", "native_cohort.py", "cohort_assets.py")}
+    output = native_cohort.fresh(args.output_directory, Path(__file__).resolve().parent.parent.parent)
+    for name, data in captured.items():
+        native_cohort.put(output / name, data)
+    print("Staged the three release verifier modules; no release assets or authority created")
 
 
 def verify(args: argparse.Namespace) -> None:
@@ -551,6 +613,12 @@ def main() -> None:
     commands = parser.add_subparsers(dest="command", required=True)
     import native_cohort
     native_cohort.arguments(commands)
+    local = commands.add_parser("local-smoke", help="Exercise a local Linux binary without release/signing/publication authority")
+    local.add_argument("--binary", required=True)
+    local.add_argument("--version", required=True)
+    local.add_argument("--output", required=True)
+    staging = commands.add_parser("stage-verifier", help="Stage the complete stdlib release verifier outside the checkout")
+    staging.add_argument("--output-directory", required=True)
     for action in ("prepare", "manifest", "verify"):
         cmd = commands.add_parser(action)
         cmd.add_argument("--artifact-dir", required=True)
@@ -560,7 +628,7 @@ def main() -> None:
         cmd.add_argument("--target", required=True)
         cmd.add_argument("--repository", default=REPOSITORY)
         if action != "verify":
-            cmd.add_argument("--source-dir", default=str(Path(__file__).resolve().parents[2]))
+            cmd.add_argument("--source-dir", default=str(Path(__file__).resolve().parent.parent.parent))
         if action == "prepare":
             cmd.add_argument("--metadata-file", help="Fixture-only, or a precomputed cargo metadata JSON file")
         if action == "manifest":
@@ -572,7 +640,11 @@ def main() -> None:
             cmd.add_argument("--installer-script", help="Test scripts/install.sh via file:// pinned assets in a clean temporary install")
     args = parser.parse_args()
     try:
-        if args.command.startswith("cohort-"):
+        if args.command == "local-smoke":
+            local_smoke(args)
+        elif args.command == "stage-verifier":
+            stage_verifier(args)
+        elif args.command.startswith("cohort-"):
             native_cohort.dispatch(args)
         else:
             {"prepare": prepare, "manifest": manifest, "verify": verify}[args.command](args)

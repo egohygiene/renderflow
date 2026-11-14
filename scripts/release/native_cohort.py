@@ -221,12 +221,12 @@ def arguments(commands):
     build_parser = commands.add_parser("cohort-build")
     for name in ["artifact-dir", "work-directory", "target", "version", "commit"]:
         build_parser.add_argument("--" + name, required=True)
-    build_parser.add_argument("--source-dir", default=str(Path(__file__).resolve().parents[2]))
+    build_parser.add_argument("--source-dir", default=str(Path(__file__).resolve().parent.parent.parent))
     build_parser.add_argument("--metadata-file")
     assembly = commands.add_parser("cohort-assemble")
     assembly.add_argument("--artifact-dir", required=True)
     assembly.add_argument("--parts-request", required=True)
-    assembly.add_argument("--source-dir", default=str(Path(__file__).resolve().parents[2]))
+    assembly.add_argument("--source-dir", default=str(Path(__file__).resolve().parent.parent.parent))
     for name in ["cohort-verify", "cohort-install", "cohort-handoff", "cohort-report"]:
         parser = commands.add_parser(name)
         parser.add_argument("--artifact-dir", required=True)

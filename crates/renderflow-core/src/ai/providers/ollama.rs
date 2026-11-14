@@ -4,7 +4,7 @@
 //! server via its REST API (`POST /api/generate`).  It is the default provider
 //! for local-first execution.
 
-use std::fmt;
+use std::{fmt, time::Duration};
 
 use anyhow::{Context, Result};
 use serde_json::json;
