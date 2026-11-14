@@ -61,6 +61,11 @@ impl StrategyArtifactTransform {
                 to
             )
         })?;
+        if matches!(output_type, OutputType::Audio(_)) {
+            // Validate while constructing the canonical adapter so a dry-run
+            // cannot admit a typo that only fails during real execution.
+            crate::audio::ffmpeg::configured_profile(profile.as_deref())?;
+        }
         let variables: HashMap<String, String> = variables.into_iter().collect();
         let font_target = match to {
             Format::Html => Some(FontTarget::Html),
@@ -319,6 +324,34 @@ pub fn output_type_for_format(format: Format) -> Option<OutputType> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn explicit_audio_profile_typos_are_refused_when_constructing_the_adapter() {
+        for profile in ["hq_320kk", "", " "] {
+            let error = StrategyArtifactTransform::new(
+                Format::Wav,
+                Format::Mp3,
+                None,
+                Some(profile.into()),
+                BTreeMap::new(),
+                None,
+            )
+            .err()
+            .expect("an explicit profile typo must not enter the canonical plan");
+            assert!(error.to_string().contains("unknown audio quality profile"));
+        }
+        for profile in [None, Some("HQ-320K"), Some("streaming_128k")] {
+            assert!(StrategyArtifactTransform::new(
+                Format::Wav,
+                Format::Mp3,
+                None,
+                profile.map(str::to_owned),
+                BTreeMap::new(),
+                None,
+            )
+            .is_ok());
+        }
+    }
 
     #[test]
     fn maps_builtin_document_and_media_outputs() {

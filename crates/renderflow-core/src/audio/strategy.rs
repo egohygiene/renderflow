@@ -16,6 +16,7 @@ use crate::strategies::{OutputStrategy, RenderContext};
 /// The optional `profile` field maps to an [`AudioProfile`](crate::audio::profile::AudioProfile)
 /// name as defined in the renderflow YAML config.  When `None`, the strategy
 /// uses format-appropriate defaults.
+/// An explicit unknown profile is refused before dry-run or provider execution.
 pub struct AudioStrategy {
     pub format: AudioFormat,
     pub profile: Option<String>,
@@ -30,6 +31,14 @@ impl AudioStrategy {
 
 impl OutputStrategy for AudioStrategy {
     fn render(&self, ctx: &RenderContext) -> Result<()> {
+        let args = FfmpegAudioArgs::new(
+            ctx.input_path,
+            ctx.output_path,
+            self.format,
+            self.profile.as_deref(),
+        )
+        .try_build()?;
+
         if ctx.dry_run {
             info!(
                 input  = %ctx.input_path,
@@ -58,14 +67,6 @@ impl OutputStrategy for AudioStrategy {
             profile = ?self.profile,
             "Converting audio via ffmpeg"
         );
-
-        let args = FfmpegAudioArgs::new(
-            ctx.input_path,
-            ctx.output_path,
-            self.format,
-            self.profile.as_deref(),
-        )
-        .build();
 
         let args_refs: Vec<&str> = args.iter().map(String::as_str).collect();
 
@@ -115,6 +116,35 @@ mod tests {
             "dry-run must succeed even without ffmpeg installed: {:?}",
             result
         );
+    }
+
+    #[test]
+    fn explicit_profile_typos_fail_before_provider_for_real_and_dry_runs() {
+        let vars = HashMap::new();
+        let directory = tempfile::tempdir().unwrap();
+        let output = directory.path().join("untouched.mp3");
+        for dry_run in [false, true] {
+            for profile in ["hq_320kk", ""] {
+                let strategy = AudioStrategy::new(AudioFormat::Mp3, Some(profile.into()));
+                let ctx = audio_ctx(
+                    "/nonexistent/input.wav",
+                    output.to_str().unwrap(),
+                    &vars,
+                    dry_run,
+                );
+                let error = strategy.render(&ctx).unwrap_err();
+                assert!(error.to_string().contains("unknown audio quality profile"));
+                assert!(!output.exists());
+            }
+        }
+    }
+
+    #[test]
+    fn valid_selected_profile_remains_a_provider_free_dry_run() {
+        let vars = HashMap::new();
+        let strategy = AudioStrategy::new(AudioFormat::Mp3, Some("hq_320k".into()));
+        let ctx = audio_ctx("/nonexistent/input.wav", "/tmp/output.mp3", &vars, true);
+        strategy.render(&ctx).unwrap();
     }
 
     #[test]

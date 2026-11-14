@@ -1,5 +1,17 @@
 use super::format::AudioFormat;
 use super::profile::AudioProfile;
+use anyhow::Result;
+
+pub(crate) fn configured_profile(profile: Option<&str>) -> Result<AudioProfile> {
+    match profile {
+        None => Ok(AudioProfile::Default),
+        Some(name) => AudioProfile::from_config_str(name).ok_or_else(|| {
+            anyhow::anyhow!(
+                "unknown audio quality profile; select a documented profile or omit it for format defaults"
+            )
+        }),
+    }
+}
 
 /// Build the complete FFmpeg argument list for an audio conversion.
 ///
@@ -13,7 +25,7 @@ use super::profile::AudioProfile;
 ///     AudioFormat::Mp3,
 ///     Some("320k"),
 /// )
-/// .build();
+/// .try_build()?;
 /// let refs: Vec<&str> = args.iter().map(String::as_str).collect();
 /// run_command("ffmpeg", &refs)?;
 /// ```
@@ -31,8 +43,9 @@ impl<'a> FfmpegAudioArgs<'a> {
     /// * `output_path` – desired destination file path.
     /// * `format`      – target [`AudioFormat`].
     /// * `profile_str` – optional profile name from YAML config (e.g. `"320k"`).
-    ///   Parsed via [`AudioProfile::from_config_str`]; falls back to
-    ///   [`AudioProfile::Default`] when `None` or unrecognised.
+    ///   Parsed via [`AudioProfile::from_config_str`]. [`Self::try_build`]
+    ///   uses defaults only when absent and rejects an unrecognised selection.
+    ///   [`Self::build`] retains the historical fallback for SDK compatibility.
     pub fn new(
         input_path: &'a str,
         output_path: &'a str,
@@ -56,12 +69,29 @@ impl<'a> FfmpegAudioArgs<'a> {
     ///
     /// `-y` is always included to overwrite the output file without
     /// confirmation, which is correct for a non-interactive pipeline.
+    /// This compatibility entrypoint retains the historical default fallback
+    /// for unknown names. Configuration-driven callers should use
+    /// [`Self::try_build`] to reject explicit mistakes.
     pub fn build(self) -> Vec<String> {
         let profile = self
             .profile_str
             .and_then(AudioProfile::from_config_str)
             .unwrap_or(AudioProfile::Default);
 
+        self.build_profile(profile)
+    }
+
+    /// Assemble arguments after validating an explicitly selected profile.
+    ///
+    /// An omitted profile retains the format defaults. An explicit unknown or
+    /// empty name is an error before any provider is invoked. This does not
+    /// change the existing profile aliases or format-specific option mappings.
+    pub fn try_build(self) -> Result<Vec<String>> {
+        configured_profile(self.profile_str)?;
+        Ok(self.build())
+    }
+
+    fn build_profile(self, profile: AudioProfile) -> Vec<String> {
         let options = profile.resolve(self.format);
 
         let mut args: Vec<String> = vec![
@@ -167,11 +197,43 @@ mod tests {
     }
 
     #[test]
-    fn test_unknown_profile_falls_back_to_default() {
+    fn test_legacy_builder_unknown_profile_falls_back_to_default() {
         let args_default = build_args(AudioFormat::Mp3, None);
         let args_unknown = build_args(AudioFormat::Mp3, Some("nonexistent_profile_xyz"));
         // Both should produce the same output since unknown profile falls back to Default.
         assert_eq!(args_default, args_unknown);
+    }
+
+    #[test]
+    fn test_checked_builder_rejects_explicit_unknown_and_empty_selections() {
+        for profile in ["hq_320kk", "", " ", "default_typo"] {
+            let error = FfmpegAudioArgs::new(
+                "/input/test.wav",
+                "/output/test.mp3",
+                AudioFormat::Mp3,
+                Some(profile),
+            )
+            .try_build()
+            .unwrap_err();
+            assert!(error.to_string().contains("unknown audio quality profile"));
+        }
+    }
+
+    #[test]
+    fn test_checked_builder_preserves_absent_defaults_and_known_alias_arguments() {
+        for (format, profile) in [
+            (AudioFormat::Mp3, None),
+            (AudioFormat::Mp3, Some("HQ-320K")),
+            (AudioFormat::Wav, Some("broadcast")),
+            (AudioFormat::Flac, Some("flac_hires")),
+            (AudioFormat::Opus, Some("opus_128k")),
+        ] {
+            let checked =
+                FfmpegAudioArgs::new("/input/test.wav", "/output/test.ext", format, profile)
+                    .try_build()
+                    .unwrap();
+            assert_eq!(checked, build_args(format, profile));
+        }
     }
 
     #[test]
