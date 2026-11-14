@@ -1,0 +1,76 @@
+{
+  "schema_version": "renderflow.root-help-build/v1",
+  "observed_at_utc": "2026-11-14T19:48:49.222394+00:00",
+  "base_revision": "213c09d3990cb9a3e0b79001b07495ef65c25cca",
+  "built_source": {
+    "revision": "cdcff3ad2315cad1708450e43550ac2d279b2782",
+    "tree": "453abdd8a60bdeeb9925483eb3db6f055dd78e10",
+    "dirty_before": false,
+    "dirty_after": false
+  },
+  "source_input_sha256": {
+    "crates/renderflow-cli/src/main.rs": "478eb13b1fb30ac57270f0c627e34222a8570d68adf0aab088f0e6908b7e8fac",
+    "crates/renderflow-cli/src/root_help.rs": "6674e2606b984f35f12be541e8ab5b6ddee0e7431b3d280b7b3dbf384a9b393e",
+    "crates/renderflow-cli/assets/cli/renderflow.txt": "a7a5a6adc534cbada196fccf26569bc19fcc194ca54b1038e20b0ec79418795e",
+    "crates/renderflow-core/src/app.rs": "1cd54bb51a11cdea449988d781bab732a4d293e82948dee44708d9348f6e7658",
+    "Cargo.toml": "5b74bde9af11d17b7e4f6d742b055483158874e07d2e1759ca671e0d0b16808a",
+    "Cargo.lock": "409dbf8fa45ea228bce21c7f961784fcd95d8704e82417bf08d27e73f967bc94",
+    "crates/renderflow-cli/Cargo.toml": "073f1c0cc0ab404150fb6c12e73d6ded51048b9aa456262ce2910e5350caabb3"
+  },
+  "command": [
+    "cargo",
+    "+1.94.0",
+    "build",
+    "--locked",
+    "--offline",
+    "--release",
+    "--package",
+    "renderflow-cli",
+    "--bin",
+    "renderflow",
+    "--target",
+    "x86_64-unknown-linux-gnu",
+    "--jobs",
+    "2"
+  ],
+  "tools": {
+    "rustc": "rustc 1.94.0 (4a4ef493e 2026-03-02)\nbinary: rustc\ncommit-hash: 4a4ef493e3a1488c6e321570238084b38948f6db\ncommit-date: 2026-03-02\nhost: x86_64-unknown-linux-gnu\nrelease: 1.94.0\nLLVM version: 21.1.8",
+    "cargo": "cargo 1.94.0 (85eff7c80 2026-01-15)"
+  },
+  "host": {
+    "system": "Linux",
+    "machine": "x86_64",
+    "libc": [
+      "glibc",
+      "2.41"
+    ]
+  },
+  "build_exit_code": 0,
+  "cargo_reported_duration": "5m 41s",
+  "build_log": {
+    "name": "release-build.log",
+    "bytes": 862,
+    "sha256": "b1f25a20e2375335d0040e4c5e5dc140b79b9342af5eff2a159516ae257c25be"
+  },
+  "captured_binary": {
+    "name": "renderflow",
+    "bytes": 19990472,
+    "sha256": "05f3eff87637a150d6af7fa0ce4f53fcc3198faced59cef65631ce512bfac88d",
+    "target": "x86_64-unknown-linux-gnu"
+  },
+  "prior_captured_candidate_preserved": {
+    "sha256": "e6a182eb2d1381301312f6f37a725620a988dc761cb972a0a9b19c5d7d6cbe82",
+    "bytes": 19986328
+  },
+  "source_checks": {
+    "targeted_rustfmt_1_94": true,
+    "git_whitespace": true
+  },
+  "behavioral_pty_execution": "separate parent-owned four-CLI checkpoint; not claimed by this build record",
+  "full_workspace_check_repeated": false,
+  "full_runtime_suite_executed": false,
+  "strict_clippy_executed": false,
+  "native_matrix_qualified": false,
+  "release_authenticated": false,
+  "publication_performed": false
+}
