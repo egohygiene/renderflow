@@ -4,8 +4,15 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, edited]
 
+concurrency:
+  group: '${{ github.workflow }}-${{ github.ref }}'
+  cancel-in-progress: false
+
 jobs:
   commitlint:
+    timeout-minutes: 30
+    if: >-
+      (github.event_name == 'workflow_dispatch' || vars.FLOW_SUITE_HOSTED_CI == 'enabled') && (github.event_name != 'schedule' || vars.FLOW_SUITE_SCHEDULED_CI == 'enabled')
     name: Lint commit messages
     runs-on: ubuntu-latest
     permissions:

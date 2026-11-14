@@ -11,10 +11,16 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: '${{ github.workflow }}-${{ github.ref }}'
+  cancel-in-progress: false
+
 jobs:
   fast:
+    timeout-minutes: 30
     name: Fast hermetic corpus
-    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    if: >-
+      (github.event_name == 'workflow_dispatch' || vars.FLOW_SUITE_HOSTED_CI == 'enabled') && (github.event_name != 'schedule' || vars.FLOW_SUITE_SCHEDULED_CI == 'enabled') && (github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -39,8 +45,10 @@ jobs:
           path: "${{ runner.temp }}/renderflow-conformance-fast.json"
 
   maximal:
+    timeout-minutes: 30
     name: Maximal tool-backed corpus
-    if: github.event_name == 'schedule' || github.event_name == 'release' || github.event_name == 'workflow_dispatch'
+    if: >-
+      (github.event_name == 'workflow_dispatch' || vars.FLOW_SUITE_HOSTED_CI == 'enabled') && (github.event_name != 'schedule' || vars.FLOW_SUITE_SCHEDULED_CI == 'enabled') && (github.event_name == 'schedule' || github.event_name == 'release' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
