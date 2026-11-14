@@ -32,3 +32,6 @@ apps/web/.vitest/
 
 # Python release helper bytecode
 __pycache__/
+
+# Private cache owned by the selected local act launcher.
+/.cache/realm/local-ci/
