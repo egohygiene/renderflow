@@ -5319,6 +5319,9 @@ fn render_output_paths(resolved: &ResolvedExecution) -> Result<Vec<PathBuf>> {
 fn artifact_extension(format: Format) -> String {
     match format {
         Format::Text => "txt".to_string(),
+        Format::M4aAlac => crate::audio::AudioFormat::M4aAlac
+            .file_extension()
+            .to_string(),
         Format::Kepub => "kepub.epub".to_string(),
         Format::ScreenplayJson => "screenplay.json".to_string(),
         Format::TimedTranscriptJson => "timed-transcript.json".to_string(),
@@ -5390,6 +5393,14 @@ mod tests {
             variables: BTreeMap::new(),
             transforms: None,
         }
+    }
+
+    #[test]
+    fn alac_bundle_suffix_uses_m4a_container_while_graph_format_remains_distinct() {
+        assert_eq!(artifact_extension(Format::M4aAlac), "m4a");
+        assert_eq!(Format::M4aAlac.to_string(), "m4a_alac");
+        assert_eq!(artifact_extension(Format::M4aAac), "m4a");
+        assert_eq!(artifact_extension(Format::Mp3), "mp3");
     }
 
     #[test]

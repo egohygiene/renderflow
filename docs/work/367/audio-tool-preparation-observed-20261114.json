@@ -1,0 +1,219 @@
+{
+  "actual_demuxers": [
+    "wav",
+    "flac",
+    "mov",
+    "mp3",
+    "aac"
+  ],
+  "actual_encoders": [
+    "flac",
+    "alac",
+    "libmp3lame",
+    "aac",
+    "pcm_s16le",
+    "pcm_s24le",
+    "pcm_s32le",
+    "pcm_f32le"
+  ],
+  "actual_required_muxers": [
+    "wav",
+    "flac",
+    "ipod",
+    "mp3",
+    "adts",
+    "s16le",
+    "s24le"
+  ],
+  "build_commands": [
+    [
+      "configure",
+      "{configuration_argv}"
+    ],
+    [
+      "make",
+      "-j2"
+    ],
+    [
+      "make",
+      "install"
+    ]
+  ],
+  "configuration_argv": [
+    "--prefix={tool-prefix}/install",
+    "--disable-autodetect",
+    "--disable-x86asm",
+    "--disable-network",
+    "--disable-doc",
+    "--disable-debug",
+    "--disable-ffplay",
+    "--disable-shared",
+    "--enable-static",
+    "--disable-everything",
+    "--enable-libmp3lame",
+    "--enable-ffmpeg",
+    "--enable-ffprobe",
+    "--enable-protocol=file,pipe",
+    "--enable-demuxer=wav,flac,mov,mp3,aac",
+    "--enable-muxer=wav,flac,ipod,mp4,mov,mp3,adts,null,pcm_s16le,pcm_s24le,pcm_f32le,hash",
+    "--enable-decoder=pcm_s16le,pcm_s24le,pcm_s32le,pcm_f32le,flac,alac,mp3,mp3float,aac",
+    "--enable-encoder=pcm_s16le,pcm_s24le,pcm_s32le,pcm_f32le,flac,alac,libmp3lame,aac",
+    "--enable-parser=flac,mpegaudio,aac",
+    "--enable-filter=anull,abuffer,abuffersink,aformat,aresample,atrim,asetpts",
+    "--extra-cflags=-I{tool-prefix}/dependencies/usr/include",
+    "--extra-ldflags=-L{tool-prefix}/static"
+  ],
+  "configured_license": "LGPL version 2.1 or later",
+  "dependency_installation": "verified Debian packages extracted into a separate private tool prefix; no system package installation",
+  "ffmpeg_version": "8.0.1",
+  "license_notices": {
+    "dependencies/usr/share/doc/libmp3lame-dev/copyright": {
+      "bytes": 7026,
+      "sha256": "f0e4c5098ffedad31473eec38810c26409223858fb8d63dd7685bf225f96bc5d"
+    },
+    "source/ffmpeg-8.0.1/COPYING.LGPLv2.1": {
+      "bytes": 26517,
+      "sha256": "246041b6ecf9bc32d718a62c57877c78b5eb397b6467e74ed7ae2626ab189c30"
+    },
+    "source/ffmpeg-8.0.1/LICENSE.md": {
+      "bytes": 4346,
+      "sha256": "2e1d16c72fd74e12063776371da757322f8b77589386532f4fd8634bde7de1af"
+    }
+  },
+  "original_aniflow_subjects_unchanged": {
+    "ffmpeg": {
+      "bytes": 8943080,
+      "sha256": "098c4ba3d9d7ca067bc9bfa004a33b5b91cf0913fa9380bcda7f3975c214380b"
+    },
+    "ffprobe": {
+      "bytes": 8731336,
+      "sha256": "31054f1d68b781089f98f594bb304cf5c9ae96dadafafdd021719ab4101a79be"
+    }
+  },
+  "remote_publication_performed": false,
+  "retained_log_inventory": {
+    "build.log": {
+      "bytes": 19436,
+      "sha256": "ec2083059c1faf031cb6c743a5cb9c7dd1e68e536fa60c9d3af3025a462180a3"
+    },
+    "configure.log": {
+      "bytes": 2903,
+      "sha256": "b301a515905fc5b8261284b56b01eb9635399b1df8fae2465afc4ea8bc2658d7"
+    },
+    "debian-signature.log": {
+      "bytes": 2915,
+      "sha256": "a136e9700535c1fc9f10211c69e46da9e98249d59c4813c17d35715ed908fcc0"
+    },
+    "evidence/decoders.log": {
+      "bytes": 809,
+      "sha256": "90dfae50897bd1d588d8dba6576f8afe9996a2b9839ea457e41e4e1483101f25"
+    },
+    "evidence/demuxers.log": {
+      "bytes": 315,
+      "sha256": "7c9fbc0967f4d005ada7b27a3542077d039bfc0ec5edab3c6fffa3a6fb1cc2fe"
+    },
+    "evidence/encoders.log": {
+      "bytes": 766,
+      "sha256": "088ac800c7453200dc927d7d73aef4ef918cb3744d0e9869bbf9db7d7ea55677"
+    },
+    "evidence/ldd.log": {
+      "bytes": 222,
+      "sha256": "a59c553b256fd45ae21d240d0a65d9ec92bd794184f0b59032252bd769fff3b5"
+    },
+    "evidence/muxers.log": {
+      "bytes": 631,
+      "sha256": "765ce2881951a5604a4707b7684988f342ff4d44cdd16094142e8164f4a3c09d"
+    },
+    "evidence/protocols.log": {
+      "bytes": 69,
+      "sha256": "915ff778b7271117f83acd0fed65088ff70ce6b90b45fb7cb4b94a9de40d2a36"
+    },
+    "evidence/version.log": {
+      "bytes": 1315,
+      "sha256": "dc95b0dc312da760f25d7d0edcb32ab7f0f7a648044f2c7f0a0007b1bf7320a6"
+    },
+    "ffmpeg-key-import.log": {
+      "bytes": 352,
+      "sha256": "9d78d58ff5944d324fcf8020872f0132389da915698bfffd3b81474d33c0daa7"
+    },
+    "ffmpeg-signature.log": {
+      "bytes": 947,
+      "sha256": "1458718c5bd66a74c50861c743ea8f80d1434c5f3de3f20e78bc9657d3483940"
+    },
+    "install.log": {
+      "bytes": 21701,
+      "sha256": "3061a9cf3daa823f939abf6f70921d3fa38f5ea12d2c164b380097bb38b28cad"
+    }
+  },
+  "schema_version": "renderflow.audio-tool-preparation-observation/v1",
+  "scope": "audio-only; not a replacement for the preserved video-capable Ani provider",
+  "source_inputs": {
+    "archive_sha256": "05ee0b03119b45c0bdb4df654b96802e909e0a752f72e4fe3794f487229e5a41",
+    "debian_inrelease_sha256": "0584fba32e13e0ab8285fb16c27adea1ec03a73669c18702821094fd6ca86675",
+    "debian_package_index_sha256": "7778d3e3f303b7ddb8ce0fe7c8d57473a076c6bf2e8f241f75421d2396352498",
+    "debian_release_signature_verified": true,
+    "ffmpeg_key_fingerprints": [
+      "FCF986EA15E6E293A5644F10B4322F04D67658D8"
+    ],
+    "ffmpeg_version": "8.0.1",
+    "packages": [
+      {
+        "Architecture": "amd64",
+        "Depends": "libmp3lame0 (= 3.100-6+b3)",
+        "Description": "MP3 encoding library (development)",
+        "Description-md5": "461714f68545fc10b2b5896d35bdc28e",
+        "Filename": "pool/main/l/lame/libmp3lame-dev_3.100-6+b3_amd64.deb",
+        "Homepage": "https://lame.sourceforge.io/",
+        "Installed-Size": "769",
+        "MD5sum": "55be77f8b4b22ed0a6a4f8b6046a00ca",
+        "Maintainer": "Debian Multimedia Maintainers <debian-multimedia@lists.debian.org>",
+        "Multi-Arch": "same",
+        "Package": "libmp3lame-dev",
+        "Priority": "optional",
+        "SHA256": "2eecaa85c5d981cf7aa29a5db92d1f7e6f5de3cf7e1a275c59b61ffb07ab1d7c",
+        "Section": "libdevel",
+        "Size": "384700",
+        "Source": "lame (3.100-6)",
+        "Tag": "devel::library, role::devel-lib",
+        "Version": "3.100-6+b3"
+      },
+      {
+        "Architecture": "amd64",
+        "Depends": "libc6 (>= 2.38)",
+        "Description": "MP3 encoding library",
+        "Description-md5": "62ea810162efb51dfd01578746ef5d68",
+        "Filename": "pool/main/l/lame/libmp3lame0_3.100-6+b3_amd64.deb",
+        "Homepage": "https://lame.sourceforge.io/",
+        "Installed-Size": "548",
+        "MD5sum": "488959c443889726e46be619e0bcb2d8",
+        "Maintainer": "Debian Multimedia Maintainers <debian-multimedia@lists.debian.org>",
+        "Multi-Arch": "same",
+        "Package": "libmp3lame0",
+        "Priority": "optional",
+        "SHA256": "3867319c9fbbc8cc25f2d1dc1d75d13548c84c37fa709c1ac9ca02ac051b63ab",
+        "Section": "libs",
+        "Size": "362660",
+        "Source": "lame (3.100-6)",
+        "Tag": "role::shared-lib",
+        "Version": "3.100-6+b3"
+      }
+    ],
+    "signature_verified": true
+  },
+  "source_inputs_subject": {
+    "bytes": 2146,
+    "sha256": "67c976fe9f3e2e73d2e49ee4a4391bdb1601e698f162463265e5437c7342a4c3"
+  },
+  "static_lame_dependency": true,
+  "tool_matrix_or_redistribution_qualification": false,
+  "tool_subjects": {
+    "ffmpeg": {
+      "bytes": 3280352,
+      "sha256": "94dbc5c9d7602f044b0ec9089cea2085d0f2adc3a2b1612eeec84f8badc6949d"
+    },
+    "ffprobe": {
+      "bytes": 3056320,
+      "sha256": "40d68a7e8fc61e8656be62b12179142124ebd61eea5ed8afefda6e2d68b97a1d"
+    }
+  }
+}
