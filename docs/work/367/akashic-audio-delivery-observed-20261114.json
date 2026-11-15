@@ -1,0 +1,1011 @@
+{
+  "binary_sha256": "61ed02b8a0b5396ea1685c3131ae29f75f943a355668a98106e93fda0e28b942",
+  "build_capture": {
+    "binary": {
+      "path": "renderflow",
+      "sha256": "61ed02b8a0b5396ea1685c3131ae29f75f943a355668a98106e93fda0e28b942",
+      "size_bytes": 20013704
+    },
+    "build_argv": [
+      "cargo",
+      "+1.94.0",
+      "build",
+      "--locked",
+      "--offline",
+      "--release",
+      "--target",
+      "x86_64-unknown-linux-gnu",
+      "--package",
+      "renderflow-cli",
+      "--jobs",
+      "2"
+    ],
+    "build_cache_reused": true,
+    "build_log": {
+      "path": "build-cli-audio-public-source.log",
+      "sha256": "24f3d536eb5b9dc04a041320022f9acc0542aae89237da23c69483ca61a532b3"
+    },
+    "build_profile": "release",
+    "compiled_contract": {
+      "path": "release-contract.json",
+      "sha256": "9ff99a410bcf98a82801eeadf3e35fdc40539c36d192ce066365769c98e9aa74",
+      "size_bytes": 372295
+    },
+    "host": {
+      "architecture": "x86_64",
+      "distribution": "Debian GNU/Linux13(trixie)",
+      "kernel": "6.18.57",
+      "os_release_sha256": "14c430da04c2d571793fc68a8f5e17fce3d7a746e316c3f23192590861b18bd7"
+    },
+    "independent_rebuilds": 0,
+    "native_owner_runtime_proof_status": "pending",
+    "native_platform_or_full_provider_matrix_qualified": false,
+    "publisher_authenticated": false,
+    "remote_publication_performed": false,
+    "rustc": "rustc 1.94.0 (4a4ef493e 2026-03-02)\nbinary: rustc\ncommit-hash: 4a4ef493e3a1488c6e321570238084b38948f6db\ncommit-date: 2026-03-02\nhost: x86_64-unknown-linux-gnu\nrelease: 1.94.0\nLLVM version: 21.1.8\n",
+    "schema_version": "renderflow.local-cli-build-capture/v1",
+    "signing_performed": false,
+    "source_clean": true,
+    "source_revision": "848984ab363058b2b765f4056ed01bde9f2b54d6",
+    "source_tree": "87cc8cc9e1dd55095603376ba523a52bf6f4df9a",
+    "source_url": "https://github.com/egohygiene/renderflow/commit/848984ab363058b2b765f4056ed01bde9f2b54d6",
+    "target": "x86_64-unknown-linux-gnu",
+    "ubuntu_baseline_qualified": false,
+    "version": "renderflow 0.3.0-rc.1"
+  },
+  "capture_status_scope": "Build capture status was pending at immutable capture time; the following selected runtime receipts were observed afterward.",
+  "channels": 2,
+  "events": [
+    {
+      "argv": [
+        "{audio-tools}/ffmpeg",
+        "-version"
+      ],
+      "elapsed_ms": 2,
+      "exit_code": 0,
+      "name": "ffmpeg-version",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "dc95b0dc312da760f25d7d0edcb32ab7f0f7a648044f2c7f0a0007b1bf7320a6"
+    },
+    {
+      "argv": [
+        "{audio-tools}/ffprobe",
+        "-version"
+      ],
+      "elapsed_ms": 2,
+      "exit_code": 0,
+      "name": "ffprobe-version",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "d7c2458ccd5dd828635583d833887341c0f77cafc6bcabc983bac1c8f7b25d2c"
+    },
+    {
+      "argv": [
+        "{renderflow}",
+        "graph",
+        "plan",
+        "--config",
+        "{work}/inputs/pcm24-delivery.json",
+        "--format",
+        "json"
+      ],
+      "elapsed_ms": 92,
+      "exit_code": 0,
+      "name": "pcm24-delivery-plan",
+      "stderr_sha256": "24df738f35d5cbb07af25b8820a0f1fdddef42500deadcfa3615344c7d59169a",
+      "stdout_sha256": "1bd1b103e78bf685147c8047d341b00a3c3f1411b7e7a6480006f784efe01b67"
+    },
+    {
+      "argv": [
+        "{renderflow}",
+        "build",
+        "--config",
+        "{work}/inputs/pcm24-delivery.json"
+      ],
+      "elapsed_ms": 286,
+      "exit_code": 0,
+      "name": "pcm24-delivery-build",
+      "stderr_sha256": "6b7fe54d7fecfea0f482c62d2f98fb8254f5f6f343714dc370637b102d0d347b",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "{audio-tools}/ffprobe",
+        "-v",
+        "error",
+        "-show_streams",
+        "-show_format",
+        "-of",
+        "json",
+        "{work}/inputs/authored-24bit-44100-stereo.wav"
+      ],
+      "elapsed_ms": 3,
+      "exit_code": 0,
+      "name": "pcm24-delivery-source-probe",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "d4fb136ef968b5ac0e94f2572374e1f52ecaef269060eddde78e0cbca27dc794"
+    },
+    {
+      "argv": [
+        "{audio-tools}/ffprobe",
+        "-v",
+        "error",
+        "-show_streams",
+        "-show_format",
+        "-show_packets",
+        "-of",
+        "json",
+        "{work}/outputs/pcm24-delivery/authored-audio/delivery/flac.flac"
+      ],
+      "elapsed_ms": 3,
+      "exit_code": 0,
+      "name": "pcm24-delivery-flac-probe",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "86ba97fbaf950562e0222cca07607e45d821707ec7ca234116f41598bd092292"
+    },
+    {
+      "argv": [
+        "{audio-tools}/ffmpeg",
+        "-v",
+        "error",
+        "-i",
+        "{work}/outputs/pcm24-delivery/authored-audio/delivery/flac.flac",
+        "-map",
+        "0:a:0",
+        "-c:a",
+        "pcm_s24le",
+        "-f",
+        "s24le",
+        "{work}/observed/pcm24-delivery-flac.s24le"
+      ],
+      "elapsed_ms": 8,
+      "exit_code": 0,
+      "name": "pcm24-delivery-flac-decode",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "{audio-tools}/ffprobe",
+        "-v",
+        "error",
+        "-show_streams",
+        "-show_format",
+        "-show_packets",
+        "-of",
+        "json",
+        "{work}/outputs/pcm24-delivery/authored-audio/delivery/aac-m4a.m4a"
+      ],
+      "elapsed_ms": 4,
+      "exit_code": 0,
+      "name": "pcm24-delivery-m4a-probe",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "8630bdefe4162259334c4b0161398378baf3f3a25e33902b420eb6098b451cf8"
+    },
+    {
+      "argv": [
+        "{audio-tools}/ffmpeg",
+        "-v",
+        "error",
+        "-i",
+        "{work}/outputs/pcm24-delivery/authored-audio/delivery/aac-m4a.m4a",
+        "-map",
+        "0:a:0",
+        "-c:a",
+        "pcm_s24le",
+        "-f",
+        "s24le",
+        "{work}/observed/pcm24-delivery-m4a.s24le"
+      ],
+      "elapsed_ms": 10,
+      "exit_code": 0,
+      "name": "pcm24-delivery-m4a-decode",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "{audio-tools}/ffprobe",
+        "-v",
+        "error",
+        "-show_streams",
+        "-show_format",
+        "-show_packets",
+        "-of",
+        "json",
+        "{work}/outputs/pcm24-delivery/authored-audio/delivery/mp3.mp3"
+      ],
+      "elapsed_ms": 3,
+      "exit_code": 0,
+      "name": "pcm24-delivery-mp3-probe",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "776504375c493a3622dd090f3ce3e9967cbc57896e21061800f78858a77881e8"
+    },
+    {
+      "argv": [
+        "{audio-tools}/ffmpeg",
+        "-v",
+        "error",
+        "-i",
+        "{work}/outputs/pcm24-delivery/authored-audio/delivery/mp3.mp3",
+        "-map",
+        "0:a:0",
+        "-c:a",
+        "pcm_s24le",
+        "-f",
+        "s24le",
+        "{work}/observed/pcm24-delivery-mp3.s24le"
+      ],
+      "elapsed_ms": 9,
+      "exit_code": 0,
+      "name": "pcm24-delivery-mp3-decode",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "{renderflow}",
+        "graph",
+        "plan",
+        "--config",
+        "{work}/inputs/pcm16-alac.json",
+        "--format",
+        "json"
+      ],
+      "elapsed_ms": 76,
+      "exit_code": 0,
+      "name": "pcm16-alac-plan",
+      "stderr_sha256": "ea28fd50c0e91ffe001f74dd6d9531bddf706c8368a259c132ab90316bc2ed24",
+      "stdout_sha256": "30fdddcb87794dda4a6af495cee42046fe1d303d66c50c1cf12444ecd530f0ca"
+    },
+    {
+      "argv": [
+        "{renderflow}",
+        "build",
+        "--config",
+        "{work}/inputs/pcm16-alac.json"
+      ],
+      "elapsed_ms": 223,
+      "exit_code": 0,
+      "name": "pcm16-alac-build",
+      "stderr_sha256": "8ec11a6bbf9a30188484e67f101f979c32c0cb3799f6e1571c8a5a4f6d68a622",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "{audio-tools}/ffprobe",
+        "-v",
+        "error",
+        "-show_streams",
+        "-show_format",
+        "-of",
+        "json",
+        "{work}/inputs/authored-16bit-44100-stereo.wav"
+      ],
+      "elapsed_ms": 4,
+      "exit_code": 0,
+      "name": "pcm16-alac-source-probe",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "6c50119dcebe2ffb5a48d93f110ebd0b326fea0eedc65c3a683ed5a7aa12c329"
+    },
+    {
+      "argv": [
+        "{audio-tools}/ffprobe",
+        "-v",
+        "error",
+        "-show_streams",
+        "-show_format",
+        "-show_packets",
+        "-of",
+        "json",
+        "{work}/outputs/pcm16-alac/authored-audio/delivery/aac-m4a.m4a"
+      ],
+      "elapsed_ms": 4,
+      "exit_code": 0,
+      "name": "pcm16-alac-m4a-probe",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "1cb0d5dd1d5a82a53c9d91e98eb9270767ed614927755ae0a1c9b94a331a105d"
+    },
+    {
+      "argv": [
+        "{audio-tools}/ffmpeg",
+        "-v",
+        "error",
+        "-i",
+        "{work}/outputs/pcm16-alac/authored-audio/delivery/aac-m4a.m4a",
+        "-map",
+        "0:a:0",
+        "-c:a",
+        "pcm_s16le",
+        "-f",
+        "s16le",
+        "{work}/observed/pcm16-alac-m4a.s16le"
+      ],
+      "elapsed_ms": 9,
+      "exit_code": 0,
+      "name": "pcm16-alac-m4a-decode",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "{audio-tools}/ffprobe",
+        "-v",
+        "error",
+        "-show_streams",
+        "-show_format",
+        "-show_packets",
+        "-of",
+        "json",
+        "{work}/outputs/pcm16-alac/authored-audio/delivery/alac.m4a"
+      ],
+      "elapsed_ms": 2,
+      "exit_code": 0,
+      "name": "pcm16-alac-m4a_alac-probe",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "5c97d7c642597c6b086ab4b617a480addae210ce653a6382ae10c3f1eb15656b"
+    },
+    {
+      "argv": [
+        "{audio-tools}/ffmpeg",
+        "-v",
+        "error",
+        "-i",
+        "{work}/outputs/pcm16-alac/authored-audio/delivery/alac.m4a",
+        "-map",
+        "0:a:0",
+        "-c:a",
+        "pcm_s16le",
+        "-f",
+        "s16le",
+        "{work}/observed/pcm16-alac-m4a_alac.s16le"
+      ],
+      "elapsed_ms": 8,
+      "exit_code": 0,
+      "name": "pcm16-alac-m4a_alac-decode",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "ffmpeg_sha256": "94dbc5c9d7602f044b0ec9089cea2085d0f2adc3a2b1612eeec84f8badc6949d",
+  "ffprobe_sha256": "40d68a7e8fc61e8656be62b12179142124ebd61eea5ed8afefda6e2d68b97a1d",
+  "focused_rust_logs": {
+    "alac-container-unit.log": {
+      "bytes": 1201,
+      "sha256": "683382a4f29bf3692e4433dba16b871665bcc5beec584c2d9de1e8d5edd92bc6"
+    }
+  },
+  "input_inventory": {
+    "authored-16bit-44100-stereo.wav": {
+      "bytes": 529244,
+      "sha256": "de0831225d00540446dd26c5b09ce1e3b2a93eba24be321fc3be27a27ae3c8ab"
+    },
+    "authored-24bit-44100-stereo.wav": {
+      "bytes": 793844,
+      "sha256": "d4a6d9be2561477ba2e1d6997e827f9e7193962c1e67a366d7fcc704fe84b824"
+    },
+    "pcm16-alac.json": {
+      "bytes": 710,
+      "sha256": "b230df1fd6a861d2497cfd8b7ebb5521e62a01d5be90aa33f58b1ccfff7e84bd"
+    },
+    "pcm24-delivery.json": {
+      "bytes": 823,
+      "sha256": "0a2d46a97606913dbd5411cc8486fb82f570eaa95d361de5306f29b299c61979"
+    }
+  },
+  "manual_same_candidate_regression": {
+    "domain_refusals": 17,
+    "formats": 8,
+    "native_commands": 21,
+    "path": "akashic-lyrics-after-audio-observed-20261114.json",
+    "portable_native_records": 9,
+    "portable_publications": 8,
+    "private_report_subject": {
+      "bytes": 23219,
+      "sha256": "9dca8fb3e842392eb3fb9dcb7db281979e4d9bba47aaada04debbd7ce313823d"
+    }
+  },
+  "mastering_or_loudness_approval": false,
+  "native_platform_or_full_provider_matrix_qualified": false,
+  "observation_inventory": {
+    "ffmpeg-version.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "ffmpeg-version.stdout": {
+      "bytes": 1315,
+      "sha256": "dc95b0dc312da760f25d7d0edcb32ab7f0f7a648044f2c7f0a0007b1bf7320a6"
+    },
+    "ffprobe-version.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "ffprobe-version.stdout": {
+      "bytes": 1290,
+      "sha256": "d7c2458ccd5dd828635583d833887341c0f77cafc6bcabc983bac1c8f7b25d2c"
+    },
+    "pcm16-alac-build.stderr": {
+      "bytes": 7403,
+      "sha256": "8ec11a6bbf9a30188484e67f101f979c32c0cb3799f6e1571c8a5a4f6d68a622"
+    },
+    "pcm16-alac-build.stdout": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "pcm16-alac-m4a-decode.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "pcm16-alac-m4a-decode.stdout": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "pcm16-alac-m4a-probe.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "pcm16-alac-m4a-probe.stdout": {
+      "bytes": 50453,
+      "sha256": "1cb0d5dd1d5a82a53c9d91e98eb9270767ed614927755ae0a1c9b94a331a105d"
+    },
+    "pcm16-alac-m4a.s16le": {
+      "bytes": 532480,
+      "sha256": "32a3373e83ab7cf29a09ac2297ecc6d9cec8529fc35fb67d4cdb3f643615395c"
+    },
+    "pcm16-alac-m4a_alac-decode.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "pcm16-alac-m4a_alac-decode.stdout": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "pcm16-alac-m4a_alac-probe.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "pcm16-alac-m4a_alac-probe.stdout": {
+      "bytes": 14515,
+      "sha256": "5c97d7c642597c6b086ab4b617a480addae210ce653a6382ae10c3f1eb15656b"
+    },
+    "pcm16-alac-m4a_alac.s16le": {
+      "bytes": 529200,
+      "sha256": "617ab2ca79f278ee5bcde097b373cbb1a850a37167b5320d4d57060ec44e03c9"
+    },
+    "pcm16-alac-plan.stderr": {
+      "bytes": 190,
+      "sha256": "ea28fd50c0e91ffe001f74dd6d9531bddf706c8368a259c132ab90316bc2ed24"
+    },
+    "pcm16-alac-plan.stdout": {
+      "bytes": 30557,
+      "sha256": "30fdddcb87794dda4a6af495cee42046fe1d303d66c50c1cf12444ecd530f0ca"
+    },
+    "pcm16-alac-source-probe.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "pcm16-alac-source-probe.stdout": {
+      "bytes": 1772,
+      "sha256": "6c50119dcebe2ffb5a48d93f110ebd0b326fea0eedc65c3a683ed5a7aa12c329"
+    },
+    "pcm24-delivery-build.stderr": {
+      "bytes": 10888,
+      "sha256": "6b7fe54d7fecfea0f482c62d2f98fb8254f5f6f343714dc370637b102d0d347b"
+    },
+    "pcm24-delivery-build.stdout": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "pcm24-delivery-flac-decode.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "pcm24-delivery-flac-decode.stdout": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "pcm24-delivery-flac-probe.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "pcm24-delivery-flac-probe.stdout": {
+      "bytes": 12708,
+      "sha256": "86ba97fbaf950562e0222cca07607e45d821707ec7ca234116f41598bd092292"
+    },
+    "pcm24-delivery-flac.s24le": {
+      "bytes": 793800,
+      "sha256": "a9cf9b5b9eb5149162cda39d837f4595e8191198e8cfd110e4b0ecdd52ab8cb6"
+    },
+    "pcm24-delivery-m4a-decode.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "pcm24-delivery-m4a-decode.stdout": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "pcm24-delivery-m4a-probe.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "pcm24-delivery-m4a-probe.stdout": {
+      "bytes": 50457,
+      "sha256": "8630bdefe4162259334c4b0161398378baf3f3a25e33902b420eb6098b451cf8"
+    },
+    "pcm24-delivery-m4a.s24le": {
+      "bytes": 798720,
+      "sha256": "02a817da903d928f03c093be509f076a65b6e18ebee7fdb4b859b38c8370c167"
+    },
+    "pcm24-delivery-mp3-decode.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "pcm24-delivery-mp3-decode.stdout": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "pcm24-delivery-mp3-probe.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "pcm24-delivery-mp3-probe.stdout": {
+      "bytes": 45933,
+      "sha256": "776504375c493a3622dd090f3ce3e9967cbc57896e21061800f78858a77881e8"
+    },
+    "pcm24-delivery-mp3.s24le": {
+      "bytes": 793800,
+      "sha256": "99476beedd8d6875fda2f5fc4c43bf1bc93f4ab00d57c72add69c8138bbffb45"
+    },
+    "pcm24-delivery-plan.stderr": {
+      "bytes": 194,
+      "sha256": "24df738f35d5cbb07af25b8820a0f1fdddef42500deadcfa3615344c7d59169a"
+    },
+    "pcm24-delivery-plan.stdout": {
+      "bytes": 33189,
+      "sha256": "1bd1b103e78bf685147c8047d341b00a3c3f1411b7e7a6480006f784efe01b67"
+    },
+    "pcm24-delivery-source-probe.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "pcm24-delivery-source-probe.stdout": {
+      "bytes": 1813,
+      "sha256": "d4fb136ef968b5ac0e94f2572374e1f52ecaef269060eddde78e0cbca27dc794"
+    }
+  },
+  "observed_at_utc": "2026-11-15T00:14:37.422319+00:00",
+  "observer_sha256": "4839b79489eff39c4a26c27f296b632521b89c07c7436f8a88afb418ba869510",
+  "observer_source_subject": {
+    "bytes": 18301,
+    "sha256": "4839b79489eff39c4a26c27f296b632521b89c07c7436f8a88afb418ba869510"
+  },
+  "output_inventory": {
+    ".renderflow/artifacts/objects/sha256/70/70f894b6ea901dcbd3902cf17661363db72af6e8e3977b747c19e1ca8445c189": {
+      "bytes": 94193,
+      "sha256": "70f894b6ea901dcbd3902cf17661363db72af6e8e3977b747c19e1ca8445c189"
+    },
+    ".renderflow/artifacts/objects/sha256/75/75d1006075ee76cf168d56aed0387d8f481554af5c16575f599088674fa4dc2e": {
+      "bytes": 321938,
+      "sha256": "75d1006075ee76cf168d56aed0387d8f481554af5c16575f599088674fa4dc2e"
+    },
+    ".renderflow/artifacts/objects/sha256/a4/a43514c2c079b58b37e9891dcad038f3941c9a0d92080ebb7306b0795a7d428a": {
+      "bytes": 122296,
+      "sha256": "a43514c2c079b58b37e9891dcad038f3941c9a0d92080ebb7306b0795a7d428a"
+    },
+    ".renderflow/artifacts/objects/sha256/b9/b9188654149bfcb86b8381ae91012ba38a7ca0dd175faf1daf34c33e2e0b96ea": {
+      "bytes": 114924,
+      "sha256": "b9188654149bfcb86b8381ae91012ba38a7ca0dd175faf1daf34c33e2e0b96ea"
+    },
+    ".renderflow/artifacts/objects/sha256/d3/d3a0a627865fc9a3735ebd6f8acd2cc0a8856bc6df99588438c2b5532a037262": {
+      "bytes": 93722,
+      "sha256": "d3a0a627865fc9a3735ebd6f8acd2cc0a8856bc6df99588438c2b5532a037262"
+    },
+    ".renderflow/artifacts/objects/sha256/d4/d4a6d9be2561477ba2e1d6997e827f9e7193962c1e67a366d7fcc704fe84b824": {
+      "bytes": 793844,
+      "sha256": "d4a6d9be2561477ba2e1d6997e827f9e7193962c1e67a366d7fcc704fe84b824"
+    },
+    ".renderflow/artifacts/objects/sha256/de/de0831225d00540446dd26c5b09ce1e3b2a93eba24be321fc3be27a27ae3c8ab": {
+      "bytes": 529244,
+      "sha256": "de0831225d00540446dd26c5b09ce1e3b2a93eba24be321fc3be27a27ae3c8ab"
+    },
+    ".renderflow/toolchain.json": {
+      "bytes": 19309,
+      "sha256": "abe13c16bf2afbbb46cae0bf353d7121b7d7c020ff761dfc39d39e17965822ec"
+    },
+    "pcm16-alac/authored-audio/delivery/aac-m4a.m4a": {
+      "bytes": 93722,
+      "sha256": "d3a0a627865fc9a3735ebd6f8acd2cc0a8856bc6df99588438c2b5532a037262"
+    },
+    "pcm16-alac/authored-audio/delivery/alac.m4a": {
+      "bytes": 114924,
+      "sha256": "b9188654149bfcb86b8381ae91012ba38a7ca0dd175faf1daf34c33e2e0b96ea"
+    },
+    "pcm16-alac/renderflow-run.json": {
+      "bytes": 39659,
+      "sha256": "75c1a7c34b1a3c39a714eb2de13006b75d71263dc07d31f6299d06217d642059"
+    },
+    "pcm24-delivery/authored-audio/delivery/aac-m4a.m4a": {
+      "bytes": 94193,
+      "sha256": "70f894b6ea901dcbd3902cf17661363db72af6e8e3977b747c19e1ca8445c189"
+    },
+    "pcm24-delivery/authored-audio/delivery/flac.flac": {
+      "bytes": 321938,
+      "sha256": "75d1006075ee76cf168d56aed0387d8f481554af5c16575f599088674fa4dc2e"
+    },
+    "pcm24-delivery/authored-audio/delivery/mp3.mp3": {
+      "bytes": 122296,
+      "sha256": "a43514c2c079b58b37e9891dcad038f3941c9a0d92080ebb7306b0795a7d428a"
+    },
+    "pcm24-delivery/renderflow-run.json": {
+      "bytes": 45780,
+      "sha256": "57e38602244e967f5e3fd93c3852032736220df399dff8d536e58e4b4a37dd1d"
+    }
+  },
+  "perceptual_or_physical_playback_approval": false,
+  "pre_fix_native_failure": {
+    "binary_sha256": "757a6c7890ff1596347d7f537452307d02a6db12723ae64c33e5c55fa5c07dfa",
+    "cause": "ALAC graph key was incorrectly used as a physical staging suffix; FFmpeg refused output.m4a_alac",
+    "ffmpeg_exit_code": 234,
+    "native_build_stderr": {
+      "bytes": 3616,
+      "sha256": "39f673ad70c9f7d6dece665e3203c2b4475833a286fe369e555fc39ac1574f1c"
+    },
+    "native_build_stdout": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "native_cli_exit_code": 1,
+    "native_manifest": {
+      "bytes": 36874,
+      "sha256": "448de1ff34bbbfc733dd827632290b7f841a7bd1417baa3e9e534c94f63ed8be"
+    },
+    "source_revision": "9ab167e3e1f96cfb9e6b66c15fe7703acc69dd5b",
+    "state": "failed"
+  },
+  "private_report_subject": {
+    "bytes": 31979,
+    "sha256": "ec156cf715b63199a9fa4a590585c334d6839609707718ac32f702547a91d036"
+  },
+  "publisher_authenticated": false,
+  "remote_publication_performed": false,
+  "results": [
+    {
+      "artifact_bytes": 321938,
+      "artifact_sha256": "75d1006075ee76cf168d56aed0387d8f481554af5c16575f599088674fa4dc2e",
+      "case": "pcm24-delivery",
+      "channels": 2,
+      "codec": "flac",
+      "codec_clock_bound": "exact source samples; packet/presentation 0..3s; no priming/padding",
+      "decoded_exactly_equal": true,
+      "decoded_frames": 132300,
+      "decoded_sample_sha256": "a9cf9b5b9eb5149162cda39d837f4595e8191198e8cfd110e4b0ecdd52ab8cb6",
+      "discard_padding": 0,
+      "format": "flac",
+      "lossless_selected": true,
+      "native_branch_target_id": "target-a3256aedc7855bb9caf4ea4cfd6f2c6d6b8eb212be3b877cce6a9061dee062b0",
+      "native_fidelity": "lossy",
+      "native_provider": {
+        "executable": "ffmpeg",
+        "id": "tool.ffmpeg",
+        "version": "8.0.1"
+      },
+      "native_validation": "valid_with_warnings",
+      "native_validation_evidence": [
+        {
+          "provider": "renderflow.native",
+          "state": "valid",
+          "validator_id": "validator.core.non_empty",
+          "validator_version": "0.3.0-rc.1"
+        },
+        {
+          "diagnostics": [
+            {
+              "code": "validation.signature_only",
+              "message": "Declared signature matched; deep structural validation is unavailable"
+            }
+          ],
+          "provider": "renderflow.native",
+          "state": "valid_with_warnings",
+          "validator_id": "validator.core.declared_signature",
+          "validator_version": "0.3.0-rc.1"
+        }
+      ],
+      "packet_begin_seconds": "0",
+      "packet_count": 29,
+      "packet_end_seconds": "3",
+      "presentation_after_declared_skip_discard_seconds": "3",
+      "raw_stream_duration_seconds": "3",
+      "sample_rate_hz": 44100,
+      "selected_profile": "flac_max",
+      "skip_samples": 0,
+      "skip_samples_or_discard_padding": [],
+      "source_artifact_id": "artifact:sha256:c64fe90c5077c35185d20a4b50151a69fe94d66fb05f447879e38a387e489a96",
+      "source_bit_depth": 24,
+      "source_frames": 132300,
+      "source_sample_sha256": "a9cf9b5b9eb5149162cda39d837f4595e8191198e8cfd110e4b0ecdd52ab8cb6",
+      "source_wav_sha256": "d4a6d9be2561477ba2e1d6997e827f9e7193962c1e67a366d7fcc704fe84b824"
+    },
+    {
+      "artifact_bytes": 94193,
+      "artifact_sha256": "70f894b6ea901dcbd3902cf17661363db72af6e8e3977b747c19e1ca8445c189",
+      "case": "pcm24-delivery",
+      "channels": 2,
+      "codec": "aac",
+      "codec_clock_bound": "1024-sample AAC priming; presentation exactly source; decoded tail <1024 samples retained without artificial trim",
+      "decoded_exactly_equal": false,
+      "decoded_frames": 133120,
+      "decoded_sample_sha256": "02a817da903d928f03c093be509f076a65b6e18ebee7fdb4b859b38c8370c167",
+      "discard_padding": 0,
+      "format": "m4a",
+      "lossless_selected": false,
+      "native_branch_target_id": "target-5fe3b39a3010cdef338d31e6544a35b16c24b4191945ec9872ee0c7dd1e2848c",
+      "native_fidelity": "lossy",
+      "native_provider": {
+        "executable": "ffmpeg",
+        "id": "tool.ffmpeg",
+        "version": "8.0.1"
+      },
+      "native_validation": "valid_with_warnings",
+      "native_validation_evidence": [
+        {
+          "provider": "renderflow.native",
+          "state": "valid",
+          "validator_id": "validator.core.non_empty",
+          "validator_version": "0.3.0-rc.1"
+        },
+        {
+          "diagnostics": [
+            {
+              "code": "validation.signature_only",
+              "message": "Declared signature matched; deep structural validation is unavailable"
+            }
+          ],
+          "provider": "renderflow.native",
+          "state": "valid_with_warnings",
+          "validator_id": "validator.core.declared_signature",
+          "validator_version": "0.3.0-rc.1"
+        }
+      ],
+      "packet_begin_seconds": "-256/11025",
+      "packet_count": 131,
+      "packet_end_seconds": "3",
+      "presentation_after_declared_skip_discard_seconds": "3",
+      "raw_stream_duration_seconds": "3",
+      "sample_rate_hz": 44100,
+      "selected_profile": "aac_256k",
+      "skip_samples": 1024,
+      "skip_samples_or_discard_padding": [
+        [
+          {
+            "discard_padding": 0,
+            "discard_reason": 0,
+            "side_data_type": "Skip Samples",
+            "skip_reason": 0,
+            "skip_samples": 1024
+          }
+        ]
+      ],
+      "source_artifact_id": "artifact:sha256:c64fe90c5077c35185d20a4b50151a69fe94d66fb05f447879e38a387e489a96",
+      "source_bit_depth": 24,
+      "source_frames": 132300,
+      "source_sample_sha256": "a9cf9b5b9eb5149162cda39d837f4595e8191198e8cfd110e4b0ecdd52ab8cb6",
+      "source_wav_sha256": "d4a6d9be2561477ba2e1d6997e827f9e7193962c1e67a366d7fcc704fe84b824"
+    },
+    {
+      "artifact_bytes": 122296,
+      "artifact_sha256": "a43514c2c079b58b37e9891dcad038f3941c9a0d92080ebb7306b0795a7d428a",
+      "case": "pcm24-delivery",
+      "channels": 2,
+      "codec": "mp3",
+      "codec_clock_bound": "1152-sample MP3 packets; leading skip <=1152; trailing discard <1152; gapless decoded/presentation exactly source",
+      "decoded_exactly_equal": false,
+      "decoded_frames": 132300,
+      "decoded_sample_sha256": "99476beedd8d6875fda2f5fc4c43bf1bc93f4ab00d57c72add69c8138bbffb45",
+      "discard_padding": 227,
+      "format": "mp3",
+      "lossless_selected": false,
+      "native_branch_target_id": "target-c70024986c0b7481fa0cc2cbc780526180332b632dd6697bd1d94da861d7d17b",
+      "native_fidelity": "lossy",
+      "native_provider": {
+        "executable": "ffmpeg",
+        "id": "tool.ffmpeg",
+        "version": "8.0.1"
+      },
+      "native_validation": "valid_with_warnings",
+      "native_validation_evidence": [
+        {
+          "provider": "renderflow.native",
+          "state": "valid",
+          "validator_id": "validator.core.non_empty",
+          "validator_version": "0.3.0-rc.1"
+        },
+        {
+          "diagnostics": [
+            {
+              "code": "validation.signature_only",
+              "message": "Declared signature matched; deep structural validation is unavailable"
+            }
+          ],
+          "provider": "renderflow.native",
+          "state": "valid_with_warnings",
+          "validator_id": "validator.core.declared_signature",
+          "validator_version": "0.3.0-rc.1"
+        }
+      ],
+      "packet_begin_seconds": "0",
+      "packet_count": 116,
+      "packet_end_seconds": "3712/1225",
+      "presentation_after_declared_skip_discard_seconds": "3",
+      "raw_stream_duration_seconds": "3",
+      "sample_rate_hz": 44100,
+      "selected_profile": "hq_320k",
+      "skip_samples": 1105,
+      "skip_samples_or_discard_padding": [
+        [
+          {
+            "discard_padding": 0,
+            "discard_reason": 0,
+            "side_data_type": "Skip Samples",
+            "skip_reason": 0,
+            "skip_samples": 1105
+          }
+        ],
+        [
+          {
+            "discard_padding": 227,
+            "discard_reason": 0,
+            "side_data_type": "Skip Samples",
+            "skip_reason": 0,
+            "skip_samples": 0
+          }
+        ]
+      ],
+      "source_artifact_id": "artifact:sha256:c64fe90c5077c35185d20a4b50151a69fe94d66fb05f447879e38a387e489a96",
+      "source_bit_depth": 24,
+      "source_frames": 132300,
+      "source_sample_sha256": "a9cf9b5b9eb5149162cda39d837f4595e8191198e8cfd110e4b0ecdd52ab8cb6",
+      "source_wav_sha256": "d4a6d9be2561477ba2e1d6997e827f9e7193962c1e67a366d7fcc704fe84b824"
+    },
+    {
+      "artifact_bytes": 93722,
+      "artifact_sha256": "d3a0a627865fc9a3735ebd6f8acd2cc0a8856bc6df99588438c2b5532a037262",
+      "case": "pcm16-alac",
+      "channels": 2,
+      "codec": "aac",
+      "codec_clock_bound": "1024-sample AAC priming; presentation exactly source; decoded tail <1024 samples retained without artificial trim",
+      "decoded_exactly_equal": false,
+      "decoded_frames": 133120,
+      "decoded_sample_sha256": "32a3373e83ab7cf29a09ac2297ecc6d9cec8529fc35fb67d4cdb3f643615395c",
+      "discard_padding": 0,
+      "format": "m4a",
+      "lossless_selected": false,
+      "native_branch_target_id": "target-5b59d1ba31ca0333dfb2e597cf7e855a9a5d61991bc91d68e68f1d37502951db",
+      "native_fidelity": "lossy",
+      "native_provider": {
+        "executable": "ffmpeg",
+        "id": "tool.ffmpeg",
+        "version": "8.0.1"
+      },
+      "native_validation": "valid_with_warnings",
+      "native_validation_evidence": [
+        {
+          "provider": "renderflow.native",
+          "state": "valid",
+          "validator_id": "validator.core.non_empty",
+          "validator_version": "0.3.0-rc.1"
+        },
+        {
+          "diagnostics": [
+            {
+              "code": "validation.signature_only",
+              "message": "Declared signature matched; deep structural validation is unavailable"
+            }
+          ],
+          "provider": "renderflow.native",
+          "state": "valid_with_warnings",
+          "validator_id": "validator.core.declared_signature",
+          "validator_version": "0.3.0-rc.1"
+        }
+      ],
+      "packet_begin_seconds": "-256/11025",
+      "packet_count": 131,
+      "packet_end_seconds": "3",
+      "presentation_after_declared_skip_discard_seconds": "3",
+      "raw_stream_duration_seconds": "3",
+      "sample_rate_hz": 44100,
+      "selected_profile": "aac_256k",
+      "skip_samples": 1024,
+      "skip_samples_or_discard_padding": [
+        [
+          {
+            "discard_padding": 0,
+            "discard_reason": 0,
+            "side_data_type": "Skip Samples",
+            "skip_reason": 0,
+            "skip_samples": 1024
+          }
+        ]
+      ],
+      "source_artifact_id": "artifact:sha256:8898bbf9a575a15b8f813c76393985b2da5479a6687719d1776bf83bd12c0146",
+      "source_bit_depth": 16,
+      "source_frames": 132300,
+      "source_sample_sha256": "617ab2ca79f278ee5bcde097b373cbb1a850a37167b5320d4d57060ec44e03c9",
+      "source_wav_sha256": "de0831225d00540446dd26c5b09ce1e3b2a93eba24be321fc3be27a27ae3c8ab"
+    },
+    {
+      "artifact_bytes": 114924,
+      "artifact_sha256": "b9188654149bfcb86b8381ae91012ba38a7ca0dd175faf1daf34c33e2e0b96ea",
+      "case": "pcm16-alac",
+      "channels": 2,
+      "codec": "alac",
+      "codec_clock_bound": "exact source samples; packet/presentation 0..3s; no priming/padding",
+      "decoded_exactly_equal": true,
+      "decoded_frames": 132300,
+      "decoded_sample_sha256": "617ab2ca79f278ee5bcde097b373cbb1a850a37167b5320d4d57060ec44e03c9",
+      "discard_padding": 0,
+      "format": "m4a_alac",
+      "lossless_selected": true,
+      "native_branch_target_id": "target-01718a533c9e668b3dd47fe509e334f2270bacf400d001588b6ca9f6258fbf69",
+      "native_fidelity": "lossy",
+      "native_provider": {
+        "executable": "ffmpeg",
+        "id": "tool.ffmpeg",
+        "version": "8.0.1"
+      },
+      "native_validation": "valid_with_warnings",
+      "native_validation_evidence": [
+        {
+          "provider": "renderflow.native",
+          "state": "valid",
+          "validator_id": "validator.core.non_empty",
+          "validator_version": "0.3.0-rc.1"
+        },
+        {
+          "diagnostics": [
+            {
+              "code": "validation.signature_only",
+              "message": "Declared signature matched; deep structural validation is unavailable"
+            }
+          ],
+          "provider": "renderflow.native",
+          "state": "valid_with_warnings",
+          "validator_id": "validator.core.declared_signature",
+          "validator_version": "0.3.0-rc.1"
+        }
+      ],
+      "packet_begin_seconds": "0",
+      "packet_count": 33,
+      "packet_end_seconds": "3",
+      "presentation_after_declared_skip_discard_seconds": "3",
+      "raw_stream_duration_seconds": "3",
+      "sample_rate_hz": 44100,
+      "selected_profile": "alac_cd",
+      "skip_samples": 0,
+      "skip_samples_or_discard_padding": [],
+      "source_artifact_id": "artifact:sha256:8898bbf9a575a15b8f813c76393985b2da5479a6687719d1776bf83bd12c0146",
+      "source_bit_depth": 16,
+      "source_frames": 132300,
+      "source_sample_sha256": "617ab2ca79f278ee5bcde097b373cbb1a850a37167b5320d4d57060ec44e03c9",
+      "source_wav_sha256": "de0831225d00540446dd26c5b09ce1e3b2a93eba24be321fc3be27a27ae3c8ab"
+    }
+  ],
+  "sample_rate_hz": 44100,
+  "schema_version": "renderflow.audio-delivery-candidate-proof/v1",
+  "selected_runtime_proof_status": "passed",
+  "source_duration_seconds": "3",
+  "tool_preparation": {
+    "bytes": 7317,
+    "path": "audio-tool-preparation-observed-20261114.json",
+    "sha256": "ef3a5c563b3822ac60d7e993201c935da34b79b6ad1a2070b05fa6f52ee83f28"
+  },
+  "uncounted_observer_setup_failure": {
+    "cause": "observer used nonexistent root plan command; corrected to existing graph plan",
+    "log": {
+      "bytes": 964,
+      "sha256": "eb2c7fa20fc2317b1c1720e70446723545add434c649a91c9e1881ac5d2db7e7"
+    },
+    "native_stderr": {
+      "bytes": 165,
+      "sha256": "4827e2137ea79831b48c0c41907219de5c6d57a10cfd4eeeb9e7b5e1455f8672"
+    }
+  }
+}

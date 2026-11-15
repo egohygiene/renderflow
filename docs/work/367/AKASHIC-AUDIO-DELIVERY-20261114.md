@@ -22,8 +22,66 @@ or extension-only validation workaround is used.
 
 Two focused Rust regression tests passed: physical staging/container suffix and
 explicit codec identity, plus canonical ALAC suffix while its graph key remains
-distinct. Final actual ALAC execution and the full source/profile/tool/decoded
-sample proof remain pending at this source-preparation checkpoint.
+distinct. Final actual ALAC execution and all selected audio observations passed
+on public draft source `848984ab363058b2b765f4056ed01bde9f2b54d6`
+(tree `87cc8cc9e1dd55095603376ba523a52bf6f4df9a`). The clean-source Linux
+release build completed in 5m17s with Rust 1.94.0, locked offline inputs and two
+jobs, reusing the existing private target cache. Binary SHA-256:
+`61ed02b8a0b5396ea1685c3131ae29f75f943a355668a98106e93fda0e28b942`.
+Compiled contract SHA-256 remains
+`9ff99a410bcf98a82801eeadf3e35fdc40539c36d192ce066365769c98e9aa74`.
+This is the current Debian-host candidate, without Ubuntu/native-Mac qualification.
+
+## Actual selected delivery results
+
+Two plans published five artifacts across four formats. Each source contains
+132,300 stereo frames at 44.1 kHz (three seconds). The second plan deliberately
+selects AAC and ALAC together: both files use `.m4a`, with distinct graph formats,
+branches, roles, artifact identities, codecs and output paths.
+
+| Source | Declared target / profile | Actual codec | Decoded frames | Exact authored samples |
+| --- | --- | --- | ---: | --- |
+| 24-bit WAV | FLAC / `flac_max` | FLAC, 24-bit | 132,300 | Yes |
+| 24-bit WAV | M4A / `aac_256k` | AAC | 133,120 | No; lossy |
+| 24-bit WAV | MP3 / `hq_320k` | MP3 | 132,300 | No; lossy |
+| 16-bit WAV | M4A / `aac_256k` | AAC | 133,120 | No; lossy |
+| 16-bit WAV | `m4a_alac` / `alac_cd` | ALAC, 16-bit | 132,300 | Yes |
+
+FLAC and ALAC preserve exact decoded sample bytes, channels, rate, bit depth,
+and zero-to-three-second stream/packet coverage for these matching profiles.
+This does not imply that a different profile which resamples or changes precision
+preserves the original samples.
+
+MP3 packets cover approximately 3.030204 seconds. The actual leading skip is
+1,105 samples and trailing discard is 227; declared gapless presentation and
+decoded frame count reconcile to the original three seconds. AAC/M4A declares
+1,024 priming samples and three-second presentation. Decoding retains an 820-frame
+padded tail (less than one 1,024-sample AAC frame); the observer does not silently
+trim or pad files to manufacture equality. Raw stream duration, packet extent,
+skip/discard, presentation and decoded sample count are recorded separately.
+
+The final observer passed 18 selected commands: two provider version observations,
+two Render plans and two builds, two source probes, and five output probe/decode pairs.
+It binds native source hashes/lineage, forest branch/profile/role/identity,
+provider selection under the controlled PATH, every published artifact, probes,
+decoded PCM and retained command streams. Source WAV/config and selected
+executable/observer hashes are checked again afterward. Output captures are
+bounded during execution (4 MiB, 60 seconds); owned process groups are cleaned up.
+
+Native validation remains `valid_with_warnings` / declared-signature-only.
+Generic audio graph edges also conservatively report native fidelity `lossy`,
+including these sample-equal FLAC/ALAC results. Both facts remain visible in the
+receipt; independent actual decoder observations do not rewrite product tiers.
+The same final candidate also passed the 21-command manual-lyrics observer,
+including all eight formats, 17 exact refusals, and retained-store portable
+export/verification (nine records/eight publications).
+
+The [audio observation](akashic-audio-delivery-observed-20261114.json),
+[tool preparation](audio-tool-preparation-observed-20261114.json), and
+[same-candidate lyrics regression](akashic-lyrics-after-audio-observed-20261114.json)
+are portable projections with original private report/log/content hashes.
+The immutable build capture truthfully said runtime pending at capture time;
+these separately bound observations occurred afterward.
 
 ## Provider preparation
 
@@ -47,10 +105,35 @@ The build exposes native FLAC/ALAC/AAC and libmp3lame encoders, matching decoder
 PCM raw output and required WAV/FLAC/MP3/MP4 muxers. Configure reports LGPL 2.1
 or later; exact source/dependency notices and preparation receipts are retained.
 
-The final observer will compare decoded FLAC/ALAC samples exactly, separate
-lossy raw stream/packet/presentation/decode clocks and priming/padding, recheck
-original bytes, and bind native source/forest/profile/provider evidence. Native
+The observer compares decoded FLAC/ALAC samples exactly, separates
+lossy raw stream/packet/presentation/decode clocks and priming/padding, rechecks
+original bytes, and binds native source/forest/profile/provider evidence. Native
 signature-validation warnings remain visible; independent decoding does not
 change product support tiers. There is no mastering, loudness, perceptual,
 physical playback, native-platform/full-provider matrix, signing or public
 release approval from these local synthetic operations.
+
+## Reproduce the bounded proof
+
+Select the captured CLI and the separately prepared audio-only tools. The work
+parent must exist and the selected work directory must be new. Python 3 uses
+only its standard library and generates both authored WAV fixtures:
+
+```sh
+python3 scripts/observations/check_audio_delivery_candidate.py \
+  --binary /path/to/renderflow \
+  --audio-tool-directory /path/to/audio-tools/bin \
+  --work-directory /path/to/existing-parent/new-audio-proof
+```
+
+The observer emits actual native configs in `inputs/`, accepted artifacts and
+run manifests in `outputs/`, and retained probe/decode/command evidence in
+`observed/`. Its selected source/rate/precision/profile constraints are deliberate;
+change them only with a new scoped observation rather than retaining these results.
+
+To prepare the provider elsewhere, verify the exact official source archive and
+detached signature, verify/extract the two pinned Debian LAME packages privately,
+and configure FFmpeg with the portable argv in the preparation receipt, followed
+by `make -j2` and `make install` under a private prefix. The receipt retains the
+exact source/index/package/notice/log hashes and actual compiled feature set.
+It records the observed build and does not promise cross-host binary reproducibility.
