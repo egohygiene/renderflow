@@ -1723,6 +1723,42 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
     }
 
     let validation_registry = ValidationRegistry::builtins();
+    // Explicit native audio validation is fresh publication-time evidence,
+    // including when the encoder result came from the artifact cache.
+    let native_audio_context = resolved
+        .spec
+        .execution
+        .validation
+        .audio
+        .as_ref()
+        .filter(|_| {
+            resolved
+                .targets
+                .iter()
+                .any(|target| crate::audio::native::requested_format(target.format))
+        })
+        .map(|policy| {
+            native_audio_verifiers_allowed(&resolved.tool_registry, &resolved.spec)?;
+            crate::audio::native::Context::new(
+                &source_artifact,
+                resolved.source_format,
+                &store,
+                policy,
+                resolved
+                    .cancellation
+                    .clone()
+                    .map(ProcessCancellationToken::from_shared)
+                    .unwrap_or_default(),
+            )
+        });
+    let mut native_audio_results = HashMap::<
+        String,
+        (
+            ArtifactValidationOutcome,
+            Option<crate::audio::native::Evidence>,
+            Option<crate::audio::native::FeatureAdmission>,
+        ),
+    >::new();
     for target in &resolved.targets {
         let identity = target.identity();
         let Some(artifact) = target_artifacts.get(&identity) else {
@@ -1736,7 +1772,25 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
             continue;
         };
 
-        let mut outcome = if resolved.print_pages.is_some()
+        let native_audio_selected =
+            native_audio_context.is_some() && crate::audio::native::requested_format(target.format);
+        let mut outcome = if native_audio_selected && resolved.spec.execution.validation.required {
+            // The contextual native ID is executed below, including an explicit
+            // request for that ID. Every other custom validator remains selected.
+            let mut generic = resolved
+                .spec
+                .execution
+                .validation
+                .validators
+                .iter()
+                .filter(|id| id.as_str() != crate::audio::native::VALIDATOR)
+                .cloned()
+                .collect::<Vec<_>>();
+            if generic.is_empty() {
+                generic.push("validator.core.non_empty".to_owned());
+            }
+            validation_registry.validate_in_store(artifact, target.format, &generic, &store)
+        } else if resolved.print_pages.is_some()
             || resolved.spec.execution.screenplay_pdf.is_some()
             || resolved.spec.execution.screenplay_recovery.is_some()
             || resolved.spec.execution.screenplay_body.is_some()
@@ -1954,6 +2008,65 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
             }
         }
         let step_id = target_steps.get(&identity).cloned();
+        let mut native_audio_blocked = false;
+        let mut native_audio_evidence = None;
+        if native_audio_selected {
+            let features = native_audio_context
+                .as_ref()
+                .and_then(|context| context.as_ref().ok())
+                .and_then(|context| {
+                    context.feature_admission(target.format, target.preset.as_deref())
+                });
+            let check = match native_audio_context
+                .as_ref()
+                .expect("selected native audio context")
+            {
+                Err(failure) => Err(*failure),
+                Ok(context) => match report
+                    .steps
+                    .iter()
+                    .find(|step| Some(step.step_id.as_str()) == step_id.as_deref())
+                {
+                    Some(step) => context.validate(
+                        artifact,
+                        target.format,
+                        target.preset.as_deref(),
+                        &identity,
+                        step,
+                        &store,
+                    ),
+                    None => Err(crate::audio::native::Failure::unavailable(
+                        "audio.native.direct_route_unsupported",
+                    )),
+                },
+            };
+            let validator = match check {
+                Ok(evidence) => {
+                    if let Some(step) = report
+                        .steps
+                        .iter_mut()
+                        .find(|step| Some(step.step_id.as_str()) == step_id.as_deref())
+                    {
+                        step.fidelity = evidence.fidelity;
+                    }
+                    let validator = evidence.validator();
+                    native_audio_evidence = Some(evidence);
+                    validator
+                }
+                Err(failure) => {
+                    // Presence explicitly requires native proof. Generic flags
+                    // cannot turn this selected check into signature fallback.
+                    native_audio_blocked = true;
+                    failure.validator()
+                }
+            };
+            outcome.validators.push(validator);
+            outcome.state = crate::validation::aggregate_validation_state(&outcome.validators);
+            native_audio_results.insert(
+                identity.clone(),
+                (outcome.clone(), native_audio_evidence, features),
+            );
+        }
         if let Some(step) = report
             .steps
             .iter_mut()
@@ -1965,7 +2078,8 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
             for validator_diagnostic in &validator.diagnostics {
                 let blocking = validator.state == ValidationState::Invalid
                     || (validator.state == ValidationState::Unavailable
-                        && !resolved.spec.execution.validation.allow_unavailable);
+                        && (validator.validator_id == crate::audio::native::VALIDATOR
+                            || !resolved.spec.execution.validation.allow_unavailable));
                 diagnostics.push(ExecutionDiagnostic {
                     severity: if blocking {
                         match resolved.spec.execution.validation.failure_mode {
@@ -1989,7 +2103,8 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
                 });
             }
         }
-        let validation_blocked = outcome.state == ValidationState::Invalid
+        let validation_blocked = native_audio_blocked
+            || outcome.state == ValidationState::Invalid
             || (outcome.state == ValidationState::Unavailable
                 && !resolved.spec.execution.validation.allow_unavailable);
         let fidelity = report
@@ -2131,7 +2246,7 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
         actual_outputs.push(destination.display().to_string());
     }
 
-    let artifacts = artifact_evidence(ArtifactEvidenceInputs {
+    let mut artifacts = artifact_evidence(ArtifactEvidenceInputs {
         resolved: &resolved,
         sources: &source_artifacts,
         report: &report,
@@ -2145,6 +2260,34 @@ pub fn execute(mut resolved: ResolvedExecution, dry_run: bool) -> Result<Canonic
         retained_speech: &retained_speech,
         retained_locators: &retained_locators,
     });
+    for artifact in &mut artifacts {
+        if let Some((outcome, evidence, features)) = artifact
+            .metadata
+            .get("renderflow.target.identity")
+            .and_then(serde_json::Value::as_str)
+            .and_then(|identity| native_audio_results.get(identity))
+        {
+            // Contextual outcomes are keyed by target identity, not content ID:
+            // different requested profiles may legitimately share encoded bytes.
+            artifact.validation = outcome.state;
+            artifact.validation_evidence = outcome.validators.clone();
+            if evidence.is_none() {
+                if let Some(features) = features {
+                    artifact.metadata.insert(
+                        "renderflow.audio.native_feature_admission".to_owned(),
+                        serde_json::to_value(features)?,
+                    );
+                }
+            }
+            if let Some(evidence) = evidence {
+                artifact.fidelity = evidence.fidelity;
+                artifact.metadata.insert(
+                    "renderflow.audio.native_validation".to_owned(),
+                    serde_json::to_value(evidence)?,
+                );
+            }
+        }
+    }
     let materialized_artifact_count = actual_outputs.len();
     if let Some(publication) = &resolved.spec.publication {
         let source_spec_digest = sha256_serialized(&resolved.spec)?;
@@ -4642,70 +4785,93 @@ fn edge_allowed(edge: &TransformEdge, tools: &ToolRegistry, spec: &SpecV2) -> bo
     }
 
     for provider in edge_provider_ids(edge) {
-        if spec
-            .execution
-            .tools
-            .deny
-            .iter()
-            .any(|denied| denied == provider)
-        {
+        if !provider_allowed(provider, tools, spec) {
             return false;
-        }
-        if !spec.execution.tools.allow.is_empty()
-            && !spec
-                .execution
-                .tools
-                .allow
-                .iter()
-                .any(|allowed| allowed == provider)
-        {
-            return false;
-        }
-        let Some(descriptor) = tools.get(provider) else {
-            return false;
-        };
-        if spec.execution.requirements.deterministic
-            && descriptor.determinism != ToolDeterminism::Deterministic
-        {
-            return false;
-        }
-        if spec.execution.requirements.local_only
-            && !matches!(
-                descriptor.locality,
-                ToolLocality::Local | ToolLocality::LocalService
-            )
-        {
-            return false;
-        }
-        if spec.execution.requirements.offline
-            && !matches!(
-                descriptor.locality,
-                ToolLocality::Local | ToolLocality::LocalService
-            )
-        {
-            return false;
-        }
-        if matches!(spec.execution.network, crate::spec::NetworkPolicy::Deny)
-            && descriptor.locality == ToolLocality::NetworkRequired
-        {
-            return false;
-        }
-        if provider.starts_with("tool.ai.") {
-            match spec.execution.ai {
-                AiPolicy::Deny => return false,
-                AiPolicy::LocalOnly
-                    if !matches!(
-                        descriptor.locality,
-                        ToolLocality::Local | ToolLocality::LocalService
-                    ) =>
-                {
-                    return false;
-                }
-                AiPolicy::LocalOnly | AiPolicy::Allow => {}
-            }
         }
     }
     true
+}
+
+fn provider_allowed(provider: &str, tools: &ToolRegistry, spec: &SpecV2) -> bool {
+    if spec
+        .execution
+        .tools
+        .deny
+        .iter()
+        .any(|denied| denied == provider)
+    {
+        return false;
+    }
+    if !spec.execution.tools.allow.is_empty()
+        && !spec
+            .execution
+            .tools
+            .allow
+            .iter()
+            .any(|allowed| allowed == provider)
+    {
+        return false;
+    }
+    let Some(descriptor) = tools.get(provider) else {
+        return false;
+    };
+    if spec.execution.requirements.deterministic
+        && descriptor.determinism != ToolDeterminism::Deterministic
+    {
+        return false;
+    }
+    if spec.execution.requirements.local_only
+        && !matches!(
+            descriptor.locality,
+            ToolLocality::Local | ToolLocality::LocalService
+        )
+    {
+        return false;
+    }
+    if spec.execution.requirements.offline
+        && !matches!(
+            descriptor.locality,
+            ToolLocality::Local | ToolLocality::LocalService
+        )
+    {
+        return false;
+    }
+    if matches!(spec.execution.network, crate::spec::NetworkPolicy::Deny)
+        && descriptor.locality == ToolLocality::NetworkRequired
+    {
+        return false;
+    }
+    if provider.starts_with("tool.ai.") {
+        match spec.execution.ai {
+            AiPolicy::Deny => return false,
+            AiPolicy::LocalOnly
+                if !matches!(
+                    descriptor.locality,
+                    ToolLocality::Local | ToolLocality::LocalService
+                ) =>
+            {
+                return false;
+            }
+            AiPolicy::LocalOnly | AiPolicy::Allow => {}
+        }
+    }
+    true
+}
+
+fn native_audio_verifiers_allowed(
+    tools: &ToolRegistry,
+    spec: &SpecV2,
+) -> Result<(), crate::audio::native::Failure> {
+    if ["tool.ffmpeg", "tool.ffprobe"]
+        .iter()
+        .all(|provider| provider_allowed(provider, tools, spec))
+    {
+        Ok(())
+    } else {
+        Err(crate::audio::native::Failure::unavailable(
+            "audio.native.verifier_policy_denied",
+        ))
+    }
 }
 
 fn edge_provider_ids(edge: &TransformEdge) -> Vec<&str> {
@@ -5401,6 +5567,40 @@ mod tests {
         assert_eq!(Format::M4aAlac.to_string(), "m4a_alac");
         assert_eq!(artifact_extension(Format::M4aAac), "m4a");
         assert_eq!(artifact_extension(Format::Mp3), "mp3");
+    }
+
+    #[test]
+    fn native_audio_verifier_admission_reuses_existing_provider_policy() {
+        let tools = ToolRegistry::builtins();
+        let mut spec = minimal_spec("wav");
+        assert!(native_audio_verifiers_allowed(&tools, &spec).is_ok());
+        spec.execution.tools.deny.push("tool.ffprobe".to_owned());
+        assert_eq!(
+            native_audio_verifiers_allowed(&tools, &spec).unwrap_err(),
+            crate::audio::native::Failure::unavailable("audio.native.verifier_policy_denied")
+        );
+        spec.execution.tools.deny.clear();
+        spec.execution.tools.allow = vec!["tool.ffmpeg".to_owned()];
+        assert_eq!(
+            native_audio_verifiers_allowed(&tools, &spec)
+                .unwrap_err()
+                .code,
+            "audio.native.verifier_policy_denied"
+        );
+        spec.execution.tools.allow.push("tool.ffprobe".to_owned());
+        assert!(native_audio_verifiers_allowed(&tools, &spec).is_ok());
+        spec.execution.requirements.deterministic = true;
+        assert_eq!(
+            native_audio_verifiers_allowed(&tools, &spec)
+                .unwrap_err()
+                .code,
+            "audio.native.verifier_policy_denied"
+        );
+        spec.execution.requirements.deterministic = false;
+        spec.execution.requirements.local_only = true;
+        spec.execution.requirements.offline = true;
+        spec.execution.network = NetworkPolicy::Deny;
+        assert!(native_audio_verifiers_allowed(&tools, &spec).is_ok());
     }
 
     #[test]

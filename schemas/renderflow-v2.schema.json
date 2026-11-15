@@ -1,5 +1,57 @@
 {
   "$defs": {
+    "audioValidation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile",
+        "ffmpeg",
+        "ffprobe"
+      ],
+      "properties": {
+        "profile": {
+          "const": "pcm-delivery-ffmpeg-8.0.1-v1"
+        },
+        "ffmpeg": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "path",
+            "sha256"
+          ],
+          "properties": {
+            "path": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        },
+        "ffprobe": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "path",
+            "sha256"
+          ],
+          "properties": {
+            "path": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        }
+      }
+    },
     "briefingBuildPolicy": {"type": "object", "additionalProperties": false, "properties": {"allow_draft": {"type": "boolean", "default": false}}},
     "briefingSource": {
       "required": ["kind", "path"],
@@ -1709,6 +1761,7 @@
           "default": false,
           "type": "boolean"
         },
+        "audio": {"anyOf": [{"$ref": "#/$defs/audioValidation"}, {"type": "null"}]},
         "failure_mode": {
           "default": "branch_local",
           "enum": [

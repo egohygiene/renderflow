@@ -32,7 +32,7 @@ Spec v2 describes source intent, derivative selection, execution policy, and det
 | `geometry` | `object` | no | — |
 | `id` | `stableId` | yes | — |
 | `immutable` | `true` | no | `true` |
-| `kind` | `artifact` / `collection` / `composition` | no | `"artifact"` |
+| `kind` | `artifact` / `collection` / `composition` / `presentation` / `briefing` | no | `"artifact"` |
 | `media_type` | `string` / `null` | no | — |
 | `members` | `array` | no | `[]` |
 | `path` | `string` / `null` | no | — |
@@ -94,8 +94,10 @@ Spec v2 describes source intent, derivative selection, execution policy, and det
 
 | Field | Type | Required | Default |
 | --- | --- | --- | --- |
+| `composition` | `object` | no | — |
 | `ai` | `deny` / `local_only` / `allow` | no | `"deny"` |
 | `budgets` | `budgets` | no | — |
+| `derivative_planning` | `derivativePlanningPolicy` | no | — |
 | `fixed_layout_epub` | `object` | no | — |
 | `hygiene_policy` | `object` | no | — |
 | `max_parallel` | `integer` | no | `1` |
@@ -108,11 +110,37 @@ Spec v2 describes source intent, derivative selection, execution policy, and det
 | `reject_loss_classes` | `array` | no | `[]` |
 | `requirements` | `requirements` | no | — |
 | `retry_policy` | `string` / `null` | no | — |
+| `lyrics` | `object` | no | — |
+| `subtitles` | `object` | no | — |
 | `timeout_policy` | `string` / `null` | no | — |
 | `tools` | `allowDeny` | no | — |
 | `transforms` | `allowDeny` | no | — |
 | `validation` | `validation` | no | — |
-| `composition` | `object` | no | — |
+| `speech` | `object` | no | — |
+| `screenplay_body` | `object` | no | — |
+| `screenplay_recovery` | `object` | no | — |
+| `screenplay_pdf` | `object` | no | — |
+| `screenplay` | `object` | no | — |
+| `briefing` | `object` | no | — |
+| `presentation` | `object` | no | — |
+
+## Validation policy
+
+| Field | Type | Required | Default |
+| --- | --- | --- | --- |
+| `allow_unavailable` | `boolean` | no | `false` |
+| `audio` | `object` | no | — |
+| `failure_mode` | `fatal` / `branch_local` | no | `"branch_local"` |
+| `required` | `boolean` | no | `true` |
+| `validators` | `array` | no | `[]` |
+
+## Native audio validation policy
+
+| Field | Type | Required | Default |
+| --- | --- | --- | --- |
+| `profile` | `"pcm-delivery-ffmpeg-8.0.1-v1"` | yes | — |
+| `ffmpeg` | `object` | yes | — |
+| `ffprobe` | `object` | yes | — |
 
 ## Print-interior PDF policy
 

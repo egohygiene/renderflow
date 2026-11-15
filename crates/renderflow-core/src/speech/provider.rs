@@ -321,7 +321,7 @@ pub(super) fn require_digest(snapshot: &FileSnapshot, expected: &str) -> Result<
 }
 
 #[derive(Debug)]
-pub(super) struct FileSnapshot {
+pub(crate) struct FileSnapshot {
     pub(super) path: PathBuf,
     kind: &'static str,
     maximum: u64,
@@ -330,7 +330,30 @@ pub(super) struct FileSnapshot {
 }
 
 impl FileSnapshot {
-    pub(super) fn read(
+    pub(crate) fn path(&self) -> &Path {
+        &self.path
+    }
+    pub(crate) fn digest(&self) -> &str {
+        &self.sha256
+    }
+    pub(crate) fn size_bytes(&self) -> u64 {
+        self.metadata.len()
+    }
+    pub(crate) fn bytes(
+        &self,
+        cancellation: &ProcessCancellationToken,
+    ) -> Result<Vec<u8>, SpeechError> {
+        let bytes = read_bounded(&self.path, self.maximum, cancellation)?;
+        if sha256(&bytes) != self.sha256 {
+            return Err(SpeechError::SourceChanged(
+                "snapshot changed before bounded byte read".to_owned(),
+            ));
+        }
+        self.recheck(cancellation)?;
+        Ok(bytes)
+    }
+
+    pub(crate) fn read(
         input: &Path,
         kind: &'static str,
         maximum: u64,
@@ -364,7 +387,7 @@ impl FileSnapshot {
         })
     }
 
-    pub(super) fn recheck(
+    pub(crate) fn recheck(
         &self,
         cancellation: &ProcessCancellationToken,
     ) -> Result<(), SpeechError> {

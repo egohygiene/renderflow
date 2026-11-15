@@ -1,0 +1,604 @@
+{
+  "binary_sha256": "391814f4bee5c12a989e54e8389db24e44c2abf11adf385d29d6f0e700d05ab2",
+  "canonical_sha256": "36f25f53ff9b0c76b5aa99e377fcf6c3c92f7125005fea16b1ec174293d42453",
+  "cue_count": 3,
+  "cue_timing_ms": [
+    [
+      125,
+      875
+    ],
+    [
+      650,
+      1250
+    ],
+    [
+      1500,
+      2375
+    ]
+  ],
+  "declared_losses": {
+    "lrc": [
+      "classification_review_revision_and_section_metadata_in_companion",
+      "original_source_provenance_and_prior_losses_in_companion",
+      "cue_ids_speakers_language_and_overlap_policy_in_companion",
+      "cue_end_times_not_represented",
+      "multiline_cue_grouping_not_represented"
+    ],
+    "lyrics_json": [],
+    "markdown": [
+      "classification_review_revision_and_section_metadata_in_companion",
+      "original_source_provenance_and_prior_losses_in_companion",
+      "timed_text.SourceProvenance",
+      "timed_text.OverlapPolicy",
+      "timed_text.Timing",
+      "timed_text.CueIds",
+      "timed_text.Language"
+    ],
+    "text": [
+      "classification_review_revision_and_section_metadata_in_companion",
+      "original_source_provenance_and_prior_losses_in_companion",
+      "timed_text.SourceProvenance",
+      "timed_text.OverlapPolicy",
+      "timed_text.Timing",
+      "timed_text.CueIds",
+      "timed_text.Language"
+    ],
+    "ttml": [
+      "classification_review_revision_and_section_metadata_in_companion",
+      "original_source_provenance_and_prior_losses_in_companion",
+      "cue_ids_speakers_and_overlap_policy_in_companion"
+    ],
+    "vtt": [
+      "classification_review_revision_and_section_metadata_in_companion",
+      "original_source_provenance_and_prior_losses_in_companion",
+      "timed_text.SourceProvenance",
+      "timed_text.OverlapPolicy",
+      "timed_text.Language"
+    ],
+    "yaml": []
+  },
+  "events": [
+    {
+      "argv": [
+        "lyrics",
+        "inspect",
+        "--input",
+        "{work}/inputs/manual \u6b4c\u8a5e.srt",
+        "--language",
+        "fr",
+        "--revision",
+        "synthetic-akas-r1"
+      ],
+      "elapsed_ms": 3,
+      "exit_code": 0,
+      "name": "inspect",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "c4f57557b56fd96ac40a30e8d2978193d4a3aa7a5e1e50853d049267c6b357fe"
+    },
+    {
+      "argv": [
+        "build",
+        "--config",
+        "{work}/inputs/renderflow.json"
+      ],
+      "elapsed_ms": 11,
+      "exit_code": 0,
+      "name": "build",
+      "stderr_sha256": "059f4c67b175ea4ee7e8a6bc1fa85cbb5abca786493675bb8c91303fbeef5dda",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "build",
+        "--config",
+        "{work}/inputs/renderflow.json"
+      ],
+      "elapsed_ms": 10,
+      "exit_code": 1,
+      "name": "rerun-no-clobber",
+      "stderr_sha256": "88612892a4c3fc33b7a7b3f637b8ef17273281e193a3072085b41597b8cfb389",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "build",
+        "--config",
+        "{work}/cases/occupied/renderflow.json"
+      ],
+      "elapsed_ms": 8,
+      "exit_code": 1,
+      "name": "occupied-no-clobber",
+      "stderr_sha256": "3ac2e9887a1200732b7b03cc36285876f78c9ee0cdd4c1bfc3e04e98e3891f57",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "build",
+        "--config",
+        "{work}/cases/source-leaf-alias/renderflow.json"
+      ],
+      "elapsed_ms": 8,
+      "exit_code": 1,
+      "name": "source-leaf-alias-refused",
+      "stderr_sha256": "23313219c730cdf9c57f3c4948c2295202092db58274df3e0a5a255afa7c0715",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "build",
+        "--config",
+        "{work}/cases/parent-alias/renderflow.json"
+      ],
+      "elapsed_ms": 8,
+      "exit_code": 1,
+      "name": "parent-alias-refused",
+      "stderr_sha256": "afce2fa406ca3dd7f375ea2d9a9c0021ce31f536df52de2bef7b629ca11de9e3",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "build",
+        "--config",
+        "{work}/cases/manifest-occupied/renderflow.json"
+      ],
+      "elapsed_ms": 6,
+      "exit_code": 1,
+      "name": "manifest-no-clobber",
+      "stderr_sha256": "9401868063166c9bf2534bea1e92536ca94a6bdf14f9e8667e3c23989a84b916",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "build",
+        "--config",
+        "{work}/cases/manifest-collision/renderflow.json"
+      ],
+      "elapsed_ms": 10,
+      "exit_code": 1,
+      "name": "manifest-path-collision",
+      "stderr_sha256": "8dfc2a02ab1414a37cb21058eb6d4672c4e8a6c0275e4c94858f7c1461031bb4",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "build",
+        "--config",
+        "{work}/cases/original-nested/renderflow.json"
+      ],
+      "elapsed_ms": 7,
+      "exit_code": 1,
+      "name": "original-root-alias",
+      "stderr_sha256": "34806285d9e1e881d57c3273fe18e512ce48c0ea5d8f4350a6a2420c87235d9f",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "build",
+        "--config",
+        "{work}/cases/case-publication.json/renderflow.json"
+      ],
+      "elapsed_ms": 8,
+      "exit_code": 1,
+      "name": "sidecar-publication.json-refused",
+      "stderr_sha256": "9da2230642bc32af2a6f3174c9760a15dc28e9fe7e9236d641e76c2fe4a20f02",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "build",
+        "--config",
+        "{work}/cases/case-manifest.json/renderflow.json"
+      ],
+      "elapsed_ms": 7,
+      "exit_code": 1,
+      "name": "sidecar-manifest.json-refused",
+      "stderr_sha256": "e3f7fcf997e891fb2edfb95a26b0ac71baa447c6a65fdcbd66a8c411e930fbd9",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "build",
+        "--config",
+        "{work}/cases/case-provenance.json/renderflow.json"
+      ],
+      "elapsed_ms": 6,
+      "exit_code": 1,
+      "name": "sidecar-provenance.json-refused",
+      "stderr_sha256": "91912cc4e615b26396b1d45bf298c3e69b33f5c7c7ce926b19769ac356f338e3",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "build",
+        "--config",
+        "{work}/cases/case-preflight.json/renderflow.json"
+      ],
+      "elapsed_ms": 7,
+      "exit_code": 1,
+      "name": "sidecar-preflight.json-refused",
+      "stderr_sha256": "a43a0e4429c2f2aaa0a7d3321b1f79b56284508d5441c75fa5cb313dafb23614",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "build",
+        "--config",
+        "{work}/cases/case-checksums.sha256/renderflow.json"
+      ],
+      "elapsed_ms": 6,
+      "exit_code": 1,
+      "name": "sidecar-checksums.sha256-refused",
+      "stderr_sha256": "298d830d160180f40f8c777273d46fedcdc2bb25511926715a124a7f459bff74",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "build",
+        "--config",
+        "{work}/cases/stale/renderflow.json"
+      ],
+      "elapsed_ms": 2,
+      "exit_code": 1,
+      "name": "stale-source-refused",
+      "stderr_sha256": "773d274ade041499f23416d68cb1cc2b1e84eaf32b35f72b37f24e43d8ebf700",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "lyrics",
+        "inspect",
+        "--input",
+        "{work}/special/link.srt"
+      ],
+      "elapsed_ms": 2,
+      "exit_code": 1,
+      "name": "symlink-refused",
+      "stderr_sha256": "4c784236b127400cd228684adf8305981979182c174bc911dd3ca734f9ee9619",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "lyrics",
+        "inspect",
+        "--input",
+        "{work}/special/pipe.srt"
+      ],
+      "elapsed_ms": 2,
+      "exit_code": 1,
+      "name": "fifo-refused",
+      "stderr_sha256": "4c784236b127400cd228684adf8305981979182c174bc911dd3ca734f9ee9619",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "lyrics",
+        "inspect",
+        "--input",
+        "{work}/special/directory.srt"
+      ],
+      "elapsed_ms": 2,
+      "exit_code": 1,
+      "name": "directory-refused",
+      "stderr_sha256": "4c784236b127400cd228684adf8305981979182c174bc911dd3ca734f9ee9619",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "lyrics",
+        "inspect",
+        "--input",
+        "{work}/special/oversize.srt"
+      ],
+      "elapsed_ms": 2,
+      "exit_code": 1,
+      "name": "oversize-refused",
+      "stderr_sha256": "8dc17cf51e0835bc2548add01479b5c9115d66f07f45316547eac3a6e0721dd4",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "bundle",
+        "export",
+        "--manifest",
+        "{work}/published/renderflow-run.json",
+        "--manifest-sha256",
+        "047246ceaaa0bb73bfe33845b0c23fe6d45e0c5296e54d9f2b01c9ca8e569ebb",
+        "--bundle-root",
+        "{work}/published",
+        "--artifact-store-root",
+        "{work}/.renderflow/manual-lyrics-JYOosc/artifacts",
+        "--output-dir",
+        "{work}/portable",
+        "--include-sources"
+      ],
+      "elapsed_ms": 5,
+      "exit_code": 0,
+      "name": "bundle-export",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "8370eaf75695a239c5f3003aa8277e8e24edcee145802dd981995c85cf82eecd"
+    },
+    {
+      "argv": [
+        "bundle",
+        "verify-portable",
+        "--bundle-root",
+        "{work}/portable",
+        "--index-sha256",
+        "8739ccdf71ceca1fece9713f23168a02867d631075c12bcb5a1d1dc70bf2e0f8"
+      ],
+      "elapsed_ms": 3,
+      "exit_code": 0,
+      "name": "bundle-verify-portable",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "d09cd37fc0e53a9a4990b2e579bcfeb724bbcdf566a44f8e65b996ffc79aa56b"
+    }
+  ],
+  "external_provider_or_model_executed": false,
+  "full_player_or_schema_qualification": false,
+  "human_approval_granted": false,
+  "input_inventory": {
+    "manual \u6b4c\u8a5e.srt": {
+      "bytes": 183,
+      "sha256": "e64a65b8aa5a903c4a4e3aa16723e346d1cb65822601a667cd0bba488ff148ca"
+    },
+    "renderflow.json": {
+      "bytes": 685,
+      "sha256": "b3eba0cf02f8a0805213a46d2cb3b8684c0dc9fcc3e4f16687fd41b4defeb90c"
+    }
+  },
+  "no_clobber_and_alias_controls_passed": true,
+  "observed_at_utc": "2026-11-15T20:18:53.448373+00:00",
+  "observer_sha256": "d375d714e53e0f0ca1b316c0ab5c56d19c46ebd31d64f5bff7ec525d53531529",
+  "output_inventory": {
+    "manual-lyrics/lyrics/line-synchronized.lrc": {
+      "bytes": 116,
+      "sha256": "70c24261364dae3d5a6acb2825bc0cb8031a4b257e9fb37325c92f7c94025a74"
+    },
+    "manual-lyrics/lyrics/markdown.markdown": {
+      "bytes": 98,
+      "sha256": "9a417aa2dd48e34da8defe03927a60657d05bd078ed0ec3dd905e9d3d78355c8"
+    },
+    "manual-lyrics/lyrics/plain-text.txt": {
+      "bytes": 74,
+      "sha256": "fa7bf6e06ff044c70f57eb041e26d724ce005d5df4a9aeaa0f7146926951ba0d"
+    },
+    "manual-lyrics/lyrics/structured-yaml.yaml": {
+      "bytes": 766,
+      "sha256": "fb5fb96908277dde1dfbd990b66b5cf26574ba795e5a39b05a5cebf412f54090"
+    },
+    "manual-lyrics/lyrics/structured.lyrics.json": {
+      "bytes": 1046,
+      "sha256": "36f25f53ff9b0c76b5aa99e377fcf6c3c92f7125005fea16b1ec174293d42453"
+    },
+    "manual-lyrics/lyrics/subrip.srt": {
+      "bytes": 183,
+      "sha256": "e64a65b8aa5a903c4a4e3aa16723e346d1cb65822601a667cd0bba488ff148ca"
+    },
+    "manual-lyrics/lyrics/ttml.ttml": {
+      "bytes": 405,
+      "sha256": "1cd9707c0194f976eb96df3f99d0133a1798e7b7cfdf0823d7b48d6325735f01"
+    },
+    "manual-lyrics/lyrics/web-captions.vtt": {
+      "bytes": 180,
+      "sha256": "52d5b5f6e5faf6eaf47a28a2b4254835b5b55f3037ec33232176be56f9690832"
+    },
+    "renderflow-run.json": {
+      "bytes": 93812,
+      "sha256": "047246ceaaa0bb73bfe33845b0c23fe6d45e0c5296e54d9f2b01c9ca8e569ebb"
+    }
+  },
+  "portable_export": {
+    "creative_approval_inferred": false,
+    "include_sources": true,
+    "index": "bundle.json",
+    "index_sha256": "8739ccdf71ceca1fece9713f23168a02867d631075c12bcb5a1d1dc70bf2e0f8",
+    "native_receipt_sha256": "047246ceaaa0bb73bfe33845b0c23fe6d45e0c5296e54d9f2b01c9ca8e569ebb",
+    "object_count": 8,
+    "record_count": 9,
+    "run_id": "run:sha256:4866e2e58aeb80c0b9e096c58ed26899471e7552b56b6dc3234658eb9c6ff663",
+    "run_state": "complete",
+    "runtime_qualified": false,
+    "schema_version": "renderflow.portable-forest-export/v1"
+  },
+  "portable_inventory": {
+    "bundle.json": {
+      "bytes": 1616,
+      "sha256": "8739ccdf71ceca1fece9713f23168a02867d631075c12bcb5a1d1dc70bf2e0f8"
+    },
+    "native/run.json": {
+      "bytes": 93812,
+      "sha256": "047246ceaaa0bb73bfe33845b0c23fe6d45e0c5296e54d9f2b01c9ca8e569ebb"
+    },
+    "objects/sha256/1c/1cd9707c0194f976eb96df3f99d0133a1798e7b7cfdf0823d7b48d6325735f01": {
+      "bytes": 405,
+      "sha256": "1cd9707c0194f976eb96df3f99d0133a1798e7b7cfdf0823d7b48d6325735f01"
+    },
+    "objects/sha256/36/36f25f53ff9b0c76b5aa99e377fcf6c3c92f7125005fea16b1ec174293d42453": {
+      "bytes": 1046,
+      "sha256": "36f25f53ff9b0c76b5aa99e377fcf6c3c92f7125005fea16b1ec174293d42453"
+    },
+    "objects/sha256/52/52d5b5f6e5faf6eaf47a28a2b4254835b5b55f3037ec33232176be56f9690832": {
+      "bytes": 180,
+      "sha256": "52d5b5f6e5faf6eaf47a28a2b4254835b5b55f3037ec33232176be56f9690832"
+    },
+    "objects/sha256/70/70c24261364dae3d5a6acb2825bc0cb8031a4b257e9fb37325c92f7c94025a74": {
+      "bytes": 116,
+      "sha256": "70c24261364dae3d5a6acb2825bc0cb8031a4b257e9fb37325c92f7c94025a74"
+    },
+    "objects/sha256/9a/9a417aa2dd48e34da8defe03927a60657d05bd078ed0ec3dd905e9d3d78355c8": {
+      "bytes": 98,
+      "sha256": "9a417aa2dd48e34da8defe03927a60657d05bd078ed0ec3dd905e9d3d78355c8"
+    },
+    "objects/sha256/e6/e64a65b8aa5a903c4a4e3aa16723e346d1cb65822601a667cd0bba488ff148ca": {
+      "bytes": 183,
+      "sha256": "e64a65b8aa5a903c4a4e3aa16723e346d1cb65822601a667cd0bba488ff148ca"
+    },
+    "objects/sha256/fa/fa7bf6e06ff044c70f57eb041e26d724ce005d5df4a9aeaa0f7146926951ba0d": {
+      "bytes": 74,
+      "sha256": "fa7bf6e06ff044c70f57eb041e26d724ce005d5df4a9aeaa0f7146926951ba0d"
+    },
+    "objects/sha256/fb/fb5fb96908277dde1dfbd990b66b5cf26574ba795e5a39b05a5cebf412f54090": {
+      "bytes": 766,
+      "sha256": "fb5fb96908277dde1dfbd990b66b5cf26574ba795e5a39b05a5cebf412f54090"
+    }
+  },
+  "portable_verification": {
+    "creative_approval_inferred": false,
+    "dependency_scope": "Inventory lineage and known v1 body/recovery/subtitle/speech/lyrics references; unknown extension metadata remains opaque.",
+    "external_source_records": 0,
+    "include_sources": true,
+    "index_sha256": "8739ccdf71ceca1fece9713f23168a02867d631075c12bcb5a1d1dc70bf2e0f8",
+    "native_receipt_sha256": "047246ceaaa0bb73bfe33845b0c23fe6d45e0c5296e54d9f2b01c9ca8e569ebb",
+    "observed_records": 9,
+    "publications": [
+      {
+        "artifact_id": "artifact:sha256:679132f93a89da77433a5bcd3d5bd44dc960baeb2d1fb93d999c48d5a10d0443",
+        "fidelity": "partial",
+        "original_locator": "bundle:manual-lyrics/lyrics/line-synchronized.lrc",
+        "relative_payload": "objects/sha256/70/70c24261364dae3d5a6acb2825bc0cb8031a4b257e9fb37325c92f7c94025a74",
+        "sha256": "70c24261364dae3d5a6acb2825bc0cb8031a4b257e9fb37325c92f7c94025a74",
+        "size_bytes": 116,
+        "source_identity": false,
+        "target_id": "target-d710d2c64679f744e5a368f97793e7ac3736b3b838b7b245ad6c21d9e5781611",
+        "validation": "valid"
+      },
+      {
+        "artifact_id": "artifact:sha256:5db823b4ba74b4b5cd3765b446ae2a377b0f2d41215b671947695675b7bbef0f",
+        "fidelity": "partial",
+        "original_locator": "bundle:manual-lyrics/lyrics/structured.lyrics.json",
+        "relative_payload": "objects/sha256/36/36f25f53ff9b0c76b5aa99e377fcf6c3c92f7125005fea16b1ec174293d42453",
+        "sha256": "36f25f53ff9b0c76b5aa99e377fcf6c3c92f7125005fea16b1ec174293d42453",
+        "size_bytes": 1046,
+        "source_identity": false,
+        "target_id": "target-6bf66f58e45ae2b8c212a27671a60606ef527089bc8b0a317726a13d25711f2e",
+        "validation": "valid"
+      },
+      {
+        "artifact_id": "artifact:sha256:8d5d4babc2b009b9e63eaa123942af885d1c5c72cd0952a6df665cfbe487aeb5",
+        "fidelity": "partial",
+        "original_locator": "bundle:manual-lyrics/lyrics/markdown.markdown",
+        "relative_payload": "objects/sha256/9a/9a417aa2dd48e34da8defe03927a60657d05bd078ed0ec3dd905e9d3d78355c8",
+        "sha256": "9a417aa2dd48e34da8defe03927a60657d05bd078ed0ec3dd905e9d3d78355c8",
+        "size_bytes": 98,
+        "source_identity": false,
+        "target_id": "target-b864750a24ac2c5759e106fd079a5424063754d6d2cafd5e2556f25a2556d660",
+        "validation": "valid"
+      },
+      {
+        "artifact_id": "artifact:sha256:f1f97068dcf78c75080437129cae8b00e06226b117b7a697fd8d3e522bb58f34",
+        "fidelity": "lossless",
+        "original_locator": "bundle:manual-lyrics/lyrics/subrip.srt",
+        "relative_payload": "objects/sha256/e6/e64a65b8aa5a903c4a4e3aa16723e346d1cb65822601a667cd0bba488ff148ca",
+        "sha256": "e64a65b8aa5a903c4a4e3aa16723e346d1cb65822601a667cd0bba488ff148ca",
+        "size_bytes": 183,
+        "source_identity": true,
+        "target_id": "target-694d5308efa0ef1a7bde71544c69e1bd446cac21548dc15213460e32dd1d2d27",
+        "validation": "valid"
+      },
+      {
+        "artifact_id": "artifact:sha256:aa77863917648344c829bd4f7a31fcaff90f787232e6e137ba8ff699050c5c1f",
+        "fidelity": "partial",
+        "original_locator": "bundle:manual-lyrics/lyrics/plain-text.txt",
+        "relative_payload": "objects/sha256/fa/fa7bf6e06ff044c70f57eb041e26d724ce005d5df4a9aeaa0f7146926951ba0d",
+        "sha256": "fa7bf6e06ff044c70f57eb041e26d724ce005d5df4a9aeaa0f7146926951ba0d",
+        "size_bytes": 74,
+        "source_identity": false,
+        "target_id": "target-99600ba90e1f8624ee760d7b84485e73010da329b3bc9fdf2a8db509c60b6555",
+        "validation": "valid"
+      },
+      {
+        "artifact_id": "artifact:sha256:5967f097df23ccde6f49e70c14ba116b3ab9dd6b380ac23573bc51561814484e",
+        "fidelity": "partial",
+        "original_locator": "bundle:manual-lyrics/lyrics/ttml.ttml",
+        "relative_payload": "objects/sha256/1c/1cd9707c0194f976eb96df3f99d0133a1798e7b7cfdf0823d7b48d6325735f01",
+        "sha256": "1cd9707c0194f976eb96df3f99d0133a1798e7b7cfdf0823d7b48d6325735f01",
+        "size_bytes": 405,
+        "source_identity": false,
+        "target_id": "target-dc3e1f3c576afaf992e4c6056778cbb54d714ddb0624fe5f7b993573c1563a4f",
+        "validation": "valid"
+      },
+      {
+        "artifact_id": "artifact:sha256:6fcfd5566d35a59f24271d37233c8a6bbae3f3cfbb7de5869358ece84a7324d8",
+        "fidelity": "partial",
+        "original_locator": "bundle:manual-lyrics/lyrics/web-captions.vtt",
+        "relative_payload": "objects/sha256/52/52d5b5f6e5faf6eaf47a28a2b4254835b5b55f3037ec33232176be56f9690832",
+        "sha256": "52d5b5f6e5faf6eaf47a28a2b4254835b5b55f3037ec33232176be56f9690832",
+        "size_bytes": 180,
+        "source_identity": false,
+        "target_id": "target-d97bf0a1d1d28e992fd97f01b92691e384862b1efb59e43a6c8e19104e1a646c",
+        "validation": "valid"
+      },
+      {
+        "artifact_id": "artifact:sha256:c8203f4fd394f111c878de0e9309ae1d4a38123312228f8f41dcef9081174885",
+        "fidelity": "partial",
+        "original_locator": "bundle:manual-lyrics/lyrics/structured-yaml.yaml",
+        "relative_payload": "objects/sha256/fb/fb5fb96908277dde1dfbd990b66b5cf26574ba795e5a39b05a5cebf412f54090",
+        "sha256": "fb5fb96908277dde1dfbd990b66b5cf26574ba795e5a39b05a5cebf412f54090",
+        "size_bytes": 766,
+        "source_identity": false,
+        "target_id": "target-4aacf53bb4288688d966d422fdd632d376c2cebdb6b1f3d38da513144939d7bf",
+        "validation": "valid"
+      }
+    ],
+    "publisher_authenticated": false,
+    "run_id": "run:sha256:4866e2e58aeb80c0b9e096c58ed26899471e7552b56b6dc3234658eb9c6ff663",
+    "run_state": "complete",
+    "runtime_qualified": false,
+    "schema_version": "renderflow.portable-forest-verification/v1"
+  },
+  "protected_sentinel_sha256": "eabe22f1cb4a1d61864b8e6ead8d71114976307144eb7d1b5d057fb96bf56308",
+  "published_formats": [
+    "lrc",
+    "lyrics_json",
+    "markdown",
+    "srt",
+    "text",
+    "ttml",
+    "vtt",
+    "yaml"
+  ],
+  "recognition_or_alignment": false,
+  "remote_publication_performed": false,
+  "retained_store": {
+    "path": ".renderflow/manual-lyrics-JYOosc/artifacts",
+    "relative_to": "bundle_parent"
+  },
+  "retained_store_inventory": {
+    "objects/sha256/1c/1cd9707c0194f976eb96df3f99d0133a1798e7b7cfdf0823d7b48d6325735f01": {
+      "bytes": 405,
+      "sha256": "1cd9707c0194f976eb96df3f99d0133a1798e7b7cfdf0823d7b48d6325735f01"
+    },
+    "objects/sha256/36/36f25f53ff9b0c76b5aa99e377fcf6c3c92f7125005fea16b1ec174293d42453": {
+      "bytes": 1046,
+      "sha256": "36f25f53ff9b0c76b5aa99e377fcf6c3c92f7125005fea16b1ec174293d42453"
+    },
+    "objects/sha256/52/52d5b5f6e5faf6eaf47a28a2b4254835b5b55f3037ec33232176be56f9690832": {
+      "bytes": 180,
+      "sha256": "52d5b5f6e5faf6eaf47a28a2b4254835b5b55f3037ec33232176be56f9690832"
+    },
+    "objects/sha256/70/70c24261364dae3d5a6acb2825bc0cb8031a4b257e9fb37325c92f7c94025a74": {
+      "bytes": 116,
+      "sha256": "70c24261364dae3d5a6acb2825bc0cb8031a4b257e9fb37325c92f7c94025a74"
+    },
+    "objects/sha256/9a/9a417aa2dd48e34da8defe03927a60657d05bd078ed0ec3dd905e9d3d78355c8": {
+      "bytes": 98,
+      "sha256": "9a417aa2dd48e34da8defe03927a60657d05bd078ed0ec3dd905e9d3d78355c8"
+    },
+    "objects/sha256/e6/e64a65b8aa5a903c4a4e3aa16723e346d1cb65822601a667cd0bba488ff148ca": {
+      "bytes": 183,
+      "sha256": "e64a65b8aa5a903c4a4e3aa16723e346d1cb65822601a667cd0bba488ff148ca"
+    },
+    "objects/sha256/fa/fa7bf6e06ff044c70f57eb041e26d724ce005d5df4a9aeaa0f7146926951ba0d": {
+      "bytes": 74,
+      "sha256": "fa7bf6e06ff044c70f57eb041e26d724ce005d5df4a9aeaa0f7146926951ba0d"
+    },
+    "objects/sha256/fb/fb5fb96908277dde1dfbd990b66b5cf26574ba795e5a39b05a5cebf412f54090": {
+      "bytes": 766,
+      "sha256": "fb5fb96908277dde1dfbd990b66b5cf26574ba795e5a39b05a5cebf412f54090"
+    }
+  },
+  "review_state": "unreviewed",
+  "schema_version": "renderflow.manual-lyrics-candidate-proof/v1",
+  "source_sha256": "e64a65b8aa5a903c4a4e3aa16723e346d1cb65822601a667cd0bba488ff148ca",
+  "yaml_observer_version": "6.0.3"
+}

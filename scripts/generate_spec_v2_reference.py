@@ -82,6 +82,8 @@ def main() -> None:
     )
     lines.extend(render_properties("Target selection", definitions["targetSelection"]))
     lines.extend(render_properties("Execution policy", definitions["executionPolicy"]))
+    lines.extend(render_properties("Validation policy", definitions["validation"]))
+    lines.extend(render_properties("Native audio validation policy", definitions["audioValidation"]))
     lines.extend(render_properties("Print-interior PDF policy", definitions["printPdfInterior"]))
     lines.extend(render_properties("Fixed-layout EPUB policy", definitions["fixedLayoutEpub"]))
     lines.extend(render_properties("Output layout", definitions["outputLayout"]))

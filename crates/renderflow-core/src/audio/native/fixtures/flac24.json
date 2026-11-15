@@ -1,0 +1,169 @@
+{
+    "packets": [
+        {
+            "codec_type": "audio",
+            "pts": 0,
+            "duration": 4608
+        },
+        {
+            "codec_type": "audio",
+            "pts": 4608,
+            "duration": 4608
+        },
+        {
+            "codec_type": "audio",
+            "pts": 9216,
+            "duration": 4608
+        },
+        {
+            "codec_type": "audio",
+            "pts": 13824,
+            "duration": 4608
+        },
+        {
+            "codec_type": "audio",
+            "pts": 18432,
+            "duration": 4608
+        },
+        {
+            "codec_type": "audio",
+            "pts": 23040,
+            "duration": 4608
+        },
+        {
+            "codec_type": "audio",
+            "pts": 27648,
+            "duration": 4608
+        },
+        {
+            "codec_type": "audio",
+            "pts": 32256,
+            "duration": 4608
+        },
+        {
+            "codec_type": "audio",
+            "pts": 36864,
+            "duration": 4608
+        },
+        {
+            "codec_type": "audio",
+            "pts": 41472,
+            "duration": 4608
+        },
+        {
+            "codec_type": "audio",
+            "pts": 46080,
+            "duration": 4608
+        },
+        {
+            "codec_type": "audio",
+            "pts": 50688,
+            "duration": 4608
+        },
+        {
+            "codec_type": "audio",
+            "pts": 55296,
+            "duration": 4608
+        },
+        {
+            "codec_type": "audio",
+            "pts": 59904,
+            "duration": 4608
+        },
+        {
+            "codec_type": "audio",
+            "pts": 64512,
+            "duration": 4608
+        },
+        {
+            "codec_type": "audio",
+            "pts": 69120,
+            "duration": 4608
+        },
+        {
+            "codec_type": "audio",
+            "pts": 73728,
+            "duration": 4608
+        },
+        {
+            "codec_type": "audio",
+            "pts": 78336,
+            "duration": 4608
+        },
+        {
+            "codec_type": "audio",
+            "pts": 82944,
+            "duration": 4608
+        },
+        {
+            "codec_type": "audio",
+            "pts": 87552,
+            "duration": 4608
+        },
+        {
+            "codec_type": "audio",
+            "pts": 92160,
+            "duration": 4608
+        },
+        {
+            "codec_type": "audio",
+            "pts": 96768,
+            "duration": 4608
+        },
+        {
+            "codec_type": "audio",
+            "pts": 101376,
+            "duration": 4608
+        },
+        {
+            "codec_type": "audio",
+            "pts": 105984,
+            "duration": 4608
+        },
+        {
+            "codec_type": "audio",
+            "pts": 110592,
+            "duration": 4608
+        },
+        {
+            "codec_type": "audio",
+            "pts": 115200,
+            "duration": 4608
+        },
+        {
+            "codec_type": "audio",
+            "pts": 119808,
+            "duration": 4608
+        },
+        {
+            "codec_type": "audio",
+            "pts": 124416,
+            "duration": 4608
+        },
+        {
+            "codec_type": "audio",
+            "pts": 129024,
+            "duration": 3276
+        }
+    ],
+    "programs": [
+
+    ],
+    "stream_groups": [
+
+    ],
+    "streams": [
+        {
+            "index": 0,
+            "codec_name": "flac",
+            "codec_type": "audio",
+            "sample_rate": "44100",
+            "channels": 2,
+            "bits_per_sample": 0,
+            "time_base": "1/44100",
+            "start_pts": 0,
+            "duration_ts": 132300,
+            "bits_per_raw_sample": "24"
+        }
+    ]
+}

@@ -1,5 +1,6 @@
 pub mod ffmpeg;
 pub mod format;
+pub mod native;
 pub mod profile;
 pub mod strategy;
 

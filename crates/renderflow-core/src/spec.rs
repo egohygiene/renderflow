@@ -508,6 +508,9 @@ pub enum RejectedLossClass {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ValidationPolicy {
+    /// Opt-in pinned native audio validation; absent keeps existing defaults.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub audio: Option<crate::audio::native::AudioValidationPolicy>,
     #[serde(default = "default_true")]
     pub required: bool,
     #[serde(default)]
@@ -563,6 +566,7 @@ impl Default for DerivativePlanningPolicy {
 impl Default for ValidationPolicy {
     fn default() -> Self {
         Self {
+            audio: None,
             required: true,
             validators: Vec::new(),
             failure_mode: ValidationFailureMode::default(),
@@ -1069,6 +1073,16 @@ impl SpecV2 {
                 diagnostics.push(SpecDiagnostic::new(
                     "$.execution.screenplay_recovery", "screenplay_recovery.policy.ambiguous",
                     "screenplay recovery requires its own spec without other native policies, custom transforms, or post-recovery hygiene",
+                ));
+            }
+        }
+
+        if let Some(audio) = &self.execution.validation.audio {
+            if let Err(error) = audio.validate() {
+                diagnostics.push(SpecDiagnostic::new(
+                    "$.execution.validation.audio",
+                    "audio.validation.policy",
+                    error.to_string(),
                 ));
             }
         }
@@ -2245,7 +2259,8 @@ pub fn json_schema() -> Value {
                     "required": {"type": "boolean", "default": true},
                     "validators": {"type": "array", "items": {"type": "string"}, "default": []},
                     "failure_mode": {"enum": ["fatal", "branch_local"], "default": "branch_local"},
-                    "allow_unavailable": {"type": "boolean", "default": false}
+                    "allow_unavailable": {"type": "boolean", "default": false},
+                    "audio": {"anyOf": [{"$ref": "#/$defs/audioValidation"}, {"type":"null"}]}
                 }
             },
             "printPdfInterior": {
@@ -2323,6 +2338,7 @@ pub fn json_schema() -> Value {
                     ,"screenplay_recovery": {"anyOf": [{"$ref": "#/$defs/screenplayRecoveryPolicy"}, {"type": "null"}]}
                 }
             },
+                "audioValidation": crate::audio::native::policy_schema(),
                 "lyricsPolicy": crate::lyrics::policy_schema(),
                 "screenplayBodyPolicy": {
                     "type": "object", "additionalProperties": false,
