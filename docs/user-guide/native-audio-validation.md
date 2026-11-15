@@ -49,8 +49,9 @@ mismatched samples under a source-preserving lossless profile are `invalid`.
 Selecting this option requires the native check: either state blocks that target,
 including with generic `required: false` or `allow_unavailable: true`.
 
-Custom validators still run. With an empty/default list, nonempty and the actual
-native check replace the signature-only default. An explicit custom signature
+When generic validation is enabled, other custom validators retain their existing
+behavior; the selected native check always runs. With an empty/default list,
+nonempty and the actual native check replace the signature-only default. An explicit custom signature
 validator keeps its own warning. Requesting the contextual native validator ID
 `validator.audio.pinned_pcm_delivery` executes that configured check once.
 
@@ -64,7 +65,14 @@ that result. The native proof is joined to the concrete target identity, profile
 artifact/digest and producing step/configuration.
 
 A selected CD-precision, resampling or channel-change profile stays `Lossy` for
-its declared PCM changes. AAC and MP3 stay `Lossy`, including a rare decoded
+its declared PCM changes only when the actual output meets that requested
+profile. The current encoder does not force 16-bit ALAC for a 24-bit source sent
+through `alac_cd`: that output remains 24-bit and is refused as
+`audio.native.profile.layout`. Matching 16-bit `alac_cd` is supported; this
+checkpoint does not add ALAC precision conversion. A verified 44.1-to-48-kHz
+`flac_broadcast` conversion is an example of valid declared loss.
+
+AAC and MP3 stay `Lossy`, including a rare decoded
 sample equality. Native checks do not attest encoded bitrate/compression quality,
 perceptual equivalence, mastering, loudness, playback or content approval.
 Planned route scores and catalog support tiers remain conservative.

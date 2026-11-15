@@ -1,0 +1,435 @@
+{
+  "base_revision": "a2e33ed3f049fbd37b8807c2481504cd48a49cc6",
+  "build_capture": {
+    "record": {
+      "bytes": 1794,
+      "sha256": "f5155beaa25eeb5aefc8246eb8ec5fbedc24e8f424259d1e1c9658d21905fd60"
+    },
+    "record_contents": {
+      "binary": {
+        "bytes": 20151256,
+        "path": "renderflow",
+        "sha256": "391814f4bee5c12a989e54e8389db24e44c2abf11adf385d29d6f0e700d05ab2"
+      },
+      "build_argv": [
+        "cargo",
+        "+1.94.0",
+        "build",
+        "--locked",
+        "--offline",
+        "--release",
+        "--target",
+        "x86_64-unknown-linux-gnu",
+        "--package",
+        "renderflow-cli",
+        "--jobs",
+        "2"
+      ],
+      "build_cache_reused": true,
+      "build_log": {
+        "bytes": 878,
+        "path": "public-source-release-build.log",
+        "sha256": "015b929a3022f44007e30633f81713702fcadc324411271cdbae0cd56bbf5cb3"
+      },
+      "build_profile": "release",
+      "compiled_contract": {
+        "bytes": 372295,
+        "path": "release-contract.json",
+        "sha256": "199bf790b2d78e7706b1e24b3e0fdb189b8286eb231f8be1c8da503d82922f58"
+      },
+      "host": {
+        "architecture": "x86_64",
+        "distribution": "Debian GNU/Linux13(trixie)",
+        "kernel": "6.18.57"
+      },
+      "independent_rebuilds": 0,
+      "native_owner_runtime_proof_status": "pending",
+      "native_platform_or_full_provider_matrix_qualified": false,
+      "publisher_authenticated": false,
+      "remote_publication_performed": false,
+      "rustc": "rustc 1.94.0 (4a4ef493e 2026-03-02)\nbinary: rustc\ncommit-hash: 4a4ef493e3a1488c6e321570238084b38948f6db\ncommit-date: 2026-03-02\nhost: x86_64-unknown-linux-gnu\nrelease: 1.94.0\nLLVM version: 21.1.8\n",
+      "schema_version": "renderflow.local-cli-build-capture/v1",
+      "signing_performed": false,
+      "source_clean": true,
+      "source_revision": "67742e44ebdc4fec855c2af54d04bd2f2d2cf4e5",
+      "source_tree": "9df023051d126b9af7af0675e8830c7aa7fa80d1",
+      "source_url": "https://github.com/egohygiene/renderflow/commit/67742e44ebdc4fec855c2af54d04bd2f2d2cf4e5",
+      "target": "x86_64-unknown-linux-gnu",
+      "ubuntu_baseline_qualified": false,
+      "version": "renderflow 0.3.0-rc.1"
+    },
+    "status_note": "Immutable build-time pending observation; subsequent runtime results are the separately bound passed reports below."
+  },
+  "check_reproduction_argv": [
+    [
+      "cargo",
+      "+1.94.0",
+      "test",
+      "-p",
+      "renderflow",
+      "--lib",
+      "--locked",
+      "--offline",
+      "--jobs",
+      "2",
+      "native_audio",
+      "--",
+      "--nocapture"
+    ],
+    [
+      "cargo",
+      "+1.94.0",
+      "test",
+      "-p",
+      "renderflow",
+      "--lib",
+      "--locked",
+      "--offline",
+      "--jobs",
+      "2",
+      "planning::tests::subtitle_edges_preserve_required_providers_and_selected_stream_identity",
+      "--",
+      "--exact",
+      "--nocapture"
+    ],
+    [
+      "cargo",
+      "+1.94.0",
+      "test",
+      "-p",
+      "renderflow",
+      "--lib",
+      "--locked",
+      "--offline",
+      "--jobs",
+      "2",
+      "audio::native::tests::native_audio_actual_retained_payloads_and_mismatches",
+      "--",
+      "--exact",
+      "--ignored",
+      "--nocapture"
+    ]
+  ],
+  "check_reproduction_scope": "Commands reproduce the retained named checks. Final focused and secondary-provider logs capture direct test-executable runs, not new complete Cargo builds. The separately selected retained replay log includes its actual locked offline test compilation.",
+  "encoder_executable_hash_attested": false,
+  "executed_observation_date": "2026-11-15",
+  "existing_audio_observer_helper": {
+    "bytes": 18301,
+    "path": "scripts/observations/check_audio_delivery_candidate.py",
+    "sha256": "4839b79489eff39c4a26c27f296b632521b89c07c7436f8a88afb418ba869510"
+  },
+  "focused_check_results": {
+    "explicit_retained_native_feature_replay": {
+      "log": "actual-native-feature-replay.log",
+      "passed": 1,
+      "payloads": 5,
+      "scope": "Historical synthetic imported producing steps, not an encoder provenance attestation; actual full and preserved-slim verifier admission executed."
+    },
+    "native_provider_feature_controls": {
+      "ignored_native_replay": 1,
+      "log": "final-focused-native-controls.log",
+      "passed": 10
+    },
+    "secondary_provider_policy_regression": {
+      "log": "secondary-provider-policy-regression.log",
+      "passed": 1
+    }
+  },
+  "manifest_retention": {
+    "cache_positive_baseline": {
+      "binding": {
+        "bytes": 41880,
+        "sha256": "cb12357b74d259b9e5bc24880f6c812642f2ec3fa470c1887b91e7ba16411ec5"
+      },
+      "historical_raw_manifest_retained": false,
+      "historical_raw_manifest_sha256": "3518e68d6844a4d86d186c4c23415cf9c37d5bdb3d10dcd8af90a98f95d563cd",
+      "relative_file": "observed/cache-positive-manifest.json",
+      "retained_form": "Canonical JSON semantic snapshot, reserialized after successful run and before failed rerun.",
+      "scope": "The intentionally failed cached rerun replaced the raw run manifest. The prior raw SHA is an execution-time observation; retained canonical bytes support semantic source/step/native fact joins and are independently hashable."
+    },
+    "current_raw_manifest_joins": 14
+  },
+  "native_platform_or_full_provider_matrix_qualified": false,
+  "observations": {
+    "manual_lyrics_regression": {
+      "artifact_inventory_files": 29,
+      "commands": 21,
+      "inventory_groups": {
+        "input_inventory": 2,
+        "output_inventory": 9,
+        "portable_inventory": 10,
+        "retained_store_inventory": 8
+      },
+      "observer": {
+        "bytes": 22541,
+        "path": "scripts/observations/check_manual_lyrics_candidate.py",
+        "sha256": "d375d714e53e0f0ca1b316c0ab5c56d19c46ebd31d64f5bff7ec525d53531529"
+      },
+      "report": {
+        "bytes": 23220,
+        "sha256": "cd551018a02fdf95b298f57aad86ec457e89d6134a2b3ee543354a598ac58c55"
+      },
+      "state": "passed"
+    },
+    "native_cli": {
+      "artifact_inventory_files": 142,
+      "commands": 40,
+      "inventory_groups": {
+        "input_inventory": 17,
+        "observation_inventory": 87,
+        "output_inventory": 38
+      },
+      "observer": {
+        "bytes": 20252,
+        "path": "scripts/observations/check_native_audio_candidate.py",
+        "sha256": "46929a744ca1bd4905cee1ede24de808bc89ac29333712998cb609cb6af53e7b"
+      },
+      "report": {
+        "bytes": 193377,
+        "sha256": "df6746f2281eb427a34ff3c9c95c6e0dc7d5a07e4f2c76253e2028fc22df4d27"
+      },
+      "state": "passed"
+    }
+  },
+  "parent_issues_closed": false,
+  "remote_publication_performed": false,
+  "required_validation_weakened": false,
+  "retained_encoder_limitations": [
+    {
+      "accepted_publication": false,
+      "case": "unmet-cd-precision",
+      "codec": "alac",
+      "native_code": "audio.native.profile.layout",
+      "native_state": "invalid",
+      "observed_precision_bits": 24,
+      "requested_precision_bits": 16
+    }
+  ],
+  "retained_log_bindings": {
+    "actual-native-feature-replay.log": {
+      "bytes": 30262,
+      "sha256": "ff2ab3d9beb80074f46167adc8c6e33a5c143ff0b54ba4c5289b766e757f0ce5"
+    },
+    "actual-native-replay-v2.log": {
+      "bytes": 11754,
+      "sha256": "9c3a8a32c74759c1c393cadec4ce847a070f70ffe5bb2068eb431243ae3a9108"
+    },
+    "actual-native-replay.log": {
+      "bytes": 618,
+      "sha256": "2b1dd1cd5c68df69e449adbf6350deec992f71c754f5a812c9c302576d0921c0"
+    },
+    "cli-proof-final.log": {
+      "bytes": 158,
+      "sha256": "f05e84f4fdd886c9d40c9f747e69ad62058c88ce111036aa9c402415489c0d45"
+    },
+    "cli-proof-initial.log": {
+      "bytes": 158,
+      "sha256": "f05e84f4fdd886c9d40c9f747e69ad62058c88ce111036aa9c402415489c0d45"
+    },
+    "cli-proof-sealed.log": {
+      "bytes": 158,
+      "sha256": "f05e84f4fdd886c9d40c9f747e69ad62058c88ce111036aa9c402415489c0d45"
+    },
+    "final-focused-native-controls.log": {
+      "bytes": 1386,
+      "sha256": "474867e72cfd8a8db91ddd37ea3b555eec73a6e0995e6d3ee2bd2eaab3534d42"
+    },
+    "focused-native-and-provider-policy.log": {
+      "bytes": 2173,
+      "sha256": "90e4c294236da2ad9a8ccf12ccb779d9493750e7eb393cd459010c5eb756a56b"
+    },
+    "focused-native-tests-final-source.log": {
+      "bytes": 2079,
+      "sha256": "cf89d01ef2b9195da004d428ea783b9fe1b5ebf4d0684a3f777129de99344960"
+    },
+    "focused-native-tests.log": {
+      "bytes": 10173,
+      "sha256": "dc8e942634f41fc93a766f8d65586fd0dd76f0d847b08a30e832947902b73e42"
+    },
+    "manual-regression.log": {
+      "bytes": 260,
+      "sha256": "6712f9a3595110cd0b7804e86857e490be9198de413321d74b8aa16c9a10ba0a"
+    },
+    "public-source-release-build.log": {
+      "bytes": 878,
+      "sha256": "015b929a3022f44007e30633f81713702fcadc324411271cdbae0cd56bbf5cb3"
+    },
+    "secondary-provider-policy-regression.log": {
+      "bytes": 216,
+      "sha256": "6a2f14eff3776a244ef999b541ba3cffa0bd056593d8dc1e376748084dc63336"
+    }
+  },
+  "schema_version": "renderflow.native-audio-checkpoint-bindings/v1",
+  "selected_check_environment": {
+    "CARGO_BUILD_JOBS": "2",
+    "CARGO_INCREMENTAL": "0",
+    "CARGO_PROFILE_DEV_DEBUG": "0",
+    "CARGO_PROFILE_TEST_DEBUG": "0",
+    "RENDERFLOW_NATIVE_AUDIO_CORPUS": "{retained-authored-corpus}",
+    "RENDERFLOW_NATIVE_AUDIO_SLIM_VERIFIERS": "{preserved-slim-tools}",
+    "RENDERFLOW_NATIVE_AUDIO_VERIFIERS": "{audio-tools}",
+    "cargo_home": "{private-cargo}",
+    "cargo_target_dir": "{task-private-tmp-target}",
+    "rustup_home": "{private-rustup}"
+  },
+  "selected_verifiers": {
+    "audio": {
+      "ffmpeg": {
+        "bytes": 3280352,
+        "sha256": "94dbc5c9d7602f044b0ec9089cea2085d0f2adc3a2b1612eeec84f8badc6949d"
+      },
+      "ffprobe": {
+        "bytes": 3056320,
+        "sha256": "40d68a7e8fc61e8656be62b12179142124ebd61eea5ed8afefda6e2d68b97a1d"
+      }
+    },
+    "preserved_slim": {
+      "ffmpeg": {
+        "bytes": 8943080,
+        "sha256": "098c4ba3d9d7ca067bc9bfa004a33b5b91cf0913fa9380bcda7f3975c214380b"
+      },
+      "ffprobe": {
+        "bytes": 8731336,
+        "sha256": "31054f1d68b781089f98f594bb304cf5c9ae96dadafafdd021719ab4101a79be"
+      }
+    }
+  },
+  "signing_performed": false,
+  "source_bindings": [
+    {
+      "bytes": 177,
+      "git_blob": "907cba6ee2e178e85373b052717d91a14fcd7a7a",
+      "path": "crates/renderflow-core/src/audio/mod.rs",
+      "sha256": "080cd300aaf124a3a39087e6962faba7e1d4937beef9ac02e82d1c4659b035ba"
+    },
+    {
+      "bytes": 10223,
+      "git_blob": "e244097aceb61b6f7e0ece296fb9295cf159e446",
+      "path": "crates/renderflow-core/src/audio/native/features.rs",
+      "sha256": "1e5d63369ba22b9e664ca1e4ac905d7bdd99630c12424684373133215f7e81af"
+    },
+    {
+      "bytes": 15222,
+      "git_blob": "eba633086f3c4d802caf1a7b2d8d4ce45bde0cf6",
+      "path": "crates/renderflow-core/src/audio/native/fixtures/aac24.json",
+      "sha256": "3f9e937096b365ca8bcf875b46f1567ea6398d4f947d688a313c3261e4855a3a"
+    },
+    {
+      "bytes": 3676,
+      "git_blob": "28109307af18ef768d1cf491d7f6db21235d306a",
+      "path": "crates/renderflow-core/src/audio/native/fixtures/flac24.json",
+      "sha256": "8ecbe4d4e90f56ee2fca96d9ffbf6fe7626e274d8d35a9ef7e96318796052706"
+    },
+    {
+      "bytes": 14283,
+      "git_blob": "af1b2c5eda7e20ce952882b07bcd4c5c36323b9d",
+      "path": "crates/renderflow-core/src/audio/native/fixtures/mp3.json",
+      "sha256": "d27bb05dfbb5bdc51fa6384251d67ff9b6119d7da91797c99ec46a042ac4e93e"
+    },
+    {
+      "bytes": 26034,
+      "git_blob": "2d18d31cffa103eea9e34e3f027cef54911edf5b",
+      "path": "crates/renderflow-core/src/audio/native/mod.rs",
+      "sha256": "07e08d79465bc765497aac515bef70abf8c71d853f4109aba5347bea4fb9b2d6"
+    },
+    {
+      "bytes": 3471,
+      "git_blob": "d4696e1c21eda40cee95c995c262951cf06f6419",
+      "path": "crates/renderflow-core/src/audio/native/policy.rs",
+      "sha256": "0f29b9ae148bcad9353b45b9baddafaf8634bc5eeaac02cfeaffc1c3a8360f1b"
+    },
+    {
+      "bytes": 9050,
+      "git_blob": "63724c2b221dbe013136a018aea5bc926500a7b2",
+      "path": "crates/renderflow-core/src/audio/native/probe.rs",
+      "sha256": "2a0db2f642bbf6958f774d3acc9adcd0c808e6d2fa3cac035c35dec9a2c92a9c"
+    },
+    {
+      "bytes": 24428,
+      "git_blob": "42f11c7145408bfc9c3e6f0123a515c58c7b19d1",
+      "path": "crates/renderflow-core/src/audio/native/tests.rs",
+      "sha256": "9523cd7cf6c3a8e2c533cc09d59a21ec8cd5b4e9a40fbac7cf86f161a17923cc"
+    },
+    {
+      "bytes": 24616,
+      "git_blob": "0a697a76bdc4e87490ac776051af5e6209b5cc1b",
+      "path": "crates/renderflow-core/src/dna/sonic/mod.rs",
+      "sha256": "ca0989bc034706bab934921468c79f69ddbd2fbce4913d596a55643a7062bf60"
+    },
+    {
+      "bytes": 7945,
+      "git_blob": "bd9b492ab1f010817c4713326b5af4ba54b3bfc0",
+      "path": "crates/renderflow-core/src/dna/sonic/wav.rs",
+      "sha256": "d9c84a879b6fadbf5dfea9ef28ef2ac391ff8c087b581048ae542cc8680d867b"
+    },
+    {
+      "bytes": 253245,
+      "git_blob": "20f0b6f7636fb26bff805a541ba0bd7b16ba1e20",
+      "path": "crates/renderflow-core/src/planning.rs",
+      "sha256": "24a44733be9d437f7a3c5a81e608e69b9bb30ab36a0e1103a964f4c3eec5c35e"
+    },
+    {
+      "bytes": 136195,
+      "git_blob": "7683b871921f9ce564f5fb4e289051d2e53db42b",
+      "path": "crates/renderflow-core/src/spec.rs",
+      "sha256": "0b4d904dc6339436272c4596812f8afb1b28d9282d164142fab65414cec15c8a"
+    },
+    {
+      "bytes": 28574,
+      "git_blob": "5d083ff7c0571dd4d834633a4ec7235e59833747",
+      "path": "crates/renderflow-core/src/speech/provider.rs",
+      "sha256": "97e8afe3da49bea3bb9c3b3eac9f5176629ec94cf59f86d361c98ccd33bb88eb"
+    },
+    {
+      "bytes": 54695,
+      "git_blob": "38284e4e90eabcccc301266f6619223ebc96a27a",
+      "path": "crates/renderflow-core/src/validation.rs",
+      "sha256": "1fcba3d42db61bcab822a879921c722d058b4fe54c40ad2c36eec4cf380190ba"
+    },
+    {
+      "bytes": 5499,
+      "git_blob": "741194cb5bc590a234a91c4f0bf66ab294a02e4e",
+      "path": "docs/user-guide/native-audio-validation.md",
+      "sha256": "edc5eda55ac05b52a6dec07a4fc046d5aa7699641a1fc66f8ab21b36a20d5abb"
+    },
+    {
+      "bytes": 8849,
+      "git_blob": "617a194632dd017c43f1dfa158bcd55a62b6b537",
+      "path": "docs/user-guide/spec-v2-reference.md",
+      "sha256": "30329241d0c2c7bfafea898d9b40d5585b7a135fe839b82377ec9aa584e994fd"
+    },
+    {
+      "bytes": 3750,
+      "git_blob": "91e2424114d6edeb7e35f7c2b63e9dfd14e1791e",
+      "path": "docs/work/367/NATIVE-AUDIO-VALIDATION-20261115.md",
+      "sha256": "193a24ea0cacb5c6b33c79ea8a5d1fce78bbf61d834186a09dc5e58aa8582f66"
+    },
+    {
+      "bytes": 66896,
+      "git_blob": "cf8eb5f9b8650e273898f3f02ab7c78225b29b1d",
+      "path": "schemas/renderflow-v2.schema.json",
+      "sha256": "9ea9b15cec44a29a234439adbe71ddf06bd2ba7973d6efee414d982ab925a71e"
+    },
+    {
+      "bytes": 4465,
+      "git_blob": "3570aab8ba13b7542aef86295ca77917ba196543",
+      "path": "scripts/generate_spec_v2_reference.py",
+      "sha256": "50c11c5dd7541627c04a5445156a201e1308cdc6ecae6078ce57f5762566c5a2"
+    }
+  ],
+  "source_revision": "67742e44ebdc4fec855c2af54d04bd2f2d2cf4e5",
+  "source_tree": "9df023051d126b9af7af0675e8830c7aa7fa80d1",
+  "superseded_observations": {
+    "actual-native-replay-v2.log": "Earlier retained replay before final feature admission, superseded by actual-native-feature-replay.log.",
+    "actual-native-replay.log": "Initial replay compilation failed E0063 for missing observational boolean initializer; fixed before replay, not counted as a passed check.",
+    "cli-proof-final.log": "Passed first repository script iteration, superseded by cli-proof-sealed.log.",
+    "cli-proof-initial.log": "Passed private script iteration, superseded by final before/after-verifier-bound committed observer.",
+    "replay-test-binding.json": {
+      "binding": {
+        "bytes": 1540,
+        "sha256": "4f48931c224a68adaf9d23c2d147d57f3ca9ed2601cc76c8b1f8076bbdcd5a90"
+      },
+      "scope": "Post-replay source witness and retained earlier executable only; not an exact earlier full test-source snapshot."
+    }
+  }
+}
