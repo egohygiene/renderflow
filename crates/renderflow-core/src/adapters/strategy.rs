@@ -148,6 +148,16 @@ impl StrategyArtifactTransform {
         Ok(path)
     }
 
+    fn output_file_name(&self) -> String {
+        match &self.output_type {
+            // Graph format identity may differ from the physical container
+            // suffix (m4a_alac is ALAC in an .m4a container).
+            OutputType::Audio(audio) => format!("output.{}", audio.file_extension()),
+            OutputType::Kepub => "output.kepub.epub".to_string(),
+            _ => format!("output.{}", self.to),
+        }
+    }
+
     fn requires_text_preparation(&self) -> bool {
         matches!(
             self.from,
@@ -193,11 +203,7 @@ impl ArtifactTransform for StrategyArtifactTransform {
         } else {
             store.payload_path(input)?
         };
-        let output_name = if self.to == Format::Kepub {
-            "output.kepub.epub".to_string()
-        } else {
-            format!("output.{}", self.to)
-        };
+        let output_name = self.output_file_name();
         let output_path = work_dir.path().join(output_name);
         let strategy = select_strategy(
             &self.output_type,
@@ -351,6 +357,37 @@ mod tests {
             )
             .is_ok());
         }
+    }
+
+    #[test]
+    fn alac_adapter_uses_physical_m4a_suffix_without_changing_codec_identity() {
+        let adapter = StrategyArtifactTransform::new(
+            Format::Wav,
+            Format::M4aAlac,
+            None,
+            Some("alac_cd".to_string()),
+            BTreeMap::new(),
+            None,
+        )
+        .unwrap();
+        assert_eq!(adapter.to, Format::M4aAlac);
+        assert_eq!(
+            adapter.output_type,
+            OutputType::Audio(crate::audio::AudioFormat::M4aAlac)
+        );
+        assert_eq!(adapter.output_file_name(), "output.m4a");
+        let name = adapter.output_file_name();
+        let args = crate::audio::ffmpeg::FfmpegAudioArgs::new(
+            "original.wav",
+            &name,
+            crate::audio::AudioFormat::M4aAlac,
+            Some("alac_cd"),
+        )
+        .try_build()
+        .unwrap();
+        assert!(args.windows(2).any(|pair| pair == ["-acodec", "alac"]));
+        assert!(args.windows(2).any(|pair| pair == ["-ar", "44100"]));
+        assert_eq!(args.last().unwrap(), "output.m4a");
     }
 
     #[test]
