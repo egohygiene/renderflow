@@ -3,8 +3,10 @@
 use crate::process::ProcessCancellationToken;
 use anyhow::{ensure, Context, Result};
 #[derive(Debug, Clone, Copy)]
-pub(super) struct WavInspection {
+pub(crate) struct WavInspection {
     pub duration_ms: u64,
+    pub data_start: usize,
+    pub data_end: usize,
     pub frame_count: u64,
     pub sample_rate_hz: u32,
     pub channels: u16,
@@ -17,7 +19,7 @@ impl WavInspection {
         u64::try_from(value.div_ceil(1000)).context("sonic.wav.clock.overflow")
     }
 }
-pub(super) fn inspect(bytes: &[u8], token: &ProcessCancellationToken) -> Result<WavInspection> {
+pub(crate) fn inspect(bytes: &[u8], token: &ProcessCancellationToken) -> Result<WavInspection> {
     ensure!(!token.is_cancelled(), "sonic.cancelled");
     ensure!(
         (44..=256 * 1024 * 1024).contains(&bytes.len())
@@ -110,6 +112,8 @@ pub(super) fn inspect(bytes: &[u8], token: &ProcessCancellationToken) -> Result<
         }
     }
     Ok(WavInspection {
+        data_start: start,
+        data_end: end,
         duration_ms: (frames * 1000).div_ceil(u64::from(rate)),
         frame_count: frames,
         sample_rate_hz: rate,

@@ -266,7 +266,7 @@ impl ValidationRegistry {
     }
 }
 
-fn aggregate_validation_state(evidence: &[ValidatorEvidence]) -> ValidationState {
+pub(crate) fn aggregate_validation_state(evidence: &[ValidatorEvidence]) -> ValidationState {
     if evidence
         .iter()
         .any(|validator| validator.state == ValidationState::Invalid)

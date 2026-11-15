@@ -8,7 +8,7 @@ pub mod readback;
 mod recipe;
 mod render;
 mod semantic;
-mod wav;
+pub(crate) mod wav;
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
