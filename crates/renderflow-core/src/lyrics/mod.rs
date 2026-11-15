@@ -4,6 +4,7 @@
 //! SRT/WebVTT/timed-transcript JSON inputs need explicit lyrics policy selection.
 
 pub mod graph;
+pub(crate) mod validation;
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -54,17 +55,7 @@ impl LyricsPolicy {
             "lyrics.source.sha256: expected lowercase SHA-256"
         );
         if let Some(language) = &self.language {
-            ensure!(
-                language.len() <= 64
-                    && language
-                        .split('-')
-                        .next()
-                        .is_some_and(|part| (2..=8).contains(&part.len())
-                            && part.bytes().all(|ch| ch.is_ascii_alphabetic()))
-                    && language.split('-').all(|part| !part.is_empty()
-                        && part.bytes().all(|ch| ch.is_ascii_alphanumeric())),
-                "lyrics.language: expected an explicit language tag"
-            );
+            validate_language(language)?;
         }
         if let Some(revision) = &self.revision {
             label(revision, 256)?;
@@ -87,6 +78,20 @@ impl LyricsPolicy {
         }
         Ok(())
     }
+}
+
+fn validate_language(language: &str) -> Result<()> {
+    ensure!(
+        language.len() <= 64
+            && language.split('-').next().is_some_and(|part| {
+                (2..=8).contains(&part.len()) && part.bytes().all(|ch| ch.is_ascii_alphabetic())
+            })
+            && language.split('-').all(|part| {
+                !part.is_empty() && part.bytes().all(|ch| ch.is_ascii_alphanumeric())
+            }),
+        "lyrics.language: expected an explicit language tag"
+    );
+    Ok(())
 }
 
 fn label(value: &str, limit: usize) -> Result<()> {

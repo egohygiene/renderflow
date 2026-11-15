@@ -162,7 +162,7 @@ fn parse_block(
     Ok(())
 }
 
-fn timestamp(value: &str, format: TimedTextFormat) -> Result<u64, TimedTextError> {
+pub(crate) fn timestamp(value: &str, format: TimedTextFormat) -> Result<u64, TimedTextError> {
     let separator = if format == TimedTextFormat::Srt {
         ','
     } else {

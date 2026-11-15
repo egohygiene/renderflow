@@ -1,0 +1,35 @@
+{
+  "execution": {
+    "derivative_planning": {
+      "max_candidates": 128,
+      "max_hops": 4
+    },
+    "lyrics": {
+      "language": "fr",
+      "review_state": "unreviewed",
+      "revision": "synthetic-akas-r1",
+      "sections": {
+        "13": "refrain",
+        "7": "verse",
+        "9": "refrain"
+      },
+      "source_sha256": "e64a65b8aa5a903c4a4e3aa16723e346d1cb65822601a667cd0bba488ff148ca"
+    }
+  },
+  "output": {
+    "bundle_root": "../../dist/synthetic-manual-lyrics"
+  },
+  "schema": "renderflow/v2",
+  "sources": [
+    {
+      "format": "srt",
+      "id": "manual-lyrics",
+      "path": "synthetic-manual.srt"
+    }
+  ],
+  "targets": {
+    "profiles": [
+      "lyrics"
+    ]
+  }
+}

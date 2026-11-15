@@ -1,10 +1,10 @@
 use std::collections::BTreeMap;
-use std::io::{Read, Write};
+use std::io::Write;
 use std::path::Path;
 
 use crate::graph::Format;
 use crate::lyrics::{self, LyricsPolicy, ReviewState};
-use anyhow::{ensure, Result};
+use anyhow::{Context, Result};
 
 pub fn inspect(
     input: &str,
@@ -21,14 +21,8 @@ pub fn inspect(
         _ => anyhow::bail!("lyrics.input_format: specify srt, vtt or timed_transcript_json for an unrecognized suffix"),
     };
     lyrics::input_format(format)?;
-    let mut bytes = Vec::new();
-    std::fs::File::open(Path::new(input))?
-        .take(crate::timed_text::MAX_INPUT_BYTES as u64 + 1)
-        .read_to_end(&mut bytes)?;
-    ensure!(
-        bytes.len() <= crate::timed_text::MAX_INPUT_BYTES,
-        "lyrics.input.limit"
-    );
+    let bytes = super::subtitles::read_selected_timed_text(Path::new(input))
+        .context("lyrics.input.capture")?;
     let policy = LyricsPolicy {
         source_sha256: lyrics::sha256(&bytes),
         review_state: if reviewed {

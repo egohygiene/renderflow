@@ -15,6 +15,7 @@ use std::collections::BTreeSet;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+pub(crate) use codec::timestamp as parse_timestamp;
 pub use codec::{parse, render};
 
 pub const TIMED_TRANSCRIPT_SCHEMA_V1: &str = "renderflow.timed-transcript/v1";
@@ -184,7 +185,7 @@ fn digest(value: &str, name: &str) -> Result<(), TimedTextError> {
     Ok(())
 }
 
-fn validate_text(value: &str) -> Result<(), TimedTextError> {
+pub(crate) fn validate_text(value: &str) -> Result<(), TimedTextError> {
     if value.is_empty()
         || value.len() > MAX_CUE_TEXT_BYTES
         || value.lines().any(|line| line.trim().is_empty())

@@ -893,6 +893,9 @@ impl Engine {
 fn checkpoint_state(
     resolved: &ResolvedExecution,
 ) -> anyhow::Result<(PathBuf, PathBuf, CheckpointContext)> {
+    if resolved.spec().execution.lyrics.is_some() {
+        anyhow::bail!("lyrics.checkpoint.unsupported: manual exports require fresh no-replace destinations and do not reuse shared checkpoints");
+    }
     let output_root = PathBuf::from(&resolved.spec().output.bundle_root);
     let state_parent = output_root
         .parent()
@@ -1035,5 +1038,55 @@ mod tests {
         assert!(result.manifest.outputs.is_empty());
         assert!(!result.diagnostics.cancellations.is_empty());
         assert!(output_path.join("renderflow-run.json").is_file());
+    }
+    #[test]
+    fn manual_lyrics_checkpoint_controls_refuse_without_touching_shared_state() {
+        use sha2::{Digest, Sha256};
+        let directory = tempfile::tempdir().unwrap();
+        let source = directory.path().join("manual.srt");
+        let bytes = b"1\n00:00:00,125 --> 00:00:00,875\nManual words\n";
+        std::fs::write(&source, bytes).unwrap();
+        let config = directory.path().join("renderflow.json");
+        std::fs::write(&config, serde_json::to_vec(&serde_json::json!({
+            "schema": "renderflow/v2", "sources": [{"id": "manual", "path": source, "format": "srt"}],
+            "targets": {"profiles": ["lyrics"]},
+            "execution": {"lyrics": {"source_sha256": format!("{:x}", Sha256::digest(bytes))}, "derivative_planning": {"max_hops": 4, "max_candidates": 128}},
+            "output": {"bundle_root": directory.path().join("published")}
+        })).unwrap()).unwrap();
+        let shared = directory.path().join(".renderflow");
+        std::fs::create_dir(&shared).unwrap();
+        let sentinel = shared.join("checkpoints.json");
+        std::fs::write(&sentinel, b"unrelated original checkpoint").unwrap();
+        let engine = EngineBuilder::new().build().unwrap();
+        let expected = "lyrics.checkpoint.unsupported: manual exports require fresh no-replace destinations and do not reuse shared checkpoints";
+        for error in [
+            engine
+                .assess_resume(ExecutionRequest::from_path(&config))
+                .unwrap_err(),
+            engine
+                .invalidate_checkpoints(ExecutionRequest::from_path(&config), None)
+                .unwrap_err(),
+            engine
+                .invalidate_checkpoints(
+                    ExecutionRequest::from_path(&config),
+                    Some("unrelated-step"),
+                )
+                .unwrap_err(),
+            engine
+                .resume(ExecutionRequest::from_path(&config))
+                .unwrap_err(),
+        ] {
+            match error {
+                RenderflowError::Execution(error) => assert_eq!(error.to_string(), expected),
+                other => panic!("unexpected refusal owner: {other:?}"),
+            }
+        }
+        assert_eq!(
+            std::fs::read(&sentinel).unwrap(),
+            b"unrelated original checkpoint"
+        );
+        assert_eq!(std::fs::read(&source).unwrap(), bytes);
+        assert!(!directory.path().join("published").exists());
+        assert_eq!(std::fs::read_dir(shared).unwrap().count(), 1);
     }
 }
