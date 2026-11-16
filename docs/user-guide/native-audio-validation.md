@@ -66,11 +66,15 @@ artifact/digest and producing step/configuration.
 
 A selected CD-precision, resampling or channel-change profile stays `Lossy` for
 its declared PCM changes only when the actual output meets that requested
-profile. The current encoder does not force 16-bit ALAC for a 24-bit source sent
-through `alac_cd`: that output remains 24-bit and is refused as
-`audio.native.profile.layout`. Matching 16-bit `alac_cd` is supported; this
-checkpoint does not add ALAC precision conversion. A verified 44.1-to-48-kHz
-`flac_broadcast` conversion is an example of valid declared loss.
+profile. Explicit ALAC 16-bit profiles select FFmpeg's `s16p` format; 24-bit
+profiles select `s32p`, which ALAC stores at 24-bit precision. A 24-bit WAV sent
+through `alac_cd` therefore produces requested 16-bit ALAC and remains `Lossy`;
+matching 16-bit input can earn exact observed PCM `Lossless`. The
+[precision checkpoint](../work/367/ALAC-PRECISION-20261115.md) retains actual
+integer-sample evidence and the earlier dated encoder failure. A producer that
+still emits the wrong precision is refused as `audio.native.profile.layout`.
+A verified 44.1-to-48-kHz `flac_broadcast` conversion is another example of valid
+declared loss. These observations are candidate evidence, not release approval.
 
 AAC and MP3 stay `Lossy`, including a rare decoded
 sample equality. Native checks do not attest encoded bitrate/compression quality,
