@@ -180,6 +180,18 @@ impl ProfileOptions {
             args.extend(["-acodec".to_string(), resolved_codec.to_string()]);
         }
 
+        // ALAC selects its encoded precision through the input sample format.
+        // Without this, a CD profile can retain a 24-bit source's precision.
+        // FFmpeg's ALAC encoder stores s32p samples at 24-bit precision.
+        let alac_sample_format = match (codec, self.bit_depth) {
+            (Some("alac"), Some(16)) => Some("s16p"),
+            (Some("alac"), Some(24)) => Some("s32p"),
+            _ => None,
+        };
+        if let Some(sample_format) = alac_sample_format {
+            args.extend(["-sample_fmt".to_string(), sample_format.to_string()]);
+        }
+
         // Bitrate.
         if let Some(br) = self.bitrate {
             args.extend(["-b:a".to_string(), format!("{}k", br / 1000)]);

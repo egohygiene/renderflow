@@ -1,0 +1,197 @@
+{
+  "base_revision": "7f02a0e357ef3ffcdaabeb805d7eff708eb4667d",
+  "build_capture": {
+    "binary": {
+      "bytes": 20151576,
+      "path": "renderflow",
+      "sha256": "d7b2f03670ed1262c9dfab67c9cf64a0314c7c9fb190d0ffc4a14e87ca96ca54"
+    },
+    "cache_reused": true,
+    "compiled_contract": {
+      "bytes": 372295,
+      "path": "release-contract.json",
+      "sha256": "199bf790b2d78e7706b1e24b3e0fdb189b8286eb231f8be1c8da503d82922f58"
+    },
+    "elapsed_seconds": 307.786,
+    "independent_rebuilds": 0,
+    "record": {
+      "bytes": 1883,
+      "sha256": "9ac4caae5fb0c66e865855b991864ffe93c6e27fa5e705db838195efd950cfb3"
+    },
+    "scope": "Rust1.94 Debian13 x86_64 GNU release; existing warm cache, locked/offline, two jobs, debug0/incremental0. Immutable build-time pending-runtime record is separate from this later passed observation.",
+    "source_clean_before_and_after": true
+  },
+  "encoder_executable_hash_attested": false,
+  "independent_quantization_scope": "Each signed original24 integer shifted right8 yields expected signed16 PCM, compared byte-for-byte to actual ALAC decoded PCM;529200 bytes and259308 nonzero discarded low bytes.",
+  "mastering_loudness_or_creative_approval": false,
+  "native_platform_or_full_provider_matrix_qualified": false,
+  "observation": {
+    "canonical_build_calls": 6,
+    "command_streams": 42,
+    "current_raw_manifests": 6,
+    "existing_audio_helper": {
+      "bytes": 18301,
+      "path": "scripts/observations/check_audio_delivery_candidate.py",
+      "sha256": "4839b79489eff39c4a26c27f296b632521b89c07c7436f8a88afb418ba869510"
+    },
+    "independent_feature_probe_decode_commands": 15,
+    "inventory_groups": {
+      "input_inventory": 9,
+      "observation_inventory": 54,
+      "output_inventory": 24
+    },
+    "observer": {
+      "bytes": 25701,
+      "path": "scripts/observations/check_alac_precision_candidate.py",
+      "sha256": "5c2a3b7fd3a49d8cf8f7dc4bf2d7fd8c0d87e58a170e1d9a5c61b7eb5132bd7c"
+    },
+    "report": {
+      "bytes": 86677,
+      "sha256": "ea6546f0a1d464a6c7f8fb708843bf18591c99fff8c7b4d416b53b6383f4247f"
+    },
+    "retained_files": 87,
+    "separate_exact_raw_manifest_copies": 6,
+    "state": "passed",
+    "total_commands": 21
+  },
+  "parent_issues_closed": false,
+  "remote_publication_performed": false,
+  "reproduction_argv": [
+    "python3",
+    "scripts/observations/check_alac_precision_candidate.py",
+    "--binary",
+    "{captured-renderflow}",
+    "--audio-tool-directory",
+    "{pinned-audio-tools}",
+    "--work-directory",
+    "{new-work-directory}"
+  ],
+  "required_validation_weakened": false,
+  "retained_log_bindings": [
+    {
+      "bytes": 860,
+      "path": "public-source-release-build.log",
+      "sha256": "2b924a383c5cc16b0368d27e4d5038ff2883351fa59f388812db4e6028e74471"
+    },
+    {
+      "bytes": 133,
+      "path": "cp1-sealed.log",
+      "sha256": "8136a387a12239d66586ed7fc5bbef1cd8e13b242811fcaf0132634d7f09c68b"
+    },
+    {
+      "bytes": 1687,
+      "path": "cp1-final.log",
+      "sha256": "7883b7120cb9f38678e17e2a5a9532dfc654002b43de20de1e5b59d34b3788da"
+    }
+  ],
+  "schema_version": "renderflow.alac-precision-bindings/v1",
+  "selected_verifiers": {
+    "ffmpeg": {
+      "bytes": 3280352,
+      "sha256": "94dbc5c9d7602f044b0ec9089cea2085d0f2adc3a2b1612eeec84f8badc6949d"
+    },
+    "ffprobe": {
+      "bytes": 3056320,
+      "sha256": "40d68a7e8fc61e8656be62b12179142124ebd61eea5ed8afefda6e2d68b97a1d"
+    }
+  },
+  "signing_performed": false,
+  "source_bindings": [
+    {
+      "bytes": 627,
+      "git_blob": "62c28d9ba29f9e96881f12ee2b274479b9183718",
+      "path": "Cargo.toml",
+      "sha256": "5b74bde9af11d17b7e4f6d742b055483158874e07d2e1759ca671e0d0b16808a"
+    },
+    {
+      "bytes": 83315,
+      "git_blob": "c2ed9af1f99d4049e92ca29ff328a816c6ce0d96",
+      "path": "Cargo.lock",
+      "sha256": "409dbf8fa45ea228bce21c7f961784fcd95d8704e82417bf08d27e73f967bc94"
+    },
+    {
+      "bytes": 1760,
+      "git_blob": "e16c2217dac90cd35f39539233ce722b40fdf21d",
+      "path": "crates/renderflow-cli/Cargo.toml",
+      "sha256": "073f1c0cc0ab404150fb6c12e73d6ded51048b9aa456262ce2910e5350caabb3"
+    },
+    {
+      "bytes": 1815,
+      "git_blob": "f0dad139244fd9965231b42e57faff3770f0b9a0",
+      "path": "crates/renderflow-core/Cargo.toml",
+      "sha256": "3070dd2c0643f630290414d3a86fa5181c2c3cf528c21e1333d8f6058be12e7b"
+    },
+    {
+      "bytes": 33240,
+      "git_blob": "9fdf1062404c28a9cafb138aa498929c006d6b09",
+      "path": "crates/renderflow-core/src/audio/profile.rs",
+      "sha256": "d296f398566ee6762da0fce455fba5188b627de0fe2fca5cbfb3bed06c068751"
+    },
+    {
+      "bytes": 8463,
+      "git_blob": "b3db795563a575655c109f2785e0b0fe0ec3d015",
+      "path": "crates/renderflow-core/src/audio/ffmpeg.rs",
+      "sha256": "7042ac8041af216bc43ef4f5555216cd5ff8fbdea4ab95e16cf0aabda99c613c"
+    },
+    {
+      "bytes": 6873,
+      "git_blob": "e0708961bd5f71d7a54c1960bcf6662692f1f800",
+      "path": "crates/renderflow-core/src/audio/strategy.rs",
+      "sha256": "c9ee2b2c3482cc32efd6d61a5ca791ca777b1e5e146ee23dbe1ad9ae3d8c4e97"
+    },
+    {
+      "bytes": 26034,
+      "git_blob": "2d18d31cffa103eea9e34e3f027cef54911edf5b",
+      "path": "crates/renderflow-core/src/audio/native/mod.rs",
+      "sha256": "07e08d79465bc765497aac515bef70abf8c71d853f4109aba5347bea4fb9b2d6"
+    },
+    {
+      "bytes": 9050,
+      "git_blob": "63724c2b221dbe013136a018aea5bc926500a7b2",
+      "path": "crates/renderflow-core/src/audio/native/probe.rs",
+      "sha256": "2a0db2f642bbf6958f774d3acc9adcd0c808e6d2fa3cac035c35dec9a2c92a9c"
+    },
+    {
+      "bytes": 3471,
+      "git_blob": "d4696e1c21eda40cee95c995c262951cf06f6419",
+      "path": "crates/renderflow-core/src/audio/native/policy.rs",
+      "sha256": "0f29b9ae148bcad9353b45b9baddafaf8634bc5eeaac02cfeaffc1c3a8360f1b"
+    },
+    {
+      "bytes": 10223,
+      "git_blob": "e244097aceb61b6f7e0ece296fb9295cf159e446",
+      "path": "crates/renderflow-core/src/audio/native/features.rs",
+      "sha256": "1e5d63369ba22b9e664ca1e4ac905d7bdd99630c12424684373133215f7e81af"
+    },
+    {
+      "bytes": 54695,
+      "git_blob": "38284e4e90eabcccc301266f6619223ebc96a27a",
+      "path": "crates/renderflow-core/src/validation.rs",
+      "sha256": "1fcba3d42db61bcab822a879921c722d058b4fe54c40ad2c36eec4cf380190ba"
+    }
+  ],
+  "source_revision": "4fb2539fa686e966143be69b711ffeeccc59d3b4",
+  "source_tree": "22d8809c8386050bd1734280c69561562aef8d11",
+  "source_url": "https://github.com/egohygiene/renderflow/commit/4fb2539fa686e966143be69b711ffeeccc59d3b4",
+  "superseded_observations": [
+    {
+      "accepted_as_final": false,
+      "failure": "The intended precision-omitting producer did not execute because the previously valid payload was reused from CAS. The observer rejected its own attribution; this is not an Invalid native-media refusal.",
+      "failure_log": {
+        "bytes": 1687,
+        "sha256": "7883b7120cb9f38678e17e2a5a9532dfc654002b43de20de1e5b59d34b3788da"
+      },
+      "label": "cp1-final, initial observer attempt",
+      "observer_script": {
+        "bytes": 25312,
+        "sha256": "f1c57abb54564486bf288bbea998550f427d4d1b331800f88bd6b135addde7a0"
+      },
+      "raw_reused_manifest": {
+        "bytes": 42111,
+        "sha256": "3e7a3b763ab80f75e9f42a7fb6062770d72cae868ce2a6255ee457edc88fd266"
+      },
+      "repair": "Each final test-only producer fault uses a fresh isolated CAS parent and requires exactly one marker, observed wrong media, the exact native code and no accepted outputs."
+    }
+  ],
+  "test_only_producer_fault_scope": "Explicitly precision-omitting shim, real unchanged separately pinned absolute verifiers, positive original source/profile baseline first; encoder hash remains unattested by product."
+}
