@@ -1,0 +1,217 @@
+{
+  "build_capture": {
+    "binary": {
+      "bytes": 20151576,
+      "path": "renderflow",
+      "sha256": "d7b2f03670ed1262c9dfab67c9cf64a0314c7c9fb190d0ffc4a14e87ca96ca54"
+    },
+    "compiled_contract": {
+      "bytes": 372295,
+      "path": "release-contract.json",
+      "sha256": "199bf790b2d78e7706b1e24b3e0fdb189b8286eb231f8be1c8da503d82922f58"
+    },
+    "independent_rebuilds": 0,
+    "new_builds_for_this_checkpoint": 0,
+    "record": {
+      "bytes": 1883,
+      "sha256": "9ac4caae5fb0c66e865855b991864ffe93c6e27fa5e705db838195efd950cfb3"
+    },
+    "reused_exact_candidate": true,
+    "scope": "Same measured Rust1.94 Debian13 warm-cache release from public source4fb2539f. Later proof tips do not change its compiled identity."
+  },
+  "encoder_executable_hash_attested": false,
+  "independent_pcm_fault": {
+    "decoded_bytes": 1728000,
+    "different_from_original": true,
+    "independently_decoded_pcm": {
+      "bytes": 1728000,
+      "sha256": "25d5ee31d10f40ce72e62a3a9a6493dd19d2908d8f2e75d8350ae3ec494b1021"
+    },
+    "original_nonzero_low_bytes": 564480,
+    "rule": "(signed source24 >>8)<<8, interleaved little-endian24"
+  },
+  "mastering_loudness_or_creative_approval": false,
+  "native_platform_or_full_provider_matrix_qualified": false,
+  "observation": {
+    "canonical_build_calls": 7,
+    "command_streams": 68,
+    "current_raw_manifests": 7,
+    "execution_path_scope": "Frozen layout observer ran from its private work area, then was copied byte-identically into this proof branch. Both inherited public helpers retain the exact executed bytes.",
+    "helper_observer_pins": {
+      "check_alac_precision_candidate.py": {
+        "bytes": 25701,
+        "sha256": "5c2a3b7fd3a49d8cf8f7dc4bf2d7fd8c0d87e58a170e1d9a5c61b7eb5132bd7c"
+      },
+      "check_audio_delivery_candidate.py": {
+        "bytes": 18301,
+        "sha256": "4839b79489eff39c4a26c27f296b632521b89c07c7436f8a88afb418ba869510"
+      },
+      "check_audio_layout_candidate.py": {
+        "bytes": 5985,
+        "sha256": "d9ed1f7c1bd53c659acb55c07524d1756fab3e01c6b570ed6535d0cd7244e4e4"
+      }
+    },
+    "independent_feature_probe_decode_commands": 27,
+    "inventory_groups": {
+      "input_inventory": 14,
+      "observation_inventory": 88,
+      "output_inventory": 49
+    },
+    "observer": {
+      "bytes": 5985,
+      "path": "scripts/observations/check_audio_layout_candidate.py",
+      "sha256": "d9ed1f7c1bd53c659acb55c07524d1756fab3e01c6b570ed6535d0cd7244e4e4"
+    },
+    "report": {
+      "bytes": 148897,
+      "sha256": "cf331375b6e540b25cd73e0a8f437d704760456897e754eeaceddb34f47e7a57"
+    },
+    "retained_files": 151,
+    "separate_exact_raw_manifest_copies": 7,
+    "state": "passed",
+    "total_commands": 34
+  },
+  "parent_issues_closed": false,
+  "preceding_precision_checkpoint": {
+    "bytes": 7767,
+    "git_blob": "e1347f605c009f98c5d1aa131d409483835de45f",
+    "path": "alac-precision-bindings-20261115.json",
+    "sha256": "ba9ff52c41703e397783b6b310710a4dd2b4d82a1d4afb0c420a8b557b3188c4"
+  },
+  "proof_stack_base_revision": "14d7e49d5b09ef5ec718ae9df267f30f89b61fca",
+  "proof_stack_base_tree": "9ccb4baa6bbbe3279ff7dc65959b9224f60f60c0",
+  "remote_publication_performed": false,
+  "reproduction_argv": [
+    "python3",
+    "scripts/observations/check_audio_layout_candidate.py",
+    "--binary",
+    "{captured-renderflow}",
+    "--audio-tool-directory",
+    "{pinned-audio-tools}",
+    "--work-directory",
+    "{new-work-directory}"
+  ],
+  "required_validation_weakened": false,
+  "retained_log_bindings": [
+    {
+      "bytes": 133,
+      "path": "cp2-sealed.log",
+      "sha256": "e6a3002490c9a4828c4f37bfddb0c4e6431295ad8d40734e18f69fd8961c180c"
+    },
+    {
+      "bytes": 1126,
+      "path": "cp2-final.log",
+      "sha256": "5988c2a639130712c4c6715ea29a847bafefe79d5863f6ffdecd28d80db506e1"
+    }
+  ],
+  "schema_version": "renderflow.native-audio-layout-bindings/v1",
+  "selected_verifiers": {
+    "ffmpeg": {
+      "bytes": 3280352,
+      "sha256": "94dbc5c9d7602f044b0ec9089cea2085d0f2adc3a2b1612eeec84f8badc6949d"
+    },
+    "ffprobe": {
+      "bytes": 3056320,
+      "sha256": "40d68a7e8fc61e8656be62b12179142124ebd61eea5ed8afefda6e2d68b97a1d"
+    }
+  },
+  "signing_performed": false,
+  "source_bindings": [
+    {
+      "bytes": 627,
+      "git_blob": "62c28d9ba29f9e96881f12ee2b274479b9183718",
+      "path": "Cargo.toml",
+      "sha256": "5b74bde9af11d17b7e4f6d742b055483158874e07d2e1759ca671e0d0b16808a"
+    },
+    {
+      "bytes": 83315,
+      "git_blob": "c2ed9af1f99d4049e92ca29ff328a816c6ce0d96",
+      "path": "Cargo.lock",
+      "sha256": "409dbf8fa45ea228bce21c7f961784fcd95d8704e82417bf08d27e73f967bc94"
+    },
+    {
+      "bytes": 1760,
+      "git_blob": "e16c2217dac90cd35f39539233ce722b40fdf21d",
+      "path": "crates/renderflow-cli/Cargo.toml",
+      "sha256": "073f1c0cc0ab404150fb6c12e73d6ded51048b9aa456262ce2910e5350caabb3"
+    },
+    {
+      "bytes": 1815,
+      "git_blob": "f0dad139244fd9965231b42e57faff3770f0b9a0",
+      "path": "crates/renderflow-core/Cargo.toml",
+      "sha256": "3070dd2c0643f630290414d3a86fa5181c2c3cf528c21e1333d8f6058be12e7b"
+    },
+    {
+      "bytes": 33240,
+      "git_blob": "9fdf1062404c28a9cafb138aa498929c006d6b09",
+      "path": "crates/renderflow-core/src/audio/profile.rs",
+      "sha256": "d296f398566ee6762da0fce455fba5188b627de0fe2fca5cbfb3bed06c068751"
+    },
+    {
+      "bytes": 8463,
+      "git_blob": "b3db795563a575655c109f2785e0b0fe0ec3d015",
+      "path": "crates/renderflow-core/src/audio/ffmpeg.rs",
+      "sha256": "7042ac8041af216bc43ef4f5555216cd5ff8fbdea4ab95e16cf0aabda99c613c"
+    },
+    {
+      "bytes": 6873,
+      "git_blob": "e0708961bd5f71d7a54c1960bcf6662692f1f800",
+      "path": "crates/renderflow-core/src/audio/strategy.rs",
+      "sha256": "c9ee2b2c3482cc32efd6d61a5ca791ca777b1e5e146ee23dbe1ad9ae3d8c4e97"
+    },
+    {
+      "bytes": 26034,
+      "git_blob": "2d18d31cffa103eea9e34e3f027cef54911edf5b",
+      "path": "crates/renderflow-core/src/audio/native/mod.rs",
+      "sha256": "07e08d79465bc765497aac515bef70abf8c71d853f4109aba5347bea4fb9b2d6"
+    },
+    {
+      "bytes": 9050,
+      "git_blob": "63724c2b221dbe013136a018aea5bc926500a7b2",
+      "path": "crates/renderflow-core/src/audio/native/probe.rs",
+      "sha256": "2a0db2f642bbf6958f774d3acc9adcd0c808e6d2fa3cac035c35dec9a2c92a9c"
+    },
+    {
+      "bytes": 3471,
+      "git_blob": "d4696e1c21eda40cee95c995c262951cf06f6419",
+      "path": "crates/renderflow-core/src/audio/native/policy.rs",
+      "sha256": "0f29b9ae148bcad9353b45b9baddafaf8634bc5eeaac02cfeaffc1c3a8360f1b"
+    },
+    {
+      "bytes": 10223,
+      "git_blob": "e244097aceb61b6f7e0ece296fb9295cf159e446",
+      "path": "crates/renderflow-core/src/audio/native/features.rs",
+      "sha256": "1e5d63369ba22b9e664ca1e4ac905d7bdd99630c12424684373133215f7e81af"
+    },
+    {
+      "bytes": 54695,
+      "git_blob": "38284e4e90eabcccc301266f6619223ebc96a27a",
+      "path": "crates/renderflow-core/src/validation.rs",
+      "sha256": "1fcba3d42db61bcab822a879921c722d058b4fe54c40ad2c36eec4cf380190ba"
+    }
+  ],
+  "source_revision": "4fb2539fa686e966143be69b711ffeeccc59d3b4",
+  "source_tree": "22d8809c8386050bd1734280c69561562aef8d11",
+  "source_url": "https://github.com/egohygiene/renderflow/commit/4fb2539fa686e966143be69b711ffeeccc59d3b4",
+  "superseded_observations": [
+    {
+      "accepted_as_final": false,
+      "failure": "The selected FFmpeg build lacks volume filter, so the intended sample-change producer failed with execution.transform_failed before any output artifact/native-validator subject. The observer rejected its own control; this is not a passed native PCM refusal.",
+      "failure_log": {
+        "bytes": 1126,
+        "sha256": "5988c2a639130712c4c6715ea29a847bafefe79d5863f6ffdecd28d80db506e1"
+      },
+      "label": "cp2-final, initial observer PCM fault",
+      "observer_script": {
+        "bytes": 5506,
+        "sha256": "35df39d210c2fd8aefe12d90734badf91d0b310765fa130f04f69d25c368bb6a"
+      },
+      "raw_failed_producer_manifest": {
+        "bytes": 36264,
+        "sha256": "538c2450805e9cfdd1a2a659723b65582d045d9dd58de25ca93707d07ddb971e"
+      },
+      "repair": "Use the already available aformat=s16p filter followed by explicitly selected ALACs32p. Physical24-bit layout/clock stays intact while independent integer source projection proves changed sample bytes; final native pcm_mismatch blocks publication."
+    }
+  ],
+  "test_only_producer_fault_scope": "Fresh isolated CAS per fault, accepted original source/profile baseline first, exactly one changed producer marker, independently observed media and exact required native code. Product encoder hash remains unattested."
+}

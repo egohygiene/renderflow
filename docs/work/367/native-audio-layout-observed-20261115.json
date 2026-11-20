@@ -1,0 +1,3942 @@
+{
+  "binary_sha256": "d7b2f03670ed1262c9dfab67c9cf64a0314c7c9fb190d0ffc4a14e87ca96ca54",
+  "cases": [
+    {
+      "manifest": "{work}/outputs/native-48000-mono24/renderflow-run.json",
+      "manifest_pin": {
+        "bytes": 89091,
+        "sha256": "f137be04cbd0a7f1c4e948d6f8e1b35a2a9f00ed05063dfb391718df3c287f8b"
+      },
+      "name": "native-48000-mono24",
+      "published": 4,
+      "retained_raw_manifest": "{work}/observed/native-48000-mono24.manifest.json",
+      "state": "complete",
+      "targets": [
+        {
+          "artifact_id": "artifact:sha256:e5c2ed519c02f569c9333f33d20d6124350d79d6be57c860072d5c466a228457",
+          "fidelity": "lossless",
+          "format": "flac",
+          "independent_observation": {},
+          "locator": "bundle:authored-audio/delivery/flac.flac",
+          "native": {
+            "artifact_id": "artifact:sha256:e5c2ed519c02f569c9333f33d20d6124350d79d6be57c860072d5c466a228457",
+            "artifact_sha256": "0ac19eec0c4800454665c16007866db19cc4d3ddd3822f4e3588428880c114ba",
+            "decoded_frames": 144000,
+            "decoded_pcm_sha256": "cf54deb48c2bb3ab0157997c6317cd5b12c76e086390df106535271d45f6dac4",
+            "decoded_precision_bits": 24,
+            "decoded_samples_equal_original": true,
+            "encoded_bitrate_or_compression_attested": false,
+            "encoder_executable_hash_attested": false,
+            "feature_admission": {
+              "admitted": true,
+              "queries": [
+                {
+                  "argv": [
+                    "-hide_banner",
+                    "-v",
+                    "error",
+                    "-decoders"
+                  ],
+                  "capture_complete": true,
+                  "matched_profile_ids": [
+                    "aac",
+                    "alac",
+                    "flac",
+                    "mp3",
+                    "mp3float"
+                  ],
+                  "recognized": true,
+                  "stderr_bytes": 0,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stdout_bytes": 809,
+                  "stdout_sha256": "90dfae50897bd1d588d8dba6576f8afe9996a2b9839ea457e41e4e1483101f25",
+                  "tool_id": "tool.ffmpeg",
+                  "unavailable_code": null
+                },
+                {
+                  "argv": [
+                    "-hide_banner",
+                    "-v",
+                    "error",
+                    "-demuxers"
+                  ],
+                  "capture_complete": true,
+                  "matched_profile_ids": [
+                    "flac",
+                    "mov",
+                    "mp3"
+                  ],
+                  "recognized": true,
+                  "stderr_bytes": 0,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stdout_bytes": 315,
+                  "stdout_sha256": "7c9fbc0967f4d005ada7b27a3542077d039bfc0ec5edab3c6fffa3a6fb1cc2fe",
+                  "tool_id": "tool.ffmpeg",
+                  "unavailable_code": null
+                },
+                {
+                  "argv": [
+                    "-hide_banner",
+                    "-v",
+                    "error",
+                    "-encoders"
+                  ],
+                  "capture_complete": true,
+                  "matched_profile_ids": [
+                    "pcm_s16le",
+                    "pcm_s24le"
+                  ],
+                  "recognized": true,
+                  "stderr_bytes": 0,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stdout_bytes": 766,
+                  "stdout_sha256": "088ac800c7453200dc927d7d73aef4ef918cb3744d0e9869bbf9db7d7ea55677",
+                  "tool_id": "tool.ffmpeg",
+                  "unavailable_code": null
+                },
+                {
+                  "argv": [
+                    "-hide_banner",
+                    "-v",
+                    "error",
+                    "-muxers"
+                  ],
+                  "capture_complete": true,
+                  "matched_profile_ids": [
+                    "s16le",
+                    "s24le"
+                  ],
+                  "recognized": true,
+                  "stderr_bytes": 0,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stdout_bytes": 631,
+                  "stdout_sha256": "765ce2881951a5604a4707b7684988f342ff4d44cdd16094142e8164f4a3c09d",
+                  "tool_id": "tool.ffmpeg",
+                  "unavailable_code": null
+                },
+                {
+                  "argv": [
+                    "-hide_banner",
+                    "-v",
+                    "error",
+                    "-decoders"
+                  ],
+                  "capture_complete": true,
+                  "matched_profile_ids": [
+                    "aac",
+                    "alac",
+                    "flac",
+                    "mp3",
+                    "mp3float"
+                  ],
+                  "recognized": true,
+                  "stderr_bytes": 0,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stdout_bytes": 809,
+                  "stdout_sha256": "90dfae50897bd1d588d8dba6576f8afe9996a2b9839ea457e41e4e1483101f25",
+                  "tool_id": "tool.ffprobe",
+                  "unavailable_code": null
+                },
+                {
+                  "argv": [
+                    "-hide_banner",
+                    "-v",
+                    "error",
+                    "-demuxers"
+                  ],
+                  "capture_complete": true,
+                  "matched_profile_ids": [
+                    "flac",
+                    "mov",
+                    "mp3"
+                  ],
+                  "recognized": true,
+                  "stderr_bytes": 0,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stdout_bytes": 315,
+                  "stdout_sha256": "7c9fbc0967f4d005ada7b27a3542077d039bfc0ec5edab3c6fffa3a6fb1cc2fe",
+                  "tool_id": "tool.ffprobe",
+                  "unavailable_code": null
+                }
+              ],
+              "required": [
+                {
+                  "alternatives": [
+                    "flac"
+                  ],
+                  "matched": [
+                    "flac"
+                  ],
+                  "table": "-demuxers",
+                  "tool_id": "tool.ffmpeg"
+                },
+                {
+                  "alternatives": [
+                    "flac"
+                  ],
+                  "matched": [
+                    "flac"
+                  ],
+                  "table": "-decoders",
+                  "tool_id": "tool.ffmpeg"
+                },
+                {
+                  "alternatives": [
+                    "pcm_s24le"
+                  ],
+                  "matched": [
+                    "pcm_s24le"
+                  ],
+                  "table": "-encoders",
+                  "tool_id": "tool.ffmpeg"
+                },
+                {
+                  "alternatives": [
+                    "s24le"
+                  ],
+                  "matched": [
+                    "s24le"
+                  ],
+                  "table": "-muxers",
+                  "tool_id": "tool.ffmpeg"
+                },
+                {
+                  "alternatives": [
+                    "flac"
+                  ],
+                  "matched": [
+                    "flac"
+                  ],
+                  "table": "-demuxers",
+                  "tool_id": "tool.ffprobe"
+                },
+                {
+                  "alternatives": [
+                    "flac"
+                  ],
+                  "matched": [
+                    "flac"
+                  ],
+                  "table": "-decoders",
+                  "tool_id": "tool.ffprobe"
+                }
+              ],
+              "scope": "Advertised fixed-profile prerequisites only; actual media is still probed/decoded before acceptance.",
+              "unavailable_code": null
+            },
+            "fidelity": "lossless",
+            "mastering_playback_or_content_approval": false,
+            "native_library_or_os_sandbox_attested": false,
+            "observed_clock": {
+              "channels": 1,
+              "discard_padding": 0,
+              "output_precision_bits": 24,
+              "packet_count": 32,
+              "packet_end_sample": 144000,
+              "packet_start_sample": 0,
+              "presentation_samples": 144000,
+              "rate_hz": 48000,
+              "skip_samples": 0,
+              "stream_duration_samples": 144000,
+              "stream_start_sample": 0
+            },
+            "probe_output_sha256": "882fa7658ba0581d9650001a2ba8603dd37b91b4a48e2f19c7786af8fdbe6acf",
+            "producing_step_configuration_sha256": "1bba5b825af07041972b79e1ee58cf7717988fc1210bc7d2bca6c5be7cd7278a",
+            "producing_step_id": "forest:e55853f10aa11f4fe098b53b45577dc93c4c829bc500b28de21719471df14d1b:step:wav-to-flac",
+            "profile_changes_pcm_layout": false,
+            "requested_audio_profile": "flac_broadcast",
+            "schema_version": "renderflow.native-audio-validation/v1",
+            "scope": "Decoded PCM essence and clocks only; container/ancillary metadata equality, perceptual quality and release qualification are not asserted.",
+            "source_artifact_id": "artifact:sha256:3dd0b671852094a765afcfbc2f6b4f5306aede27b835702247e372f4d0633454",
+            "source_pcm": {
+              "channels": 1,
+              "frames": 144000,
+              "precision_bits": 24,
+              "sample_rate_hz": 48000,
+              "sample_sha256": "cf54deb48c2bb3ab0157997c6317cd5b12c76e086390df106535271d45f6dac4"
+            },
+            "source_sha256": "ed4ad8ab786089959f4156af8f7089f5730400bd92e5531d80e95682503c4989",
+            "target_identity": "target-93a6f14a6b4a108cd383664cac3ab193bb20c90e73e0d92994161b1ef080bb61",
+            "validation_profile": "pcm-delivery-ffmpeg-8.0.1-v1",
+            "verifier_ffmpeg": {
+              "sha256": "94dbc5c9d7602f044b0ec9089cea2085d0f2adc3a2b1612eeec84f8badc6949d",
+              "size_bytes": 3280352,
+              "tool_id": "tool.ffmpeg",
+              "version": "8.0.1"
+            },
+            "verifier_ffprobe": {
+              "sha256": "40d68a7e8fc61e8656be62b12179142124ebd61eea5ed8afefda6e2d68b97a1d",
+              "size_bytes": 3056320,
+              "tool_id": "tool.ffprobe",
+              "version": "8.0.1"
+            }
+          },
+          "published": true,
+          "validation": "valid",
+          "validators": [
+            {
+              "provider": "renderflow.native",
+              "state": "valid",
+              "validator_id": "validator.core.non_empty",
+              "validator_version": "0.3.0-rc.1"
+            },
+            {
+              "provider": "renderflow.pinned-audio-verification",
+              "state": "valid",
+              "validator_id": "validator.audio.pinned_pcm_delivery",
+              "validator_version": "0.3.0-rc.1"
+            }
+          ]
+        },
+        {
+          "artifact_id": "artifact:sha256:1e7bacb21ac64b132e98410bb92c457a9848ebe12803d724cfbe77b29aa992ab",
+          "fidelity": "lossy",
+          "format": "m4a",
+          "independent_observation": {},
+          "locator": "bundle:authored-audio/delivery/m4a.m4a",
+          "native": {
+            "artifact_id": "artifact:sha256:1e7bacb21ac64b132e98410bb92c457a9848ebe12803d724cfbe77b29aa992ab",
+            "artifact_sha256": "da2bc416bf36e913f7108635e872d32a595e95a2c75d79506c95356596357d34",
+            "decoded_frames": 144384,
+            "decoded_pcm_sha256": "0a836aecf3f7f4a2e4d2e394012041be4682e621e4c07ac0ad12ba53677eaabd",
+            "decoded_precision_bits": 24,
+            "decoded_samples_equal_original": false,
+            "encoded_bitrate_or_compression_attested": false,
+            "encoder_executable_hash_attested": false,
+            "feature_admission": {
+              "admitted": true,
+              "queries": [
+                {
+                  "argv": [
+                    "-hide_banner",
+                    "-v",
+                    "error",
+                    "-decoders"
+                  ],
+                  "capture_complete": true,
+                  "matched_profile_ids": [
+                    "aac",
+                    "alac",
+                    "flac",
+                    "mp3",
+                    "mp3float"
+                  ],
+                  "recognized": true,
+                  "stderr_bytes": 0,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stdout_bytes": 809,
+                  "stdout_sha256": "90dfae50897bd1d588d8dba6576f8afe9996a2b9839ea457e41e4e1483101f25",
+                  "tool_id": "tool.ffmpeg",
+                  "unavailable_code": null
+                },
+                {
+                  "argv": [
+                    "-hide_banner",
+                    "-v",
+                    "error",
+                    "-demuxers"
+                  ],
+                  "capture_complete": true,
+                  "matched_profile_ids": [
+                    "flac",
+                    "mov",
+                    "mp3"
+                  ],
+                  "recognized": true,
+                  "stderr_bytes": 0,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stdout_bytes": 315,
+                  "stdout_sha256": "7c9fbc0967f4d005ada7b27a3542077d039bfc0ec5edab3c6fffa3a6fb1cc2fe",
+                  "tool_id": "tool.ffmpeg",
+                  "unavailable_code": null
+                },
+                {
+                  "argv": [
+                    "-hide_banner",
+                    "-v",
+                    "error",
+                    "-encoders"
+                  ],
+                  "capture_complete": true,
+                  "matched_profile_ids": [
+                    "pcm_s16le",
+                    "pcm_s24le"
+                  ],
+                  "recognized": true,
+                  "stderr_bytes": 0,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stdout_bytes": 766,
+                  "stdout_sha256": "088ac800c7453200dc927d7d73aef4ef918cb3744d0e9869bbf9db7d7ea55677",
+                  "tool_id": "tool.ffmpeg",
+                  "unavailable_code": null
+                },
+                {
+                  "argv": [
+                    "-hide_banner",
+                    "-v",
+                    "error",
+                    "-muxers"
+                  ],
+                  "capture_complete": true,
+                  "matched_profile_ids": [
+                    "s16le",
+                    "s24le"
+                  ],
+                  "recognized": true,
+                  "stderr_bytes": 0,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stdout_bytes": 631,
+                  "stdout_sha256": "765ce2881951a5604a4707b7684988f342ff4d44cdd16094142e8164f4a3c09d",
+                  "tool_id": "tool.ffmpeg",
+                  "unavailable_code": null
+                },
+                {
+                  "argv": [
+                    "-hide_banner",
+                    "-v",
+                    "error",
+                    "-decoders"
+                  ],
+                  "capture_complete": true,
+                  "matched_profile_ids": [
+                    "aac",
+                    "alac",
+                    "flac",
+                    "mp3",
+                    "mp3float"
+                  ],
+                  "recognized": true,
+                  "stderr_bytes": 0,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stdout_bytes": 809,
+                  "stdout_sha256": "90dfae50897bd1d588d8dba6576f8afe9996a2b9839ea457e41e4e1483101f25",
+                  "tool_id": "tool.ffprobe",
+                  "unavailable_code": null
+                },
+                {
+                  "argv": [
+                    "-hide_banner",
+                    "-v",
+                    "error",
+                    "-demuxers"
+                  ],
+                  "capture_complete": true,
+                  "matched_profile_ids": [
+                    "flac",
+                    "mov",
+                    "mp3"
+                  ],
+                  "recognized": true,
+                  "stderr_bytes": 0,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stdout_bytes": 315,
+                  "stdout_sha256": "7c9fbc0967f4d005ada7b27a3542077d039bfc0ec5edab3c6fffa3a6fb1cc2fe",
+                  "tool_id": "tool.ffprobe",
+                  "unavailable_code": null
+                }
+              ],
+              "required": [
+                {
+                  "alternatives": [
+                    "mov"
+                  ],
+                  "matched": [
+                    "mov"
+                  ],
+                  "table": "-demuxers",
+                  "tool_id": "tool.ffmpeg"
+                },
+                {
+                  "alternatives": [
+                    "aac"
+                  ],
+                  "matched": [
+                    "aac"
+                  ],
+                  "table": "-decoders",
+                  "tool_id": "tool.ffmpeg"
+                },
+                {
+                  "alternatives": [
+                    "pcm_s24le"
+                  ],
+                  "matched": [
+                    "pcm_s24le"
+                  ],
+                  "table": "-encoders",
+                  "tool_id": "tool.ffmpeg"
+                },
+                {
+                  "alternatives": [
+                    "s24le"
+                  ],
+                  "matched": [
+                    "s24le"
+                  ],
+                  "table": "-muxers",
+                  "tool_id": "tool.ffmpeg"
+                },
+                {
+                  "alternatives": [
+                    "mov"
+                  ],
+                  "matched": [
+                    "mov"
+                  ],
+                  "table": "-demuxers",
+                  "tool_id": "tool.ffprobe"
+                },
+                {
+                  "alternatives": [
+                    "aac"
+                  ],
+                  "matched": [
+                    "aac"
+                  ],
+                  "table": "-decoders",
+                  "tool_id": "tool.ffprobe"
+                }
+              ],
+              "scope": "Advertised fixed-profile prerequisites only; actual media is still probed/decoded before acceptance.",
+              "unavailable_code": null
+            },
+            "fidelity": "lossy",
+            "mastering_playback_or_content_approval": false,
+            "native_library_or_os_sandbox_attested": false,
+            "observed_clock": {
+              "channels": 1,
+              "discard_padding": 0,
+              "output_precision_bits": null,
+              "packet_count": 142,
+              "packet_end_sample": 144000,
+              "packet_start_sample": -1024,
+              "presentation_samples": 144000,
+              "rate_hz": 48000,
+              "skip_samples": 1024,
+              "stream_duration_samples": 144000,
+              "stream_start_sample": 0
+            },
+            "probe_output_sha256": "d060f81a0e3802a937d07ca40d8f63881db261fdc4aba515dd27b828b7d15d9a",
+            "producing_step_configuration_sha256": "d1c674ca246abd09149830ea3837fe61dcb19cc8297f708bf4bca410d62ac1c2",
+            "producing_step_id": "forest:58c187140dca0bfe3a77c2eee99bd7d4dc1e7d54aa78e3a12d83b077478bee14:step:wav-to-m4a",
+            "profile_changes_pcm_layout": false,
+            "requested_audio_profile": "aac_256k",
+            "schema_version": "renderflow.native-audio-validation/v1",
+            "scope": "Decoded PCM essence and clocks only; container/ancillary metadata equality, perceptual quality and release qualification are not asserted.",
+            "source_artifact_id": "artifact:sha256:3dd0b671852094a765afcfbc2f6b4f5306aede27b835702247e372f4d0633454",
+            "source_pcm": {
+              "channels": 1,
+              "frames": 144000,
+              "precision_bits": 24,
+              "sample_rate_hz": 48000,
+              "sample_sha256": "cf54deb48c2bb3ab0157997c6317cd5b12c76e086390df106535271d45f6dac4"
+            },
+            "source_sha256": "ed4ad8ab786089959f4156af8f7089f5730400bd92e5531d80e95682503c4989",
+            "target_identity": "target-d12c0d57cb1ed25a74f2c0d60fd0352bad66bf457875df7ca39f66addd563331",
+            "validation_profile": "pcm-delivery-ffmpeg-8.0.1-v1",
+            "verifier_ffmpeg": {
+              "sha256": "94dbc5c9d7602f044b0ec9089cea2085d0f2adc3a2b1612eeec84f8badc6949d",
+              "size_bytes": 3280352,
+              "tool_id": "tool.ffmpeg",
+              "version": "8.0.1"
+            },
+            "verifier_ffprobe": {
+              "sha256": "40d68a7e8fc61e8656be62b12179142124ebd61eea5ed8afefda6e2d68b97a1d",
+              "size_bytes": 3056320,
+              "tool_id": "tool.ffprobe",
+              "version": "8.0.1"
+            }
+          },
+          "published": true,
+          "validation": "valid",
+          "validators": [
+            {
+              "provider": "renderflow.native",
+              "state": "valid",
+              "validator_id": "validator.core.non_empty",
+              "validator_version": "0.3.0-rc.1"
+            },
+            {
+              "provider": "renderflow.pinned-audio-verification",
+              "state": "valid",
+              "validator_id": "validator.audio.pinned_pcm_delivery",
+              "validator_version": "0.3.0-rc.1"
+            }
+          ]
+        },
+        {
+          "artifact_id": "artifact:sha256:cb487ff0debbbad1d0149a47bd909368906aed9ee969a69af728d68eb1d9b1c2",
+          "fidelity": "lossless",
+          "format": "m4a_alac",
+          "independent_observation": {},
+          "locator": "bundle:authored-audio/delivery/m4a_alac.m4a",
+          "native": {
+            "artifact_id": "artifact:sha256:cb487ff0debbbad1d0149a47bd909368906aed9ee969a69af728d68eb1d9b1c2",
+            "artifact_sha256": "3cc9956a8b773c28f29957f289be484c6a7386693470a3c6ab30cf2e82e82912",
+            "decoded_frames": 144000,
+            "decoded_pcm_sha256": "cf54deb48c2bb3ab0157997c6317cd5b12c76e086390df106535271d45f6dac4",
+            "decoded_precision_bits": 24,
+            "decoded_samples_equal_original": true,
+            "encoded_bitrate_or_compression_attested": false,
+            "encoder_executable_hash_attested": false,
+            "feature_admission": {
+              "admitted": true,
+              "queries": [
+                {
+                  "argv": [
+                    "-hide_banner",
+                    "-v",
+                    "error",
+                    "-decoders"
+                  ],
+                  "capture_complete": true,
+                  "matched_profile_ids": [
+                    "aac",
+                    "alac",
+                    "flac",
+                    "mp3",
+                    "mp3float"
+                  ],
+                  "recognized": true,
+                  "stderr_bytes": 0,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stdout_bytes": 809,
+                  "stdout_sha256": "90dfae50897bd1d588d8dba6576f8afe9996a2b9839ea457e41e4e1483101f25",
+                  "tool_id": "tool.ffmpeg",
+                  "unavailable_code": null
+                },
+                {
+                  "argv": [
+                    "-hide_banner",
+                    "-v",
+                    "error",
+                    "-demuxers"
+                  ],
+                  "capture_complete": true,
+                  "matched_profile_ids": [
+                    "flac",
+                    "mov",
+                    "mp3"
+                  ],
+                  "recognized": true,
+                  "stderr_bytes": 0,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stdout_bytes": 315,
+                  "stdout_sha256": "7c9fbc0967f4d005ada7b27a3542077d039bfc0ec5edab3c6fffa3a6fb1cc2fe",
+                  "tool_id": "tool.ffmpeg",
+                  "unavailable_code": null
+                },
+                {
+                  "argv": [
+                    "-hide_banner",
+                    "-v",
+                    "error",
+                    "-encoders"
+                  ],
+                  "capture_complete": true,
+                  "matched_profile_ids": [
+                    "pcm_s16le",
+                    "pcm_s24le"
+                  ],
+                  "recognized": true,
+                  "stderr_bytes": 0,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stdout_bytes": 766,
+                  "stdout_sha256": "088ac800c7453200dc927d7d73aef4ef918cb3744d0e9869bbf9db7d7ea55677",
+                  "tool_id": "tool.ffmpeg",
+                  "unavailable_code": null
+                },
+                {
+                  "argv": [
+                    "-hide_banner",
+                    "-v",
+                    "error",
+                    "-muxers"
+                  ],
+                  "capture_complete": true,
+                  "matched_profile_ids": [
+                    "s16le",
+                    "s24le"
+                  ],
+                  "recognized": true,
+                  "stderr_bytes": 0,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stdout_bytes": 631,
+                  "stdout_sha256": "765ce2881951a5604a4707b7684988f342ff4d44cdd16094142e8164f4a3c09d",
+                  "tool_id": "tool.ffmpeg",
+                  "unavailable_code": null
+                },
+                {
+                  "argv": [
+                    "-hide_banner",
+                    "-v",
+                    "error",
+                    "-decoders"
+                  ],
+                  "capture_complete": true,
+                  "matched_profile_ids": [
+                    "aac",
+                    "alac",
+                    "flac",
+                    "mp3",
+                    "mp3float"
+                  ],
+                  "recognized": true,
+                  "stderr_bytes": 0,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stdout_bytes": 809,
+                  "stdout_sha256": "90dfae50897bd1d588d8dba6576f8afe9996a2b9839ea457e41e4e1483101f25",
+                  "tool_id": "tool.ffprobe",
+                  "unavailable_code": null
+                },
+                {
+                  "argv": [
+                    "-hide_banner",
+                    "-v",
+                    "error",
+                    "-demuxers"
+                  ],
+                  "capture_complete": true,
+                  "matched_profile_ids": [
+                    "flac",
+                    "mov",
+                    "mp3"
+                  ],
+                  "recognized": true,
+                  "stderr_bytes": 0,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stdout_bytes": 315,
+                  "stdout_sha256": "7c9fbc0967f4d005ada7b27a3542077d039bfc0ec5edab3c6fffa3a6fb1cc2fe",
+                  "tool_id": "tool.ffprobe",
+                  "unavailable_code": null
+                }
+              ],
+              "required": [
+                {
+                  "alternatives": [
+                    "mov"
+                  ],
+                  "matched": [
+                    "mov"
+                  ],
+                  "table": "-demuxers",
+                  "tool_id": "tool.ffmpeg"
+                },
+                {
+                  "alternatives": [
+                    "alac"
+                  ],
+                  "matched": [
+                    "alac"
+                  ],
+                  "table": "-decoders",
+                  "tool_id": "tool.ffmpeg"
+                },
+                {
+                  "alternatives": [
+                    "pcm_s24le"
+                  ],
+                  "matched": [
+                    "pcm_s24le"
+                  ],
+                  "table": "-encoders",
+                  "tool_id": "tool.ffmpeg"
+                },
+                {
+                  "alternatives": [
+                    "s24le"
+                  ],
+                  "matched": [
+                    "s24le"
+                  ],
+                  "table": "-muxers",
+                  "tool_id": "tool.ffmpeg"
+                },
+                {
+                  "alternatives": [
+                    "mov"
+                  ],
+                  "matched": [
+                    "mov"
+                  ],
+                  "table": "-demuxers",
+                  "tool_id": "tool.ffprobe"
+                },
+                {
+                  "alternatives": [
+                    "alac"
+                  ],
+                  "matched": [
+                    "alac"
+                  ],
+                  "table": "-decoders",
+                  "tool_id": "tool.ffprobe"
+                }
+              ],
+              "scope": "Advertised fixed-profile prerequisites only; actual media is still probed/decoded before acceptance.",
+              "unavailable_code": null
+            },
+            "fidelity": "lossless",
+            "mastering_playback_or_content_approval": false,
+            "native_library_or_os_sandbox_attested": false,
+            "observed_clock": {
+              "channels": 1,
+              "discard_padding": 0,
+              "output_precision_bits": 24,
+              "packet_count": 36,
+              "packet_end_sample": 144000,
+              "packet_start_sample": 0,
+              "presentation_samples": 144000,
+              "rate_hz": 48000,
+              "skip_samples": 0,
+              "stream_duration_samples": 144000,
+              "stream_start_sample": 0
+            },
+            "probe_output_sha256": "7ca6dfbd3854b9df6511c780b7c45c349b2d2e403d76570f09a8c40687ac3301",
+            "producing_step_configuration_sha256": "2428d702594fd3b3fad88cd9885aa1a39894040c35921aca57a8881344ff21d2",
+            "producing_step_id": "forest:52cdb4c705c2c71967c51b5f693f5405ba97188d37a282b6b86859c98ad0f75b:step:wav-to-m4a_alac",
+            "profile_changes_pcm_layout": false,
+            "requested_audio_profile": "alac_broadcast",
+            "schema_version": "renderflow.native-audio-validation/v1",
+            "scope": "Decoded PCM essence and clocks only; container/ancillary metadata equality, perceptual quality and release qualification are not asserted.",
+            "source_artifact_id": "artifact:sha256:3dd0b671852094a765afcfbc2f6b4f5306aede27b835702247e372f4d0633454",
+            "source_pcm": {
+              "channels": 1,
+              "frames": 144000,
+              "precision_bits": 24,
+              "sample_rate_hz": 48000,
+              "sample_sha256": "cf54deb48c2bb3ab0157997c6317cd5b12c76e086390df106535271d45f6dac4"
+            },
+            "source_sha256": "ed4ad8ab786089959f4156af8f7089f5730400bd92e5531d80e95682503c4989",
+            "target_identity": "target-bdcbc48f48f0e2378646771bd7df777dae49848d03f4a5bf5c892f50aa2f110a",
+            "validation_profile": "pcm-delivery-ffmpeg-8.0.1-v1",
+            "verifier_ffmpeg": {
+              "sha256": "94dbc5c9d7602f044b0ec9089cea2085d0f2adc3a2b1612eeec84f8badc6949d",
+              "size_bytes": 3280352,
+              "tool_id": "tool.ffmpeg",
+              "version": "8.0.1"
+            },
+            "verifier_ffprobe": {
+              "sha256": "40d68a7e8fc61e8656be62b12179142124ebd61eea5ed8afefda6e2d68b97a1d",
+              "size_bytes": 3056320,
+              "tool_id": "tool.ffprobe",
+              "version": "8.0.1"
+            }
+          },
+          "published": true,
+          "validation": "valid",
+          "validators": [
+            {
+              "provider": "renderflow.native",
+              "state": "valid",
+              "validator_id": "validator.core.non_empty",
+              "validator_version": "0.3.0-rc.1"
+            },
+            {
+              "provider": "renderflow.pinned-audio-verification",
+              "state": "valid",
+              "validator_id": "validator.audio.pinned_pcm_delivery",
+              "validator_version": "0.3.0-rc.1"
+            }
+          ]
+        },
+        {
+          "artifact_id": "artifact:sha256:10527e2cb3e4032225636831861079b1de72976a88d1ddef26404d46a6c21ddd",
+          "fidelity": "lossy",
+          "format": "mp3",
+          "independent_observation": {},
+          "locator": "bundle:authored-audio/delivery/mp3.mp3",
+          "native": {
+            "artifact_id": "artifact:sha256:10527e2cb3e4032225636831861079b1de72976a88d1ddef26404d46a6c21ddd",
+            "artifact_sha256": "a326892f9aa3bc85cbfcebfa700049282f267fe5936743b2532edbfea58770cc",
+            "decoded_frames": 132300,
+            "decoded_pcm_sha256": "b58ff42db5795ae9b065a503c85f5aa9326c45e290b3df15e04d00951fdaf107",
+            "decoded_precision_bits": 24,
+            "decoded_samples_equal_original": false,
+            "encoded_bitrate_or_compression_attested": false,
+            "encoder_executable_hash_attested": false,
+            "feature_admission": {
+              "admitted": true,
+              "queries": [
+                {
+                  "argv": [
+                    "-hide_banner",
+                    "-v",
+                    "error",
+                    "-decoders"
+                  ],
+                  "capture_complete": true,
+                  "matched_profile_ids": [
+                    "aac",
+                    "alac",
+                    "flac",
+                    "mp3",
+                    "mp3float"
+                  ],
+                  "recognized": true,
+                  "stderr_bytes": 0,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stdout_bytes": 809,
+                  "stdout_sha256": "90dfae50897bd1d588d8dba6576f8afe9996a2b9839ea457e41e4e1483101f25",
+                  "tool_id": "tool.ffmpeg",
+                  "unavailable_code": null
+                },
+                {
+                  "argv": [
+                    "-hide_banner",
+                    "-v",
+                    "error",
+                    "-demuxers"
+                  ],
+                  "capture_complete": true,
+                  "matched_profile_ids": [
+                    "flac",
+                    "mov",
+                    "mp3"
+                  ],
+                  "recognized": true,
+                  "stderr_bytes": 0,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stdout_bytes": 315,
+                  "stdout_sha256": "7c9fbc0967f4d005ada7b27a3542077d039bfc0ec5edab3c6fffa3a6fb1cc2fe",
+                  "tool_id": "tool.ffmpeg",
+                  "unavailable_code": null
+                },
+                {
+                  "argv": [
+                    "-hide_banner",
+                    "-v",
+                    "error",
+                    "-encoders"
+                  ],
+                  "capture_complete": true,
+                  "matched_profile_ids": [
+                    "pcm_s16le",
+                    "pcm_s24le"
+                  ],
+                  "recognized": true,
+                  "stderr_bytes": 0,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stdout_bytes": 766,
+                  "stdout_sha256": "088ac800c7453200dc927d7d73aef4ef918cb3744d0e9869bbf9db7d7ea55677",
+                  "tool_id": "tool.ffmpeg",
+                  "unavailable_code": null
+                },
+                {
+                  "argv": [
+                    "-hide_banner",
+                    "-v",
+                    "error",
+                    "-muxers"
+                  ],
+                  "capture_complete": true,
+                  "matched_profile_ids": [
+                    "s16le",
+                    "s24le"
+                  ],
+                  "recognized": true,
+                  "stderr_bytes": 0,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stdout_bytes": 631,
+                  "stdout_sha256": "765ce2881951a5604a4707b7684988f342ff4d44cdd16094142e8164f4a3c09d",
+                  "tool_id": "tool.ffmpeg",
+                  "unavailable_code": null
+                },
+                {
+                  "argv": [
+                    "-hide_banner",
+                    "-v",
+                    "error",
+                    "-decoders"
+                  ],
+                  "capture_complete": true,
+                  "matched_profile_ids": [
+                    "aac",
+                    "alac",
+                    "flac",
+                    "mp3",
+                    "mp3float"
+                  ],
+                  "recognized": true,
+                  "stderr_bytes": 0,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stdout_bytes": 809,
+                  "stdout_sha256": "90dfae50897bd1d588d8dba6576f8afe9996a2b9839ea457e41e4e1483101f25",
+                  "tool_id": "tool.ffprobe",
+                  "unavailable_code": null
+                },
+                {
+                  "argv": [
+                    "-hide_banner",
+                    "-v",
+                    "error",
+                    "-demuxers"
+                  ],
+                  "capture_complete": true,
+                  "matched_profile_ids": [
+                    "flac",
+                    "mov",
+                    "mp3"
+                  ],
+                  "recognized": true,
+                  "stderr_bytes": 0,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stdout_bytes": 315,
+                  "stdout_sha256": "7c9fbc0967f4d005ada7b27a3542077d039bfc0ec5edab3c6fffa3a6fb1cc2fe",
+                  "tool_id": "tool.ffprobe",
+                  "unavailable_code": null
+                }
+              ],
+              "required": [
+                {
+                  "alternatives": [
+                    "mp3"
+                  ],
+                  "matched": [
+                    "mp3"
+                  ],
+                  "table": "-demuxers",
+                  "tool_id": "tool.ffmpeg"
+                },
+                {
+                  "alternatives": [
+                    "mp3",
+                    "mp3float"
+                  ],
+                  "matched": [
+                    "mp3",
+                    "mp3float"
+                  ],
+                  "table": "-decoders",
+                  "tool_id": "tool.ffmpeg"
+                },
+                {
+                  "alternatives": [
+                    "pcm_s24le"
+                  ],
+                  "matched": [
+                    "pcm_s24le"
+                  ],
+                  "table": "-encoders",
+                  "tool_id": "tool.ffmpeg"
+                },
+                {
+                  "alternatives": [
+                    "s24le"
+                  ],
+                  "matched": [
+                    "s24le"
+                  ],
+                  "table": "-muxers",
+                  "tool_id": "tool.ffmpeg"
+                },
+                {
+                  "alternatives": [
+                    "mp3"
+                  ],
+                  "matched": [
+                    "mp3"
+                  ],
+                  "table": "-demuxers",
+                  "tool_id": "tool.ffprobe"
+                },
+                {
+                  "alternatives": [
+                    "mp3",
+                    "mp3float"
+                  ],
+                  "matched": [
+                    "mp3",
+                    "mp3float"
+                  ],
+                  "table": "-decoders",
+                  "tool_id": "tool.ffprobe"
+                }
+              ],
+              "scope": "Advertised fixed-profile prerequisites only; actual media is still probed/decoded before acceptance.",
+              "unavailable_code": null
+            },
+            "fidelity": "lossy",
+            "mastering_playback_or_content_approval": false,
+            "native_library_or_os_sandbox_attested": false,
+            "observed_clock": {
+              "channels": 1,
+              "discard_padding": 227,
+              "output_precision_bits": null,
+              "packet_count": 116,
+              "packet_end_sample": 133632,
+              "packet_start_sample": 0,
+              "presentation_samples": 132300,
+              "rate_hz": 44100,
+              "skip_samples": 1105,
+              "stream_duration_samples": 132300,
+              "stream_start_sample": 1105
+            },
+            "probe_output_sha256": "36be7f9c22c5a3fb39aa44d5b83b2f0594a41f4b437a82c53e309c0a07d0a177",
+            "producing_step_configuration_sha256": "7eeef36b3af9ebcea92904d0070defe7fbc2d0b556060d1a3bfaceb14da91a61",
+            "producing_step_id": "forest:01862cb34eae5d38784c172c6370ef5b57fea2b16e4395fec1a57d74d84f180f:step:wav-to-mp3",
+            "profile_changes_pcm_layout": true,
+            "requested_audio_profile": "hq_320k",
+            "schema_version": "renderflow.native-audio-validation/v1",
+            "scope": "Decoded PCM essence and clocks only; container/ancillary metadata equality, perceptual quality and release qualification are not asserted.",
+            "source_artifact_id": "artifact:sha256:3dd0b671852094a765afcfbc2f6b4f5306aede27b835702247e372f4d0633454",
+            "source_pcm": {
+              "channels": 1,
+              "frames": 144000,
+              "precision_bits": 24,
+              "sample_rate_hz": 48000,
+              "sample_sha256": "cf54deb48c2bb3ab0157997c6317cd5b12c76e086390df106535271d45f6dac4"
+            },
+            "source_sha256": "ed4ad8ab786089959f4156af8f7089f5730400bd92e5531d80e95682503c4989",
+            "target_identity": "target-c70024986c0b7481fa0cc2cbc780526180332b632dd6697bd1d94da861d7d17b",
+            "validation_profile": "pcm-delivery-ffmpeg-8.0.1-v1",
+            "verifier_ffmpeg": {
+              "sha256": "94dbc5c9d7602f044b0ec9089cea2085d0f2adc3a2b1612eeec84f8badc6949d",
+              "size_bytes": 3280352,
+              "tool_id": "tool.ffmpeg",
+              "version": "8.0.1"
+            },
+            "verifier_ffprobe": {
+              "sha256": "40d68a7e8fc61e8656be62b12179142124ebd61eea5ed8afefda6e2d68b97a1d",
+              "size_bytes": 3056320,
+              "tool_id": "tool.ffprobe",
+              "version": "8.0.1"
+            }
+          },
+          "published": true,
+          "validation": "valid",
+          "validators": [
+            {
+              "provider": "renderflow.native",
+              "state": "valid",
+              "validator_id": "validator.core.non_empty",
+              "validator_version": "0.3.0-rc.1"
+            },
+            {
+              "provider": "renderflow.pinned-audio-verification",
+              "state": "valid",
+              "validator_id": "validator.audio.pinned_pcm_delivery",
+              "validator_version": "0.3.0-rc.1"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "manifest": "{work}/outputs/native-96000-stereo24/renderflow-run.json",
+      "manifest_pin": {
+        "bytes": 89087,
+        "sha256": "9a8200aeb03edc3f790e73f9393586f6d06a74c44b1a7e79c04db28c525502a9"
+      },
+      "name": "native-96000-stereo24",
+      "published": 4,
+      "retained_raw_manifest": "{work}/observed/native-96000-stereo24.manifest.json",
+      "state": "complete",
+      "targets": [
+        {
+          "artifact_id": "artifact:sha256:2a32fcd7219a8229dbdb97da8c72a5c4bae61ecba019b58e7b0976126eec9f75",
+          "fidelity": "lossless",
+          "format": "flac",
+          "independent_observation": {},
+          "locator": "bundle:authored-audio/delivery/flac.flac",
+          "native": {
+            "artifact_id": "artifact:sha256:2a32fcd7219a8229dbdb97da8c72a5c4bae61ecba019b58e7b0976126eec9f75",
+            "artifact_sha256": "cd824dbc959a0adbb8d89847c34bf9c06d9b05fe61ccccbe1616a8ab0e2bd5ab",
+            "decoded_frames": 288000,
+            "decoded_pcm_sha256": "76cfa988fc964cde35ae7f8baea780016c5acaf8bb80a1e1d2b87d9013918d66",
+            "decoded_precision_bits": 24,
+            "decoded_samples_equal_original": true,
+            "encoded_bitrate_or_compression_attested": false,
+            "encoder_executable_hash_attested": false,
+            "feature_admission": {
+              "admitted": true,
+              "queries": [
+                {
+                  "argv": [
+                    "-hide_banner",
+                    "-v",
+                    "error",
+                    "-decoders"
+                  ],
+                  "capture_complete": true,
+                  "matched_profile_ids": [
+                    "aac",
+                    "alac",
+                    "flac",
+                    "mp3",
+                    "mp3float"
+                  ],
+                  "recognized": true,
+                  "stderr_bytes": 0,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stdout_bytes": 809,
+                  "stdout_sha256": "90dfae50897bd1d588d8dba6576f8afe9996a2b9839ea457e41e4e1483101f25",
+                  "tool_id": "tool.ffmpeg",
+                  "unavailable_code": null
+                },
+                {
+                  "argv": [
+                    "-hide_banner",
+                    "-v",
+                    "error",
+                    "-demuxers"
+                  ],
+                  "capture_complete": true,
+                  "matched_profile_ids": [
+                    "flac",
+                    "mov",
+                    "mp3"
+                  ],
+                  "recognized": true,
+                  "stderr_bytes": 0,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stdout_bytes": 315,
+                  "stdout_sha256": "7c9fbc0967f4d005ada7b27a3542077d039bfc0ec5edab3c6fffa3a6fb1cc2fe",
+                  "tool_id": "tool.ffmpeg",
+                  "unavailable_code": null
+                },
+                {
+                  "argv": [
+                    "-hide_banner",
+                    "-v",
+                    "error",
+                    "-encoders"
+                  ],
+                  "capture_complete": true,
+                  "matched_profile_ids": [
+                    "pcm_s16le",
+                    "pcm_s24le"
+                  ],
+                  "recognized": true,
+                  "stderr_bytes": 0,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stdout_bytes": 766,
+                  "stdout_sha256": "088ac800c7453200dc927d7d73aef4ef918cb3744d0e9869bbf9db7d7ea55677",
+                  "tool_id": "tool.ffmpeg",
+                  "unavailable_code": null
+                },
+                {
+                  "argv": [
+                    "-hide_banner",
+                    "-v",
+                    "error",
+                    "-muxers"
+                  ],
+                  "capture_complete": true,
+                  "matched_profile_ids": [
+                    "s16le",
+                    "s24le"
+                  ],
+                  "recognized": true,
+                  "stderr_bytes": 0,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stdout_bytes": 631,
+                  "stdout_sha256": "765ce2881951a5604a4707b7684988f342ff4d44cdd16094142e8164f4a3c09d",
+                  "tool_id": "tool.ffmpeg",
+                  "unavailable_code": null
+                },
+                {
+                  "argv": [
+                    "-hide_banner",
+                    "-v",
+                    "error",
+                    "-decoders"
+                  ],
+                  "capture_complete": true,
+                  "matched_profile_ids": [
+                    "aac",
+                    "alac",
+                    "flac",
+                    "mp3",
+                    "mp3float"
+                  ],
+                  "recognized": true,
+                  "stderr_bytes": 0,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stdout_bytes": 809,
+                  "stdout_sha256": "90dfae50897bd1d588d8dba6576f8afe9996a2b9839ea457e41e4e1483101f25",
+                  "tool_id": "tool.ffprobe",
+                  "unavailable_code": null
+                },
+                {
+                  "argv": [
+                    "-hide_banner",
+                    "-v",
+                    "error",
+                    "-demuxers"
+                  ],
+                  "capture_complete": true,
+                  "matched_profile_ids": [
+                    "flac",
+                    "mov",
+                    "mp3"
+                  ],
+                  "recognized": true,
+                  "stderr_bytes": 0,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stdout_bytes": 315,
+                  "stdout_sha256": "7c9fbc0967f4d005ada7b27a3542077d039bfc0ec5edab3c6fffa3a6fb1cc2fe",
+                  "tool_id": "tool.ffprobe",
+                  "unavailable_code": null
+                }
+              ],
+              "required": [
+                {
+                  "alternatives": [
+                    "flac"
+                  ],
+                  "matched": [
+                    "flac"
+                  ],
+                  "table": "-demuxers",
+                  "tool_id": "tool.ffmpeg"
+                },
+                {
+                  "alternatives": [
+                    "flac"
+                  ],
+                  "matched": [
+                    "flac"
+                  ],
+                  "table": "-decoders",
+                  "tool_id": "tool.ffmpeg"
+                },
+                {
+                  "alternatives": [
+                    "pcm_s24le"
+                  ],
+                  "matched": [
+                    "pcm_s24le"
+                  ],
+                  "table": "-encoders",
+                  "tool_id": "tool.ffmpeg"
+                },
+                {
+                  "alternatives": [
+                    "s24le"
+                  ],
+                  "matched": [
+                    "s24le"
+                  ],
+                  "table": "-muxers",
+                  "tool_id": "tool.ffmpeg"
+                },
+                {
+                  "alternatives": [
+                    "flac"
+                  ],
+                  "matched": [
+                    "flac"
+                  ],
+                  "table": "-demuxers",
+                  "tool_id": "tool.ffprobe"
+                },
+                {
+                  "alternatives": [
+                    "flac"
+                  ],
+                  "matched": [
+                    "flac"
+                  ],
+                  "table": "-decoders",
+                  "tool_id": "tool.ffprobe"
+                }
+              ],
+              "scope": "Advertised fixed-profile prerequisites only; actual media is still probed/decoded before acceptance.",
+              "unavailable_code": null
+            },
+            "fidelity": "lossless",
+            "mastering_playback_or_content_approval": false,
+            "native_library_or_os_sandbox_attested": false,
+            "observed_clock": {
+              "channels": 2,
+              "discard_padding": 0,
+              "output_precision_bits": 24,
+              "packet_count": 36,
+              "packet_end_sample": 288000,
+              "packet_start_sample": 0,
+              "presentation_samples": 288000,
+              "rate_hz": 96000,
+              "skip_samples": 0,
+              "stream_duration_samples": 288000,
+              "stream_start_sample": 0
+            },
+            "probe_output_sha256": "bbe24acb2c6a5646736c66fa79ff0d0866bf82e24a5b8dcfb135704e258c4ce8",
+            "producing_step_configuration_sha256": "f512731b770d524f966b1a63dc1106d4f475bec6902343e78f6059471c727ea4",
+            "producing_step_id": "forest:00da893ce529372f17aa9eb56c284a251a5014fd1963bdf3c9114959d76bb9d8:step:wav-to-flac",
+            "profile_changes_pcm_layout": false,
+            "requested_audio_profile": "flac_hires",
+            "schema_version": "renderflow.native-audio-validation/v1",
+            "scope": "Decoded PCM essence and clocks only; container/ancillary metadata equality, perceptual quality and release qualification are not asserted.",
+            "source_artifact_id": "artifact:sha256:e28477634f79d41dcdf62684b5fb48a9b81fc03c7c1868266c20518922ceb023",
+            "source_pcm": {
+              "channels": 2,
+              "frames": 288000,
+              "precision_bits": 24,
+              "sample_rate_hz": 96000,
+              "sample_sha256": "76cfa988fc964cde35ae7f8baea780016c5acaf8bb80a1e1d2b87d9013918d66"
+            },
+            "source_sha256": "2309c350cb31c8a936a0d7b56038544f7e36efc5a29e8cd16f0187368427c605",
+            "target_identity": "target-76c2ee4e5d89587796c794197ec20c2a34f7a0a19bd720eb75091546acf7ffce",
+            "validation_profile": "pcm-delivery-ffmpeg-8.0.1-v1",
+            "verifier_ffmpeg": {
+              "sha256": "94dbc5c9d7602f044b0ec9089cea2085d0f2adc3a2b1612eeec84f8badc6949d",
+              "size_bytes": 3280352,
+              "tool_id": "tool.ffmpeg",
+              "version": "8.0.1"
+            },
+            "verifier_ffprobe": {
+              "sha256": "40d68a7e8fc61e8656be62b12179142124ebd61eea5ed8afefda6e2d68b97a1d",
+              "size_bytes": 3056320,
+              "tool_id": "tool.ffprobe",
+              "version": "8.0.1"
+            }
+          },
+          "published": true,
+          "validation": "valid",
+          "validators": [
+            {
+              "provider": "renderflow.native",
+              "state": "valid",
+              "validator_id": "validator.core.non_empty",
+              "validator_version": "0.3.0-rc.1"
+            },
+            {
+              "provider": "renderflow.pinned-audio-verification",
+              "state": "valid",
+              "validator_id": "validator.audio.pinned_pcm_delivery",
+              "validator_version": "0.3.0-rc.1"
+            }
+          ]
+        },
+        {
+          "artifact_id": "artifact:sha256:dd39a03a99cb0040352689242c1034301f9e382d85415625cb076bfa2273022a",
+          "fidelity": "lossy",
+          "format": "m4a",
+          "independent_observation": {},
+          "locator": "bundle:authored-audio/delivery/m4a.m4a",
+          "native": {
+            "artifact_id": "artifact:sha256:dd39a03a99cb0040352689242c1034301f9e382d85415625cb076bfa2273022a",
+            "artifact_sha256": "4b7a7b167da3175477f431060f45d35fb498a4e5f744bb9d97d52e17341dd894",
+            "decoded_frames": 288768,
+            "decoded_pcm_sha256": "440c8ea5a912223ee2975d1230e98953e9047168a693eb6003cd0b776db0818a",
+            "decoded_precision_bits": 24,
+            "decoded_samples_equal_original": false,
+            "encoded_bitrate_or_compression_attested": false,
+            "encoder_executable_hash_attested": false,
+            "feature_admission": {
+              "admitted": true,
+              "queries": [
+                {
+                  "argv": [
+                    "-hide_banner",
+                    "-v",
+                    "error",
+                    "-decoders"
+                  ],
+                  "capture_complete": true,
+                  "matched_profile_ids": [
+                    "aac",
+                    "alac",
+                    "flac",
+                    "mp3",
+                    "mp3float"
+                  ],
+                  "recognized": true,
+                  "stderr_bytes": 0,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stdout_bytes": 809,
+                  "stdout_sha256": "90dfae50897bd1d588d8dba6576f8afe9996a2b9839ea457e41e4e1483101f25",
+                  "tool_id": "tool.ffmpeg",
+                  "unavailable_code": null
+                },
+                {
+                  "argv": [
+                    "-hide_banner",
+                    "-v",
+                    "error",
+                    "-demuxers"
+                  ],
+                  "capture_complete": true,
+                  "matched_profile_ids": [
+                    "flac",
+                    "mov",
+                    "mp3"
+                  ],
+                  "recognized": true,
+                  "stderr_bytes": 0,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stdout_bytes": 315,
+                  "stdout_sha256": "7c9fbc0967f4d005ada7b27a3542077d039bfc0ec5edab3c6fffa3a6fb1cc2fe",
+                  "tool_id": "tool.ffmpeg",
+                  "unavailable_code": null
+                },
+                {
+                  "argv": [
+                    "-hide_banner",
+                    "-v",
+                    "error",
+                    "-encoders"
+                  ],
+                  "capture_complete": true,
+                  "matched_profile_ids": [
+                    "pcm_s16le",
+                    "pcm_s24le"
+                  ],
+                  "recognized": true,
+                  "stderr_bytes": 0,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stdout_bytes": 766,
+                  "stdout_sha256": "088ac800c7453200dc927d7d73aef4ef918cb3744d0e9869bbf9db7d7ea55677",
+                  "tool_id": "tool.ffmpeg",
+                  "unavailable_code": null
+                },
+                {
+                  "argv": [
+                    "-hide_banner",
+                    "-v",
+                    "error",
+                    "-muxers"
+                  ],
+                  "capture_complete": true,
+                  "matched_profile_ids": [
+                    "s16le",
+                    "s24le"
+                  ],
+                  "recognized": true,
+                  "stderr_bytes": 0,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stdout_bytes": 631,
+                  "stdout_sha256": "765ce2881951a5604a4707b7684988f342ff4d44cdd16094142e8164f4a3c09d",
+                  "tool_id": "tool.ffmpeg",
+                  "unavailable_code": null
+                },
+                {
+                  "argv": [
+                    "-hide_banner",
+                    "-v",
+                    "error",
+                    "-decoders"
+                  ],
+                  "capture_complete": true,
+                  "matched_profile_ids": [
+                    "aac",
+                    "alac",
+                    "flac",
+                    "mp3",
+                    "mp3float"
+                  ],
+                  "recognized": true,
+                  "stderr_bytes": 0,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stdout_bytes": 809,
+                  "stdout_sha256": "90dfae50897bd1d588d8dba6576f8afe9996a2b9839ea457e41e4e1483101f25",
+                  "tool_id": "tool.ffprobe",
+                  "unavailable_code": null
+                },
+                {
+                  "argv": [
+                    "-hide_banner",
+                    "-v",
+                    "error",
+                    "-demuxers"
+                  ],
+                  "capture_complete": true,
+                  "matched_profile_ids": [
+                    "flac",
+                    "mov",
+                    "mp3"
+                  ],
+                  "recognized": true,
+                  "stderr_bytes": 0,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stdout_bytes": 315,
+                  "stdout_sha256": "7c9fbc0967f4d005ada7b27a3542077d039bfc0ec5edab3c6fffa3a6fb1cc2fe",
+                  "tool_id": "tool.ffprobe",
+                  "unavailable_code": null
+                }
+              ],
+              "required": [
+                {
+                  "alternatives": [
+                    "mov"
+                  ],
+                  "matched": [
+                    "mov"
+                  ],
+                  "table": "-demuxers",
+                  "tool_id": "tool.ffmpeg"
+                },
+                {
+                  "alternatives": [
+                    "aac"
+                  ],
+                  "matched": [
+                    "aac"
+                  ],
+                  "table": "-decoders",
+                  "tool_id": "tool.ffmpeg"
+                },
+                {
+                  "alternatives": [
+                    "pcm_s24le"
+                  ],
+                  "matched": [
+                    "pcm_s24le"
+                  ],
+                  "table": "-encoders",
+                  "tool_id": "tool.ffmpeg"
+                },
+                {
+                  "alternatives": [
+                    "s24le"
+                  ],
+                  "matched": [
+                    "s24le"
+                  ],
+                  "table": "-muxers",
+                  "tool_id": "tool.ffmpeg"
+                },
+                {
+                  "alternatives": [
+                    "mov"
+                  ],
+                  "matched": [
+                    "mov"
+                  ],
+                  "table": "-demuxers",
+                  "tool_id": "tool.ffprobe"
+                },
+                {
+                  "alternatives": [
+                    "aac"
+                  ],
+                  "matched": [
+                    "aac"
+                  ],
+                  "table": "-decoders",
+                  "tool_id": "tool.ffprobe"
+                }
+              ],
+              "scope": "Advertised fixed-profile prerequisites only; actual media is still probed/decoded before acceptance.",
+              "unavailable_code": null
+            },
+            "fidelity": "lossy",
+            "mastering_playback_or_content_approval": false,
+            "native_library_or_os_sandbox_attested": false,
+            "observed_clock": {
+              "channels": 2,
+              "discard_padding": 0,
+              "output_precision_bits": null,
+              "packet_count": 283,
+              "packet_end_sample": 288000,
+              "packet_start_sample": -1024,
+              "presentation_samples": 288000,
+              "rate_hz": 96000,
+              "skip_samples": 1024,
+              "stream_duration_samples": 288000,
+              "stream_start_sample": 0
+            },
+            "probe_output_sha256": "c6056715e0cc112d3d78f15a0733469f741309171dc55c36f0ef85e80e987f43",
+            "producing_step_configuration_sha256": "d1c674ca246abd09149830ea3837fe61dcb19cc8297f708bf4bca410d62ac1c2",
+            "producing_step_id": "forest:58c187140dca0bfe3a77c2eee99bd7d4dc1e7d54aa78e3a12d83b077478bee14:step:wav-to-m4a",
+            "profile_changes_pcm_layout": false,
+            "requested_audio_profile": "aac_256k",
+            "schema_version": "renderflow.native-audio-validation/v1",
+            "scope": "Decoded PCM essence and clocks only; container/ancillary metadata equality, perceptual quality and release qualification are not asserted.",
+            "source_artifact_id": "artifact:sha256:e28477634f79d41dcdf62684b5fb48a9b81fc03c7c1868266c20518922ceb023",
+            "source_pcm": {
+              "channels": 2,
+              "frames": 288000,
+              "precision_bits": 24,
+              "sample_rate_hz": 96000,
+              "sample_sha256": "76cfa988fc964cde35ae7f8baea780016c5acaf8bb80a1e1d2b87d9013918d66"
+            },
+            "source_sha256": "2309c350cb31c8a936a0d7b56038544f7e36efc5a29e8cd16f0187368427c605",
+            "target_identity": "target-d12c0d57cb1ed25a74f2c0d60fd0352bad66bf457875df7ca39f66addd563331",
+            "validation_profile": "pcm-delivery-ffmpeg-8.0.1-v1",
+            "verifier_ffmpeg": {
+              "sha256": "94dbc5c9d7602f044b0ec9089cea2085d0f2adc3a2b1612eeec84f8badc6949d",
+              "size_bytes": 3280352,
+              "tool_id": "tool.ffmpeg",
+              "version": "8.0.1"
+            },
+            "verifier_ffprobe": {
+              "sha256": "40d68a7e8fc61e8656be62b12179142124ebd61eea5ed8afefda6e2d68b97a1d",
+              "size_bytes": 3056320,
+              "tool_id": "tool.ffprobe",
+              "version": "8.0.1"
+            }
+          },
+          "published": true,
+          "validation": "valid",
+          "validators": [
+            {
+              "provider": "renderflow.native",
+              "state": "valid",
+              "validator_id": "validator.core.non_empty",
+              "validator_version": "0.3.0-rc.1"
+            },
+            {
+              "provider": "renderflow.pinned-audio-verification",
+              "state": "valid",
+              "validator_id": "validator.audio.pinned_pcm_delivery",
+              "validator_version": "0.3.0-rc.1"
+            }
+          ]
+        },
+        {
+          "artifact_id": "artifact:sha256:6ec6633d21847299c958588533dae234ae559746440ac60b9a6a836defab3c50",
+          "fidelity": "lossless",
+          "format": "m4a_alac",
+          "independent_observation": {},
+          "locator": "bundle:authored-audio/delivery/m4a_alac.m4a",
+          "native": {
+            "artifact_id": "artifact:sha256:6ec6633d21847299c958588533dae234ae559746440ac60b9a6a836defab3c50",
+            "artifact_sha256": "ddad1c31c502d26cffa1e7ce43eb006668a53c6b615013943b5d8a39a3c2f1ad",
+            "decoded_frames": 288000,
+            "decoded_pcm_sha256": "76cfa988fc964cde35ae7f8baea780016c5acaf8bb80a1e1d2b87d9013918d66",
+            "decoded_precision_bits": 24,
+            "decoded_samples_equal_original": true,
+            "encoded_bitrate_or_compression_attested": false,
+            "encoder_executable_hash_attested": false,
+            "feature_admission": {
+              "admitted": true,
+              "queries": [
+                {
+                  "argv": [
+                    "-hide_banner",
+                    "-v",
+                    "error",
+                    "-decoders"
+                  ],
+                  "capture_complete": true,
+                  "matched_profile_ids": [
+                    "aac",
+                    "alac",
+                    "flac",
+                    "mp3",
+                    "mp3float"
+                  ],
+                  "recognized": true,
+                  "stderr_bytes": 0,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stdout_bytes": 809,
+                  "stdout_sha256": "90dfae50897bd1d588d8dba6576f8afe9996a2b9839ea457e41e4e1483101f25",
+                  "tool_id": "tool.ffmpeg",
+                  "unavailable_code": null
+                },
+                {
+                  "argv": [
+                    "-hide_banner",
+                    "-v",
+                    "error",
+                    "-demuxers"
+                  ],
+                  "capture_complete": true,
+                  "matched_profile_ids": [
+                    "flac",
+                    "mov",
+                    "mp3"
+                  ],
+                  "recognized": true,
+                  "stderr_bytes": 0,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stdout_bytes": 315,
+                  "stdout_sha256": "7c9fbc0967f4d005ada7b27a3542077d039bfc0ec5edab3c6fffa3a6fb1cc2fe",
+                  "tool_id": "tool.ffmpeg",
+                  "unavailable_code": null
+                },
+                {
+                  "argv": [
+                    "-hide_banner",
+                    "-v",
+                    "error",
+                    "-encoders"
+                  ],
+                  "capture_complete": true,
+                  "matched_profile_ids": [
+                    "pcm_s16le",
+                    "pcm_s24le"
+                  ],
+                  "recognized": true,
+                  "stderr_bytes": 0,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stdout_bytes": 766,
+                  "stdout_sha256": "088ac800c7453200dc927d7d73aef4ef918cb3744d0e9869bbf9db7d7ea55677",
+                  "tool_id": "tool.ffmpeg",
+                  "unavailable_code": null
+                },
+                {
+                  "argv": [
+                    "-hide_banner",
+                    "-v",
+                    "error",
+                    "-muxers"
+                  ],
+                  "capture_complete": true,
+                  "matched_profile_ids": [
+                    "s16le",
+                    "s24le"
+                  ],
+                  "recognized": true,
+                  "stderr_bytes": 0,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stdout_bytes": 631,
+                  "stdout_sha256": "765ce2881951a5604a4707b7684988f342ff4d44cdd16094142e8164f4a3c09d",
+                  "tool_id": "tool.ffmpeg",
+                  "unavailable_code": null
+                },
+                {
+                  "argv": [
+                    "-hide_banner",
+                    "-v",
+                    "error",
+                    "-decoders"
+                  ],
+                  "capture_complete": true,
+                  "matched_profile_ids": [
+                    "aac",
+                    "alac",
+                    "flac",
+                    "mp3",
+                    "mp3float"
+                  ],
+                  "recognized": true,
+                  "stderr_bytes": 0,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stdout_bytes": 809,
+                  "stdout_sha256": "90dfae50897bd1d588d8dba6576f8afe9996a2b9839ea457e41e4e1483101f25",
+                  "tool_id": "tool.ffprobe",
+                  "unavailable_code": null
+                },
+                {
+                  "argv": [
+                    "-hide_banner",
+                    "-v",
+                    "error",
+                    "-demuxers"
+                  ],
+                  "capture_complete": true,
+                  "matched_profile_ids": [
+                    "flac",
+                    "mov",
+                    "mp3"
+                  ],
+                  "recognized": true,
+                  "stderr_bytes": 0,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stdout_bytes": 315,
+                  "stdout_sha256": "7c9fbc0967f4d005ada7b27a3542077d039bfc0ec5edab3c6fffa3a6fb1cc2fe",
+                  "tool_id": "tool.ffprobe",
+                  "unavailable_code": null
+                }
+              ],
+              "required": [
+                {
+                  "alternatives": [
+                    "mov"
+                  ],
+                  "matched": [
+                    "mov"
+                  ],
+                  "table": "-demuxers",
+                  "tool_id": "tool.ffmpeg"
+                },
+                {
+                  "alternatives": [
+                    "alac"
+                  ],
+                  "matched": [
+                    "alac"
+                  ],
+                  "table": "-decoders",
+                  "tool_id": "tool.ffmpeg"
+                },
+                {
+                  "alternatives": [
+                    "pcm_s24le"
+                  ],
+                  "matched": [
+                    "pcm_s24le"
+                  ],
+                  "table": "-encoders",
+                  "tool_id": "tool.ffmpeg"
+                },
+                {
+                  "alternatives": [
+                    "s24le"
+                  ],
+                  "matched": [
+                    "s24le"
+                  ],
+                  "table": "-muxers",
+                  "tool_id": "tool.ffmpeg"
+                },
+                {
+                  "alternatives": [
+                    "mov"
+                  ],
+                  "matched": [
+                    "mov"
+                  ],
+                  "table": "-demuxers",
+                  "tool_id": "tool.ffprobe"
+                },
+                {
+                  "alternatives": [
+                    "alac"
+                  ],
+                  "matched": [
+                    "alac"
+                  ],
+                  "table": "-decoders",
+                  "tool_id": "tool.ffprobe"
+                }
+              ],
+              "scope": "Advertised fixed-profile prerequisites only; actual media is still probed/decoded before acceptance.",
+              "unavailable_code": null
+            },
+            "fidelity": "lossless",
+            "mastering_playback_or_content_approval": false,
+            "native_library_or_os_sandbox_attested": false,
+            "observed_clock": {
+              "channels": 2,
+              "discard_padding": 0,
+              "output_precision_bits": 24,
+              "packet_count": 71,
+              "packet_end_sample": 288000,
+              "packet_start_sample": 0,
+              "presentation_samples": 288000,
+              "rate_hz": 96000,
+              "skip_samples": 0,
+              "stream_duration_samples": 288000,
+              "stream_start_sample": 0
+            },
+            "probe_output_sha256": "735bb45ecd5b99b4d49bb960bea30506722a650b40e89a0713c3e3d831a52471",
+            "producing_step_configuration_sha256": "918f21c9e3f574439c4114090097e6b74df8cf467b611fdefced26454f51dc7d",
+            "producing_step_id": "forest:26c6f530fdd8d5ec0181f347d495d13e528c78cc282c48c872db17aa876f0bc4:step:wav-to-m4a_alac",
+            "profile_changes_pcm_layout": false,
+            "requested_audio_profile": "alac_hires",
+            "schema_version": "renderflow.native-audio-validation/v1",
+            "scope": "Decoded PCM essence and clocks only; container/ancillary metadata equality, perceptual quality and release qualification are not asserted.",
+            "source_artifact_id": "artifact:sha256:e28477634f79d41dcdf62684b5fb48a9b81fc03c7c1868266c20518922ceb023",
+            "source_pcm": {
+              "channels": 2,
+              "frames": 288000,
+              "precision_bits": 24,
+              "sample_rate_hz": 96000,
+              "sample_sha256": "76cfa988fc964cde35ae7f8baea780016c5acaf8bb80a1e1d2b87d9013918d66"
+            },
+            "source_sha256": "2309c350cb31c8a936a0d7b56038544f7e36efc5a29e8cd16f0187368427c605",
+            "target_identity": "target-d822d7824aed94c3ea15002e0d78d7b5d2aaab8025a071ffcef0712f024ebe26",
+            "validation_profile": "pcm-delivery-ffmpeg-8.0.1-v1",
+            "verifier_ffmpeg": {
+              "sha256": "94dbc5c9d7602f044b0ec9089cea2085d0f2adc3a2b1612eeec84f8badc6949d",
+              "size_bytes": 3280352,
+              "tool_id": "tool.ffmpeg",
+              "version": "8.0.1"
+            },
+            "verifier_ffprobe": {
+              "sha256": "40d68a7e8fc61e8656be62b12179142124ebd61eea5ed8afefda6e2d68b97a1d",
+              "size_bytes": 3056320,
+              "tool_id": "tool.ffprobe",
+              "version": "8.0.1"
+            }
+          },
+          "published": true,
+          "validation": "valid",
+          "validators": [
+            {
+              "provider": "renderflow.native",
+              "state": "valid",
+              "validator_id": "validator.core.non_empty",
+              "validator_version": "0.3.0-rc.1"
+            },
+            {
+              "provider": "renderflow.pinned-audio-verification",
+              "state": "valid",
+              "validator_id": "validator.audio.pinned_pcm_delivery",
+              "validator_version": "0.3.0-rc.1"
+            }
+          ]
+        },
+        {
+          "artifact_id": "artifact:sha256:74105698a370d7a505b79ff8e1cc4e9410cd6ecfac3e7780b5113d63041131f9",
+          "fidelity": "lossy",
+          "format": "mp3",
+          "independent_observation": {},
+          "locator": "bundle:authored-audio/delivery/mp3.mp3",
+          "native": {
+            "artifact_id": "artifact:sha256:74105698a370d7a505b79ff8e1cc4e9410cd6ecfac3e7780b5113d63041131f9",
+            "artifact_sha256": "5f429c07a0e83c585f1a651fcbd45274d48c6cc5c9f279a4be2694fc0ebecc00",
+            "decoded_frames": 132300,
+            "decoded_pcm_sha256": "6ec9de82d348c90a966403252792c69402647fb4b000685c3d7466f739224d36",
+            "decoded_precision_bits": 24,
+            "decoded_samples_equal_original": false,
+            "encoded_bitrate_or_compression_attested": false,
+            "encoder_executable_hash_attested": false,
+            "feature_admission": {
+              "admitted": true,
+              "queries": [
+                {
+                  "argv": [
+                    "-hide_banner",
+                    "-v",
+                    "error",
+                    "-decoders"
+                  ],
+                  "capture_complete": true,
+                  "matched_profile_ids": [
+                    "aac",
+                    "alac",
+                    "flac",
+                    "mp3",
+                    "mp3float"
+                  ],
+                  "recognized": true,
+                  "stderr_bytes": 0,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stdout_bytes": 809,
+                  "stdout_sha256": "90dfae50897bd1d588d8dba6576f8afe9996a2b9839ea457e41e4e1483101f25",
+                  "tool_id": "tool.ffmpeg",
+                  "unavailable_code": null
+                },
+                {
+                  "argv": [
+                    "-hide_banner",
+                    "-v",
+                    "error",
+                    "-demuxers"
+                  ],
+                  "capture_complete": true,
+                  "matched_profile_ids": [
+                    "flac",
+                    "mov",
+                    "mp3"
+                  ],
+                  "recognized": true,
+                  "stderr_bytes": 0,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stdout_bytes": 315,
+                  "stdout_sha256": "7c9fbc0967f4d005ada7b27a3542077d039bfc0ec5edab3c6fffa3a6fb1cc2fe",
+                  "tool_id": "tool.ffmpeg",
+                  "unavailable_code": null
+                },
+                {
+                  "argv": [
+                    "-hide_banner",
+                    "-v",
+                    "error",
+                    "-encoders"
+                  ],
+                  "capture_complete": true,
+                  "matched_profile_ids": [
+                    "pcm_s16le",
+                    "pcm_s24le"
+                  ],
+                  "recognized": true,
+                  "stderr_bytes": 0,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stdout_bytes": 766,
+                  "stdout_sha256": "088ac800c7453200dc927d7d73aef4ef918cb3744d0e9869bbf9db7d7ea55677",
+                  "tool_id": "tool.ffmpeg",
+                  "unavailable_code": null
+                },
+                {
+                  "argv": [
+                    "-hide_banner",
+                    "-v",
+                    "error",
+                    "-muxers"
+                  ],
+                  "capture_complete": true,
+                  "matched_profile_ids": [
+                    "s16le",
+                    "s24le"
+                  ],
+                  "recognized": true,
+                  "stderr_bytes": 0,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stdout_bytes": 631,
+                  "stdout_sha256": "765ce2881951a5604a4707b7684988f342ff4d44cdd16094142e8164f4a3c09d",
+                  "tool_id": "tool.ffmpeg",
+                  "unavailable_code": null
+                },
+                {
+                  "argv": [
+                    "-hide_banner",
+                    "-v",
+                    "error",
+                    "-decoders"
+                  ],
+                  "capture_complete": true,
+                  "matched_profile_ids": [
+                    "aac",
+                    "alac",
+                    "flac",
+                    "mp3",
+                    "mp3float"
+                  ],
+                  "recognized": true,
+                  "stderr_bytes": 0,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stdout_bytes": 809,
+                  "stdout_sha256": "90dfae50897bd1d588d8dba6576f8afe9996a2b9839ea457e41e4e1483101f25",
+                  "tool_id": "tool.ffprobe",
+                  "unavailable_code": null
+                },
+                {
+                  "argv": [
+                    "-hide_banner",
+                    "-v",
+                    "error",
+                    "-demuxers"
+                  ],
+                  "capture_complete": true,
+                  "matched_profile_ids": [
+                    "flac",
+                    "mov",
+                    "mp3"
+                  ],
+                  "recognized": true,
+                  "stderr_bytes": 0,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stdout_bytes": 315,
+                  "stdout_sha256": "7c9fbc0967f4d005ada7b27a3542077d039bfc0ec5edab3c6fffa3a6fb1cc2fe",
+                  "tool_id": "tool.ffprobe",
+                  "unavailable_code": null
+                }
+              ],
+              "required": [
+                {
+                  "alternatives": [
+                    "mp3"
+                  ],
+                  "matched": [
+                    "mp3"
+                  ],
+                  "table": "-demuxers",
+                  "tool_id": "tool.ffmpeg"
+                },
+                {
+                  "alternatives": [
+                    "mp3",
+                    "mp3float"
+                  ],
+                  "matched": [
+                    "mp3",
+                    "mp3float"
+                  ],
+                  "table": "-decoders",
+                  "tool_id": "tool.ffmpeg"
+                },
+                {
+                  "alternatives": [
+                    "pcm_s24le"
+                  ],
+                  "matched": [
+                    "pcm_s24le"
+                  ],
+                  "table": "-encoders",
+                  "tool_id": "tool.ffmpeg"
+                },
+                {
+                  "alternatives": [
+                    "s24le"
+                  ],
+                  "matched": [
+                    "s24le"
+                  ],
+                  "table": "-muxers",
+                  "tool_id": "tool.ffmpeg"
+                },
+                {
+                  "alternatives": [
+                    "mp3"
+                  ],
+                  "matched": [
+                    "mp3"
+                  ],
+                  "table": "-demuxers",
+                  "tool_id": "tool.ffprobe"
+                },
+                {
+                  "alternatives": [
+                    "mp3",
+                    "mp3float"
+                  ],
+                  "matched": [
+                    "mp3",
+                    "mp3float"
+                  ],
+                  "table": "-decoders",
+                  "tool_id": "tool.ffprobe"
+                }
+              ],
+              "scope": "Advertised fixed-profile prerequisites only; actual media is still probed/decoded before acceptance.",
+              "unavailable_code": null
+            },
+            "fidelity": "lossy",
+            "mastering_playback_or_content_approval": false,
+            "native_library_or_os_sandbox_attested": false,
+            "observed_clock": {
+              "channels": 2,
+              "discard_padding": 227,
+              "output_precision_bits": null,
+              "packet_count": 116,
+              "packet_end_sample": 133632,
+              "packet_start_sample": 0,
+              "presentation_samples": 132300,
+              "rate_hz": 44100,
+              "skip_samples": 1105,
+              "stream_duration_samples": 132300,
+              "stream_start_sample": 1105
+            },
+            "probe_output_sha256": "d27bb05dfbb5bdc51fa6384251d67ff9b6119d7da91797c99ec46a042ac4e93e",
+            "producing_step_configuration_sha256": "7eeef36b3af9ebcea92904d0070defe7fbc2d0b556060d1a3bfaceb14da91a61",
+            "producing_step_id": "forest:01862cb34eae5d38784c172c6370ef5b57fea2b16e4395fec1a57d74d84f180f:step:wav-to-mp3",
+            "profile_changes_pcm_layout": true,
+            "requested_audio_profile": "hq_320k",
+            "schema_version": "renderflow.native-audio-validation/v1",
+            "scope": "Decoded PCM essence and clocks only; container/ancillary metadata equality, perceptual quality and release qualification are not asserted.",
+            "source_artifact_id": "artifact:sha256:e28477634f79d41dcdf62684b5fb48a9b81fc03c7c1868266c20518922ceb023",
+            "source_pcm": {
+              "channels": 2,
+              "frames": 288000,
+              "precision_bits": 24,
+              "sample_rate_hz": 96000,
+              "sample_sha256": "76cfa988fc964cde35ae7f8baea780016c5acaf8bb80a1e1d2b87d9013918d66"
+            },
+            "source_sha256": "2309c350cb31c8a936a0d7b56038544f7e36efc5a29e8cd16f0187368427c605",
+            "target_identity": "target-c70024986c0b7481fa0cc2cbc780526180332b632dd6697bd1d94da861d7d17b",
+            "validation_profile": "pcm-delivery-ffmpeg-8.0.1-v1",
+            "verifier_ffmpeg": {
+              "sha256": "94dbc5c9d7602f044b0ec9089cea2085d0f2adc3a2b1612eeec84f8badc6949d",
+              "size_bytes": 3280352,
+              "tool_id": "tool.ffmpeg",
+              "version": "8.0.1"
+            },
+            "verifier_ffprobe": {
+              "sha256": "40d68a7e8fc61e8656be62b12179142124ebd61eea5ed8afefda6e2d68b97a1d",
+              "size_bytes": 3056320,
+              "tool_id": "tool.ffprobe",
+              "version": "8.0.1"
+            }
+          },
+          "published": true,
+          "validation": "valid",
+          "validators": [
+            {
+              "provider": "renderflow.native",
+              "state": "valid",
+              "validator_id": "validator.core.non_empty",
+              "validator_version": "0.3.0-rc.1"
+            },
+            {
+              "provider": "renderflow.pinned-audio-verification",
+              "state": "valid",
+              "validator_id": "validator.audio.pinned_pcm_delivery",
+              "validator_version": "0.3.0-rc.1"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "manifest": "{work}/outputs/wrong-96k-precision/bundle/renderflow-run.json",
+      "manifest_pin": {
+        "bytes": 38954,
+        "sha256": "6c450ed6ad59a9e2a58fa27dfd0e9d9dcf9481d801a4d8ad57c170a7b05b72ec"
+      },
+      "name": "wrong-96k-precision",
+      "published": 0,
+      "retained_raw_manifest": "{work}/observed/wrong-96k-precision.manifest.json",
+      "state": "failed",
+      "targets": [
+        {
+          "artifact_id": "artifact:sha256:7ab4e0b8b51ddb82a38232099df52dab8b10dd30821354e539eb7efa612144a5",
+          "fidelity": "lossy",
+          "format": "m4a_alac",
+          "locator": "artifact-store:objects/sha256/c0/c0b28d9e414bd20c9237d8250a760908fbcb4a267165e437433b79361b49db8d",
+          "native": null,
+          "published": false,
+          "validation": "invalid",
+          "validators": [
+            {
+              "provider": "renderflow.native",
+              "state": "valid",
+              "validator_id": "validator.core.non_empty",
+              "validator_version": "0.3.0-rc.1"
+            },
+            {
+              "diagnostics": [
+                {
+                  "code": "audio.native.profile.layout",
+                  "message": "audio.native.profile.layout"
+                }
+              ],
+              "provider": "renderflow.pinned-audio-verification",
+              "state": "invalid",
+              "validator_id": "validator.audio.pinned_pcm_delivery",
+              "validator_version": "0.3.0-rc.1"
+            }
+          ]
+        }
+      ],
+      "test_only_producer_fault": {
+        "change": {
+          "sample_format": "s16p"
+        },
+        "marker": {
+          "bytes": 800,
+          "sha256": "51e5df7d96b32c28eaca8516c6ef8aae3f924bfdbb3943160f5f19879096d05f"
+        },
+        "observed_stream": {
+          "avg_frame_rate": "0/0",
+          "bit_rate": "661653",
+          "bits_per_raw_sample": "16",
+          "bits_per_sample": 0,
+          "channel_layout": "stereo",
+          "channels": 2,
+          "codec_long_name": "ALAC (Apple Lossless Audio Codec)",
+          "codec_name": "alac",
+          "codec_tag": "0x63616c61",
+          "codec_tag_string": "alac",
+          "codec_type": "audio",
+          "disposition": {
+            "attached_pic": 0,
+            "captions": 0,
+            "clean_effects": 0,
+            "comment": 0,
+            "default": 1,
+            "dependent": 0,
+            "descriptions": 0,
+            "dub": 0,
+            "forced": 0,
+            "hearing_impaired": 0,
+            "karaoke": 0,
+            "lyrics": 0,
+            "metadata": 0,
+            "multilayer": 0,
+            "non_diegetic": 0,
+            "original": 0,
+            "still_image": 0,
+            "timed_thumbnails": 0,
+            "visual_impaired": 0
+          },
+          "duration": "3.000000",
+          "duration_ts": 288000,
+          "extradata_size": 36,
+          "id": "0x1",
+          "index": 0,
+          "initial_padding": 0,
+          "nb_frames": "71",
+          "nb_read_packets": "71",
+          "r_frame_rate": "0/0",
+          "sample_fmt": "s16p",
+          "sample_rate": "96000",
+          "start_pts": 0,
+          "start_time": "0.000000",
+          "tags": {
+            "handler_name": "SoundHandler",
+            "language": "und",
+            "vendor_id": "[0][0][0][0]"
+          },
+          "time_base": "1/96000"
+        },
+        "producer_hash_attested_by_product": false,
+        "script": {
+          "bytes": 830,
+          "sha256": "5d0dc67acb8f5afdbe8ef474087791f3b39519a831a0210d71e1a5142b931455"
+        },
+        "verifiers_unchanged": true
+      }
+    },
+    {
+      "manifest": "{work}/outputs/wrong-96k-rate/bundle/renderflow-run.json",
+      "manifest_pin": {
+        "bytes": 38949,
+        "sha256": "909dd44575a4b5ab955061a8054b93dca6f8844499e9c28142d4bbd9812e371d"
+      },
+      "name": "wrong-96k-rate",
+      "published": 0,
+      "retained_raw_manifest": "{work}/observed/wrong-96k-rate.manifest.json",
+      "state": "failed",
+      "targets": [
+        {
+          "artifact_id": "artifact:sha256:c66e2c41c978a79e6530428e43f771e72eea0a6d67ce95f8e7e5ec984d6cc8af",
+          "fidelity": "lossy",
+          "format": "m4a_alac",
+          "locator": "artifact-store:objects/sha256/04/042a41f14dfcfcac6d49910acd72795c414544be550e20bb1bc60df36916dd59",
+          "native": null,
+          "published": false,
+          "validation": "invalid",
+          "validators": [
+            {
+              "provider": "renderflow.native",
+              "state": "valid",
+              "validator_id": "validator.core.non_empty",
+              "validator_version": "0.3.0-rc.1"
+            },
+            {
+              "diagnostics": [
+                {
+                  "code": "audio.native.profile.layout",
+                  "message": "audio.native.profile.layout"
+                }
+              ],
+              "provider": "renderflow.pinned-audio-verification",
+              "state": "invalid",
+              "validator_id": "validator.audio.pinned_pcm_delivery",
+              "validator_version": "0.3.0-rc.1"
+            }
+          ]
+        }
+      ],
+      "test_only_producer_fault": {
+        "change": {
+          "rate": 48000
+        },
+        "marker": {
+          "bytes": 780,
+          "sha256": "b80f91a1207a01fb0d0f33e157518019804c9da2d4243e5df0e6196ae21d4a22"
+        },
+        "observed_stream": {
+          "avg_frame_rate": "0/0",
+          "bit_rate": "1225642",
+          "bits_per_raw_sample": "24",
+          "bits_per_sample": 0,
+          "channel_layout": "stereo",
+          "channels": 2,
+          "codec_long_name": "ALAC (Apple Lossless Audio Codec)",
+          "codec_name": "alac",
+          "codec_tag": "0x63616c61",
+          "codec_tag_string": "alac",
+          "codec_type": "audio",
+          "disposition": {
+            "attached_pic": 0,
+            "captions": 0,
+            "clean_effects": 0,
+            "comment": 0,
+            "default": 1,
+            "dependent": 0,
+            "descriptions": 0,
+            "dub": 0,
+            "forced": 0,
+            "hearing_impaired": 0,
+            "karaoke": 0,
+            "lyrics": 0,
+            "metadata": 0,
+            "multilayer": 0,
+            "non_diegetic": 0,
+            "original": 0,
+            "still_image": 0,
+            "timed_thumbnails": 0,
+            "visual_impaired": 0
+          },
+          "duration": "3.000000",
+          "duration_ts": 144000,
+          "extradata_size": 36,
+          "id": "0x1",
+          "index": 0,
+          "initial_padding": 0,
+          "nb_frames": "36",
+          "nb_read_packets": "36",
+          "r_frame_rate": "0/0",
+          "sample_fmt": "s32p",
+          "sample_rate": "48000",
+          "start_pts": 0,
+          "start_time": "0.000000",
+          "tags": {
+            "handler_name": "SoundHandler",
+            "language": "und",
+            "vendor_id": "[0][0][0][0]"
+          },
+          "time_base": "1/48000"
+        },
+        "producer_hash_attested_by_product": false,
+        "script": {
+          "bytes": 815,
+          "sha256": "e9190e8a3f3f07d5e9095c6c752696fcaf93f7550b22e11edf8cdc92b1368f00"
+        },
+        "verifiers_unchanged": true
+      }
+    },
+    {
+      "manifest": "{work}/outputs/trimmed-96k-clock/bundle/renderflow-run.json",
+      "manifest_pin": {
+        "bytes": 38980,
+        "sha256": "9f74c2ff702ce1c0e8ee71fc4d4be24077ac1b7ddffd79b075dea2979a286fc0"
+      },
+      "name": "trimmed-96k-clock",
+      "published": 0,
+      "retained_raw_manifest": "{work}/observed/trimmed-96k-clock.manifest.json",
+      "state": "failed",
+      "targets": [
+        {
+          "artifact_id": "artifact:sha256:a6c35f75c45125738e2863ea83bccc1003c874dab6422fe430841f4417be87b5",
+          "fidelity": "lossy",
+          "format": "m4a_alac",
+          "locator": "artifact-store:objects/sha256/16/1686d4b2a32bb538be26f0903c17b6ea65750c4873e637a21fdd5e9bc472acf4",
+          "native": null,
+          "published": false,
+          "validation": "invalid",
+          "validators": [
+            {
+              "provider": "renderflow.native",
+              "state": "valid",
+              "validator_id": "validator.core.non_empty",
+              "validator_version": "0.3.0-rc.1"
+            },
+            {
+              "diagnostics": [
+                {
+                  "code": "audio.native.presentation_mismatch",
+                  "message": "audio.native.presentation_mismatch"
+                }
+              ],
+              "provider": "renderflow.pinned-audio-verification",
+              "state": "invalid",
+              "validator_id": "validator.audio.pinned_pcm_delivery",
+              "validator_version": "0.3.0-rc.1"
+            }
+          ]
+        }
+      ],
+      "test_only_producer_fault": {
+        "change": {
+          "filter": "atrim=end_sample=287999"
+        },
+        "marker": {
+          "bytes": 826,
+          "sha256": "525a9c932da9dade83dc69d23c161d916316fda3f60d4e0e1222b7576e4dc42b"
+        },
+        "observed_stream": {
+          "avg_frame_rate": "0/0",
+          "bit_rate": "2197348",
+          "bits_per_raw_sample": "24",
+          "bits_per_sample": 0,
+          "channel_layout": "stereo",
+          "channels": 2,
+          "codec_long_name": "ALAC (Apple Lossless Audio Codec)",
+          "codec_name": "alac",
+          "codec_tag": "0x63616c61",
+          "codec_tag_string": "alac",
+          "codec_type": "audio",
+          "disposition": {
+            "attached_pic": 0,
+            "captions": 0,
+            "clean_effects": 0,
+            "comment": 0,
+            "default": 1,
+            "dependent": 0,
+            "descriptions": 0,
+            "dub": 0,
+            "forced": 0,
+            "hearing_impaired": 0,
+            "karaoke": 0,
+            "lyrics": 0,
+            "metadata": 0,
+            "multilayer": 0,
+            "non_diegetic": 0,
+            "original": 0,
+            "still_image": 0,
+            "timed_thumbnails": 0,
+            "visual_impaired": 0
+          },
+          "duration": "2.999990",
+          "duration_ts": 287999,
+          "extradata_size": 36,
+          "id": "0x1",
+          "index": 0,
+          "initial_padding": 0,
+          "nb_frames": "71",
+          "nb_read_packets": "71",
+          "r_frame_rate": "0/0",
+          "sample_fmt": "s32p",
+          "sample_rate": "96000",
+          "start_pts": 0,
+          "start_time": "0.000000",
+          "tags": {
+            "handler_name": "SoundHandler",
+            "language": "und",
+            "vendor_id": "[0][0][0][0]"
+          },
+          "time_base": "1/96000"
+        },
+        "producer_hash_attested_by_product": false,
+        "script": {
+          "bytes": 840,
+          "sha256": "0b082a10160afd7a71cc36fe7dc5475634cf02bf9f64c37c4a57558ff10acc34"
+        },
+        "verifiers_unchanged": true
+      }
+    },
+    {
+      "independent_pcm_fault": "Every source24 sample is reduced to16 then promoted to24; integer low8 bits become zero while precision/rate/channels/extent remain unchanged.",
+      "manifest": "{work}/outputs/changed-96k-pcm/bundle/renderflow-run.json",
+      "manifest_pin": {
+        "bytes": 38942,
+        "sha256": "3e68a6bf2aecafd2f097c1995cf967e813bd5a6fef88ccb2809429e3d3fd67e0"
+      },
+      "name": "changed-96k-pcm",
+      "published": 0,
+      "retained_raw_manifest": "{work}/observed/changed-96k-pcm.manifest.json",
+      "state": "failed",
+      "targets": [
+        {
+          "artifact_id": "artifact:sha256:d6c0696eca89ce8636076297bb678f2511c593bc96a26c51ad2cb0df10521c49",
+          "fidelity": "lossy",
+          "format": "m4a_alac",
+          "locator": "artifact-store:objects/sha256/a9/a93cf42d8842afe3510f4ffb17ff5d1d428d13b177723255686db872031e5c7d",
+          "native": null,
+          "published": false,
+          "validation": "invalid",
+          "validators": [
+            {
+              "provider": "renderflow.native",
+              "state": "valid",
+              "validator_id": "validator.core.non_empty",
+              "validator_version": "0.3.0-rc.1"
+            },
+            {
+              "diagnostics": [
+                {
+                  "code": "audio.native.pcm_mismatch",
+                  "message": "audio.native.pcm_mismatch"
+                }
+              ],
+              "provider": "renderflow.pinned-audio-verification",
+              "state": "invalid",
+              "validator_id": "validator.audio.pinned_pcm_delivery",
+              "validator_version": "0.3.0-rc.1"
+            }
+          ]
+        }
+      ],
+      "test_only_producer_fault": {
+        "change": {
+          "filter": "aformat=sample_fmts=s16p"
+        },
+        "marker": {
+          "bytes": 819,
+          "sha256": "9168f3225914be0f265b86caed70f0461165138d3dcdbcf0d3997fd1e7df6a76"
+        },
+        "observed_stream": {
+          "avg_frame_rate": "0/0",
+          "bit_rate": "2197653",
+          "bits_per_raw_sample": "24",
+          "bits_per_sample": 0,
+          "channel_layout": "stereo",
+          "channels": 2,
+          "codec_long_name": "ALAC (Apple Lossless Audio Codec)",
+          "codec_name": "alac",
+          "codec_tag": "0x63616c61",
+          "codec_tag_string": "alac",
+          "codec_type": "audio",
+          "disposition": {
+            "attached_pic": 0,
+            "captions": 0,
+            "clean_effects": 0,
+            "comment": 0,
+            "default": 1,
+            "dependent": 0,
+            "descriptions": 0,
+            "dub": 0,
+            "forced": 0,
+            "hearing_impaired": 0,
+            "karaoke": 0,
+            "lyrics": 0,
+            "metadata": 0,
+            "multilayer": 0,
+            "non_diegetic": 0,
+            "original": 0,
+            "still_image": 0,
+            "timed_thumbnails": 0,
+            "visual_impaired": 0
+          },
+          "duration": "3.000000",
+          "duration_ts": 288000,
+          "extradata_size": 36,
+          "id": "0x1",
+          "index": 0,
+          "initial_padding": 0,
+          "nb_frames": "71",
+          "nb_read_packets": "71",
+          "r_frame_rate": "0/0",
+          "sample_fmt": "s32p",
+          "sample_rate": "96000",
+          "start_pts": 0,
+          "start_time": "0.000000",
+          "tags": {
+            "handler_name": "SoundHandler",
+            "language": "und",
+            "vendor_id": "[0][0][0][0]"
+          },
+          "time_base": "1/96000"
+        },
+        "producer_hash_attested_by_product": false,
+        "script": {
+          "bytes": 839,
+          "sha256": "45e1736bb31af571195dff3a3299b50366d0d954b8ed4a983577ffff865b67b8"
+        },
+        "verifiers_unchanged": true
+      }
+    },
+    {
+      "manifest": "{work}/outputs/unsupported-96k-integer32/renderflow-run.json",
+      "manifest_pin": {
+        "bytes": 32440,
+        "sha256": "cb13dfeaf5912d1513ebe23e588cedbefa1bc0bb7ede56e49ad646b9c9874585"
+      },
+      "name": "unsupported-96k-integer32",
+      "published": 0,
+      "retained_raw_manifest": "{work}/observed/unsupported-96k-integer32.manifest.json",
+      "state": "failed",
+      "targets": [
+        {
+          "artifact_id": "artifact:sha256:3269ce4a2720d3ca50c2d618f4df15bc227c7f3e99f0aecf942db1ab1da55607",
+          "fidelity": "lossy",
+          "format": "m4a_alac",
+          "locator": "artifact-store:objects/sha256/dd/ddad1c31c502d26cffa1e7ce43eb006668a53c6b615013943b5d8a39a3c2f1ad",
+          "native": null,
+          "published": false,
+          "validation": "unavailable",
+          "validators": [
+            {
+              "provider": "renderflow.native",
+              "state": "valid",
+              "validator_id": "validator.core.non_empty",
+              "validator_version": "0.3.0-rc.1"
+            },
+            {
+              "diagnostics": [
+                {
+                  "code": "audio.native.source_precision_unsupported",
+                  "message": "audio.native.source_precision_unsupported"
+                }
+              ],
+              "provider": "renderflow.pinned-audio-verification",
+              "state": "unavailable",
+              "validator_id": "validator.audio.pinned_pcm_delivery",
+              "validator_version": "0.3.0-rc.1"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "encoder_executable_hash_attested": false,
+  "events": [
+    {
+      "argv": [
+        "{renderflow}",
+        "build",
+        "--config",
+        "{work}/inputs/native-48000-mono24.json"
+      ],
+      "exit_code": 0,
+      "name": "native-48000-mono24",
+      "stderr_sha256": "4c5b3c31653040e6edb2569c0e8a3a820c3b3db23ffa8944c5519f535f2e7e72",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "{audio-tools}/ffmpeg",
+        "-hide_banner",
+        "-v",
+        "error",
+        "-decoders"
+      ],
+      "exit_code": 0,
+      "name": "features-0",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "90dfae50897bd1d588d8dba6576f8afe9996a2b9839ea457e41e4e1483101f25"
+    },
+    {
+      "argv": [
+        "{audio-tools}/ffmpeg",
+        "-hide_banner",
+        "-v",
+        "error",
+        "-demuxers"
+      ],
+      "exit_code": 0,
+      "name": "features-1",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "7c9fbc0967f4d005ada7b27a3542077d039bfc0ec5edab3c6fffa3a6fb1cc2fe"
+    },
+    {
+      "argv": [
+        "{audio-tools}/ffmpeg",
+        "-hide_banner",
+        "-v",
+        "error",
+        "-encoders"
+      ],
+      "exit_code": 0,
+      "name": "features-2",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "088ac800c7453200dc927d7d73aef4ef918cb3744d0e9869bbf9db7d7ea55677"
+    },
+    {
+      "argv": [
+        "{audio-tools}/ffmpeg",
+        "-hide_banner",
+        "-v",
+        "error",
+        "-muxers"
+      ],
+      "exit_code": 0,
+      "name": "features-3",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "765ce2881951a5604a4707b7684988f342ff4d44cdd16094142e8164f4a3c09d"
+    },
+    {
+      "argv": [
+        "{audio-tools}/ffprobe",
+        "-hide_banner",
+        "-v",
+        "error",
+        "-decoders"
+      ],
+      "exit_code": 0,
+      "name": "features-4",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "90dfae50897bd1d588d8dba6576f8afe9996a2b9839ea457e41e4e1483101f25"
+    },
+    {
+      "argv": [
+        "{audio-tools}/ffprobe",
+        "-hide_banner",
+        "-v",
+        "error",
+        "-demuxers"
+      ],
+      "exit_code": 0,
+      "name": "features-5",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "7c9fbc0967f4d005ada7b27a3542077d039bfc0ec5edab3c6fffa3a6fb1cc2fe"
+    },
+    {
+      "argv": [
+        "{audio-tools}/ffprobe",
+        "-v",
+        "error",
+        "-show_streams",
+        "-show_packets",
+        "-of",
+        "json",
+        "{work}/outputs/native-48000-mono24/authored-audio/delivery/flac.flac"
+      ],
+      "exit_code": 0,
+      "name": "native-48000-mono24-flac-probe",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "b43b7996668959058395f6d1d0310caa8be899d735f40b813ccefbd4843ee48d"
+    },
+    {
+      "argv": [
+        "{audio-tools}/ffmpeg",
+        "-v",
+        "error",
+        "-i",
+        "{work}/outputs/native-48000-mono24/authored-audio/delivery/flac.flac",
+        "-map",
+        "0:a:0",
+        "-c:a",
+        "pcm_s24le",
+        "-f",
+        "s24le",
+        "{work}/observed/native-48000-mono24-flac.pcm"
+      ],
+      "exit_code": 0,
+      "name": "native-48000-mono24-flac-decode",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "{audio-tools}/ffprobe",
+        "-v",
+        "error",
+        "-show_streams",
+        "-show_packets",
+        "-of",
+        "json",
+        "{work}/outputs/native-48000-mono24/authored-audio/delivery/m4a.m4a"
+      ],
+      "exit_code": 0,
+      "name": "native-48000-mono24-m4a-probe",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "7d249e4c57953b2306a77f2c133fe80880d94ba72ae9134a4ae38a8c9f29e612"
+    },
+    {
+      "argv": [
+        "{audio-tools}/ffmpeg",
+        "-v",
+        "error",
+        "-i",
+        "{work}/outputs/native-48000-mono24/authored-audio/delivery/m4a.m4a",
+        "-map",
+        "0:a:0",
+        "-c:a",
+        "pcm_s24le",
+        "-f",
+        "s24le",
+        "{work}/observed/native-48000-mono24-m4a.pcm"
+      ],
+      "exit_code": 0,
+      "name": "native-48000-mono24-m4a-decode",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "{audio-tools}/ffprobe",
+        "-v",
+        "error",
+        "-show_streams",
+        "-show_packets",
+        "-of",
+        "json",
+        "{work}/outputs/native-48000-mono24/authored-audio/delivery/m4a_alac.m4a"
+      ],
+      "exit_code": 0,
+      "name": "native-48000-mono24-m4a_alac-probe",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "c499201f76c1765ac2dce69167cba5fe27f9501a77a2fd862171e70c291dc003"
+    },
+    {
+      "argv": [
+        "{audio-tools}/ffmpeg",
+        "-v",
+        "error",
+        "-i",
+        "{work}/outputs/native-48000-mono24/authored-audio/delivery/m4a_alac.m4a",
+        "-map",
+        "0:a:0",
+        "-c:a",
+        "pcm_s24le",
+        "-f",
+        "s24le",
+        "{work}/observed/native-48000-mono24-m4a_alac.pcm"
+      ],
+      "exit_code": 0,
+      "name": "native-48000-mono24-m4a_alac-decode",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "{audio-tools}/ffprobe",
+        "-v",
+        "error",
+        "-show_streams",
+        "-show_packets",
+        "-of",
+        "json",
+        "{work}/outputs/native-48000-mono24/authored-audio/delivery/mp3.mp3"
+      ],
+      "exit_code": 0,
+      "name": "native-48000-mono24-mp3-probe",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "62207327063e74708d9edfa418400346fa4ad1c2f6f6c60e07462f2a10fc471d"
+    },
+    {
+      "argv": [
+        "{audio-tools}/ffmpeg",
+        "-v",
+        "error",
+        "-i",
+        "{work}/outputs/native-48000-mono24/authored-audio/delivery/mp3.mp3",
+        "-map",
+        "0:a:0",
+        "-c:a",
+        "pcm_s24le",
+        "-f",
+        "s24le",
+        "{work}/observed/native-48000-mono24-mp3.pcm"
+      ],
+      "exit_code": 0,
+      "name": "native-48000-mono24-mp3-decode",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "{renderflow}",
+        "build",
+        "--config",
+        "{work}/inputs/native-96000-stereo24.json"
+      ],
+      "exit_code": 0,
+      "name": "native-96000-stereo24",
+      "stderr_sha256": "0592d24f80d0bf53e4ce64cc14a133f150b2cec471afe825066616182bed1691",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "{audio-tools}/ffprobe",
+        "-v",
+        "error",
+        "-show_streams",
+        "-show_packets",
+        "-of",
+        "json",
+        "{work}/outputs/native-96000-stereo24/authored-audio/delivery/flac.flac"
+      ],
+      "exit_code": 0,
+      "name": "native-96000-stereo24-flac-probe",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "ea2c8c43456582cffa4a33d5649cf816ce199217168b42b7bef726e31d7a7384"
+    },
+    {
+      "argv": [
+        "{audio-tools}/ffmpeg",
+        "-v",
+        "error",
+        "-i",
+        "{work}/outputs/native-96000-stereo24/authored-audio/delivery/flac.flac",
+        "-map",
+        "0:a:0",
+        "-c:a",
+        "pcm_s24le",
+        "-f",
+        "s24le",
+        "{work}/observed/native-96000-stereo24-flac.pcm"
+      ],
+      "exit_code": 0,
+      "name": "native-96000-stereo24-flac-decode",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "{audio-tools}/ffprobe",
+        "-v",
+        "error",
+        "-show_streams",
+        "-show_packets",
+        "-of",
+        "json",
+        "{work}/outputs/native-96000-stereo24/authored-audio/delivery/m4a.m4a"
+      ],
+      "exit_code": 0,
+      "name": "native-96000-stereo24-m4a-probe",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "e73a45c631e0dfe7333a0ff14b5c6b3a6420e7c8d2a54eb80ef41c5ccacbb892"
+    },
+    {
+      "argv": [
+        "{audio-tools}/ffmpeg",
+        "-v",
+        "error",
+        "-i",
+        "{work}/outputs/native-96000-stereo24/authored-audio/delivery/m4a.m4a",
+        "-map",
+        "0:a:0",
+        "-c:a",
+        "pcm_s24le",
+        "-f",
+        "s24le",
+        "{work}/observed/native-96000-stereo24-m4a.pcm"
+      ],
+      "exit_code": 0,
+      "name": "native-96000-stereo24-m4a-decode",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "{audio-tools}/ffprobe",
+        "-v",
+        "error",
+        "-show_streams",
+        "-show_packets",
+        "-of",
+        "json",
+        "{work}/outputs/native-96000-stereo24/authored-audio/delivery/m4a_alac.m4a"
+      ],
+      "exit_code": 0,
+      "name": "native-96000-stereo24-m4a_alac-probe",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "434ab4c0a1bfdb77508f31a75bb2a8101c1a6ab1a8c5e8a7301ce88332bd637d"
+    },
+    {
+      "argv": [
+        "{audio-tools}/ffmpeg",
+        "-v",
+        "error",
+        "-i",
+        "{work}/outputs/native-96000-stereo24/authored-audio/delivery/m4a_alac.m4a",
+        "-map",
+        "0:a:0",
+        "-c:a",
+        "pcm_s24le",
+        "-f",
+        "s24le",
+        "{work}/observed/native-96000-stereo24-m4a_alac.pcm"
+      ],
+      "exit_code": 0,
+      "name": "native-96000-stereo24-m4a_alac-decode",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "{audio-tools}/ffprobe",
+        "-v",
+        "error",
+        "-show_streams",
+        "-show_packets",
+        "-of",
+        "json",
+        "{work}/outputs/native-96000-stereo24/authored-audio/delivery/mp3.mp3"
+      ],
+      "exit_code": 0,
+      "name": "native-96000-stereo24-mp3-probe",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "dfdea26a8d78bd81856346db3cc1e949cb61a63ebbcb27d25620ccb5dab458d5"
+    },
+    {
+      "argv": [
+        "{audio-tools}/ffmpeg",
+        "-v",
+        "error",
+        "-i",
+        "{work}/outputs/native-96000-stereo24/authored-audio/delivery/mp3.mp3",
+        "-map",
+        "0:a:0",
+        "-c:a",
+        "pcm_s24le",
+        "-f",
+        "s24le",
+        "{work}/observed/native-96000-stereo24-mp3.pcm"
+      ],
+      "exit_code": 0,
+      "name": "native-96000-stereo24-mp3-decode",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "{renderflow}",
+        "build",
+        "--config",
+        "{work}/inputs/wrong-96k-precision.json"
+      ],
+      "exit_code": 1,
+      "name": "wrong-96k-precision",
+      "stderr_sha256": "0b3a95a47206e8d292d5bdb952bf5ef9e4a28f76e3173ed7f799497667bbc470",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "{audio-tools}/ffprobe",
+        "-v",
+        "error",
+        "-show_streams",
+        "-show_packets",
+        "-of",
+        "json",
+        "{work}/outputs/wrong-96k-precision/.renderflow/artifacts/objects/sha256/c0/c0b28d9e414bd20c9237d8250a760908fbcb4a267165e437433b79361b49db8d"
+      ],
+      "exit_code": 0,
+      "name": "wrong-96k-precision-fault-probe",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "67f5ac14f96dd55c55f26674e405db37351ce2f925248012325dc408edce3233"
+    },
+    {
+      "argv": [
+        "{renderflow}",
+        "build",
+        "--config",
+        "{work}/inputs/wrong-96k-rate.json"
+      ],
+      "exit_code": 1,
+      "name": "wrong-96k-rate",
+      "stderr_sha256": "1811f923a356fa112f7ff5126449999c4f21822689a474ac18ad03f74e5d6208",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "{audio-tools}/ffprobe",
+        "-v",
+        "error",
+        "-show_streams",
+        "-show_packets",
+        "-of",
+        "json",
+        "{work}/outputs/wrong-96k-rate/.renderflow/artifacts/objects/sha256/04/042a41f14dfcfcac6d49910acd72795c414544be550e20bb1bc60df36916dd59"
+      ],
+      "exit_code": 0,
+      "name": "wrong-96k-rate-fault-probe",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "a60aa44d0d36bbb3ae89178d5635c954b6ff19fa1735300592bf326dd4a62f6c"
+    },
+    {
+      "argv": [
+        "{renderflow}",
+        "build",
+        "--config",
+        "{work}/inputs/trimmed-96k-clock.json"
+      ],
+      "exit_code": 1,
+      "name": "trimmed-96k-clock",
+      "stderr_sha256": "24e8684b8521dfd4acedbd7b27dda7ffd336d7d76619f4f64636adb405bdbc88",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "{audio-tools}/ffprobe",
+        "-v",
+        "error",
+        "-show_streams",
+        "-show_packets",
+        "-of",
+        "json",
+        "{work}/outputs/trimmed-96k-clock/.renderflow/artifacts/objects/sha256/16/1686d4b2a32bb538be26f0903c17b6ea65750c4873e637a21fdd5e9bc472acf4"
+      ],
+      "exit_code": 0,
+      "name": "trimmed-96k-clock-fault-probe",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "f2636cb2c300cb9078ae2b621d74b2e644580b83fe33b693f1f9c4344e9047f8"
+    },
+    {
+      "argv": [
+        "{renderflow}",
+        "build",
+        "--config",
+        "{work}/inputs/changed-96k-pcm.json"
+      ],
+      "exit_code": 1,
+      "name": "changed-96k-pcm",
+      "stderr_sha256": "c87412050acf403c196c34a1799a0a97a94de16fa10090811c9490802da3eb32",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "{audio-tools}/ffprobe",
+        "-v",
+        "error",
+        "-show_streams",
+        "-show_packets",
+        "-of",
+        "json",
+        "{work}/outputs/changed-96k-pcm/.renderflow/artifacts/objects/sha256/a9/a93cf42d8842afe3510f4ffb17ff5d1d428d13b177723255686db872031e5c7d"
+      ],
+      "exit_code": 0,
+      "name": "changed-96k-pcm-fault-probe",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "434ab4c0a1bfdb77508f31a75bb2a8101c1a6ab1a8c5e8a7301ce88332bd637d"
+    },
+    {
+      "argv": [
+        "{audio-tools}/ffmpeg",
+        "-v",
+        "error",
+        "-i",
+        "{work}/outputs/changed-96k-pcm/.renderflow/artifacts/objects/sha256/a9/a93cf42d8842afe3510f4ffb17ff5d1d428d13b177723255686db872031e5c7d",
+        "-map",
+        "0:a:0",
+        "-c:a",
+        "pcm_s24le",
+        "-f",
+        "s24le",
+        "{work}/observed/changed-96k-pcm.independent.pcm"
+      ],
+      "exit_code": 0,
+      "name": "changed-96k-pcm-independent-decode",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "{renderflow}",
+        "build",
+        "--config",
+        "{work}/inputs/unsupported-96k-integer32.json"
+      ],
+      "exit_code": 1,
+      "name": "unsupported-96k-integer32",
+      "stderr_sha256": "ab1edb405dc1a0067697351d924856690aa6c6879f43765b891e2bf6c54f01fe",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "input_inventory": {
+    "changed-96k-pcm-producer/ffmpeg": {
+      "bytes": 839,
+      "sha256": "45e1736bb31af571195dff3a3299b50366d0d954b8ed4a983577ffff865b67b8"
+    },
+    "changed-96k-pcm.json": {
+      "bytes": 1092,
+      "sha256": "a277747e19472bbd2481c1e7ffe3e9e62acc9db767c45d4660e45ec15d386a3a"
+    },
+    "native-48000-mono24.json": {
+      "bytes": 1471,
+      "sha256": "7b6bb941df261bc97a86c9700c2210403dd0569f6629e93eca65f68f43f82efa"
+    },
+    "native-96000-stereo24.json": {
+      "bytes": 1467,
+      "sha256": "6d43fd645493829abac25aeb0ca0120193e08aa5e7a08e7a0e3835d280e5deb2"
+    },
+    "source-48000-mono24.wav": {
+      "bytes": 432044,
+      "sha256": "ed4ad8ab786089959f4156af8f7089f5730400bd92e5531d80e95682503c4989"
+    },
+    "source-96000-stereo24.wav": {
+      "bytes": 1728044,
+      "sha256": "2309c350cb31c8a936a0d7b56038544f7e36efc5a29e8cd16f0187368427c605"
+    },
+    "source-96000-stereo32.wav": {
+      "bytes": 2304044,
+      "sha256": "41c8a1a1090e3389c7e335650ea0a13b53507973abb4eea4496a63e6eae1d8bf"
+    },
+    "trimmed-96k-clock-producer/ffmpeg": {
+      "bytes": 840,
+      "sha256": "0b082a10160afd7a71cc36fe7dc5475634cf02bf9f64c37c4a57558ff10acc34"
+    },
+    "trimmed-96k-clock.json": {
+      "bytes": 1094,
+      "sha256": "824df107ac5a407cca2e83fc6d11088907a0e5c5263791ad9db0f01796697972"
+    },
+    "unsupported-96k-integer32.json": {
+      "bytes": 1095,
+      "sha256": "f15e6f1d5f546b8378088677c6b97491336750496de79706c63709a363d810da"
+    },
+    "wrong-96k-precision-producer/ffmpeg": {
+      "bytes": 830,
+      "sha256": "5d0dc67acb8f5afdbe8ef474087791f3b39519a831a0210d71e1a5142b931455"
+    },
+    "wrong-96k-precision.json": {
+      "bytes": 1096,
+      "sha256": "891bac54618ea8fe5167de3cf6bba1f25e7107cda466f115f22fdfa51f6debd7"
+    },
+    "wrong-96k-rate-producer/ffmpeg": {
+      "bytes": 815,
+      "sha256": "e9190e8a3f3f07d5e9095c6c752696fcaf93f7550b22e11edf8cdc92b1368f00"
+    },
+    "wrong-96k-rate.json": {
+      "bytes": 1091,
+      "sha256": "ee02217dac39a9e3f4b4f630b3b2d13422c82a959e21084a6cbcef8f1eb24d15"
+    }
+  },
+  "mastering_loudness_or_creative_approval": false,
+  "native_platform_matrix_qualified": false,
+  "observation_inventory": {
+    "changed-96k-pcm-fault-probe.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "changed-96k-pcm-fault-probe.stdout": {
+      "bytes": 27916,
+      "sha256": "434ab4c0a1bfdb77508f31a75bb2a8101c1a6ab1a8c5e8a7301ce88332bd637d"
+    },
+    "changed-96k-pcm-independent-decode.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "changed-96k-pcm-independent-decode.stdout": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "changed-96k-pcm-producer-events.jsonl": {
+      "bytes": 819,
+      "sha256": "9168f3225914be0f265b86caed70f0461165138d3dcdbcf0d3997fd1e7df6a76"
+    },
+    "changed-96k-pcm.independent.pcm": {
+      "bytes": 1728000,
+      "sha256": "25d5ee31d10f40ce72e62a3a9a6493dd19d2908d8f2e75d8350ae3ec494b1021"
+    },
+    "changed-96k-pcm.manifest.json": {
+      "bytes": 38942,
+      "sha256": "3e68a6bf2aecafd2f097c1995cf967e813bd5a6fef88ccb2809429e3d3fd67e0"
+    },
+    "changed-96k-pcm.stderr": {
+      "bytes": 3975,
+      "sha256": "c87412050acf403c196c34a1799a0a97a94de16fa10090811c9490802da3eb32"
+    },
+    "changed-96k-pcm.stdout": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "features-0.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "features-0.stdout": {
+      "bytes": 809,
+      "sha256": "90dfae50897bd1d588d8dba6576f8afe9996a2b9839ea457e41e4e1483101f25"
+    },
+    "features-1.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "features-1.stdout": {
+      "bytes": 315,
+      "sha256": "7c9fbc0967f4d005ada7b27a3542077d039bfc0ec5edab3c6fffa3a6fb1cc2fe"
+    },
+    "features-2.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "features-2.stdout": {
+      "bytes": 766,
+      "sha256": "088ac800c7453200dc927d7d73aef4ef918cb3744d0e9869bbf9db7d7ea55677"
+    },
+    "features-3.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "features-3.stdout": {
+      "bytes": 631,
+      "sha256": "765ce2881951a5604a4707b7684988f342ff4d44cdd16094142e8164f4a3c09d"
+    },
+    "features-4.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "features-4.stdout": {
+      "bytes": 809,
+      "sha256": "90dfae50897bd1d588d8dba6576f8afe9996a2b9839ea457e41e4e1483101f25"
+    },
+    "features-5.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "features-5.stdout": {
+      "bytes": 315,
+      "sha256": "7c9fbc0967f4d005ada7b27a3542077d039bfc0ec5edab3c6fffa3a6fb1cc2fe"
+    },
+    "native-48000-mono24-flac-decode.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "native-48000-mono24-flac-decode.stdout": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "native-48000-mono24-flac-probe.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "native-48000-mono24-flac-probe.stdout": {
+      "bytes": 13240,
+      "sha256": "b43b7996668959058395f6d1d0310caa8be899d735f40b813ccefbd4843ee48d"
+    },
+    "native-48000-mono24-flac.pcm": {
+      "bytes": 432000,
+      "sha256": "cf54deb48c2bb3ab0157997c6317cd5b12c76e086390df106535271d45f6dac4"
+    },
+    "native-48000-mono24-m4a-decode.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "native-48000-mono24-m4a-decode.stdout": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "native-48000-mono24-m4a-probe.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "native-48000-mono24-m4a-probe.stdout": {
+      "bytes": 53790,
+      "sha256": "7d249e4c57953b2306a77f2c133fe80880d94ba72ae9134a4ae38a8c9f29e612"
+    },
+    "native-48000-mono24-m4a.pcm": {
+      "bytes": 433152,
+      "sha256": "0a836aecf3f7f4a2e4d2e394012041be4682e621e4c07ac0ad12ba53677eaabd"
+    },
+    "native-48000-mono24-m4a_alac-decode.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "native-48000-mono24-m4a_alac-decode.stdout": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "native-48000-mono24-m4a_alac-probe.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "native-48000-mono24-m4a_alac-probe.stdout": {
+      "bytes": 14951,
+      "sha256": "c499201f76c1765ac2dce69167cba5fe27f9501a77a2fd862171e70c291dc003"
+    },
+    "native-48000-mono24-m4a_alac.pcm": {
+      "bytes": 432000,
+      "sha256": "cf54deb48c2bb3ab0157997c6317cd5b12c76e086390df106535271d45f6dac4"
+    },
+    "native-48000-mono24-mp3-decode.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "native-48000-mono24-mp3-decode.stdout": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "native-48000-mono24-mp3-probe.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "native-48000-mono24-mp3-probe.stdout": {
+      "bytes": 45304,
+      "sha256": "62207327063e74708d9edfa418400346fa4ad1c2f6f6c60e07462f2a10fc471d"
+    },
+    "native-48000-mono24-mp3.pcm": {
+      "bytes": 396900,
+      "sha256": "b58ff42db5795ae9b065a503c85f5aa9326c45e290b3df15e04d00951fdaf107"
+    },
+    "native-48000-mono24.manifest.json": {
+      "bytes": 89091,
+      "sha256": "f137be04cbd0a7f1c4e948d6f8e1b35a2a9f00ed05063dfb391718df3c287f8b"
+    },
+    "native-48000-mono24.stderr": {
+      "bytes": 14152,
+      "sha256": "4c5b3c31653040e6edb2569c0e8a3a820c3b3db23ffa8944c5519f535f2e7e72"
+    },
+    "native-48000-mono24.stdout": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "native-96000-stereo24-flac-decode.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "native-96000-stereo24-flac-decode.stdout": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "native-96000-stereo24-flac-probe.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "native-96000-stereo24-flac-probe.stdout": {
+      "bytes": 14780,
+      "sha256": "ea2c8c43456582cffa4a33d5649cf816ce199217168b42b7bef726e31d7a7384"
+    },
+    "native-96000-stereo24-flac.pcm": {
+      "bytes": 1728000,
+      "sha256": "76cfa988fc964cde35ae7f8baea780016c5acaf8bb80a1e1d2b87d9013918d66"
+    },
+    "native-96000-stereo24-m4a-decode.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "native-96000-stereo24-m4a-decode.stdout": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "native-96000-stereo24-m4a-probe.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "native-96000-stereo24-m4a-probe.stdout": {
+      "bytes": 105389,
+      "sha256": "e73a45c631e0dfe7333a0ff14b5c6b3a6420e7c8d2a54eb80ef41c5ccacbb892"
+    },
+    "native-96000-stereo24-m4a.pcm": {
+      "bytes": 1732608,
+      "sha256": "440c8ea5a912223ee2975d1230e98953e9047168a693eb6003cd0b776db0818a"
+    },
+    "native-96000-stereo24-m4a_alac-decode.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "native-96000-stereo24-m4a_alac-decode.stdout": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "native-96000-stereo24-m4a_alac-probe.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "native-96000-stereo24-m4a_alac-probe.stdout": {
+      "bytes": 27916,
+      "sha256": "434ab4c0a1bfdb77508f31a75bb2a8101c1a6ab1a8c5e8a7301ce88332bd637d"
+    },
+    "native-96000-stereo24-m4a_alac.pcm": {
+      "bytes": 1728000,
+      "sha256": "76cfa988fc964cde35ae7f8baea780016c5acaf8bb80a1e1d2b87d9013918d66"
+    },
+    "native-96000-stereo24-mp3-decode.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "native-96000-stereo24-mp3-decode.stdout": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "native-96000-stereo24-mp3-probe.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "native-96000-stereo24-mp3-probe.stdout": {
+      "bytes": 45382,
+      "sha256": "dfdea26a8d78bd81856346db3cc1e949cb61a63ebbcb27d25620ccb5dab458d5"
+    },
+    "native-96000-stereo24-mp3.pcm": {
+      "bytes": 793800,
+      "sha256": "6ec9de82d348c90a966403252792c69402647fb4b000685c3d7466f739224d36"
+    },
+    "native-96000-stereo24.manifest.json": {
+      "bytes": 89087,
+      "sha256": "9a8200aeb03edc3f790e73f9393586f6d06a74c44b1a7e79c04db28c525502a9"
+    },
+    "native-96000-stereo24.stderr": {
+      "bytes": 14177,
+      "sha256": "0592d24f80d0bf53e4ce64cc14a133f150b2cec471afe825066616182bed1691"
+    },
+    "native-96000-stereo24.stdout": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "trimmed-96k-clock-fault-probe.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "trimmed-96k-clock-fault-probe.stdout": {
+      "bytes": 27916,
+      "sha256": "f2636cb2c300cb9078ae2b621d74b2e644580b83fe33b693f1f9c4344e9047f8"
+    },
+    "trimmed-96k-clock-producer-events.jsonl": {
+      "bytes": 826,
+      "sha256": "525a9c932da9dade83dc69d23c161d916316fda3f60d4e0e1222b7576e4dc42b"
+    },
+    "trimmed-96k-clock.manifest.json": {
+      "bytes": 38980,
+      "sha256": "9f74c2ff702ce1c0e8ee71fc4d4be24077ac1b7ddffd79b075dea2979a286fc0"
+    },
+    "trimmed-96k-clock.stderr": {
+      "bytes": 3989,
+      "sha256": "24e8684b8521dfd4acedbd7b27dda7ffd336d7d76619f4f64636adb405bdbc88"
+    },
+    "trimmed-96k-clock.stdout": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "unsupported-96k-integer32.manifest.json": {
+      "bytes": 32440,
+      "sha256": "cb13dfeaf5912d1513ebe23e588cedbefa1bc0bb7ede56e49ad646b9c9874585"
+    },
+    "unsupported-96k-integer32.stderr": {
+      "bytes": 3892,
+      "sha256": "ab1edb405dc1a0067697351d924856690aa6c6879f43765b891e2bf6c54f01fe"
+    },
+    "unsupported-96k-integer32.stdout": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "wrong-96k-precision-fault-probe.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "wrong-96k-precision-fault-probe.stdout": {
+      "bytes": 27823,
+      "sha256": "67f5ac14f96dd55c55f26674e405db37351ce2f925248012325dc408edce3233"
+    },
+    "wrong-96k-precision-producer-events.jsonl": {
+      "bytes": 800,
+      "sha256": "51e5df7d96b32c28eaca8516c6ef8aae3f924bfdbb3943160f5f19879096d05f"
+    },
+    "wrong-96k-precision.manifest.json": {
+      "bytes": 38954,
+      "sha256": "6c450ed6ad59a9e2a58fa27dfd0e9d9dcf9481d801a4d8ad57c170a7b05b72ec"
+    },
+    "wrong-96k-precision.stderr": {
+      "bytes": 3939,
+      "sha256": "0b3a95a47206e8d292d5bdb952bf5ef9e4a28f76e3173ed7f799497667bbc470"
+    },
+    "wrong-96k-precision.stdout": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "wrong-96k-rate-fault-probe.stderr": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "wrong-96k-rate-fault-probe.stdout": {
+      "bytes": 15001,
+      "sha256": "a60aa44d0d36bbb3ae89178d5635c954b6ff19fa1735300592bf326dd4a62f6c"
+    },
+    "wrong-96k-rate-producer-events.jsonl": {
+      "bytes": 780,
+      "sha256": "b80f91a1207a01fb0d0f33e157518019804c9da2d4243e5df0e6196ae21d4a22"
+    },
+    "wrong-96k-rate.manifest.json": {
+      "bytes": 38949,
+      "sha256": "909dd44575a4b5ab955061a8054b93dca6f8844499e9c28142d4bbd9812e371d"
+    },
+    "wrong-96k-rate.stderr": {
+      "bytes": 3968,
+      "sha256": "1811f923a356fa112f7ff5126449999c4f21822689a474ac18ad03f74e5d6208"
+    },
+    "wrong-96k-rate.stdout": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "observed_at_utc": "2026-11-16T05:04:07.504728+00:00",
+  "observer_pins": {
+    "check_alac_precision_candidate.py": {
+      "bytes": 25701,
+      "sha256": "5c2a3b7fd3a49d8cf8f7dc4bf2d7fd8c0d87e58a170e1d9a5c61b7eb5132bd7c"
+    },
+    "check_audio_delivery_candidate.py": {
+      "bytes": 18301,
+      "sha256": "4839b79489eff39c4a26c27f296b632521b89c07c7436f8a88afb418ba869510"
+    },
+    "check_audio_layout_candidate.py": {
+      "bytes": 5985,
+      "sha256": "d9ed1f7c1bd53c659acb55c07524d1756fab3e01c6b570ed6535d0cd7244e4e4"
+    }
+  },
+  "output_inventory": {
+    ".renderflow/artifacts/objects/sha256/0a/0ac19eec0c4800454665c16007866db19cc4d3ddd3822f4e3588428880c114ba": {
+      "bytes": 191299,
+      "sha256": "0ac19eec0c4800454665c16007866db19cc4d3ddd3822f4e3588428880c114ba"
+    },
+    ".renderflow/artifacts/objects/sha256/23/2309c350cb31c8a936a0d7b56038544f7e36efc5a29e8cd16f0187368427c605": {
+      "bytes": 1728044,
+      "sha256": "2309c350cb31c8a936a0d7b56038544f7e36efc5a29e8cd16f0187368427c605"
+    },
+    ".renderflow/artifacts/objects/sha256/3c/3cc9956a8b773c28f29957f289be484c6a7386693470a3c6ab30cf2e82e82912": {
+      "bytes": 204485,
+      "sha256": "3cc9956a8b773c28f29957f289be484c6a7386693470a3c6ab30cf2e82e82912"
+    },
+    ".renderflow/artifacts/objects/sha256/41/41c8a1a1090e3389c7e335650ea0a13b53507973abb4eea4496a63e6eae1d8bf": {
+      "bytes": 2304044,
+      "sha256": "41c8a1a1090e3389c7e335650ea0a13b53507973abb4eea4496a63e6eae1d8bf"
+    },
+    ".renderflow/artifacts/objects/sha256/4b/4b7a7b167da3175477f431060f45d35fb498a4e5f744bb9d97d52e17341dd894": {
+      "bytes": 97954,
+      "sha256": "4b7a7b167da3175477f431060f45d35fb498a4e5f744bb9d97d52e17341dd894"
+    },
+    ".renderflow/artifacts/objects/sha256/5f/5f429c07a0e83c585f1a651fcbd45274d48c6cc5c9f279a4be2694fc0ebecc00": {
+      "bytes": 122296,
+      "sha256": "5f429c07a0e83c585f1a651fcbd45274d48c6cc5c9f279a4be2694fc0ebecc00"
+    },
+    ".renderflow/artifacts/objects/sha256/a3/a326892f9aa3bc85cbfcebfa700049282f267fe5936743b2532edbfea58770cc": {
+      "bytes": 122296,
+      "sha256": "a326892f9aa3bc85cbfcebfa700049282f267fe5936743b2532edbfea58770cc"
+    },
+    ".renderflow/artifacts/objects/sha256/cd/cd824dbc959a0adbb8d89847c34bf9c06d9b05fe61ccccbe1616a8ab0e2bd5ab": {
+      "bytes": 691541,
+      "sha256": "cd824dbc959a0adbb8d89847c34bf9c06d9b05fe61ccccbe1616a8ab0e2bd5ab"
+    },
+    ".renderflow/artifacts/objects/sha256/da/da2bc416bf36e913f7108635e872d32a595e95a2c75d79506c95356596357d34": {
+      "bytes": 59962,
+      "sha256": "da2bc416bf36e913f7108635e872d32a595e95a2c75d79506c95356596357d34"
+    },
+    ".renderflow/artifacts/objects/sha256/dd/ddad1c31c502d26cffa1e7ce43eb006668a53c6b615013943b5d8a39a3c2f1ad": {
+      "bytes": 825138,
+      "sha256": "ddad1c31c502d26cffa1e7ce43eb006668a53c6b615013943b5d8a39a3c2f1ad"
+    },
+    ".renderflow/artifacts/objects/sha256/ed/ed4ad8ab786089959f4156af8f7089f5730400bd92e5531d80e95682503c4989": {
+      "bytes": 432044,
+      "sha256": "ed4ad8ab786089959f4156af8f7089f5730400bd92e5531d80e95682503c4989"
+    },
+    ".renderflow/canonical-cache.json": {
+      "bytes": 685,
+      "sha256": "635681989f0ef33606c121bc9f7130e832745fed38653f7517963a6ae3d9cfcd"
+    },
+    ".renderflow/checkpoints.json": {
+      "bytes": 3465,
+      "sha256": "ed23af27f59f8af7e49ad6fa7ce13d8b855ec60f49017c18e283f079c256bcbe"
+    },
+    ".renderflow/toolchain.json": {
+      "bytes": 19309,
+      "sha256": "abe13c16bf2afbbb46cae0bf353d7121b7d7c020ff761dfc39d39e17965822ec"
+    },
+    "changed-96k-pcm/.renderflow/artifacts/objects/sha256/23/2309c350cb31c8a936a0d7b56038544f7e36efc5a29e8cd16f0187368427c605": {
+      "bytes": 1728044,
+      "sha256": "2309c350cb31c8a936a0d7b56038544f7e36efc5a29e8cd16f0187368427c605"
+    },
+    "changed-96k-pcm/.renderflow/artifacts/objects/sha256/a9/a93cf42d8842afe3510f4ffb17ff5d1d428d13b177723255686db872031e5c7d": {
+      "bytes": 825138,
+      "sha256": "a93cf42d8842afe3510f4ffb17ff5d1d428d13b177723255686db872031e5c7d"
+    },
+    "changed-96k-pcm/.renderflow/canonical-cache.json": {
+      "bytes": 685,
+      "sha256": "2ffd2d07ab92927948b3dbea12d79dbcfadc30cefa5c8c02a77f25bc53dede66"
+    },
+    "changed-96k-pcm/.renderflow/checkpoints.json": {
+      "bytes": 3465,
+      "sha256": "159132c3cbba0110af89e635ee608f29fa881f1531354d105c35adb7cc9a91bb"
+    },
+    "changed-96k-pcm/.renderflow/toolchain.json": {
+      "bytes": 19309,
+      "sha256": "abe13c16bf2afbbb46cae0bf353d7121b7d7c020ff761dfc39d39e17965822ec"
+    },
+    "changed-96k-pcm/bundle/renderflow-run.json": {
+      "bytes": 38942,
+      "sha256": "3e68a6bf2aecafd2f097c1995cf967e813bd5a6fef88ccb2809429e3d3fd67e0"
+    },
+    "native-48000-mono24/authored-audio/delivery/flac.flac": {
+      "bytes": 191299,
+      "sha256": "0ac19eec0c4800454665c16007866db19cc4d3ddd3822f4e3588428880c114ba"
+    },
+    "native-48000-mono24/authored-audio/delivery/m4a.m4a": {
+      "bytes": 59962,
+      "sha256": "da2bc416bf36e913f7108635e872d32a595e95a2c75d79506c95356596357d34"
+    },
+    "native-48000-mono24/authored-audio/delivery/m4a_alac.m4a": {
+      "bytes": 204485,
+      "sha256": "3cc9956a8b773c28f29957f289be484c6a7386693470a3c6ab30cf2e82e82912"
+    },
+    "native-48000-mono24/authored-audio/delivery/mp3.mp3": {
+      "bytes": 122296,
+      "sha256": "a326892f9aa3bc85cbfcebfa700049282f267fe5936743b2532edbfea58770cc"
+    },
+    "native-48000-mono24/renderflow-run.json": {
+      "bytes": 89091,
+      "sha256": "f137be04cbd0a7f1c4e948d6f8e1b35a2a9f00ed05063dfb391718df3c287f8b"
+    },
+    "native-96000-stereo24/authored-audio/delivery/flac.flac": {
+      "bytes": 691541,
+      "sha256": "cd824dbc959a0adbb8d89847c34bf9c06d9b05fe61ccccbe1616a8ab0e2bd5ab"
+    },
+    "native-96000-stereo24/authored-audio/delivery/m4a.m4a": {
+      "bytes": 97954,
+      "sha256": "4b7a7b167da3175477f431060f45d35fb498a4e5f744bb9d97d52e17341dd894"
+    },
+    "native-96000-stereo24/authored-audio/delivery/m4a_alac.m4a": {
+      "bytes": 825138,
+      "sha256": "ddad1c31c502d26cffa1e7ce43eb006668a53c6b615013943b5d8a39a3c2f1ad"
+    },
+    "native-96000-stereo24/authored-audio/delivery/mp3.mp3": {
+      "bytes": 122296,
+      "sha256": "5f429c07a0e83c585f1a651fcbd45274d48c6cc5c9f279a4be2694fc0ebecc00"
+    },
+    "native-96000-stereo24/renderflow-run.json": {
+      "bytes": 89087,
+      "sha256": "9a8200aeb03edc3f790e73f9393586f6d06a74c44b1a7e79c04db28c525502a9"
+    },
+    "trimmed-96k-clock/.renderflow/artifacts/objects/sha256/16/1686d4b2a32bb538be26f0903c17b6ea65750c4873e637a21fdd5e9bc472acf4": {
+      "bytes": 825021,
+      "sha256": "1686d4b2a32bb538be26f0903c17b6ea65750c4873e637a21fdd5e9bc472acf4"
+    },
+    "trimmed-96k-clock/.renderflow/artifacts/objects/sha256/23/2309c350cb31c8a936a0d7b56038544f7e36efc5a29e8cd16f0187368427c605": {
+      "bytes": 1728044,
+      "sha256": "2309c350cb31c8a936a0d7b56038544f7e36efc5a29e8cd16f0187368427c605"
+    },
+    "trimmed-96k-clock/.renderflow/canonical-cache.json": {
+      "bytes": 685,
+      "sha256": "e49d96716cb71ec814cbcc91381cbdbadf3b05b85c07f99a4177c2eb82deb5c2"
+    },
+    "trimmed-96k-clock/.renderflow/checkpoints.json": {
+      "bytes": 3465,
+      "sha256": "9a3fd60c3652372a4b5e798698492538ebd8f1a265f9201880430535e65308bd"
+    },
+    "trimmed-96k-clock/.renderflow/toolchain.json": {
+      "bytes": 19309,
+      "sha256": "abe13c16bf2afbbb46cae0bf353d7121b7d7c020ff761dfc39d39e17965822ec"
+    },
+    "trimmed-96k-clock/bundle/renderflow-run.json": {
+      "bytes": 38980,
+      "sha256": "9f74c2ff702ce1c0e8ee71fc4d4be24077ac1b7ddffd79b075dea2979a286fc0"
+    },
+    "unsupported-96k-integer32/renderflow-run.json": {
+      "bytes": 32440,
+      "sha256": "cb13dfeaf5912d1513ebe23e588cedbefa1bc0bb7ede56e49ad646b9c9874585"
+    },
+    "wrong-96k-precision/.renderflow/artifacts/objects/sha256/23/2309c350cb31c8a936a0d7b56038544f7e36efc5a29e8cd16f0187368427c605": {
+      "bytes": 1728044,
+      "sha256": "2309c350cb31c8a936a0d7b56038544f7e36efc5a29e8cd16f0187368427c605"
+    },
+    "wrong-96k-precision/.renderflow/artifacts/objects/sha256/c0/c0b28d9e414bd20c9237d8250a760908fbcb4a267165e437433b79361b49db8d": {
+      "bytes": 249138,
+      "sha256": "c0b28d9e414bd20c9237d8250a760908fbcb4a267165e437433b79361b49db8d"
+    },
+    "wrong-96k-precision/.renderflow/canonical-cache.json": {
+      "bytes": 685,
+      "sha256": "ada680223ee8eb3b70586945b514aba98ccb3ac228342d9180cc468dde78f8cc"
+    },
+    "wrong-96k-precision/.renderflow/checkpoints.json": {
+      "bytes": 3465,
+      "sha256": "d68c17d0663e2da71fafe61286fe976ab9cff30ff285f704c314f6a658055122"
+    },
+    "wrong-96k-precision/.renderflow/toolchain.json": {
+      "bytes": 19309,
+      "sha256": "abe13c16bf2afbbb46cae0bf353d7121b7d7c020ff761dfc39d39e17965822ec"
+    },
+    "wrong-96k-precision/bundle/renderflow-run.json": {
+      "bytes": 38954,
+      "sha256": "6c450ed6ad59a9e2a58fa27dfd0e9d9dcf9481d801a4d8ad57c170a7b05b72ec"
+    },
+    "wrong-96k-rate/.renderflow/artifacts/objects/sha256/04/042a41f14dfcfcac6d49910acd72795c414544be550e20bb1bc60df36916dd59": {
+      "bytes": 460494,
+      "sha256": "042a41f14dfcfcac6d49910acd72795c414544be550e20bb1bc60df36916dd59"
+    },
+    "wrong-96k-rate/.renderflow/artifacts/objects/sha256/23/2309c350cb31c8a936a0d7b56038544f7e36efc5a29e8cd16f0187368427c605": {
+      "bytes": 1728044,
+      "sha256": "2309c350cb31c8a936a0d7b56038544f7e36efc5a29e8cd16f0187368427c605"
+    },
+    "wrong-96k-rate/.renderflow/canonical-cache.json": {
+      "bytes": 685,
+      "sha256": "1df80fdfa489a7faffa0b81835581679f1f9350710d5ffa197c910a82f9aaee8"
+    },
+    "wrong-96k-rate/.renderflow/checkpoints.json": {
+      "bytes": 3465,
+      "sha256": "4cd8eec521cf7284843536fe3434561b2c0fbff36657cbab7f20bf4bfc0a395c"
+    },
+    "wrong-96k-rate/.renderflow/toolchain.json": {
+      "bytes": 19309,
+      "sha256": "abe13c16bf2afbbb46cae0bf353d7121b7d7c020ff761dfc39d39e17965822ec"
+    },
+    "wrong-96k-rate/bundle/renderflow-run.json": {
+      "bytes": 38949,
+      "sha256": "909dd44575a4b5ab955061a8054b93dca6f8844499e9c28142d4bbd9812e371d"
+    }
+  },
+  "remote_publication_performed": false,
+  "schema_version": "renderflow.native-audio-layout-cli-proof/v1",
+  "scope": "Authored48kHz mono24 and96kHz stereo24 direct WAV profiles only, with exact PCM and explicit selected rate conversion. Test-only faulty producers prove unchanged native layout/clock/PCM refusal; unsupported integer32 remains unavailable.",
+  "source_inventory": {
+    "source-48000-mono24": {
+      "channels": 1,
+      "depth": 24,
+      "file": {
+        "bytes": 432044,
+        "sha256": "ed4ad8ab786089959f4156af8f7089f5730400bd92e5531d80e95682503c4989"
+      },
+      "frames": 144000,
+      "pcm_sha256": "cf54deb48c2bb3ab0157997c6317cd5b12c76e086390df106535271d45f6dac4",
+      "rate": 48000
+    },
+    "source-96000-stereo24": {
+      "channels": 2,
+      "depth": 24,
+      "file": {
+        "bytes": 1728044,
+        "sha256": "2309c350cb31c8a936a0d7b56038544f7e36efc5a29e8cd16f0187368427c605"
+      },
+      "frames": 288000,
+      "pcm_sha256": "76cfa988fc964cde35ae7f8baea780016c5acaf8bb80a1e1d2b87d9013918d66",
+      "rate": 96000
+    },
+    "source-96000-stereo32": {
+      "channels": 2,
+      "depth": 32,
+      "file": {
+        "bytes": 2304044,
+        "sha256": "41c8a1a1090e3389c7e335650ea0a13b53507973abb4eea4496a63e6eae1d8bf"
+      },
+      "frames": 288000,
+      "pcm_sha256": "a8c27422a665db88ac91ad9535688f59b66b3fd2d9e78492cf668a1c430556e5",
+      "rate": 96000
+    }
+  },
+  "verifier_subjects": {
+    "ffmpeg": {
+      "bytes": 3280352,
+      "sha256": "94dbc5c9d7602f044b0ec9089cea2085d0f2adc3a2b1612eeec84f8badc6949d"
+    },
+    "ffprobe": {
+      "bytes": 3056320,
+      "sha256": "40d68a7e8fc61e8656be62b12179142124ebd61eea5ed8afefda6e2d68b97a1d"
+    }
+  }
+}
